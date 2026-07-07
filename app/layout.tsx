@@ -27,10 +27,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
-      <html lang="en" className={`${hanken.variable} ${splineMono.variable}`}>
-        <body>{children}</body>
-      </html>
-    </ClerkProvider>
+    <html lang="en" className={`${hanken.variable} ${splineMono.variable}`}>
+      <body>
+        <ClerkProvider>{children}</ClerkProvider>
+      </body>
+    </html>
   );
 }
