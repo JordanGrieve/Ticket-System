@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+/*
+  Postbox — warm, calm support inbox.
+  Design tokens mirror the reference mockup (terracotta accent, Hanken Grotesk).
+*/
+:root {
+  --app-bg: #faf8f4;
+  --sidebar-bg: #f3efe8;
+  --panel: #ffffff;
+  --border: #e7e1d7;
+  --border-soft: #ece7dd;
+  --ink: #26221d;
+  --ink-2: #3a3530;
+  --ink-3: #4a453d;
+  --muted: #7a7264;
+  --muted-2: #a49a89;
+  --muted-3: #b3a999;
+
+  /* accent (terracotta by default; overridable per-workspace) */
+  --accent: #d6552f;
+  --accent-strong: #ab441f;
+  --accent-soft: #f9e7de;
+  --accent-line: #f1dacd;
+
+  /* source palette */
+  --order-fg: #b4491f;
+  --order-bg: #fbe9df;
+  --order-dot: #d6552f;
+  --email-fg: #2f5fb0;
+  --email-bg: #e7effb;
+  --email-dot: #3b6fd4;
+  --contact-fg: #2c7a54;
+  --contact-bg: #e6f2ec;
+  --contact-dot: #1f9d6b;
+
+  /* status palette */
+  --open-fg: #2c7a54;
+  --open-dot: #2c7a54;
+  --progress-fg: #b07d1a;
+  --progress-dot: #d99b2b;
+  --closed-fg: #9a9284;
+  --closed-dot: #b8ac98;
+}
+
+@theme inline {
+  --color-app: var(--app-bg);
+  --color-sidebar: var(--sidebar-bg);
+  --color-panel: var(--panel);
+  --color-border: var(--border);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted-2);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-spline-mono), ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--app-bg);
+  color: var(--ink);
+  font-family: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent-strong);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--accent);
+}
+
+textarea,
+input,
+button {
+  font-family: inherit;
+}
+textarea:focus,
+input:focus {
+  outline: none;
+}
+::placeholder {
+  color: #b0a795;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #e2dbcf;
+  border-radius: 20px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+@keyframes pb-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.pb-fade-up {
+  animation: pb-fade-up 0.16s ease-out;
+}
