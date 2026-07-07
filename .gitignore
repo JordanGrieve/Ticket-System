@@ -34,6 +34,10 @@ yarn-error.log*
 .env*
 !.env.example
 
+# agent skills (reproducible from skills-lock.json via `npx skills add`)
+/.agents/
+/.claude/skills/
+
 # vercel
 .vercel
 
