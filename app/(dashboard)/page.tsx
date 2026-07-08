@@ -1,5 +1,6 @@
+import { redirect } from "next/navigation";
 import Inbox from "@/components/Inbox";
-import { resolveWorkspace } from "@/lib/workspace";
+import { resolveViewer } from "@/lib/viewer";
 import { listTickets } from "@/lib/data";
 import { toTicketDTO } from "@/lib/serialize";
 
@@ -14,8 +15,9 @@ export default async function InboxPage({
   const view: Folder =
     folder === "all" || folder === "closed" ? folder : "inbox";
 
-  const { workspace } = await resolveWorkspace();
-  const rows = await listTickets(workspace.id);
+  const viewer = await resolveViewer();
+  if (viewer.isAdmin && !viewer.workspace) redirect("/admin");
+  const rows = await listTickets(viewer.workspace!.id);
   const now = new Date();
   const tickets = rows.map((t) => toTicketDTO(t, now));
 

@@ -12,10 +12,12 @@ export default function Sidebar({
   workspaceName,
   userLabel,
   counts,
+  isAdmin = false,
 }: {
   workspaceName: string;
   userLabel: string;
   counts: Counts;
+  isAdmin?: boolean;
 }) {
   const [wsMenuOpen, setWsMenuOpen] = useState(false);
   const pathname = usePathname();
@@ -41,6 +43,27 @@ export default function Sidebar({
         padding: "16px 14px",
       }}
     >
+      {isAdmin && (
+        <Link
+          href="/admin"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 7,
+            padding: "8px 10px",
+            marginBottom: 8,
+            borderRadius: 9,
+            fontSize: 12.5,
+            fontWeight: 600,
+            color: "var(--accent-strong)",
+            background: "var(--accent-soft)",
+            border: "1px solid var(--accent-line)",
+          }}
+        >
+          <span style={{ fontSize: 13 }}>←</span> All clients
+        </Link>
+      )}
+
       {/* workspace dropdown */}
       <div style={{ position: "relative" }}>
         <button
@@ -89,7 +112,7 @@ export default function Sidebar({
               {workspaceName}
             </div>
             <div style={{ fontSize: 11.5, color: "var(--muted-2)" }}>
-              postbox workspace
+              {isAdmin ? "viewing as admin" : "postbox workspace"}
             </div>
           </div>
           <span style={{ color: "var(--muted-2)", fontSize: 11 }}>▾</span>
@@ -225,7 +248,9 @@ export default function Sidebar({
             >
               {userLabel}
             </div>
-            <div style={{ fontSize: 11, color: "var(--muted-2)" }}>Owner</div>
+            <div style={{ fontSize: 11, color: "var(--muted-2)" }}>
+              {isAdmin ? "Admin" : "Owner"}
+            </div>
           </div>
         </div>
       </div>

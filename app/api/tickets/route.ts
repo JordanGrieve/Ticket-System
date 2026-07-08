@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { json } from "@/lib/http";
 import { listTickets } from "@/lib/data";
-import { resolveWorkspace } from "@/lib/workspace";
+import { activeWorkspace } from "@/lib/viewer";
 import type { TicketSource, TicketStatus } from "@/db/schema";
 
 /**
@@ -13,7 +13,10 @@ export async function GET(req: Request) {
   const { userId } = await auth();
   if (!userId) return json({ error: "Unauthorized" }, { status: 401 });
 
-  const { workspace } = await resolveWorkspace();
+  const workspace = await activeWorkspace();
+  if (!workspace) {
+    return json({ error: "Select a client workspace first." }, { status: 400 });
+  }
   const all = await listTickets(workspace.id);
 
   const url = new URL(req.url);

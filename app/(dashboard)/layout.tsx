@@ -1,5 +1,6 @@
+import { redirect } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-import { resolveWorkspace } from "@/lib/workspace";
+import { resolveViewer } from "@/lib/viewer";
 import { listTickets } from "@/lib/data";
 import { accentVars } from "@/lib/theme";
 
@@ -8,7 +9,12 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { workspace, agent } = await resolveWorkspace();
+  const viewer = await resolveViewer();
+  // An admin who hasn't picked a client yet goes to the admin overview.
+  if (viewer.isAdmin && !viewer.workspace) redirect("/admin");
+
+  const workspace = viewer.workspace!;
+  const userLabel = viewer.isAdmin ? viewer.email : viewer.agentEmail;
   const tickets = await listTickets(workspace.id);
 
   const counts = {
@@ -31,8 +37,9 @@ export default async function DashboardLayout({
     >
       <Sidebar
         workspaceName={workspace.name}
-        userLabel={agent.email}
+        userLabel={userLabel}
         counts={counts}
+        isAdmin={viewer.isAdmin}
       />
       <main
         style={{

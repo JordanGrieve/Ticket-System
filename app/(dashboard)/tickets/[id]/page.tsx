@@ -1,6 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import TicketThread from "@/components/TicketThread";
-import { resolveWorkspace } from "@/lib/workspace";
+import { resolveViewer } from "@/lib/viewer";
 import { getTicket, getMessages } from "@/lib/data";
 import { toTicketDTO, toMessageDTO } from "@/lib/serialize";
 
@@ -12,7 +12,11 @@ export default async function TicketPage({
   const ticketId = Number((await params).id);
   if (!Number.isInteger(ticketId)) notFound();
 
-  const { workspace, agent } = await resolveWorkspace();
+  const viewer = await resolveViewer();
+  if (viewer.isAdmin && !viewer.workspace) redirect("/admin");
+  const workspace = viewer.workspace!;
+  const ownerLabel = viewer.isAdmin ? viewer.email : viewer.agentEmail;
+
   const ticket = await getTicket(workspace.id, ticketId);
   if (!ticket) notFound();
 
@@ -23,7 +27,7 @@ export default async function TicketPage({
       ticket={toTicketDTO(ticket)}
       messages={messages.map(toMessageDTO)}
       fromAddress={workspace.sendingEmail}
-      ownerLabel={agent.email}
+      ownerLabel={ownerLabel}
     />
   );
 }

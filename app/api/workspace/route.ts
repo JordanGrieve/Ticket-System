@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { json, isValidEmail } from "@/lib/http";
-import { resolveWorkspace } from "@/lib/workspace";
+import { activeWorkspace } from "@/lib/viewer";
 import { updateWorkspace } from "@/lib/data";
 import { ACCENT_SCHEMES } from "@/lib/theme";
 
@@ -41,7 +41,10 @@ export async function PATCH(req: Request) {
     return json({ error: "Nothing to update." }, { status: 400 });
   }
 
-  const { workspace } = await resolveWorkspace();
+  const workspace = await activeWorkspace();
+  if (!workspace) {
+    return json({ error: "Select a client workspace first." }, { status: 400 });
+  }
   const updated = await updateWorkspace(workspace.id, patch);
   return json({ ok: true, workspace: updated });
 }

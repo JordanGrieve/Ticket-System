@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { json } from "@/lib/http";
 import { getTicket, addMessage } from "@/lib/data";
-import { resolveWorkspace } from "@/lib/workspace";
+import { activeWorkspace } from "@/lib/viewer";
 import { sendReplyEmail } from "@/lib/email";
 import { buildReplyTo } from "@/lib/tickets";
 
@@ -34,7 +34,10 @@ export async function POST(
     return json({ error: "Message is required." }, { status: 400 });
   }
 
-  const { workspace } = await resolveWorkspace();
+  const workspace = await activeWorkspace();
+  if (!workspace) {
+    return json({ error: "Select a client workspace first." }, { status: 400 });
+  }
   const ticket = await getTicket(workspace.id, ticketId);
   if (!ticket) return json({ error: "Not found" }, { status: 404 });
 

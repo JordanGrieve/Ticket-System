@@ -107,8 +107,26 @@ export const agents = pgTable(
   (t) => [index("agents_workspace_idx").on(t.workspaceId)],
 );
 
+/**
+ * Postbox super-admins (the SaaS operators — NOT tenant clients). Matched by
+ * email at login: an admin sees every workspace and can act within any of
+ * them. Admins are not tied to a workspace. New admins are added by an
+ * existing admin from the /admin screen; the first one is seeded (db/bootstrap).
+ */
+export const admins = pgTable("admins", {
+  id: serial("id").primaryKey(),
+  // Always stored lower-cased; compared against the Clerk primary email.
+  email: text("email").notNull().unique(),
+  // Filled in the first time this admin signs in (audit only).
+  clerkUserId: text("clerk_user_id"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export type Workspace = typeof workspaces.$inferSelect;
 export type Ticket = typeof tickets.$inferSelect;
 export type TicketMessage = typeof ticketMessages.$inferSelect;
 export type Contact = typeof contacts.$inferSelect;
 export type Agent = typeof agents.$inferSelect;
+export type Admin = typeof admins.$inferSelect;

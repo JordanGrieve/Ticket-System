@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { json } from "@/lib/http";
 import { setTicketStatus } from "@/lib/data";
-import { resolveWorkspace } from "@/lib/workspace";
+import { activeWorkspace } from "@/lib/viewer";
 import type { TicketStatus } from "@/db/schema";
 
 const VALID: TicketStatus[] = ["open", "in_progress", "closed"];
@@ -36,7 +36,10 @@ export async function PATCH(
     );
   }
 
-  const { workspace } = await resolveWorkspace();
+  const workspace = await activeWorkspace();
+  if (!workspace) {
+    return json({ error: "Select a client workspace first." }, { status: 400 });
+  }
   const updated = await setTicketStatus(workspace.id, ticketId, status);
   if (!updated) return json({ error: "Not found" }, { status: 404 });
 

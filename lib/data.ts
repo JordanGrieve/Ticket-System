@@ -1,10 +1,11 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   workspaces,
   tickets,
   ticketMessages,
   contacts,
+  type Workspace,
   type Ticket,
   type TicketMessage,
   type TicketSource,
@@ -42,6 +43,42 @@ export async function getWorkspaceByInboundEmail(email: string) {
     .where(eq(workspaces.inboundEmail, email.toLowerCase()))
     .limit(1);
   return rows[0] ?? null;
+}
+
+export type WorkspaceSummary = Workspace & {
+  openCount: number;
+  totalCount: number;
+};
+
+/**
+ * Every workspace with its open/total ticket counts — the admin overview.
+ * "Open" means any status that isn't "closed".
+ */
+export async function listWorkspaceSummaries(): Promise<WorkspaceSummary[]> {
+  const all = await db.select().from(workspaces).orderBy(asc(workspaces.name));
+
+  const counts = await db
+    .select({
+      workspaceId: tickets.workspaceId,
+      status: tickets.status,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(tickets)
+    .groupBy(tickets.workspaceId, tickets.status);
+
+  const byWorkspace = new Map<number, { open: number; total: number }>();
+  for (const row of counts) {
+    const agg = byWorkspace.get(row.workspaceId) ?? { open: 0, total: 0 };
+    agg.total += row.count;
+    if (row.status !== "closed") agg.open += row.count;
+    byWorkspace.set(row.workspaceId, agg);
+  }
+
+  return all.map((w) => ({
+    ...w,
+    openCount: byWorkspace.get(w.id)?.open ?? 0,
+    totalCount: byWorkspace.get(w.id)?.total ?? 0,
+  }));
 }
 
 // ── Contacts ─────────────────────────────────────────────────────

@@ -9,7 +9,7 @@ import {
   getTicket,
   getMessages,
 } from "@/lib/data";
-import { resolveWorkspace } from "@/lib/workspace";
+import { activeWorkspace } from "@/lib/viewer";
 
 /**
  * This segment carries two different identifiers depending on the method:
@@ -109,7 +109,10 @@ export async function GET(
     return json({ error: "Invalid ticket id" }, { status: 400 });
   }
 
-  const { workspace } = await resolveWorkspace();
+  const workspace = await activeWorkspace();
+  if (!workspace) {
+    return json({ error: "Select a client workspace first." }, { status: 400 });
+  }
   const ticket = await getTicket(workspace.id, ticketId);
   if (!ticket) return json({ error: "Not found" }, { status: 404 });
 
