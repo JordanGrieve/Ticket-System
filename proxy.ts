@@ -15,11 +15,22 @@ const isPublicRoute = createRouteMatcher([
   "/api/(.*)",
 ]);
 
-export default clerkMiddleware(async (auth, req) => {
-  if (!isPublicRoute(req)) {
-    await auth.protect();
-  }
-});
+export default clerkMiddleware(
+  async (auth, req) => {
+    if (!isPublicRoute(req)) {
+      await auth.protect();
+    }
+  },
+  {
+    // Clerk production hardening: only these origins may carry our sessions
+    // (protects against subdomain cookie-leak / CSRF-style attacks).
+    authorizedParties: [
+      "https://postbox.help",
+      "http://localhost:3000",
+      "http://localhost:8080",
+    ],
+  },
+);
 
 export const config = {
   matcher: [

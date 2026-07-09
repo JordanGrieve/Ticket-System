@@ -2,9 +2,18 @@ import { SignOutButton } from "@clerk/nextjs";
 import { resolveViewer } from "@/lib/viewer";
 import { listWorkspaceSummaries } from "@/lib/data";
 import { listAdmins } from "@/lib/admin";
-import { selectWorkspaceAction, addAdminAction } from "./actions";
+import {
+  selectWorkspaceAction,
+  addAdminAction,
+  createClientAction,
+} from "./actions";
 
-export default async function AdminHomePage() {
+export default async function AdminHomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; created?: string }>;
+}) {
+  const { error, created } = await searchParams;
   const viewer = await resolveViewer();
   const [workspaces, admins] = await Promise.all([
     listWorkspaceSummaries(),
@@ -80,6 +89,61 @@ export default async function AdminHomePage() {
         Open any workspace to view and help with its tickets.
       </p>
 
+      {/* status banners from the create-client action */}
+      {error && (
+        <div style={{ ...banner, background: "#fbe9e5", border: "1px solid #efcabf", color: "#9a4a33" }}>
+          {error}
+        </div>
+      )}
+      {created && (
+        <div style={{ ...banner, background: "#e6f2ec", border: "1px solid #cbe3d6", color: "#2c7a54" }}>
+          <b>{created}</b> is ready. Now tell your client to sign up at{" "}
+          <b>postbox.help</b> using the email you entered — they&rsquo;ll land
+          straight in their workspace.
+        </div>
+      )}
+
+      {/* onboard a new client */}
+      <div
+        style={{
+          background: "#fff",
+          border: "1px solid var(--border)",
+          borderRadius: 14,
+          padding: 18,
+          marginBottom: 22,
+        }}
+      >
+        <div style={{ fontSize: 14.5, fontWeight: 700, marginBottom: 4 }}>
+          New client
+        </div>
+        <p style={{ color: "var(--muted)", margin: "0 0 12px", fontSize: 13 }}>
+          Creates their workspace now. When they sign up with this email, they
+          connect to it automatically.
+        </p>
+        <form
+          action={createClientAction}
+          style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+        >
+          <input
+            type="text"
+            name="name"
+            required
+            placeholder="Business name — e.g. Open Door Bakery"
+            style={{ ...inputStyle, flex: "2 1 220px" }}
+          />
+          <input
+            type="email"
+            name="email"
+            required
+            placeholder="Client's login email"
+            style={{ ...inputStyle, flex: "2 1 220px" }}
+          />
+          <button type="submit" style={{ ...buttonStyle, flex: "0 0 auto" }}>
+            Create workspace
+          </button>
+        </form>
+      </div>
+
       {/* workspaces */}
       <div
         style={{
@@ -105,9 +169,28 @@ export default async function AdminHomePage() {
             }}
           >
             <div>
-              <div style={{ fontSize: 16, fontWeight: 700 }}>{w.name}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>{w.name}</div>
+                {w.pending && (
+                  <span
+                    style={{
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      letterSpacing: ".05em",
+                      textTransform: "uppercase",
+                      color: "#b07d1a",
+                      background: "#f8ecd4",
+                      border: "1px solid #efe0bf",
+                      borderRadius: 20,
+                      padding: "2px 8px",
+                    }}
+                  >
+                    Awaiting sign-in
+                  </span>
+                )}
+              </div>
               <div style={{ fontSize: 12.5, color: "var(--muted-2)", marginTop: 2 }}>
-                {w.inboundEmail}
+                {w.ownerEmail ?? w.inboundEmail}
               </div>
             </div>
             <div style={{ display: "flex", gap: 16, fontSize: 13 }}>
@@ -184,30 +267,9 @@ export default async function AdminHomePage() {
             name="email"
             required
             placeholder="teammate@example.com"
-            style={{
-              flex: 1,
-              height: 38,
-              borderRadius: 9,
-              border: "1px solid var(--border)",
-              padding: "0 12px",
-              fontSize: 14,
-              background: "var(--app-bg)",
-            }}
+            style={{ ...inputStyle, flex: 1 }}
           />
-          <button
-            type="submit"
-            style={{
-              height: 38,
-              padding: "0 16px",
-              borderRadius: 9,
-              background: "var(--accent)",
-              color: "#fff",
-              fontSize: 13.5,
-              fontWeight: 600,
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
+          <button type="submit" style={buttonStyle}>
             Add admin
           </button>
         </form>
@@ -215,3 +277,32 @@ export default async function AdminHomePage() {
     </div>
   );
 }
+
+const banner: React.CSSProperties = {
+  borderRadius: 11,
+  padding: "12px 16px",
+  fontSize: 13.5,
+  lineHeight: 1.5,
+  marginBottom: 16,
+};
+
+const inputStyle: React.CSSProperties = {
+  height: 38,
+  borderRadius: 9,
+  border: "1px solid var(--border)",
+  padding: "0 12px",
+  fontSize: 14,
+  background: "var(--app-bg)",
+};
+
+const buttonStyle: React.CSSProperties = {
+  height: 38,
+  padding: "0 16px",
+  borderRadius: 9,
+  background: "var(--accent)",
+  color: "#fff",
+  fontSize: 13.5,
+  fontWeight: 600,
+  border: "none",
+  cursor: "pointer",
+};

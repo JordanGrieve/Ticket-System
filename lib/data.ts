@@ -88,23 +88,36 @@ export async function getRealAgentByEmail(email: string): Promise<Agent | null> 
 export type WorkspaceSummary = Workspace & {
   openCount: number;
   totalCount: number;
+  /** Email of the workspace's first agent (the owner / invited client). */
+  ownerEmail: string | null;
+  /** True while the owner hasn't signed in yet (SEED_/INVITE_ placeholder). */
+  pending: boolean;
 };
 
 /**
- * Every workspace with its open/total ticket counts — the admin overview.
- * "Open" means any status that isn't "closed".
+ * Every workspace with its open/total ticket counts and owner/invite status —
+ * the admin overview. "Open" means any status that isn't "closed".
  */
 export async function listWorkspaceSummaries(): Promise<WorkspaceSummary[]> {
-  const all = await db.select().from(workspaces).orderBy(asc(workspaces.name));
-
-  const counts = await db
-    .select({
-      workspaceId: tickets.workspaceId,
-      status: tickets.status,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(tickets)
-    .groupBy(tickets.workspaceId, tickets.status);
+  const [all, counts, allAgents] = await Promise.all([
+    db.select().from(workspaces).orderBy(asc(workspaces.name)),
+    db
+      .select({
+        workspaceId: tickets.workspaceId,
+        status: tickets.status,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(tickets)
+      .groupBy(tickets.workspaceId, tickets.status),
+    db
+      .select({
+        workspaceId: agents.workspaceId,
+        email: agents.email,
+        clerkUserId: agents.clerkUserId,
+      })
+      .from(agents)
+      .orderBy(asc(agents.id)),
+  ]);
 
   const byWorkspace = new Map<number, { open: number; total: number }>();
   for (const row of counts) {
@@ -114,11 +127,35 @@ export async function listWorkspaceSummaries(): Promise<WorkspaceSummary[]> {
     byWorkspace.set(row.workspaceId, agg);
   }
 
+  // First agent per workspace = the owner (or the invited client).
+  const ownerByWorkspace = new Map<number, { email: string; pending: boolean }>();
+  for (const a of allAgents) {
+    if (!ownerByWorkspace.has(a.workspaceId)) {
+      ownerByWorkspace.set(a.workspaceId, {
+        email: a.email,
+        pending:
+          a.clerkUserId.startsWith("SEED_") || a.clerkUserId.startsWith("INVITE_"),
+      });
+    }
+  }
+
   return all.map((w) => ({
     ...w,
     openCount: byWorkspace.get(w.id)?.open ?? 0,
     totalCount: byWorkspace.get(w.id)?.total ?? 0,
+    ownerEmail: ownerByWorkspace.get(w.id)?.email ?? null,
+    pending: ownerByWorkspace.get(w.id)?.pending ?? false,
   }));
+}
+
+/** Any agent row (real or pending invite) with this email, case-insensitive. */
+export async function getAgentByEmail(email: string): Promise<Agent | null> {
+  const rows = await db
+    .select()
+    .from(agents)
+    .where(sql`lower(${agents.email}) = ${email.trim().toLowerCase()}`)
+    .limit(1);
+  return rows[0] ?? null;
 }
 
 // ── Contacts ─────────────────────────────────────────────────────

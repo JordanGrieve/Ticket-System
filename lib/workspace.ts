@@ -1,11 +1,22 @@
 import { cache } from "react";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { eq } from "drizzle-orm";
+import { eq, like, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { workspaces, agents, type Workspace, type Agent } from "@/db/schema";
 import { INBOUND_DOMAIN } from "./config";
 
-const SEED_PLACEHOLDER = "SEED_PLACEHOLDER";
+/**
+ * Placeholder clerkUserId prefixes for agents whose human hasn't signed in yet.
+ *  - SEED_…   demo workspaces created by db/seed scripts
+ *  - INVITE_… client workspaces created by an admin from /admin
+ * A signer whose email matches a placeholder agent claims that workspace on
+ * first login (see resolveWorkspace). Never claimed by email mismatch.
+ */
+export const INVITE_PREFIX = "INVITE_";
+
+export function isPlaceholderClerkId(clerkUserId: string): boolean {
+  return clerkUserId.startsWith("SEED_") || clerkUserId.startsWith(INVITE_PREFIX);
+}
 
 function randomHex(bytes: number): string {
   const arr = new Uint8Array(bytes);
@@ -30,12 +41,47 @@ export function generateApiKey(): string {
 export type ResolvedWorkspace = { workspace: Workspace; agent: Agent };
 
 /**
+ * Creates a workspace + its first agent row. Used by self-serve sign-up (real
+ * clerkUserId) and by the admin "add client" flow (INVITE_… placeholder that
+ * the client claims on first sign-in).
+ */
+export async function provisionWorkspace(input: {
+  name: string;
+  ownerEmail: string;
+  clerkUserId: string;
+}): Promise<ResolvedWorkspace> {
+  const base = slugify(input.name);
+  const inboundEmail = `${base}-${randomHex(3)}@${INBOUND_DOMAIN}`;
+  const email = input.ownerEmail.trim().toLowerCase();
+
+  const [workspace] = await db
+    .insert(workspaces)
+    .values({
+      name: input.name,
+      apiKey: generateApiKey(),
+      inboundEmail,
+      sendingEmail: email,
+      accent: "terracotta",
+    })
+    .returning();
+
+  const [agent] = await db
+    .insert(agents)
+    .values({ workspaceId: workspace.id, clerkUserId: input.clerkUserId, email })
+    .returning();
+
+  return { workspace, agent };
+}
+
+/**
  * Returns the workspace for the signed-in user, creating one if needed.
  *
  * Onboarding logic, in order:
  *  1. Existing agent → their workspace.
- *  2. Unclaimed demo seed → claim it (so the first login sees sample data).
- *  3. Otherwise → provision a fresh workspace + agent.
+ *  2. A placeholder agent (admin invite or demo seed) whose email matches the
+ *     signer's email → claim that workspace. Email must match: a stranger can
+ *     never claim someone else's invite or the demo data.
+ *  3. Otherwise → provision a fresh workspace + agent (self-serve sign-up).
  *
  * Throws if there is no authenticated user (callers run behind auth).
  */
@@ -63,23 +109,31 @@ async function _resolveWorkspace(): Promise<ResolvedWorkspace> {
   }
 
   const user = await currentUser();
-  const email =
+  const email = (
     user?.primaryEmailAddress?.emailAddress ??
     user?.emailAddresses?.[0]?.emailAddress ??
-    "owner@example.com";
+    "owner@example.com"
+  )
+    .trim()
+    .toLowerCase();
 
-  // 2. Claim the demo seed if it's still unclaimed.
-  const seedAgent = await db
+  // 2. Claim a pending invite (or demo seed) that was prepared for this email.
+  const invited = await db
     .select()
     .from(agents)
-    .where(eq(agents.clerkUserId, SEED_PLACEHOLDER))
+    .where(
+      sql`lower(${agents.email}) = ${email} AND (${or(
+        like(agents.clerkUserId, "SEED_%"),
+        like(agents.clerkUserId, `${INVITE_PREFIX}%`),
+      )})`,
+    )
     .limit(1);
 
-  if (seedAgent.length > 0) {
+  if (invited.length > 0) {
     const [claimed] = await db
       .update(agents)
       .set({ clerkUserId: userId, email })
-      .where(eq(agents.id, seedAgent[0].id))
+      .where(eq(agents.id, invited[0].id))
       .returning();
     const [workspace] = await db
       .select()
@@ -89,29 +143,11 @@ async function _resolveWorkspace(): Promise<ResolvedWorkspace> {
     return { workspace, agent: claimed };
   }
 
-  // 3. Provision a brand-new workspace.
+  // 3. Provision a brand-new workspace (self-serve sign-up).
   const name =
     user?.firstName || user?.username
       ? `${user?.firstName ?? user?.username}'s workspace`
       : "My workspace";
-  const base = slugify(name);
-  const inboundEmail = `${base}-${randomHex(3)}@${INBOUND_DOMAIN}`;
 
-  const [workspace] = await db
-    .insert(workspaces)
-    .values({
-      name,
-      apiKey: generateApiKey(),
-      inboundEmail,
-      sendingEmail: email,
-      accent: "terracotta",
-    })
-    .returning();
-
-  const [agent] = await db
-    .insert(agents)
-    .values({ workspaceId: workspace.id, clerkUserId: userId, email })
-    .returning();
-
-  return { workspace, agent };
+  return provisionWorkspace({ name, ownerEmail: email, clerkUserId: userId });
 }
