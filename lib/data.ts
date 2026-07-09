@@ -1,13 +1,16 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { cache } from "react";
+import { and, asc, desc, eq, notLike, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   workspaces,
   tickets,
   ticketMessages,
   contacts,
+  agents,
   type Workspace,
   type Ticket,
   type TicketMessage,
+  type Agent,
   type TicketSource,
   type TicketStatus,
   type MessageDirection,
@@ -41,6 +44,43 @@ export async function getWorkspaceByInboundEmail(email: string) {
     .select()
     .from(workspaces)
     .where(eq(workspaces.inboundEmail, email.toLowerCase()))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getWorkspaceById(id: number): Promise<Workspace | null> {
+  const rows = await db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, id))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+// ── Agent lookups ────────────────────────────────────────────────
+
+export async function getAgentByClerkId(
+  clerkUserId: string,
+): Promise<Agent | null> {
+  const rows = await db
+    .select()
+    .from(agents)
+    .where(eq(agents.clerkUserId, clerkUserId))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/** A real (non-seed) agent for this email, if any — used to pre-link admins. */
+export async function getRealAgentByEmail(email: string): Promise<Agent | null> {
+  const rows = await db
+    .select()
+    .from(agents)
+    .where(
+      and(
+        sql`lower(${agents.email}) = ${email.trim().toLowerCase()}`,
+        notLike(agents.clerkUserId, "SEED_%"),
+      ),
+    )
     .limit(1);
   return rows[0] ?? null;
 }
@@ -97,13 +137,18 @@ export async function upsertContact(
 
 // ── Ticket reads (always scoped to a workspace) ──────────────────
 
-export async function listTickets(workspaceId: number): Promise<Ticket[]> {
-  return db
-    .select()
-    .from(tickets)
-    .where(eq(tickets.workspaceId, workspaceId))
-    .orderBy(desc(tickets.updatedAt));
-}
+// Wrapped in React cache() so the dashboard layout (which needs counts) and the
+// inbox page (which needs the list) share a single query per request instead of
+// hitting the database twice for the same workspace.
+export const listTickets = cache(
+  async (workspaceId: number): Promise<Ticket[]> => {
+    return db
+      .select()
+      .from(tickets)
+      .where(eq(tickets.workspaceId, workspaceId))
+      .orderBy(desc(tickets.updatedAt));
+  },
+);
 
 /** A single ticket — returns null if it isn't in this workspace. */
 export async function getTicket(

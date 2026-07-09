@@ -27,14 +27,6 @@ export async function selectWorkspaceAction(formData: FormData): Promise<void> {
   redirect("/");
 }
 
-/** Stop viewing any client and return to the admin overview. */
-export async function clearWorkspaceAction(): Promise<void> {
-  await requireAdmin();
-  const store = await cookies();
-  store.delete(ADMIN_WS_COOKIE);
-  redirect("/admin");
-}
-
 /** Grant super-admin to another email (a collaborator who can help clients). */
 export async function addAdminAction(formData: FormData): Promise<void> {
   await requireAdmin();
