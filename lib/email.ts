@@ -24,6 +24,16 @@ export async function sendReplyEmail(input: {
   subject: string;
   text: string;
   replyTo: string;
+  /**
+   * Email threading. messageId is OUR id for this send; inReplyTo/references
+   * point at earlier messages so mail clients group the conversation instead
+   * of showing every reply as a brand-new email.
+   */
+  threading?: {
+    messageId?: string;
+    inReplyTo?: string;
+    references?: string[];
+  };
 }): Promise<SendResult> {
   if (!hasKey()) {
     console.warn(
@@ -37,12 +47,24 @@ export async function sendReplyEmail(input: {
     ? `${input.fromName} <${input.from}>`
     : input.from;
 
+  const headers: Record<string, string> = {};
+  if (input.threading?.messageId) {
+    headers["Message-ID"] = input.threading.messageId;
+  }
+  if (input.threading?.inReplyTo) {
+    headers["In-Reply-To"] = input.threading.inReplyTo;
+  }
+  if (input.threading?.references?.length) {
+    headers["References"] = input.threading.references.join(" ");
+  }
+
   const { data, error } = await resend.emails.send({
     from,
     to: [input.to],
     subject: input.subject,
     text: input.text,
     replyTo: input.replyTo,
+    ...(Object.keys(headers).length > 0 ? { headers } : {}),
   });
 
   if (error) {

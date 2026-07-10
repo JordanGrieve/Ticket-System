@@ -15,6 +15,13 @@
       "when": 1783545601948,
       "tag": "0001_fresh_khan",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783717926000,
+      "tag": "0002_silky_longshot",
+      "breakpoints": true
     }
   ]
 }

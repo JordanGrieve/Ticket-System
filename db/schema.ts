@@ -68,6 +68,10 @@ export const ticketMessages = pgTable(
       .references(() => tickets.id, { onDelete: "cascade" }),
     direction: text("direction").$type<MessageDirection>().notNull(),
     body: text("body").notNull(),
+    // RFC 5322 Message-ID (with angle brackets) — ours for outbound sends,
+    // the sender's for inbound email. Lets replies set In-Reply-To/References
+    // so mail clients thread the conversation instead of starting new emails.
+    messageId: text("message_id"),
     sentAt: timestamp("sent_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

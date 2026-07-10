@@ -52,6 +52,7 @@ export async function POST(req: Request) {
   const subject = asString(data.subject) || "(no subject)";
   const body = extractBody(data);
   const recipients = normalizeRecipients(data.to);
+  const messageId = extractMessageId(data);
 
   if (!sender.email) {
     return json({ error: "Missing sender" }, { status: 400 });
@@ -68,6 +69,7 @@ export async function POST(req: Request) {
           direction: "inbound",
           body: body || "(empty message)",
           status: "open", // customer replied → needs attention again
+          messageId,
         });
         return json({ ok: true, threadedInto: ticket.id });
       }
@@ -92,6 +94,7 @@ export async function POST(req: Request) {
         customerEmail: sender.email,
         subject: subject || previewText(body, 60),
         body: body || "(empty message)",
+        messageId,
       });
       return json({ ok: true, ticket: ticket.id, source }, { status: 201 });
     }
@@ -115,6 +118,38 @@ async function lookupTicketAnyWorkspace(id: number) {
 
 function asString(v: unknown): string {
   return typeof v === "string" ? v : "";
+}
+
+/**
+ * Pull the RFC Message-ID out of the webhook payload, tolerating the shapes
+ * providers use: a top-level message_id/messageId field, or a headers list
+ * (array of {name,value}) / record. Normalised to include angle brackets.
+ */
+function extractMessageId(data: Record<string, unknown>): string | null {
+  let raw = asString(data.message_id) || asString(data.messageId);
+
+  if (!raw && Array.isArray(data.headers)) {
+    for (const h of data.headers as Array<Record<string, unknown>>) {
+      if (asString(h?.name).toLowerCase() === "message-id") {
+        raw = asString(h?.value);
+        break;
+      }
+    }
+  }
+  if (!raw && data.headers && typeof data.headers === "object" && !Array.isArray(data.headers)) {
+    const rec = data.headers as Record<string, unknown>;
+    for (const key of Object.keys(rec)) {
+      if (key.toLowerCase() === "message-id") {
+        raw = asString(rec[key]);
+        break;
+      }
+    }
+  }
+
+  raw = raw.trim();
+  if (!raw) return null;
+  if (!raw.startsWith("<")) raw = `<${raw}>`;
+  return raw;
 }
 
 /** Parse "Name <a@b.com>" | "a@b.com" | { email/address, name }. */

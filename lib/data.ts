@@ -232,6 +232,8 @@ export async function createTicket(input: {
   subject: string;
   body: string;
   direction?: MessageDirection;
+  /** Email Message-ID of the originating email, when the source is email. */
+  messageId?: string | null;
 }): Promise<Ticket> {
   const [ticket] = await db
     .insert(tickets)
@@ -250,6 +252,7 @@ export async function createTicket(input: {
     ticketId: ticket.id,
     direction: input.direction ?? "inbound",
     body: input.body,
+    messageId: input.messageId ?? null,
   });
 
   return ticket;
@@ -262,6 +265,8 @@ export async function addMessage(input: {
   body: string;
   /** Optional new status to set atomically (e.g. reopen on inbound reply). */
   status?: TicketStatus;
+  /** Email Message-ID (ours for outbound, the sender's for inbound). */
+  messageId?: string | null;
 }): Promise<TicketMessage> {
   const [message] = await db
     .insert(ticketMessages)
@@ -269,6 +274,7 @@ export async function addMessage(input: {
       ticketId: input.ticketId,
       direction: input.direction,
       body: input.body,
+      messageId: input.messageId ?? null,
     })
     .returning();
 
