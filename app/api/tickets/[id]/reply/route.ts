@@ -42,14 +42,15 @@ export async function POST(
   const ticket = await getTicket(workspace.id, ticketId);
   if (!ticket) return json({ error: "Not found" }, { status: 404 });
 
-  // Threading: our own Message-ID for this send, In-Reply-To pointing at the
-  // latest message in the conversation, References carrying the chain — so
-  // the customer's mail client groups everything into one thread.
+  // Threading: reference only REAL delivered Message-IDs — the customer's own
+  // (captured by the inbound webhook) and ours learned from their replies'
+  // In-Reply-To (SES overwrites any Message-ID we set, so we can't mint ids).
+  // The customer's mail client threads on ids it has seen, so this groups the
+  // conversation on their side.
   const history = await getMessages(ticket.id);
   const chain = history
     .map((m) => m.messageId)
     .filter((id): id is string => !!id);
-  const newMessageId = `<pb-${crypto.randomUUID()}@postbox.help>`;
 
   // Send the email (best-effort — the outbound message is saved regardless so
   // the thread stays accurate even if delivery is misconfigured in dev).
@@ -64,7 +65,6 @@ export async function POST(
     text: message,
     replyTo: buildReplyTo(ticket.id),
     threading: {
-      messageId: newMessageId,
       inReplyTo: chain.at(-1),
       // Keep the header a sane size on long tickets: first + last few.
       references: chain.length > 8 ? [chain[0], ...chain.slice(-7)] : chain,
@@ -76,7 +76,6 @@ export async function POST(
     direction: "outbound",
     body: message,
     status: ticket.status === "closed" ? "closed" : "in_progress",
-    messageId: newMessageId,
   });
 
   return json(

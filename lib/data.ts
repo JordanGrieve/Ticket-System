@@ -149,6 +149,36 @@ export async function listWorkspaceSummaries(): Promise<WorkspaceSummary[]> {
 }
 
 /**
+ * Backfill the real Message-ID of our most recent outbound message that
+ * doesn't have one yet. SES assigns Message-IDs we never see at send time —
+ * but the customer's reply carries it in In-Reply-To, so we learn it here and
+ * future replies can reference a complete chain.
+ */
+export async function backfillOutboundMessageId(
+  ticketId: number,
+  messageId: string,
+): Promise<void> {
+  const rows = await db
+    .select({ id: ticketMessages.id })
+    .from(ticketMessages)
+    .where(
+      and(
+        eq(ticketMessages.ticketId, ticketId),
+        eq(ticketMessages.direction, "outbound"),
+        sql`${ticketMessages.messageId} IS NULL`,
+      ),
+    )
+    .orderBy(desc(ticketMessages.sentAt))
+    .limit(1);
+  if (rows.length > 0) {
+    await db
+      .update(ticketMessages)
+      .set({ messageId })
+      .where(eq(ticketMessages.id, rows[0].id));
+  }
+}
+
+/**
  * Permanently delete a workspace. Cascades wipe its tickets, messages,
  * contacts and agents (FKs are ON DELETE CASCADE). Admin-only callers must
  * double-confirm first. Returns the deleted row, or null if id didn't exist.

@@ -5,6 +5,7 @@ import {
   createTicket,
   addMessage,
   upsertContact,
+  backfillOutboundMessageId,
 } from "@/lib/data";
 import {
   classifyInbound,
@@ -64,6 +65,13 @@ export async function POST(req: Request) {
     if (ticketId != null) {
       const ticket = await lookupTicketAnyWorkspace(ticketId);
       if (ticket) {
+        // The customer's reply tells us the real Message-ID SES assigned to
+        // OUR last reply (their In-Reply-To). Learn it so future replies can
+        // reference the full chain.
+        const inReplyTo = extractHeaderValue(data, "in-reply-to");
+        if (inReplyTo) {
+          await backfillOutboundMessageId(ticket.id, normalizeMsgId(inReplyTo));
+        }
         await addMessage({
           ticketId: ticket.id,
           direction: "inbound",
@@ -121,35 +129,42 @@ function asString(v: unknown): string {
 }
 
 /**
- * Pull the RFC Message-ID out of the webhook payload, tolerating the shapes
- * providers use: a top-level message_id/messageId field, or a headers list
- * (array of {name,value}) / record. Normalised to include angle brackets.
+ * Read a header from the webhook payload, tolerating the shapes providers
+ * use: a headers list (array of {name,value}) or a plain record.
  */
-function extractMessageId(data: Record<string, unknown>): string | null {
-  let raw = asString(data.message_id) || asString(data.messageId);
-
-  if (!raw && Array.isArray(data.headers)) {
+function extractHeaderValue(
+  data: Record<string, unknown>,
+  name: string,
+): string {
+  if (Array.isArray(data.headers)) {
     for (const h of data.headers as Array<Record<string, unknown>>) {
-      if (asString(h?.name).toLowerCase() === "message-id") {
-        raw = asString(h?.value);
-        break;
-      }
+      if (asString(h?.name).toLowerCase() === name) return asString(h?.value);
     }
-  }
-  if (!raw && data.headers && typeof data.headers === "object" && !Array.isArray(data.headers)) {
+  } else if (data.headers && typeof data.headers === "object") {
     const rec = data.headers as Record<string, unknown>;
     for (const key of Object.keys(rec)) {
-      if (key.toLowerCase() === "message-id") {
-        raw = asString(rec[key]);
-        break;
-      }
+      if (key.toLowerCase() === name) return asString(rec[key]);
     }
   }
+  return "";
+}
 
-  raw = raw.trim();
-  if (!raw) return null;
-  if (!raw.startsWith("<")) raw = `<${raw}>`;
-  return raw;
+/** Ensure an id is wrapped in angle brackets, RFC-style. */
+function normalizeMsgId(raw: string): string {
+  const s = raw.trim();
+  return s.startsWith("<") ? s : `<${s}>`;
+}
+
+/**
+ * Pull the RFC Message-ID out of the webhook payload: a top-level
+ * message_id/messageId field, or the headers. Null when absent.
+ */
+function extractMessageId(data: Record<string, unknown>): string | null {
+  const raw =
+    asString(data.message_id) ||
+    asString(data.messageId) ||
+    extractHeaderValue(data, "message-id");
+  return raw.trim() ? normalizeMsgId(raw) : null;
 }
 
 /** Parse "Name <a@b.com>" | "a@b.com" | { email/address, name }. */

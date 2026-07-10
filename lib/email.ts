@@ -25,12 +25,11 @@ export async function sendReplyEmail(input: {
   text: string;
   replyTo: string;
   /**
-   * Email threading. messageId is OUR id for this send; inReplyTo/references
-   * point at earlier messages so mail clients group the conversation instead
-   * of showing every reply as a brand-new email.
+   * Email threading. inReplyTo/references must be REAL delivered Message-IDs
+   * (the customer's own, or ours learned from their replies) — SES overwrites
+   * any Message-ID we set ourselves, so fabricated ids never thread.
    */
   threading?: {
-    messageId?: string;
     inReplyTo?: string;
     references?: string[];
   };
@@ -48,9 +47,6 @@ export async function sendReplyEmail(input: {
     : input.from;
 
   const headers: Record<string, string> = {};
-  if (input.threading?.messageId) {
-    headers["Message-ID"] = input.threading.messageId;
-  }
   if (input.threading?.inReplyTo) {
     headers["In-Reply-To"] = input.threading.inReplyTo;
   }
