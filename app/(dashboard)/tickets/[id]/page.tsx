@@ -3,6 +3,7 @@ import TicketThread from "@/components/TicketThread";
 import { resolveViewer } from "@/lib/viewer";
 import { getTicket, getMessages } from "@/lib/data";
 import { toTicketDTO, toMessageDTO } from "@/lib/serialize";
+import { EMAIL_FROM_ADDRESS } from "@/lib/config";
 
 export default async function TicketPage({
   params,
@@ -26,7 +27,7 @@ export default async function TicketPage({
     <TicketThread
       ticket={toTicketDTO(ticket)}
       messages={messages.map(toMessageDTO)}
-      fromAddress={workspace.sendingEmail}
+      fromAddress={`${workspace.name} <${EMAIL_FROM_ADDRESS}>`}
       ownerLabel={ownerLabel}
     />
   );

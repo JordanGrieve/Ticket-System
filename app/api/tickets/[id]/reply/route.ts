@@ -4,6 +4,7 @@ import { getTicket, addMessage } from "@/lib/data";
 import { activeWorkspace } from "@/lib/viewer";
 import { sendReplyEmail } from "@/lib/email";
 import { buildReplyTo } from "@/lib/tickets";
+import { EMAIL_FROM_ADDRESS } from "@/lib/config";
 
 /**
  * POST /api/tickets/:id/reply  (authed)
@@ -43,8 +44,9 @@ export async function POST(
 
   // Send the email (best-effort — the outbound message is saved regardless so
   // the thread stays accurate even if delivery is misconfigured in dev).
+  // From is always our verified domain; the workspace name is the display name.
   const emailResult = await sendReplyEmail({
-    from: workspace.sendingEmail,
+    from: EMAIL_FROM_ADDRESS,
     fromName: workspace.name,
     to: ticket.customerEmail,
     subject: ticket.subject.startsWith("Re:")

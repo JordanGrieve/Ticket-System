@@ -12,3 +12,10 @@ export const APP_URL =
 // Per-ticket reply addresses look like: ticket+TKT-4821@inbound.yourapp.com
 export const INBOUND_DOMAIN =
   process.env.INBOUND_EMAIL_DOMAIN || "inbound.yourapp.com";
+
+// Address ticket replies are sent FROM. Must be on a domain verified in
+// Resend (ours), NOT the client's — Resend rejects unverified from-domains.
+// The client's name still appears as the display name, and the per-ticket
+// Reply-To keeps threading working.
+export const EMAIL_FROM_ADDRESS =
+  process.env.EMAIL_FROM_ADDRESS || "replies@postbox.help";
