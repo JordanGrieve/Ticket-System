@@ -11,9 +11,9 @@ import {
 export default async function AdminHomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; created?: string }>;
+  searchParams: Promise<{ error?: string; created?: string; emailed?: string }>;
 }) {
-  const { error, created } = await searchParams;
+  const { error, created, emailed } = await searchParams;
   const viewer = await resolveViewer();
   const [workspaces, admins] = await Promise.all([
     listWorkspaceSummaries(),
@@ -97,9 +97,18 @@ export default async function AdminHomePage({
       )}
       {created && (
         <div style={{ ...banner, background: "#e6f2ec", border: "1px solid #cbe3d6", color: "#2c7a54" }}>
-          <b>{created}</b> is ready. Now tell your client to sign up at{" "}
-          <b>postbox.help</b> using the email you entered — they&rsquo;ll land
-          straight in their workspace.
+          {emailed === "1" ? (
+            <>
+              <b>{created}</b> is ready — we&rsquo;ve emailed your client an
+              invitation to sign up.
+            </>
+          ) : (
+            <>
+              <b>{created}</b> is ready, but the invite email couldn&rsquo;t be
+              sent. Ask your client to sign up at <b>postbox.help</b> using the
+              email you entered — they&rsquo;ll land straight in their workspace.
+            </>
+          )}
         </div>
       )}
 

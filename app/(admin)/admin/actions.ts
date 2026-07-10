@@ -7,6 +7,8 @@ import { requireAdmin, ADMIN_WS_COOKIE } from "@/lib/viewer";
 import { addAdmin, findAdminByEmail } from "@/lib/admin";
 import { getAgentByEmail } from "@/lib/data";
 import { provisionWorkspace, INVITE_PREFIX } from "@/lib/workspace";
+import { sendInviteEmail } from "@/lib/email";
+import { APP_URL, EMAIL_FROM_ADDRESS } from "@/lib/config";
 import { isValidEmail } from "@/lib/http";
 
 function inviteToken(): string {
@@ -44,7 +46,7 @@ export async function selectWorkspaceAction(formData: FormData): Promise<void> {
  * connects them to this workspace (instead of provisioning a blank one).
  */
 export async function createClientAction(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const adminEmail = await requireAdmin();
 
   const name = String(formData.get("name") ?? "").trim().slice(0, 80);
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -62,8 +64,20 @@ export async function createClientAction(formData: FormData): Promise<void> {
 
   await provisionWorkspace({ name, ownerEmail: email, clerkUserId: inviteToken() });
 
+  // Best-effort invite email — the workspace exists either way, and the
+  // banner tells the admin whether the client was emailed.
+  const invite = await sendInviteEmail({
+    to: email,
+    businessName: name,
+    signUpUrl: `${APP_URL}/sign-up`,
+    from: EMAIL_FROM_ADDRESS,
+    inviterEmail: adminEmail,
+  });
+
   revalidatePath("/admin");
-  redirect(`/admin?created=${encodeURIComponent(name)}`);
+  redirect(
+    `/admin?created=${encodeURIComponent(name)}&emailed=${invite.sent ? "1" : "0"}`,
+  );
 }
 
 /** Grant super-admin to another email (a collaborator who can help clients). */
