@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "crypto";
 import { json } from "@/lib/http";
 import {
   getWorkspaceByInboundEmail,
@@ -27,21 +28,32 @@ import { eq } from "drizzle-orm";
  * makes the ticket source="order" (higher priority) with the order id stored.
  */
 export async function POST(req: Request) {
-  // Verify the shared secret when configured (skip in local dev with the
-  // placeholder). In production, prefer verifying Resend's Svix signature.
-  const secret = process.env.INBOUND_WEBHOOK_SECRET;
-  if (secret && secret !== "dev-secret-change-me") {
+  // Authenticate the caller. Two accepted proofs, in preference order:
+  //  1. Resend's Svix signature (RESEND_WEBHOOK_SIGNING_SECRET) — cryptographic,
+  //     immune to URL copy/paste accidents. Needs the RAW request body.
+  //  2. Shared secret via ?secret= / x-webhook-secret (INBOUND_WEBHOOK_SECRET)
+  //     — kept for manual testing. Placeholder value disables checks (dev).
+  const raw = await req.text();
+
+  const signingSecret = process.env.RESEND_WEBHOOK_SIGNING_SECRET;
+  const sharedSecret = process.env.INBOUND_WEBHOOK_SECRET;
+  const sharedEnabled = !!sharedSecret && sharedSecret !== "dev-secret-change-me";
+
+  if (signingSecret || sharedEnabled) {
     const url = new URL(req.url);
     const provided =
       req.headers.get("x-webhook-secret") ?? url.searchParams.get("secret");
-    if (provided !== secret) {
+    const sharedOk = sharedEnabled && provided === sharedSecret;
+    const svixOk =
+      !!signingSecret && verifySvixSignature(raw, req.headers, signingSecret);
+    if (!sharedOk && !svixOk) {
       return json({ error: "Invalid signature" }, { status: 401 });
     }
   }
 
   let payload: Record<string, unknown>;
   try {
-    payload = (await req.json()) as Record<string, unknown>;
+    payload = JSON.parse(raw) as Record<string, unknown>;
   } catch {
     return json({ error: "Invalid JSON" }, { status: 400 });
   }
@@ -110,6 +122,55 @@ export async function POST(req: Request) {
 
   // Nothing matched — acknowledge so Resend doesn't retry endlessly.
   return json({ ok: true, ignored: true });
+}
+
+// ── auth helpers ─────────────────────────────────────────────────
+
+/**
+ * Verify a Svix webhook signature (what Resend signs deliveries with).
+ * signedContent = "{svix-id}.{svix-timestamp}.{rawBody}", HMAC-SHA256 keyed
+ * with the base64 part of the whsec_ signing secret, compared (timing-safe)
+ * against each space-separated "v1,<base64>" entry in svix-signature.
+ */
+function verifySvixSignature(
+  rawBody: string,
+  headers: Headers,
+  signingSecret: string,
+): boolean {
+  const id = headers.get("svix-id");
+  const timestamp = headers.get("svix-timestamp");
+  const signatureHeader = headers.get("svix-signature");
+  if (!id || !timestamp || !signatureHeader) return false;
+
+  // Reject stale/future timestamps (replay protection, ±5 minutes).
+  const ts = Number(timestamp);
+  if (!Number.isFinite(ts)) return false;
+  if (Math.abs(Math.floor(Date.now() / 1000) - ts) > 300) return false;
+
+  let key: Buffer;
+  try {
+    key = Buffer.from(
+      signingSecret.startsWith("whsec_") ? signingSecret.slice(6) : signingSecret,
+      "base64",
+    );
+  } catch {
+    return false;
+  }
+
+  const expected = createHmac("sha256", key)
+    .update(`${id}.${timestamp}.${rawBody}`)
+    .digest("base64");
+  const expectedBuf = Buffer.from(expected);
+
+  for (const part of signatureHeader.split(" ")) {
+    const [version, sig] = part.split(",");
+    if (version !== "v1" || !sig) continue;
+    const sigBuf = Buffer.from(sig);
+    if (sigBuf.length === expectedBuf.length && timingSafeEqual(sigBuf, expectedBuf)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // ── parsing helpers ──────────────────────────────────────────────
