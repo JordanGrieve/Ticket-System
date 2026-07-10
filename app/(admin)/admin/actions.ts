@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireAdmin, ADMIN_WS_COOKIE } from "@/lib/viewer";
 import { addAdmin, findAdminByEmail } from "@/lib/admin";
-import { getAgentByEmail } from "@/lib/data";
+import { getAgentByEmail, getWorkspaceById, deleteWorkspace } from "@/lib/data";
 import { provisionWorkspace, INVITE_PREFIX } from "@/lib/workspace";
 import { sendInviteEmail } from "@/lib/email";
 import { APP_URL, EMAIL_FROM_ADDRESS } from "@/lib/config";
@@ -78,6 +78,44 @@ export async function createClientAction(formData: FormData): Promise<void> {
   redirect(
     `/admin?created=${encodeURIComponent(name)}&emailed=${invite.sent ? "1" : "0"}`,
   );
+}
+
+/**
+ * Permanently delete a client workspace — double-confirmed: the admin must
+ * first click Delete (opens the confirm panel), then type the workspace's
+ * exact name. Everything in it (tickets, messages, contacts, agents) is
+ * erased by cascade. The client's login itself remains in Clerk; if they sign
+ * in again they'd start a fresh blank workspace.
+ */
+export async function deleteClientAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+
+  const id = Number(formData.get("workspaceId"));
+  const confirmName = String(formData.get("confirmName") ?? "").trim();
+  if (!Number.isInteger(id)) redirect("/admin?error=Invalid workspace.");
+
+  const workspace = await getWorkspaceById(id);
+  if (!workspace) redirect("/admin?error=That workspace no longer exists.");
+
+  // Second confirmation: the typed name must match exactly.
+  if (confirmName !== workspace.name) {
+    redirect(
+      `/admin?delete=${id}&error=${encodeURIComponent(
+        "The name you typed didn't match — nothing was deleted.",
+      )}`,
+    );
+  }
+
+  await deleteWorkspace(id);
+
+  // If the admin was acting inside this workspace, clear the selection.
+  const store = await cookies();
+  if (store.get(ADMIN_WS_COOKIE)?.value === String(id)) {
+    store.delete(ADMIN_WS_COOKIE);
+  }
+
+  revalidatePath("/admin");
+  redirect(`/admin?deleted=${encodeURIComponent(workspace.name)}`);
 }
 
 /** Grant super-admin to another email (a collaborator who can help clients). */

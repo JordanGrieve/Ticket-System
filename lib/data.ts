@@ -148,6 +148,19 @@ export async function listWorkspaceSummaries(): Promise<WorkspaceSummary[]> {
   }));
 }
 
+/**
+ * Permanently delete a workspace. Cascades wipe its tickets, messages,
+ * contacts and agents (FKs are ON DELETE CASCADE). Admin-only callers must
+ * double-confirm first. Returns the deleted row, or null if id didn't exist.
+ */
+export async function deleteWorkspace(id: number): Promise<Workspace | null> {
+  const [deleted] = await db
+    .delete(workspaces)
+    .where(eq(workspaces.id, id))
+    .returning();
+  return deleted ?? null;
+}
+
 /** Any agent row (real or pending invite) with this email, case-insensitive. */
 export async function getAgentByEmail(email: string): Promise<Agent | null> {
   const rows = await db

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { SignOutButton } from "@clerk/nextjs";
 import { resolveViewer } from "@/lib/viewer";
 import { listWorkspaceSummaries } from "@/lib/data";
@@ -6,19 +7,30 @@ import {
   selectWorkspaceAction,
   addAdminAction,
   createClientAction,
+  deleteClientAction,
 } from "./actions";
 
 export default async function AdminHomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; created?: string; emailed?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    created?: string;
+    emailed?: string;
+    deleted?: string;
+    delete?: string;
+  }>;
 }) {
-  const { error, created, emailed } = await searchParams;
+  const { error, created, emailed, deleted, delete: deleteParam } =
+    await searchParams;
   const viewer = await resolveViewer();
   const [workspaces, admins] = await Promise.all([
     listWorkspaceSummaries(),
     listAdmins(),
   ]);
+
+  // ?delete=<id> opens the double-confirmation panel for that workspace.
+  const deleteTarget = workspaces.find((w) => String(w.id) === deleteParam);
 
   return (
     <div style={{ maxWidth: 940, margin: "0 auto", padding: "40px 24px 80px" }}>
@@ -93,6 +105,65 @@ export default async function AdminHomePage({
       {error && (
         <div style={{ ...banner, background: "#fbe9e5", border: "1px solid #efcabf", color: "#9a4a33" }}>
           {error}
+        </div>
+      )}
+      {deleted && (
+        <div style={{ ...banner, background: "#e6f2ec", border: "1px solid #cbe3d6", color: "#2c7a54" }}>
+          <b>{deleted}</b> and all of its data has been permanently deleted.
+        </div>
+      )}
+      {deleteTarget && (
+        <div
+          style={{
+            background: "#fff",
+            border: "1.5px solid #d9756a",
+            borderRadius: 14,
+            padding: 18,
+            marginBottom: 22,
+          }}
+        >
+          <div style={{ fontSize: 14.5, fontWeight: 700, color: "#9a3a2e", marginBottom: 4 }}>
+            Permanently delete {deleteTarget.name}?
+          </div>
+          <p style={{ color: "#7a5a52", margin: "0 0 12px", fontSize: 13, lineHeight: 1.6 }}>
+            This erases the workspace and everything in it —{" "}
+            <b>{deleteTarget.totalCount} ticket{deleteTarget.totalCount === 1 ? "" : "s"}</b>, all
+            message history, and its contacts. It cannot be undone. To confirm,
+            type the workspace name exactly: <b>{deleteTarget.name}</b>
+          </p>
+          <form
+            action={deleteClientAction}
+            style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+          >
+            <input type="hidden" name="workspaceId" value={deleteTarget.id} />
+            <input
+              type="text"
+              name="confirmName"
+              required
+              autoComplete="off"
+              placeholder={`Type "${deleteTarget.name}" to confirm`}
+              style={{ ...inputStyle, flex: "2 1 260px", border: "1px solid #e3b3ab" }}
+            />
+            <button
+              type="submit"
+              style={{ ...buttonStyle, background: "#b0402f", flex: "0 0 auto" }}
+            >
+              Permanently delete
+            </button>
+            <Link
+              href="/admin"
+              style={{
+                ...buttonStyle,
+                background: "transparent",
+                color: "#6b6255",
+                border: "1px solid var(--border)",
+                display: "inline-flex",
+                alignItems: "center",
+              }}
+            >
+              Cancel
+            </Link>
+          </form>
         </div>
       )}
       {created && (
@@ -231,6 +302,18 @@ export default async function AdminHomePage({
                 Open workspace →
               </button>
             </form>
+            <Link
+              href={`/admin?delete=${w.id}`}
+              style={{
+                alignSelf: "center",
+                fontSize: 12,
+                fontWeight: 600,
+                color: "#b0402f",
+                opacity: 0.75,
+              }}
+            >
+              Delete workspace…
+            </Link>
           </div>
         ))}
       </div>
