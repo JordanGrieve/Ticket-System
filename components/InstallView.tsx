@@ -21,7 +21,7 @@ export default function InstallView({
   appUrl: string;
 }) {
   const router = useRouter();
-  const [mode, setMode] = useState<"a" | "b">("b");
+  const [mode, setMode] = useState<"a" | "b" | "ai">("b");
   const [fromAddress, setFromAddress] = useState(sendingEmail);
   const [savingFrom, setSavingFrom] = useState(false);
   const [savedFrom, setSavedFrom] = useState(false);
@@ -68,7 +68,48 @@ export default function InstallView({
 })();
 </script>`;
 
-  const snippet = mode === "a" ? snippetA : snippetB;
+  const snippetAI = `You are helping integrate a website's contact form with Postbox, a support-ticket
+inbox used by "${workspaceName}". When a visitor submits the contact form, the
+submission must be POSTed to the Postbox API, which turns it into a support ticket.
+
+## The API
+Endpoint: POST ${endpoint}
+Accepts JSON (Content-Type: application/json) or classic form-encoded submissions.
+
+Fields:
+- name    (string, required)  — the visitor's name
+- email   (string, required)  — the visitor's email address
+- message (string, required)  — the message body
+- subject (string, optional)  — short subject line; if omitted, Postbox derives
+  one from the message
+
+Responses:
+- Success:            HTTP 201, JSON {"ok": true, "ticket": {"id": 123, "status": "open"}}
+- Validation failure: HTTP 400, JSON {"ok": false, "error": "human-readable reason"}
+- Rate limited:       HTTP 429 (60 submissions/minute per workspace) — treat as a
+  temporary failure and ask the visitor to try again shortly.
+CORS is open, so the endpoint can be called directly from browser JavaScript.
+The key inside the URL is a public ingestion key — safe to ship in client-side code.
+Do not send any other secrets.
+
+## Your task
+1. Find the site's existing contact form. If there is none, create a simple one
+   with name, email and message fields that matches the site's styling.
+2. Map the form's actual input names to the API fields above (e.g. an input named
+   "full_name" maps to "name").
+3. On submit: prevent the default navigation, disable the submit button while
+   sending (no double submissions), POST the fields to the endpoint as JSON, then
+   show a clear inline success message (e.g. "Thanks — we got your message!")
+   without leaving the page. On failure, show a friendly error and re-enable the
+   button.
+4. Keep the site's existing markup, styling and behaviour intact everywhere else.
+5. Fallback for plain-HTML sites with no JavaScript: instead of step 3, set the
+   form's action="${endpoint}" and method="POST" — Postbox then shows a hosted
+   confirmation page to the visitor.
+6. After integrating, submit one test message ("Integration test — please ignore")
+   and confirm the request returns HTTP 201.`;
+
+  const snippet = mode === "a" ? snippetA : mode === "ai" ? snippetAI : snippetB;
 
   async function saveFrom() {
     setSavingFrom(true);
@@ -108,18 +149,23 @@ export default function InstallView({
 
         {/* ── Connect your form ── */}
         <Section title="1 · Connect your contact form">
-          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
             <Toggle active={mode === "b"} onClick={() => setMode("b")}>
               JavaScript (recommended)
             </Toggle>
             <Toggle active={mode === "a"} onClick={() => setMode("a")}>
               Point form at URL
             </Toggle>
+            <Toggle active={mode === "ai"} onClick={() => setMode("ai")}>
+              ✨ AI prompt
+            </Toggle>
           </div>
           <p style={{ fontSize: 13, color: "var(--muted-2)", lineHeight: 1.6, marginBottom: 12 }}>
             {mode === "b"
               ? "Drop this before </body>. It intercepts your form so visitors stay on the page and see a success message — no redirect."
-              : "The simplest option: set your form's action to this endpoint. On submit, the visitor sees a tidy confirmation page."}
+              : mode === "a"
+                ? "The simplest option: set your form's action to this endpoint. On submit, the visitor sees a tidy confirmation page."
+                : "Building your site with Claude, ChatGPT, Cursor or another AI assistant? Paste this prompt — it contains your endpoint and everything the AI needs to wire up your form correctly."}
           </p>
           <CodeBlock code={snippet} />
         </Section>
