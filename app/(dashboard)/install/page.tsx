@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import InstallView from "@/components/InstallView";
 import { resolveViewer } from "@/lib/viewer";
-import { APP_URL } from "@/lib/config";
+import { APP_URL, EMAIL_FROM_ADDRESS } from "@/lib/config";
 
 export default async function InstallPage() {
   const viewer = await resolveViewer();
@@ -15,7 +15,7 @@ export default async function InstallPage() {
     <InstallView
       apiKey={workspace.apiKey}
       inboundEmail={workspace.inboundEmail}
-      sendingEmail={workspace.sendingEmail}
+      replyFrom={`"${workspace.name}" <${EMAIL_FROM_ADDRESS}>`}
       workspaceName={workspace.name}
       accent={workspace.accent}
       appUrl={appUrl}

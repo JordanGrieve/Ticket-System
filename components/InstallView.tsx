@@ -8,23 +8,21 @@ import { ACCENT_SCHEMES } from "@/lib/theme";
 export default function InstallView({
   apiKey,
   inboundEmail,
-  sendingEmail,
+  replyFrom,
   workspaceName,
   accent,
   appUrl,
 }: {
   apiKey: string;
   inboundEmail: string;
-  sendingEmail: string;
+  /** The real address replies are sent from, e.g. `"Name" <replies@…>`. */
+  replyFrom: string;
   workspaceName: string;
   accent: string;
   appUrl: string;
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<"a" | "b" | "ai">("b");
-  const [fromAddress, setFromAddress] = useState(sendingEmail);
-  const [savingFrom, setSavingFrom] = useState(false);
-  const [savedFrom, setSavedFrom] = useState(false);
 
   const endpoint = `${appUrl}/api/tickets/${apiKey}`;
 
@@ -125,22 +123,6 @@ human mailbox).
 
   const snippet = mode === "a" ? snippetA : mode === "ai" ? snippetAI : snippetB;
 
-  async function saveFrom() {
-    setSavingFrom(true);
-    setSavedFrom(false);
-    const res = await fetch("/api/workspace", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sendingEmail: fromAddress }),
-    });
-    setSavingFrom(false);
-    if (res.ok) {
-      setSavedFrom(true);
-      setTimeout(() => setSavedFrom(false), 1800);
-      router.refresh();
-    }
-  }
-
   async function pickAccent(key: string) {
     const res = await fetch("/api/workspace", {
       method: "PATCH",
@@ -205,7 +187,7 @@ human mailbox).
             </Step>
             <Step n={3}>
               Reply to tickets from here — your replies send as real email from{" "}
-              <b style={{ color: "#5f594f" }}>{fromAddress}</b>, and customer responses thread
+              <b style={{ color: "#5f594f" }}>{replyFrom}</b>, and customer responses thread
               right back.
             </Step>
           </ol>
@@ -217,51 +199,12 @@ human mailbox).
           <Field value={apiKey} copyLabel="Copy key" mono />
 
           <div style={{ height: 20 }} />
-          <Label>Reply-from address</Label>
+          <Label>Replies send from</Label>
           <p style={{ fontSize: 12.5, color: "var(--muted-2)", lineHeight: 1.6, margin: "0 0 8px" }}>
-            Replies are sent as real emails from this address. (In production this domain must be
-            verified in Resend.)
+            Your replies are delivered from this address, with your business
+            name shown as the sender.
           </p>
-          <div style={{ display: "flex", gap: 8 }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                height: 42,
-                padding: "0 14px",
-                background: "#fff",
-                border: "1px solid var(--border)",
-                borderRadius: 10,
-                flex: 1,
-              }}
-            >
-              <span style={{ color: "var(--muted-2)", fontSize: 14 }}>✉</span>
-              <input
-                value={fromAddress}
-                onChange={(e) => setFromAddress(e.target.value)}
-                style={{ border: "none", background: "transparent", fontSize: 14, color: "var(--ink)", width: "100%" }}
-              />
-            </div>
-            <button
-              onClick={saveFrom}
-              disabled={savingFrom || fromAddress.trim() === sendingEmail}
-              style={{
-                height: 42,
-                padding: "0 18px",
-                background: "var(--accent)",
-                border: "none",
-                borderRadius: 10,
-                color: "#fff",
-                fontSize: 13.5,
-                fontWeight: 600,
-                cursor: savingFrom || fromAddress.trim() === sendingEmail ? "not-allowed" : "pointer",
-                opacity: savingFrom || fromAddress.trim() === sendingEmail ? 0.5 : 1,
-              }}
-            >
-              {savedFrom ? "Saved ✓" : savingFrom ? "Saving…" : "Save"}
-            </button>
-          </div>
+          <Field value={replyFrom} copyLabel="Copy address" mono />
 
           <div style={{ height: 24 }} />
           <Label>Accent</Label>

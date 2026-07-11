@@ -7,6 +7,7 @@ import type { TicketDTO, MessageDTO } from "@/lib/serialize";
 import type { TicketStatus } from "@/db/schema";
 import { SOURCE_META, STATUS_META, STATUS_ORDER } from "@/lib/theme";
 import { initials } from "@/lib/tickets";
+import { formatDateTime } from "@/lib/serialize";
 
 export default function TicketThread({
   ticket,
@@ -284,7 +285,14 @@ export default function TicketThread({
                         {out ? "You · owner" : "Customer"}
                       </span>
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--muted-2)", marginTop: 1 }}>{m.time}</div>
+                    {/* Formatted client-side for the viewer's timezone; the
+                        SSR pass renders UTC, so suppress the mismatch. */}
+                    <div
+                      suppressHydrationWarning
+                      style={{ fontSize: 12, color: "var(--muted-2)", marginTop: 1 }}
+                    >
+                      {formatDateTime(m.sentAtIso)}
+                    </div>
                   </div>
                 </div>
                 <div

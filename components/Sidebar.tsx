@@ -150,9 +150,11 @@ export default function Sidebar({
         )}
       </div>
 
+      {/* Labelled for what it does — it opens Install & settings, there is
+          no manual "compose ticket" flow. */}
       <Link href="/install" style={newBtn}>
-        <span style={{ fontSize: 16, fontWeight: 400, marginTop: -1 }}>+</span> New
-        ticket
+        <span style={{ fontSize: 16, fontWeight: 400, marginTop: -1 }}>⚡</span>{" "}
+        Connect your site
       </Link>
 
       <div

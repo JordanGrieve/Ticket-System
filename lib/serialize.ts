@@ -23,7 +23,9 @@ export type MessageDTO = {
   id: number;
   direction: MessageDirection;
   body: string;
-  time: string;
+  /** ISO timestamp — formatted in the BROWSER so it shows the viewer's
+   * timezone (server-side formatting rendered UTC for everyone). */
+  sentAtIso: string;
 };
 
 export function toTicketDTO(t: Ticket, now: Date = new Date()): TicketDTO {
@@ -45,7 +47,8 @@ export function toMessageDTO(m: TicketMessage): MessageDTO {
     id: m.id,
     direction: m.direction,
     body: m.body,
-    time: formatDateTime(m.sentAt),
+    sentAtIso:
+      m.sentAt instanceof Date ? m.sentAt.toISOString() : String(m.sentAt),
   };
 }
 

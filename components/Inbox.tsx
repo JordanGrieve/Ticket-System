@@ -79,7 +79,7 @@ export default function Inbox({
               {FOLDER_LABEL[folder]}
             </h1>
             <p style={{ fontSize: 13, color: "var(--muted-2)", marginTop: 3 }}>
-              {openCount} open · {activeCount} active · updated just now
+              {openCount} open · {activeCount} active
             </p>
           </div>
           <div
