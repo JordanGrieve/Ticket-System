@@ -63,7 +63,7 @@ export async function POST(
       ? ticket.subject
       : `Re: ${ticket.subject}`,
     text: message,
-    replyTo: buildReplyTo(ticket.id),
+    replyTo: buildReplyTo(ticket.id, ticket.replyToken),
     threading: {
       inReplyTo: chain.at(-1),
       // Keep the header a sane size on long tickets: first + last few.

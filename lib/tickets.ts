@@ -8,23 +8,30 @@ export function formatTicketRef(id: number): string {
 
 /**
  * Per-ticket reply address. Customer replies to this thread back into the
- * same ticket instead of opening a new one.
- *   ticket+TKT-4821@inbound.yourapp.com
+ * same ticket instead of opening a new one. The token is a per-ticket
+ * secret: ids are sequential, so without it anyone could email messages
+ * into other tenants' tickets.
+ *   ticket+TKT-4821-9f3a2c1d@yourapp.com
  */
-export function buildReplyTo(id: number): string {
-  return `ticket+${formatTicketRef(id)}@${INBOUND_DOMAIN}`;
+export function buildReplyTo(id: number, token: string | null): string {
+  const suffix = token ? `-${token}` : "";
+  return `ticket+${formatTicketRef(id)}${suffix}@${INBOUND_DOMAIN}`;
 }
 
 /**
- * Pull a ticket id out of an inbound "to" address such as
- * "ticket+TKT-4821@inbound.yourapp.com". Returns null when it isn't a
- * per-ticket reply address.
+ * Pull the ticket id + token out of an inbound "to" address such as
+ * "ticket+TKT-4821-9f3a2c1d@yourapp.com". Returns null when it isn't a
+ * per-ticket reply address. Token is null for legacy tokenless addresses
+ * (which the inbound handler rejects against tokened tickets).
  */
-export function parseTicketRefFromAddress(address: string): number | null {
-  const match = address.match(/ticket\+TKT-(\d+)@/i);
+export function parseTicketRefFromAddress(
+  address: string,
+): { id: number; token: string | null } | null {
+  const match = address.match(/ticket\+TKT-(\d+)(?:-([a-z0-9]+))?@/i);
   if (!match) return null;
   const id = Number(match[1]);
-  return Number.isInteger(id) ? id : null;
+  if (!Number.isInteger(id)) return null;
+  return { id, token: match[2]?.toLowerCase() ?? null };
 }
 
 /**

@@ -42,6 +42,10 @@ export const tickets = pgTable(
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     source: text("source").$type<TicketSource>().notNull(),
+    // Secret embedded in the per-ticket reply address
+    // (ticket+TKT-<id>-<token>@…). Ticket ids are sequential, so without
+    // this anyone could email messages into other tenants' tickets.
+    replyToken: text("reply_token"),
     // Only set for source = "order".
     orderId: text("order_id"),
     customerName: text("customer_name").notNull(),
@@ -76,7 +80,11 @@ export const ticketMessages = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("ticket_messages_ticket_idx").on(t.ticketId, t.sentAt)],
+  (t) => [
+    index("ticket_messages_ticket_idx").on(t.ticketId, t.sentAt),
+    // Dedupe lookups: inbound webhook retries are matched by Message-ID.
+    index("ticket_messages_message_id_idx").on(t.messageId),
+  ],
 );
 
 export const contacts = pgTable(

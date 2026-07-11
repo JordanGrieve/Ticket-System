@@ -88,12 +88,13 @@ export async function POST(req: Request) {
     return json({ error: "Missing sender" }, { status: 400 });
   }
 
-  // 1) Reply to an existing thread?
+  // 1) Reply to an existing thread? The address token must match the
+  // ticket's secret — ids are guessable, tokens are not.
   for (const addr of recipients) {
-    const ticketId = parseTicketRefFromAddress(addr);
-    if (ticketId != null) {
-      const ticket = await lookupTicketAnyWorkspace(ticketId);
-      if (ticket) {
+    const ref = parseTicketRefFromAddress(addr);
+    if (ref != null) {
+      const ticket = await lookupTicketAnyWorkspace(ref.id);
+      if (ticket && ticket.replyToken && ref.token === ticket.replyToken) {
         // The customer's reply tells us the real Message-ID SES assigned to
         // OUR last reply (their In-Reply-To). Learn it so future replies can
         // reference the full chain.

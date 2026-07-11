@@ -253,6 +253,13 @@ export async function getMessages(ticketId: number): Promise<TicketMessage[]> {
 
 // ── Ticket writes ────────────────────────────────────────────────
 
+/** Per-ticket reply-address secret (8 hex chars). */
+function generateReplyToken(): string {
+  const arr = new Uint8Array(4);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export async function createTicket(input: {
   workspaceId: number;
   source: TicketSource;
@@ -270,6 +277,7 @@ export async function createTicket(input: {
     .values({
       workspaceId: input.workspaceId,
       source: input.source,
+      replyToken: generateReplyToken(),
       orderId: input.orderId ?? null,
       customerName: input.customerName,
       customerEmail: input.customerEmail.toLowerCase(),
