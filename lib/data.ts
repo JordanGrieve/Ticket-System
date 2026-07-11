@@ -191,6 +191,15 @@ export async function deleteWorkspace(id: number): Promise<Workspace | null> {
   return deleted ?? null;
 }
 
+/** Distinct emails of a workspace's agents (owner + any invited teammates). */
+export async function listAgentEmails(workspaceId: number): Promise<string[]> {
+  const rows = await db
+    .select({ email: agents.email })
+    .from(agents)
+    .where(eq(agents.workspaceId, workspaceId));
+  return [...new Set(rows.map((r) => r.email.toLowerCase()))];
+}
+
 /** Any agent row (real or pending invite) with this email, case-insensitive. */
 export async function getAgentByEmail(email: string): Promise<Agent | null> {
   const rows = await db

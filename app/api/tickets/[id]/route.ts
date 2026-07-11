@@ -10,6 +10,7 @@ import {
   getMessages,
 } from "@/lib/data";
 import { activeWorkspace } from "@/lib/viewer";
+import { notifyWorkspace } from "@/lib/notify";
 
 /**
  * This segment carries two different identifiers depending on the method:
@@ -81,6 +82,8 @@ export async function POST(
     subject: subject || previewText(message, 60),
     body: message,
   });
+
+  await notifyWorkspace({ workspace, ticket, kind: "new", body: message });
 
   // A native form submit (Mode A) navigates the browser here — show a tidy
   // confirmation page instead of raw JSON. Fetch/JSON callers get JSON.

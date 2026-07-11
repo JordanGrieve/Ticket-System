@@ -2,12 +2,15 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { json } from "@/lib/http";
 import {
   getWorkspaceByInboundEmail,
+  getWorkspaceById,
   getTicket,
   createTicket,
   addMessage,
   upsertContact,
   backfillOutboundMessageId,
 } from "@/lib/data";
+import { notifyWorkspace } from "@/lib/notify";
+import { EMAIL_FROM_ADDRESS } from "@/lib/config";
 import {
   classifyInbound,
   parseTicketRefFromAddress,
@@ -88,6 +91,13 @@ export async function POST(req: Request) {
     return json({ error: "Missing sender" }, { status: 400 });
   }
 
+  // Loop guard: never ingest our own outbound mail. Clients are told to
+  // auto-forward their support inbox here — without this, our notification
+  // and reply emails would bounce back in as new tickets, forever.
+  if (sender.email === EMAIL_FROM_ADDRESS.toLowerCase()) {
+    return json({ ok: true, ignored: true, reason: "self" });
+  }
+
   // 1) Reply to an existing thread? The address token must match the
   // ticket's secret — ids are guessable, tokens are not.
   for (const addr of recipients) {
@@ -109,6 +119,10 @@ export async function POST(req: Request) {
           status: "open", // customer replied → needs attention again
           messageId,
         });
+        const workspace = await getWorkspaceById(ticket.workspaceId);
+        if (workspace) {
+          await notifyWorkspace({ workspace, ticket, kind: "reply", body });
+        }
         return json({ ok: true, threadedInto: ticket.id });
       }
     }
@@ -134,6 +148,7 @@ export async function POST(req: Request) {
         body: body || "(empty message)",
         messageId,
       });
+      await notifyWorkspace({ workspace, ticket, kind: "new", body });
       return json({ ok: true, ticket: ticket.id, source }, { status: 201 });
     }
   }

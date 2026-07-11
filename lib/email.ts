@@ -70,6 +70,49 @@ export async function sendReplyEmail(input: {
   return { sent: true, id: data?.id };
 }
 
+/**
+ * Heads-up to the workspace's people when a customer writes in — a new
+ * ticket or a reply on an existing one. Without this, tickets sit unseen
+ * until someone happens to open the dashboard.
+ */
+export async function sendTicketNotification(input: {
+  to: string[];
+  workspaceName: string;
+  kind: "new" | "reply";
+  ticketId: number;
+  subject: string;
+  customerName: string;
+  preview: string;
+  ticketUrl: string;
+  from: string;
+}): Promise<SendResult> {
+  if (!hasKey() || input.to.length === 0) {
+    return { sent: false, error: "Email sending is not configured." };
+  }
+
+  const isNew = input.kind === "new";
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { data, error } = await resend.emails.send({
+    from: `Postbox <${input.from}>`,
+    to: input.to,
+    subject: `${isNew ? "New ticket" : "New reply"}: ${input.subject}`,
+    text: `${input.customerName} ${isNew ? "opened a new ticket" : "replied to a ticket"} in ${input.workspaceName}:
+
+"${input.preview}"
+
+Reply from your inbox:
+${input.ticketUrl}
+
+— Postbox`,
+  });
+
+  if (error) {
+    console.error("[email] notification send failed:", error);
+    return { sent: false, error: error.message };
+  }
+  return { sent: true, id: data?.id };
+}
+
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
