@@ -92,6 +92,20 @@ CORS is open, so the endpoint can be called directly from browser JavaScript.
 The key inside the URL is a public ingestion key — safe to ship in client-side code.
 Do not send any other secrets.
 
+## Email intake (context — usually no code needed)
+Besides the form, "${workspaceName}" receives support email. Their Postbox
+inbound address is:
+
+  ${inboundEmail}
+
+Any email sent or forwarded to that address becomes a ticket automatically
+(mentioning an order id like ORD-1234 or #4821 flags it as a priority order).
+The business owner sets up forwarding from their real support inbox to that
+address in their mail provider — that part is not a website change. For the
+website: keep displaying the business's own public email address (do NOT put
+the inbound address above on the site — it is a machine intake address, not a
+human mailbox).
+
 ## Your task
 1. Find the site's existing contact form. If there is none, create a simple one
    with name, email and message fields that matches the site's styling.
