@@ -12,6 +12,7 @@ import {
   classifyInbound,
   parseTicketRefFromAddress,
   previewText,
+  stripQuotedReply,
 } from "@/lib/tickets";
 import { db } from "@/db";
 import { tickets } from "@/db/schema";
@@ -79,7 +80,7 @@ export async function POST(req: Request) {
 
   const sender = extractAddress(data.from);
   const subject = asString(data.subject) || "(no subject)";
-  const body = extractBody(data);
+  const body = stripQuotedReply(extractBody(data));
   const recipients = normalizeRecipients(data.to);
   const messageId = extractMessageId(data);
 

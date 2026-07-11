@@ -73,6 +73,63 @@ export function relativeTime(from: Date | string, now: Date = new Date()): strin
   return `${weeks}w`;
 }
 
+/**
+ * Strip the quoted history from an email reply so the ticket shows only the
+ * newly written words. Conservative: cuts at common reply markers ("On …
+ * wrote:", "--- Original Message ---", Outlook's underscore rule), drops
+ * trailing "&gt;"-quoted blocks and mobile signatures. If stripping would
+ * leave nothing, the original text is returned untouched.
+ */
+export function stripQuotedReply(text: string): string {
+  const lines = text.split(/\r?\n/);
+
+  const markers = [
+    /^On .{3,120} wrote:\s*$/,
+    /^-{2,}\s*Original Message\s*-{2,}$/i,
+    /^_{5,}\s*$/,
+    /^-{5,}\s*$/,
+    /^From:\s.+@.+$/i,
+  ];
+  let cut = lines.length;
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (markers.some((m) => m.test(t))) {
+      cut = i;
+      break;
+    }
+    // Gmail wraps long attributions: "On … <a@b.c>\nwrote:" — join up to two
+    // continuation lines before testing.
+    if (/^On\s/.test(t)) {
+      const joined = [t, lines[i + 1]?.trim() ?? "", lines[i + 2]?.trim() ?? ""]
+        .join(" ")
+        .trim();
+      if (/^On .{3,200} wrote:/.test(joined)) {
+        cut = i;
+        break;
+      }
+    }
+  }
+
+  let kept = lines.slice(0, cut);
+
+  // Drop trailing quoted lines and blank lines left behind.
+  while (kept.length > 0) {
+    const last = kept[kept.length - 1].trim();
+    if (last === "" || last.startsWith(">")) kept.pop();
+    else break;
+  }
+
+  // Drop trailing mobile signatures ("Sent from my iPhone" etc.).
+  while (kept.length > 0) {
+    const last = kept[kept.length - 1].trim();
+    if (/^Sent from (my )?.{2,40}$/i.test(last) || last === "") kept.pop();
+    else break;
+  }
+
+  const result = kept.join("\n").trim();
+  return result || text.trim();
+}
+
 /** A tidy first-line preview for the inbox list. */
 export function previewText(text: string, max = 120): string {
   const oneLine = text.replace(/\s+/g, " ").trim();
