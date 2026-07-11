@@ -59,7 +59,23 @@ export async function POST(req: Request) {
   }
 
   // Resend wraps events as { type, data: {...} }; inbound test posts may be flat.
-  const data = (payload.data as Record<string, unknown>) ?? payload;
+  let data = (payload.data as Record<string, unknown>) ?? payload;
+
+  // Resend's email.received event carries METADATA ONLY — no body, no headers.
+  // When the body is missing, fetch the full email from the Received Emails
+  // API and merge it in (adds text/html and the headers record).
+  if (!extractBody(data)) {
+    const emailId = asString(data.email_id);
+    if (emailId) {
+      const full = await fetchReceivedEmail(emailId);
+      if (full) {
+        const nonNull = Object.fromEntries(
+          Object.entries(full).filter(([, v]) => v != null),
+        );
+        data = { ...data, ...nonNull };
+      }
+    }
+  }
 
   const sender = extractAddress(data.from);
   const subject = asString(data.subject) || "(no subject)";
@@ -171,6 +187,32 @@ function verifySvixSignature(
     }
   }
   return false;
+}
+
+/**
+ * Fetch the full received email (text/html body + headers) from Resend —
+ * the webhook event itself only carries metadata. Best-effort: returns null
+ * on any failure so the ticket is still created (with an empty-body marker).
+ */
+async function fetchReceivedEmail(
+  emailId: string,
+): Promise<Record<string, unknown> | null> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key || key === "re_placeholder") return null;
+  try {
+    const res = await fetch(
+      `https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}`,
+      { headers: { Authorization: `Bearer ${key}` } },
+    );
+    if (!res.ok) {
+      console.error("[inbound] fetch received email failed:", res.status);
+      return null;
+    }
+    return (await res.json()) as Record<string, unknown>;
+  } catch (err) {
+    console.error("[inbound] fetch received email error:", err);
+    return null;
+  }
 }
 
 // ── parsing helpers ──────────────────────────────────────────────
