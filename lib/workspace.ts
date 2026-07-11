@@ -3,7 +3,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { eq, like, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { workspaces, agents, type Workspace, type Agent } from "@/db/schema";
-import { INBOUND_DOMAIN } from "./config";
+import { INBOUND_DOMAIN, OPEN_SIGNUP } from "./config";
 
 /**
  * Placeholder clerkUserId prefixes for agents whose human hasn't signed in yet.
@@ -74,20 +74,22 @@ export async function provisionWorkspace(input: {
 }
 
 /**
- * Returns the workspace for the signed-in user, creating one if needed.
+ * Returns the workspace for the signed-in user, or null when they have none
+ * and may not create one (invite-only mode).
  *
  * Onboarding logic, in order:
  *  1. Existing agent → their workspace.
  *  2. A placeholder agent (admin invite or demo seed) whose email matches the
  *     signer's email → claim that workspace. Email must match: a stranger can
  *     never claim someone else's invite or the demo data.
- *  3. Otherwise → provision a fresh workspace + agent (self-serve sign-up).
+ *  3. Otherwise: OPEN_SIGNUP=true → provision a fresh workspace (self-serve);
+ *     default → null (invite-only — the caller shows /no-access).
  *
  * Throws if there is no authenticated user (callers run behind auth).
  */
 export const resolveWorkspace = cache(_resolveWorkspace);
 
-async function _resolveWorkspace(): Promise<ResolvedWorkspace> {
+async function _resolveWorkspace(): Promise<ResolvedWorkspace | null> {
   const { userId } = await auth();
   if (!userId) throw new Error("Not authenticated");
 
@@ -143,7 +145,11 @@ async function _resolveWorkspace(): Promise<ResolvedWorkspace> {
     return { workspace, agent: claimed };
   }
 
-  // 3. Provision a brand-new workspace (self-serve sign-up).
+  // 3. No invite. Invite-only (default): no workspace — never hand strangers
+  // a tenant (it includes sending email from our domain). Self-serve only
+  // when explicitly enabled.
+  if (!OPEN_SIGNUP) return null;
+
   const name =
     user?.firstName || user?.username
       ? `${user?.firstName ?? user?.username}'s workspace`

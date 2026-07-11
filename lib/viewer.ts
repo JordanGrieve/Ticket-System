@@ -12,14 +12,17 @@ import { getAgentByClerkId, getWorkspaceById } from "./data";
 import { resolveWorkspace } from "./workspace";
 
 /**
- * The signed-in viewer. Two roles:
- *  - "client": a tenant. Always bound to exactly one workspace (their own).
+ * The signed-in viewer. Three states:
  *  - "admin":  a Postbox operator. Not bound to a workspace — instead they
  *    pick a client to "act within", remembered in a cookie. `workspace` is
  *    that selection, or null when they haven't chosen one yet.
+ *  - "client": a tenant. Bound to exactly one workspace (their own).
+ *  - uninvited: signed in, but no invite matched and self-serve sign-up is
+ *    off — `workspace` is null and the UI shows /no-access.
  *
- * Both roles then flow through the same dashboard UI scoped to `workspace`,
- * so admins get the full inbox/reply/settings experience for any client.
+ * Admins and clients flow through the same dashboard UI scoped to
+ * `workspace`, so admins get the full inbox/reply/settings experience for
+ * any client.
  */
 export type Viewer =
   | { isAdmin: true; email: string; workspace: Workspace | null }
@@ -28,7 +31,8 @@ export type Viewer =
       email: string;
       workspace: Workspace;
       agentEmail: string;
-    };
+    }
+  | { isAdmin: false; email: string; workspace: null };
 
 /** Cookie holding the workspace id an admin is currently viewing. */
 export const ADMIN_WS_COOKIE = "pb_admin_ws";
@@ -94,9 +98,16 @@ async function _resolveViewer(): Promise<Viewer> {
     return { isAdmin: true, email, workspace: await selectedAdminWorkspace() };
   }
 
-  // Regular tenant: claim the demo seed or provision a fresh workspace.
-  const { workspace, agent: newAgent } = await resolveWorkspace();
-  return { isAdmin: false, email, workspace, agentEmail: newAgent.email };
+  // Regular tenant: claim a matching invite, or (open sign-up only)
+  // provision a fresh workspace. Null = uninvited → /no-access.
+  const resolved = await resolveWorkspace();
+  if (!resolved) return { isAdmin: false, email, workspace: null };
+  return {
+    isAdmin: false,
+    email,
+    workspace: resolved.workspace,
+    agentEmail: resolved.agent.email,
+  };
 }
 
 /**

@@ -5,8 +5,8 @@ import { APP_URL } from "@/lib/config";
 
 export default async function InstallPage() {
   const viewer = await resolveViewer();
-  if (viewer.isAdmin && !viewer.workspace) redirect("/admin");
-  const workspace = viewer.workspace!;
+  if (!viewer.workspace) redirect(viewer.isAdmin ? "/admin" : "/no-access");
+  const workspace = viewer.workspace;
 
   // Prefer the request's own origin at runtime when APP_URL is left default.
   const appUrl = APP_URL;

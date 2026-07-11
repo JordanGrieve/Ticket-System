@@ -10,10 +10,10 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const viewer = await resolveViewer();
-  // An admin who hasn't picked a client yet goes to the admin overview.
-  if (viewer.isAdmin && !viewer.workspace) redirect("/admin");
+  // Admins without a selected client → overview; uninvited → no-access.
+  if (!viewer.workspace) redirect(viewer.isAdmin ? "/admin" : "/no-access");
 
-  const workspace = viewer.workspace!;
+  const workspace = viewer.workspace;
   const userLabel = viewer.isAdmin ? viewer.email : viewer.agentEmail;
   const tickets = await listTickets(workspace.id);
 

@@ -16,8 +16,8 @@ export default async function InboxPage({
     folder === "all" || folder === "closed" ? folder : "inbox";
 
   const viewer = await resolveViewer();
-  if (viewer.isAdmin && !viewer.workspace) redirect("/admin");
-  const rows = await listTickets(viewer.workspace!.id);
+  if (!viewer.workspace) redirect(viewer.isAdmin ? "/admin" : "/no-access");
+  const rows = await listTickets(viewer.workspace.id);
   const now = new Date();
   const tickets = rows.map((t) => toTicketDTO(t, now));
 

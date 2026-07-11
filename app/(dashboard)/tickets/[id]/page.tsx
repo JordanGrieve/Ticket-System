@@ -14,8 +14,8 @@ export default async function TicketPage({
   if (!Number.isInteger(ticketId)) notFound();
 
   const viewer = await resolveViewer();
-  if (viewer.isAdmin && !viewer.workspace) redirect("/admin");
-  const workspace = viewer.workspace!;
+  if (!viewer.workspace) redirect(viewer.isAdmin ? "/admin" : "/no-access");
+  const workspace = viewer.workspace;
   const ownerLabel = viewer.isAdmin ? viewer.email : viewer.agentEmail;
 
   const ticket = await getTicket(workspace.id, ticketId);

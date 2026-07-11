@@ -19,3 +19,9 @@ export const INBOUND_DOMAIN =
 // Reply-To keeps threading working.
 export const EMAIL_FROM_ADDRESS =
   process.env.EMAIL_FROM_ADDRESS || "replies@postbox.help";
+
+// Self-serve sign-up. False (default) = invite-only: signing in without an
+// admin-created invite (or existing workspace) shows /no-access instead of
+// auto-provisioning a workspace. Strangers must never get a workspace — it
+// would hand them outbound email from our domain.
+export const OPEN_SIGNUP = process.env.OPEN_SIGNUP === "true";
