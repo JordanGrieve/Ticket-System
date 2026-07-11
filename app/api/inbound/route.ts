@@ -8,6 +8,7 @@ import {
   addMessage,
   upsertContact,
   backfillOutboundMessageId,
+  messageIdExists,
 } from "@/lib/data";
 import { notifyWorkspace } from "@/lib/notify";
 import { EMAIL_FROM_ADDRESS } from "@/lib/config";
@@ -65,6 +66,14 @@ export async function POST(req: Request) {
   // Resend wraps events as { type, data: {...} }; inbound test posts may be flat.
   let data = (payload.data as Record<string, unknown>) ?? payload;
 
+  // Idempotency: webhook deliveries are retried on timeout even after we
+  // processed them. The Message-ID is in the metadata, so dedupe before
+  // doing any work (or fetching the body).
+  const earlyMessageId = extractMessageId(data);
+  if (earlyMessageId && (await messageIdExists(earlyMessageId))) {
+    return json({ ok: true, duplicate: true });
+  }
+
   // Resend's email.received event carries METADATA ONLY — no body, no headers.
   // When the body is missing, fetch the full email from the Received Emails
   // API and merge it in (adds text/html and the headers record).
@@ -81,9 +90,12 @@ export async function POST(req: Request) {
     }
   }
 
+  // Length caps: email is attacker-controlled input; don't let one message
+  // bloat the database.
   const sender = extractAddress(data.from);
-  const subject = asString(data.subject) || "(no subject)";
-  const body = stripQuotedReply(extractBody(data));
+  sender.name = sender.name.slice(0, 120);
+  const subject = (asString(data.subject) || "(no subject)").slice(0, 200);
+  const body = stripQuotedReply(extractBody(data)).slice(0, 20_000);
   const recipients = normalizeRecipients(data.to);
   const messageId = extractMessageId(data);
 

@@ -55,11 +55,12 @@ export async function POST(
   }
 
   // Accept JSON (Mode B fetch) or form-encoded (Mode A native form).
+  // Public, attacker-reachable input — cap every field's length.
   const fields = await readFields(req);
-  const name = (fields.name ?? "").trim();
+  const name = (fields.name ?? "").trim().slice(0, 120);
   const email = (fields.email ?? "").trim();
-  const message = (fields.message ?? "").trim();
-  const subject = (fields.subject ?? "").trim();
+  const message = (fields.message ?? "").trim().slice(0, 10_000);
+  const subject = (fields.subject ?? "").trim().slice(0, 200);
 
   const missing: string[] = [];
   if (!name) missing.push("name");
@@ -68,7 +69,7 @@ export async function POST(
   if (missing.length > 0) {
     return badRequest(req, `Missing required field(s): ${missing.join(", ")}.`);
   }
-  if (!isValidEmail(email)) {
+  if (email.length > 254 || !isValidEmail(email)) {
     return badRequest(req, "Please provide a valid email address.");
   }
 

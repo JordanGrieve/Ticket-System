@@ -149,6 +149,20 @@ export async function listWorkspaceSummaries(): Promise<WorkspaceSummary[]> {
 }
 
 /**
+ * Has this email already been ingested? Webhook deliveries are retried on
+ * timeouts even after we processed them — matching on Message-ID makes
+ * ingestion idempotent.
+ */
+export async function messageIdExists(messageId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: ticketMessages.id })
+    .from(ticketMessages)
+    .where(eq(ticketMessages.messageId, messageId))
+    .limit(1);
+  return rows.length > 0;
+}
+
+/**
  * Backfill the real Message-ID of our most recent outbound message that
  * doesn't have one yet. SES assigns Message-IDs we never see at send time —
  * but the customer's reply carries it in In-Reply-To, so we learn it here and

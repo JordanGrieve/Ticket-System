@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { json } from "@/lib/http";
+import { rateLimit } from "@/lib/rate-limit";
 import { getTicket, getMessages, addMessage } from "@/lib/data";
 import { activeWorkspace } from "@/lib/viewer";
 import { sendReplyEmail } from "@/lib/email";
@@ -34,10 +35,29 @@ export async function POST(
   if (!message) {
     return json({ error: "Message is required." }, { status: 400 });
   }
+  if (message.length > 10_000) {
+    return json(
+      { error: "Message is too long (10,000 character max)." },
+      { status: 400 },
+    );
+  }
 
   const workspace = await activeWorkspace();
   if (!workspace) {
     return json({ error: "Select a client workspace first." }, { status: 400 });
+  }
+
+  // Replies send real email from our domain — cap the blast radius of a
+  // compromised or runaway account.
+  const limit = rateLimit(`reply:${workspace.id}`, { max: 30 });
+  if (!limit.ok) {
+    return json(
+      { error: "Too many replies at once — try again in a minute." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfterSeconds) },
+      },
+    );
   }
   const ticket = await getTicket(workspace.id, ticketId);
   if (!ticket) return json({ error: "Not found" }, { status: 404 });
