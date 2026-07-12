@@ -1,34 +1,29 @@
 import { auth } from "@clerk/nextjs/server";
-import { json, isValidEmail } from "@/lib/http";
+import { json } from "@/lib/http";
 import { activeWorkspace } from "@/lib/viewer";
 import { updateWorkspace } from "@/lib/data";
 import { ACCENT_SCHEMES } from "@/lib/theme";
 
 /**
  * PATCH /api/workspace  (authed)
- * Body: { name?, sendingEmail?, accent? } — updates the caller's own workspace.
+ * Body: { name?, accent? } — updates the caller's own workspace.
+ * (sendingEmail was removed: replies always send from our verified domain.)
  */
 export async function PATCH(req: Request) {
   const { userId } = await auth();
   if (!userId) return json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { name?: string; sendingEmail?: string; accent?: string };
+  let body: { name?: string; accent?: string };
   try {
     body = await req.json();
   } catch {
     body = {};
   }
 
-  const patch: { name?: string; sendingEmail?: string; accent?: string } = {};
+  const patch: { name?: string; accent?: string } = {};
 
   if (typeof body.name === "string" && body.name.trim()) {
-    patch.name = body.name.trim();
-  }
-  if (typeof body.sendingEmail === "string") {
-    if (!isValidEmail(body.sendingEmail.trim())) {
-      return json({ error: "Invalid reply-from email address." }, { status: 400 });
-    }
-    patch.sendingEmail = body.sendingEmail.trim();
+    patch.name = body.name.trim().slice(0, 80);
   }
   if (typeof body.accent === "string") {
     if (!ACCENT_SCHEMES[body.accent]) {

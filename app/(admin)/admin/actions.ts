@@ -5,7 +5,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireAdmin, ADMIN_WS_COOKIE } from "@/lib/viewer";
 import { addAdmin, findAdminByEmail } from "@/lib/admin";
-import { getAgentByEmail, getWorkspaceById, deleteWorkspace } from "@/lib/data";
+import {
+  getAgentByEmail,
+  getWorkspaceById,
+  deleteWorkspace,
+  getPendingAgent,
+} from "@/lib/data";
 import { provisionWorkspace, INVITE_PREFIX } from "@/lib/workspace";
 import { sendInviteEmail } from "@/lib/email";
 import { APP_URL, EMAIL_FROM_ADDRESS } from "@/lib/config";
@@ -77,6 +82,34 @@ export async function createClientAction(formData: FormData): Promise<void> {
   revalidatePath("/admin");
   redirect(
     `/admin?created=${encodeURIComponent(name)}&emailed=${invite.sent ? "1" : "0"}`,
+  );
+}
+
+/** Re-send the sign-up invitation for a client who hasn't joined yet. */
+export async function resendInviteAction(formData: FormData): Promise<void> {
+  const adminEmail = await requireAdmin();
+
+  const id = Number(formData.get("workspaceId"));
+  if (!Number.isInteger(id)) redirect("/admin?error=Invalid workspace.");
+
+  const workspace = await getWorkspaceById(id);
+  if (!workspace) redirect("/admin?error=That workspace no longer exists.");
+
+  const pending = await getPendingAgent(id);
+  if (!pending) {
+    redirect("/admin?error=That client has already signed in — nothing to resend.");
+  }
+
+  const invite = await sendInviteEmail({
+    to: pending.email,
+    businessName: workspace.name,
+    signUpUrl: `${APP_URL}/sign-up`,
+    from: EMAIL_FROM_ADDRESS,
+    inviterEmail: adminEmail,
+  });
+
+  redirect(
+    `/admin?created=${encodeURIComponent(workspace.name)}&emailed=${invite.sent ? "1" : "0"}`,
   );
 }
 

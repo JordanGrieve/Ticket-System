@@ -205,6 +205,21 @@ export async function deleteWorkspace(id: number): Promise<Workspace | null> {
   return deleted ?? null;
 }
 
+/** The workspace's pending (not-yet-signed-in) agent, if any. */
+export async function getPendingAgent(workspaceId: number): Promise<Agent | null> {
+  const rows = await db
+    .select()
+    .from(agents)
+    .where(
+      and(
+        eq(agents.workspaceId, workspaceId),
+        sql`${agents.clerkUserId} LIKE 'INVITE\\_%' OR ${agents.clerkUserId} LIKE 'SEED\\_%'`,
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 /** Distinct emails of a workspace's agents (owner + any invited teammates). */
 export async function listAgentEmails(workspaceId: number): Promise<string[]> {
   const rows = await db

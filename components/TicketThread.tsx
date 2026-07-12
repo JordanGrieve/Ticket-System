@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { TicketDTO, MessageDTO } from "@/lib/serialize";
@@ -26,6 +26,14 @@ export default function TicketThread({
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Customer replies should appear without a manual reload.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") router.refresh();
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [router]);
 
   const src = SOURCE_META[ticket.source];
   const st = STATUS_META[status];

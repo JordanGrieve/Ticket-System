@@ -1,4 +1,3 @@
-import { auth } from "@clerk/nextjs/server";
 import { CORS_HEADERS, json, isValidEmail } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { previewText } from "@/lib/tickets";
@@ -6,20 +5,12 @@ import {
   getWorkspaceByApiKey,
   upsertContact,
   createTicket,
-  getTicket,
-  getMessages,
 } from "@/lib/data";
-import { activeWorkspace } from "@/lib/viewer";
 import { notifyWorkspace } from "@/lib/notify";
 
 /**
- * This segment carries two different identifiers depending on the method:
- *
- *   POST /api/tickets/:apiKey   → PUBLIC contact-form ingestion (id = apiKey)
- *   GET  /api/tickets/:id       → AUTHED single ticket JSON  (id = ticket id)
- *
- * They never collide: apiKeys look like "cli_…", ticket ids are integers, and
- * each method enforces its own auth.
+ * POST /api/tickets/:apiKey — PUBLIC contact-form ingestion. The dashboard
+ * reads tickets through server components, so there is no JSON read API.
  */
 
 // ── CORS preflight ───────────────────────────────────────────────
@@ -98,30 +89,6 @@ export async function POST(
     { ok: true, ticket: { id: ticket.id, status: ticket.status } },
     { status: 201, headers: CORS_HEADERS },
   );
-}
-
-// ── AUTHED: single ticket JSON ───────────────────────────────────
-export async function GET(
-  _req: Request,
-  ctx: RouteContext<"/api/tickets/[id]">,
-) {
-  const { userId } = await auth();
-  if (!userId) return json({ error: "Unauthorized" }, { status: 401 });
-
-  const ticketId = Number((await ctx.params).id);
-  if (!Number.isInteger(ticketId)) {
-    return json({ error: "Invalid ticket id" }, { status: 400 });
-  }
-
-  const workspace = await activeWorkspace();
-  if (!workspace) {
-    return json({ error: "Select a client workspace first." }, { status: 400 });
-  }
-  const ticket = await getTicket(workspace.id, ticketId);
-  if (!ticket) return json({ error: "Not found" }, { status: 404 });
-
-  const messages = await getMessages(ticket.id);
-  return json({ ticket, messages });
 }
 
 // ── helpers ──────────────────────────────────────────────────────

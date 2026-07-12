@@ -8,6 +8,7 @@ import {
   addAdminAction,
   createClientAction,
   deleteClientAction,
+  resendInviteAction,
 } from "./actions";
 
 export default async function AdminHomePage({
@@ -302,18 +303,45 @@ export default async function AdminHomePage({
                 Open workspace →
               </button>
             </form>
-            <Link
-              href={`/admin?delete=${w.id}`}
+            <div
               style={{
-                alignSelf: "center",
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#b0402f",
-                opacity: 0.75,
+                display: "flex",
+                justifyContent: "center",
+                gap: 16,
+                alignItems: "center",
               }}
             >
-              Delete workspace…
-            </Link>
+              {w.pending && (
+                <form action={resendInviteAction} style={{ display: "inline" }}>
+                  <input type="hidden" name="workspaceId" value={w.id} />
+                  <button
+                    type="submit"
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "var(--accent-strong)",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    Resend invite
+                  </button>
+                </form>
+              )}
+              <Link
+                href={`/admin?delete=${w.id}`}
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#b0402f",
+                  opacity: 0.75,
+                }}
+              >
+                Delete workspace…
+              </Link>
+            </div>
           </div>
         ))}
       </div>

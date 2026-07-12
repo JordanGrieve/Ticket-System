@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { TicketDTO } from "@/lib/serialize";
 import type { TicketSource } from "@/db/schema";
 import { SOURCE_META, STATUS_META } from "@/lib/theme";
@@ -31,6 +32,16 @@ export default function Inbox({
 }) {
   const [source, setSource] = useState<SourceFilter>("all");
   const [search, setSearch] = useState("");
+  const router = useRouter();
+
+  // Keep the inbox live: new tickets used to appear only on manual reload.
+  // Server-component refetch every 45s, skipped while the tab is hidden.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") router.refresh();
+    }, 45_000);
+    return () => clearInterval(id);
+  }, [router]);
 
   const inFolder = useMemo(
     () =>
