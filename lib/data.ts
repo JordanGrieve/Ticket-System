@@ -48,6 +48,22 @@ export async function getWorkspaceByInboundEmail(email: string) {
   return rows[0] ?? null;
 }
 
+/**
+ * Mint a fresh API key for a workspace. The old key stops working
+ * immediately — that's the point (rotation after a leak).
+ */
+export async function rotateWorkspaceApiKey(
+  workspaceId: number,
+  newKey: string,
+): Promise<Workspace | null> {
+  const [updated] = await db
+    .update(workspaces)
+    .set({ apiKey: newKey })
+    .where(eq(workspaces.id, workspaceId))
+    .returning();
+  return updated ?? null;
+}
+
 export async function getWorkspaceById(id: number): Promise<Workspace | null> {
   const rows = await db
     .select()

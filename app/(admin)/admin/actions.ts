@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireAdmin, ADMIN_WS_COOKIE } from "@/lib/viewer";
-import { addAdmin, findAdminByEmail } from "@/lib/admin";
+import { addAdmin, findAdminByEmail, getAdminById, removeAdmin } from "@/lib/admin";
 import {
   getAgentByEmail,
   getWorkspaceById,
@@ -83,6 +83,27 @@ export async function createClientAction(formData: FormData): Promise<void> {
   redirect(
     `/admin?created=${encodeURIComponent(name)}&emailed=${invite.sent ? "1" : "0"}`,
   );
+}
+
+/**
+ * Remove a fellow admin. You can never remove yourself — which also
+ * guarantees at least one admin always remains.
+ */
+export async function removeAdminAction(formData: FormData): Promise<void> {
+  const selfEmail = await requireAdmin();
+
+  const id = Number(formData.get("adminId"));
+  if (!Number.isInteger(id)) redirect("/admin?error=Invalid admin.");
+
+  const target = await getAdminById(id);
+  if (!target) redirect("/admin?error=That admin no longer exists.");
+  if (target.email === selfEmail) {
+    redirect("/admin?error=You can't remove your own admin access.");
+  }
+
+  await removeAdmin(id);
+  revalidatePath("/admin");
+  redirect(`/admin?removed=${encodeURIComponent(target.email)}`);
 }
 
 /** Re-send the sign-up invitation for a client who hasn't joined yet. */

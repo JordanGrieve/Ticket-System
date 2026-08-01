@@ -60,6 +60,17 @@ export async function addAdmin(email: string): Promise<Admin> {
   return admin;
 }
 
+/** The admin row by id, or null. */
+export async function getAdminById(id: number): Promise<Admin | null> {
+  const rows = await db.select().from(admins).where(eq(admins.id, id)).limit(1);
+  return rows[0] ?? null;
+}
+
+/** Remove an admin. Callers must enforce the not-self guard. */
+export async function removeAdmin(id: number): Promise<void> {
+  await db.delete(admins).where(eq(admins.id, id));
+}
+
 /** Record the Clerk user id the first time an admin signs in (audit only). */
 export async function linkAdminClerkId(
   id: number,

@@ -9,6 +9,7 @@ import {
   createClientAction,
   deleteClientAction,
   resendInviteAction,
+  removeAdminAction,
 } from "./actions";
 
 export default async function AdminHomePage({
@@ -19,10 +20,11 @@ export default async function AdminHomePage({
     created?: string;
     emailed?: string;
     deleted?: string;
+    removed?: string;
     delete?: string;
   }>;
 }) {
-  const { error, created, emailed, deleted, delete: deleteParam } =
+  const { error, created, emailed, deleted, removed, delete: deleteParam } =
     await searchParams;
   const viewer = await resolveViewer();
   const [workspaces, admins] = await Promise.all([
@@ -111,6 +113,11 @@ export default async function AdminHomePage({
       {deleted && (
         <div style={{ ...banner, background: "#e6f2ec", border: "1px solid #cbe3d6", color: "#2c7a54" }}>
           <b>{deleted}</b> and all of its data has been permanently deleted.
+        </div>
+      )}
+      {removed && (
+        <div style={{ ...banner, background: "#e6f2ec", border: "1px solid #cbe3d6", color: "#2c7a54" }}>
+          <b>{removed}</b> is no longer an admin.
         </div>
       )}
       {deleteTarget && (
@@ -374,8 +381,26 @@ export default async function AdminHomePage({
               }}
             >
               <span>{a.email}</span>
-              {a.email === viewer.email && (
+              {a.email === viewer.email ? (
                 <span style={{ fontSize: 12, color: "var(--muted-2)" }}>you</span>
+              ) : (
+                <form action={removeAdminAction} style={{ display: "inline" }}>
+                  <input type="hidden" name="adminId" value={a.id} />
+                  <button
+                    type="submit"
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "#b0402f",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    Remove
+                  </button>
+                </form>
               )}
             </div>
           ))}

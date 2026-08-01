@@ -23,6 +23,19 @@ export default function InstallView({
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<"a" | "b" | "ai">("b");
+  const [rotating, setRotating] = useState(false);
+
+  async function rotateKey() {
+    const sure = window.confirm(
+      "Rotate the API key?\n\nThe current key stops working immediately — any form using it will fail until you update the snippet on your site. Continue?",
+    );
+    if (!sure || rotating) return;
+    setRotating(true);
+    const res = await fetch("/api/workspace/rotate-key", { method: "POST" });
+    setRotating(false);
+    if (res.ok) router.refresh();
+    else window.alert("Couldn't rotate the key — please try again.");
+  }
 
   const endpoint = `${appUrl}/api/tickets/${apiKey}`;
 
@@ -197,6 +210,22 @@ human mailbox).
         <Section title="Settings">
           <Label>Workspace API key</Label>
           <Field value={apiKey} copyLabel="Copy key" mono />
+          <button
+            onClick={rotateKey}
+            disabled={rotating}
+            style={{
+              marginTop: 8,
+              background: "transparent",
+              border: "none",
+              padding: 0,
+              fontSize: 12.5,
+              fontWeight: 600,
+              color: "#9a5a4a",
+              cursor: rotating ? "wait" : "pointer",
+            }}
+          >
+            {rotating ? "Rotating…" : "Rotate key… (old snippets stop working)"}
+          </button>
 
           <div style={{ height: 20 }} />
           <Label>Replies send from</Label>
