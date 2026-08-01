@@ -117,6 +117,23 @@ input:focus {
   animation: pb-fade-up 0.16s ease-out;
 }
 
+/* Keyboard users get a visible focus ring (mouse clicks stay clean). */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent, #d6552f);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pb-pulse,
+  .pb-fade-up {
+    animation: none;
+  }
+}
+
 @keyframes pb-pulse {
   0%,
   100% {

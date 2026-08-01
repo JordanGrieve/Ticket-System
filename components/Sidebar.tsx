@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { SignOutButton } from "@clerk/nextjs";
@@ -20,8 +20,26 @@ export default function Sidebar({
   isAdmin?: boolean;
 }) {
   const [wsMenuOpen, setWsMenuOpen] = useState(false);
+  const wsMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  // Standard menu semantics: Esc and clicking anywhere else close it.
+  useEffect(() => {
+    if (!wsMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setWsMenuOpen(false);
+    };
+    const onPointer = (e: PointerEvent) => {
+      if (!wsMenuRef.current?.contains(e.target as Node)) setWsMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, [wsMenuOpen]);
   const onList = pathname === "/inbox";
   const activeFolder = onList ? searchParams.get("folder") ?? "inbox" : "";
 
@@ -65,9 +83,12 @@ export default function Sidebar({
       )}
 
       {/* workspace dropdown */}
-      <div style={{ position: "relative" }}>
+      <div style={{ position: "relative" }} ref={wsMenuRef}>
         <button
           onClick={() => setWsMenuOpen((v) => !v)}
+          aria-haspopup="menu"
+          aria-expanded={wsMenuOpen}
+          aria-label={`Workspace menu for ${workspaceName}`}
           style={{
             display: "flex",
             alignItems: "center",

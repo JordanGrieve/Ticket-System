@@ -114,6 +114,7 @@ export default function Inbox({
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search tickets"
               placeholder="Search tickets…"
               style={{
                 border: "none",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { TicketDTO, MessageDTO } from "@/lib/serialize";
@@ -26,6 +26,26 @@ export default function TicketThread({
   const router = useRouter();
   const [status, setStatus] = useState<TicketStatus>(ticket.status);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const statusMenuRef = useRef<HTMLDivElement>(null);
+
+  // Esc / click-outside close the status menu.
+  useEffect(() => {
+    if (!statusMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setStatusMenuOpen(false);
+    };
+    const onPointer = (e: PointerEvent) => {
+      if (!statusMenuRef.current?.contains(e.target as Node)) {
+        setStatusMenuOpen(false);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, [statusMenuOpen]);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -131,9 +151,12 @@ export default function TicketThread({
           </div>
 
           {/* status dropdown */}
-          <div style={{ position: "relative", flex: "0 0 auto" }}>
+          <div style={{ position: "relative", flex: "0 0 auto" }} ref={statusMenuRef}>
             <button
               onClick={() => setStatusMenuOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={statusMenuOpen}
+              aria-label={`Change ticket status (currently ${st.label})`}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
