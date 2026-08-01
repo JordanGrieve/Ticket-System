@@ -313,6 +313,59 @@ export const listTickets = cache(
   },
 );
 
+export type TicketFolder = "inbox" | "all" | "closed";
+
+export type TicketCounts = { inbox: number; all: number; closed: number };
+
+/** Folder counts via one grouped query — no full-table load for the sidebar. */
+export const countTickets = cache(
+  async (workspaceId: number): Promise<TicketCounts> => {
+    const rows = await db
+      .select({
+        status: tickets.status,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(tickets)
+      .where(eq(tickets.workspaceId, workspaceId))
+      .groupBy(tickets.status);
+
+    let open = 0,
+      closed = 0;
+    for (const r of rows) {
+      if (r.status === "closed") closed += r.count;
+      else open += r.count;
+    }
+    return { inbox: open, all: open + closed, closed };
+  },
+);
+
+export const TICKETS_PAGE_SIZE = 50;
+
+/** One page of a folder, newest activity first. Pages are 1-based. */
+export async function listTicketsPage(
+  workspaceId: number,
+  folder: TicketFolder,
+  page: number,
+): Promise<Ticket[]> {
+  const where =
+    folder === "closed"
+      ? and(eq(tickets.workspaceId, workspaceId), eq(tickets.status, "closed"))
+      : folder === "inbox"
+        ? and(
+            eq(tickets.workspaceId, workspaceId),
+            sql`${tickets.status} != 'closed'`,
+          )
+        : eq(tickets.workspaceId, workspaceId);
+
+  return db
+    .select()
+    .from(tickets)
+    .where(where)
+    .orderBy(desc(tickets.updatedAt))
+    .limit(TICKETS_PAGE_SIZE)
+    .offset((Math.max(1, page) - 1) * TICKETS_PAGE_SIZE);
+}
+
 /** A single ticket — returns null if it isn't in this workspace. */
 export async function getTicket(
   workspaceId: number,
@@ -326,12 +379,22 @@ export async function getTicket(
   return rows[0] ?? null;
 }
 
-export async function getMessages(ticketId: number): Promise<TicketMessage[]> {
-  return db
+/**
+ * The latest `limit` messages of a ticket in chronological order, plus
+ * whether older ones were cut off (very long threads stay renderable).
+ */
+export async function getMessages(
+  ticketId: number,
+  limit = 200,
+): Promise<{ messages: TicketMessage[]; hasMore: boolean }> {
+  const rows = await db
     .select()
     .from(ticketMessages)
     .where(eq(ticketMessages.ticketId, ticketId))
-    .orderBy(ticketMessages.sentAt);
+    .orderBy(desc(ticketMessages.sentAt), desc(ticketMessages.id))
+    .limit(limit + 1);
+  const hasMore = rows.length > limit;
+  return { messages: rows.slice(0, limit).reverse(), hasMore };
 }
 
 // ── Ticket writes ────────────────────────────────────────────────
@@ -402,7 +465,8 @@ export async function addMessage(input: {
   await db
     .update(tickets)
     .set({
-      updatedAt: new Date(),
+      // DB clock, not app clock — mixing the two skews inbox ordering.
+      updatedAt: sql`now()`,
       ...(input.status ? { status: input.status } : {}),
     })
     .where(eq(tickets.id, input.ticketId));
@@ -418,7 +482,7 @@ export async function setTicketStatus(
 ): Promise<Ticket | null> {
   const [updated] = await db
     .update(tickets)
-    .set({ status, updatedAt: new Date() })
+    .set({ status, updatedAt: sql`now()` })
     .where(and(eq(tickets.id, ticketId), eq(tickets.workspaceId, workspaceId)))
     .returning();
   return updated ?? null;

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { resolveViewer } from "@/lib/viewer";
-import { listTickets } from "@/lib/data";
+import { countTickets } from "@/lib/data";
 import { accentVars } from "@/lib/theme";
 
 export default async function DashboardLayout({
@@ -15,13 +15,8 @@ export default async function DashboardLayout({
 
   const workspace = viewer.workspace;
   const userLabel = viewer.isAdmin ? viewer.email : viewer.agentEmail;
-  const tickets = await listTickets(workspace.id);
-
-  const counts = {
-    inbox: tickets.filter((t) => t.status !== "closed").length,
-    all: tickets.length,
-    closed: tickets.filter((t) => t.status === "closed").length,
-  };
+  // Grouped COUNT — the sidebar no longer loads every ticket row.
+  const counts = await countTickets(workspace.id);
 
   return (
     <div

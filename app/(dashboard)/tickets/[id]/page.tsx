@@ -21,12 +21,13 @@ export default async function TicketPage({
   const ticket = await getTicket(workspace.id, ticketId);
   if (!ticket) notFound();
 
-  const messages = await getMessages(ticket.id);
+  const { messages, hasMore } = await getMessages(ticket.id);
 
   return (
     <TicketThread
       ticket={toTicketDTO(ticket)}
       messages={messages.map(toMessageDTO)}
+      hasOlderMessages={hasMore}
       fromAddress={`${workspace.name} <${EMAIL_FROM_ADDRESS}>`}
       ownerLabel={ownerLabel}
     />

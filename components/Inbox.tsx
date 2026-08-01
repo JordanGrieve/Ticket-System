@@ -26,9 +26,16 @@ const FOLDER_LABEL: Record<Folder, string> = {
 export default function Inbox({
   tickets,
   folder,
+  counts,
+  page,
+  pageCount,
 }: {
+  /** Already folder-filtered and paginated server-side. */
   tickets: TicketDTO[];
   folder: Folder;
+  counts: { inbox: number; all: number; closed: number };
+  page: number;
+  pageCount: number;
 }) {
   const [source, setSource] = useState<SourceFilter>("all");
   const [search, setSearch] = useState("");
@@ -43,19 +50,11 @@ export default function Inbox({
     return () => clearInterval(id);
   }, [router]);
 
-  const inFolder = useMemo(
-    () =>
-      tickets.filter((t) => {
-        if (folder === "closed") return t.status === "closed";
-        if (folder === "inbox") return t.status !== "closed";
-        return true;
-      }),
-    [tickets, folder],
-  );
-
+  // Folder filtering + pagination happen server-side; the chips and search
+  // refine within the current page.
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return inFolder.filter((t) => {
+    return tickets.filter((t) => {
       if (source !== "all" && t.source !== source) return false;
       if (
         q &&
@@ -68,10 +67,7 @@ export default function Inbox({
         return false;
       return true;
     });
-  }, [inFolder, source, search]);
-
-  const openCount = tickets.filter((t) => t.status === "open").length;
-  const activeCount = tickets.filter((t) => t.status !== "closed").length;
+  }, [tickets, source, search]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", minHeight: 0 }}>
@@ -90,7 +86,7 @@ export default function Inbox({
               {FOLDER_LABEL[folder]}
             </h1>
             <p style={{ fontSize: 13, color: "var(--muted-2)", marginTop: 3 }}>
-              {openCount} open · {activeCount} active
+              {counts.inbox} active · {counts.closed} closed
             </p>
           </div>
           <div
@@ -185,7 +181,7 @@ export default function Inbox({
       <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "8px 20px 24px" }}>
         {visible.length === 0 ? (
           <EmptyState
-            hasAny={tickets.length > 0}
+            hasAny={counts.all > 0}
             onClear={() => {
               setSource("all");
               setSearch("");
@@ -193,6 +189,45 @@ export default function Inbox({
           />
         ) : (
           visible.map((t) => <Row key={t.id} t={t} />)
+        )}
+
+        {pageCount > 1 && (
+          <nav
+            aria-label="Ticket pages"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 14,
+              padding: "16px 0 4px",
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            {page > 1 ? (
+              <Link
+                href={`/inbox?folder=${folder}&page=${page - 1}`}
+                style={{ color: "var(--accent-strong)" }}
+              >
+                ← Newer
+              </Link>
+            ) : (
+              <span style={{ color: "var(--muted-3)" }}>← Newer</span>
+            )}
+            <span style={{ color: "var(--muted-2)", fontWeight: 500 }}>
+              Page {page} of {pageCount}
+            </span>
+            {page < pageCount ? (
+              <Link
+                href={`/inbox?folder=${folder}&page=${page + 1}`}
+                style={{ color: "var(--accent-strong)" }}
+              >
+                Older →
+              </Link>
+            ) : (
+              <span style={{ color: "var(--muted-3)" }}>Older →</span>
+            )}
+          </nav>
         )}
       </div>
     </div>

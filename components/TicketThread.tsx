@@ -12,11 +12,14 @@ import { formatDateTime } from "@/lib/serialize";
 export default function TicketThread({
   ticket,
   messages,
+  hasOlderMessages = false,
   fromAddress,
   ownerLabel,
 }: {
   ticket: TicketDTO;
   messages: MessageDTO[];
+  /** True when the thread was capped to the latest messages. */
+  hasOlderMessages?: boolean;
   fromAddress: string;
   ownerLabel: string;
 }) {
@@ -201,6 +204,19 @@ export default function TicketThread({
       {/* thread */}
       <div style={{ flex: 1, overflowY: "auto", padding: "24px 32px 8px" }}>
         <div style={{ maxWidth: 780, margin: "0 auto" }}>
+          {hasOlderMessages && (
+            <p
+              style={{
+                textAlign: "center",
+                fontSize: 12.5,
+                color: "var(--muted-2)",
+                margin: "0 0 14px",
+              }}
+            >
+              Showing the latest 200 messages — older history is retained but
+              not displayed.
+            </p>
+          )}
           {isOrder && (
             <div
               style={{

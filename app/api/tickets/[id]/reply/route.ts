@@ -67,7 +67,7 @@ export async function POST(
   // In-Reply-To (SES overwrites any Message-ID we set, so we can't mint ids).
   // The customer's mail client threads on ids it has seen, so this groups the
   // conversation on their side.
-  const history = await getMessages(ticket.id);
+  const { messages: history } = await getMessages(ticket.id);
   const chain = history
     .map((m) => m.messageId)
     .filter((id): id is string => !!id);
