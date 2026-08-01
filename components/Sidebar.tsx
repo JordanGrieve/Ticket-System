@@ -206,6 +206,25 @@ export default function Sidebar({
         );
       })}
 
+      <Link
+        href="/contacts"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 9,
+          padding: "10px 12px",
+          borderRadius: 10,
+          marginTop: 6,
+          fontSize: 14,
+          fontWeight: pathname === "/contacts" ? 700 : 500,
+          color: pathname === "/contacts" ? "var(--ink)" : "#6b6255",
+          background: pathname === "/contacts" ? "#fff" : "transparent",
+          border: `1px solid ${pathname === "/contacts" ? "var(--border)" : "transparent"}`,
+        }}
+      >
+        <span aria-hidden style={{ fontSize: 14 }}>☺</span> Contacts
+      </Link>
+
       <div style={{ marginTop: "auto" }}>
         <Link href="/install" style={{ ...menuItem, color: "#6b6255" }}>
           <span style={{ fontSize: 15 }}>⚙</span> Settings

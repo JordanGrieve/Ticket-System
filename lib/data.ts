@@ -253,6 +253,35 @@ export async function upsertContact(
     .onConflictDoNothing();
 }
 
+export type ContactWithCount = {
+  id: number;
+  name: string;
+  email: string;
+  firstSeen: Date;
+  ticketCount: number;
+};
+
+/** A workspace's contacts, newest first, with how many tickets each has. */
+export async function listContactsWithCounts(
+  workspaceId: number,
+): Promise<ContactWithCount[]> {
+  return db
+    .select({
+      id: contacts.id,
+      name: contacts.name,
+      email: contacts.email,
+      firstSeen: contacts.firstSeen,
+      ticketCount: sql<number>`(
+        SELECT count(*)::int FROM tickets t
+        WHERE t.workspace_id = ${workspaceId}
+          AND t.customer_email = ${contacts.email}
+      )`,
+    })
+    .from(contacts)
+    .where(eq(contacts.workspaceId, workspaceId))
+    .orderBy(desc(contacts.firstSeen));
+}
+
 // ── Ticket reads (always scoped to a workspace) ──────────────────
 
 // Wrapped in React cache() so the dashboard layout (which needs counts) and the

@@ -1,13 +1,17 @@
 # Postbox — multi-tenant support ticket system
 
 A standalone SaaS product that turns any business's **contact form** and **inbound
-email** into a clean, threaded support inbox. A business owner signs up, gets a
-workspace with a unique API key, pastes a snippet onto their existing site, and
-from then on submissions flow into their ticket dashboard instead of their inbox.
-Replies send as real email from their address; customer replies thread back in.
+email** into a clean, threaded support inbox. Sign-up is **invite-only**: an
+operator creates a client's workspace from `/admin`, the client receives a
+branded invite email and signs up with that address, pastes a snippet onto their
+existing site (or hands their AI assistant the ready-made integration prompt),
+and from then on submissions flow into their ticket dashboard. Replies send as
+real email from `"Business Name" <replies@<our domain>>` — never from the
+client's own (unverifiable) domain — and customer replies thread back in.
 
 This app is completely separate from any client site — its own repo, its own
-database, its own domain (e.g. `support.yourapp.com`).
+database, its own domain (live: `postbox.help`). See `PROJECT_STATUS.md` for
+current state and `DEPLOYMENT.md` for the pipeline.
 
 ## Stack
 
@@ -39,8 +43,11 @@ Three ways tickets are created, all landing in the same inbox:
    ticket with the id stored.
 
 Replies to existing tickets use a per-ticket `Reply-To` of
-`ticket+TKT-<id>@inbound.yourapp.com`; when a customer replies, the ticket id is
-extracted from the address and the message threads back into the same ticket.
+`ticket+TKT-<id>-<secret>@<root domain>` (the root domain, because Resend
+requires the inbound MX at the apex; the per-ticket secret stops anyone from
+mailing into other tenants' tickets by guessing sequential ids). When a
+customer replies, the id + token are validated and the message threads back
+into the same ticket.
 
 ## Multi-tenancy
 
