@@ -10,6 +10,9 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
  * redirect) when unauthenticated.
  */
 const isPublicRoute = createRouteMatcher([
+  "/",
+  "/terms",
+  "/privacy",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/(.*)",

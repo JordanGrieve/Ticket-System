@@ -11,7 +11,7 @@ import { accentVars } from "@/lib/theme";
 export default async function NoAccessPage() {
   const viewer = await resolveViewer();
   if (viewer.isAdmin) redirect("/admin");
-  if (viewer.workspace) redirect("/");
+  if (viewer.workspace) redirect("/inbox");
 
   return (
     <div

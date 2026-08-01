@@ -91,7 +91,7 @@ export default function TicketThread({
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
           <div style={{ minWidth: 0 }}>
             <Link
-              href="/"
+              href="/inbox"
               style={{
                 display: "inline-flex",
                 alignItems: "center",

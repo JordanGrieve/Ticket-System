@@ -42,7 +42,7 @@ export async function selectWorkspaceAction(formData: FormData): Promise<void> {
     sameSite: "lax",
     path: "/",
   });
-  redirect("/");
+  redirect("/inbox");
 }
 
 /**

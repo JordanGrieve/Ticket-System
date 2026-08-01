@@ -127,6 +127,6 @@ export async function activeWorkspace(): Promise<Workspace | null> {
  */
 export async function requireAdmin(): Promise<string> {
   const viewer = await resolveViewer();
-  if (!viewer.isAdmin) redirect("/");
+  if (!viewer.isAdmin) redirect("/inbox");
   return viewer.email;
 }

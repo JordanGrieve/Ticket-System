@@ -22,7 +22,7 @@ export default function Sidebar({
   const [wsMenuOpen, setWsMenuOpen] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const onList = pathname === "/";
+  const onList = pathname === "/inbox";
   const activeFolder = onList ? searchParams.get("folder") ?? "inbox" : "";
 
   const folders: { key: string; label: string; count: number }[] = [
@@ -174,7 +174,7 @@ export default function Sidebar({
         return (
           <Link
             key={f.key}
-            href={f.key === "inbox" ? "/" : `/?folder=${f.key}`}
+            href={f.key === "inbox" ? "/inbox" : `/inbox?folder=${f.key}`}
             style={{
               display: "flex",
               alignItems: "center",
