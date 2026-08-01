@@ -1,7 +1,9 @@
 # Postbox — Project Status
 
-**Date:** 1 August 2026
+**Date:** 1 August 2026 (updated after the evening Asana work run)
 **Repo:** `JordanGrieve/Ticket-System` (public) · **Live:** https://postbox.help
+**Note:** the evening run's 9 commits (tests → a11y) are **local, not yet pushed** —
+production still runs the morning state until the next push.
 
 ## Overview
 
@@ -55,6 +57,23 @@ have been run and every critical finding from both is fixed and deployed.
 - **First client onboarded** — pilot client signed up, claimed their workspace,
   and ran a full form → ticket → reply → threaded-response conversation.
 
+**Added in the evening work run (local commits, pending push):**
+
+- **Automated test suite** — Vitest, 27 unit tests over the parsing/threading
+  logic; `npm test`.
+- **CI + migrate-on-deploy** — GitHub Actions (tests + dummy-env build);
+  Vercel `buildCommand` now runs migrations before building; `DEPLOYMENT.md`
+  documents the staging recipe.
+- **Public landing page** — `/` now markets to signed-out visitors (dashboard
+  moved to `/inbox`); Terms + Privacy pages live at `/terms` & `/privacy`.
+- **Contacts page** — the silently-collected contacts table is finally visible.
+- **API-key rotation & admin removal** — both with guards.
+- **Pagination** — 50/page inbox with SQL counts; 200-message thread cap; and
+  the paging test caught a real clock-skew ordering bug (fixed: DB clock
+  everywhere).
+- **Accessibility pass** — menu Esc/click-outside semantics, focus-visible
+  rings, reduced-motion support, input labels.
+
 ## In progress
 
 - **Pilot period with the first client** — watching real usage for rough edges;
@@ -62,22 +81,18 @@ have been run and every critical finding from both is fixed and deployed.
 
 ## Remaining work
 
-- Error monitoring (Sentry or similar) — production failures are currently invisible.
-- Staging environment + CI (build/typecheck on PRs) + migrate-on-deploy step
-  (migrations currently run manually from a laptop before pushing).
-- Automated test suite — everything is verified by ad-hoc scripts today.
-- Pagination for tickets/messages (fine below ~1k tickets per workspace).
-- Mobile responsiveness + accessibility pass (fixed sidebar, no focus states,
-  dropdowns lack Esc/click-outside handling).
-- Public landing page (postbox.help currently goes straight to sign-in).
-- Legal: Terms/Privacy pages and a GDPR data-export story (customer PII is stored).
-- Multi-agent workspaces (one login per client today), admin-removal UI,
-  workspace API-key rotation.
-- Move rate limiting to Upstash Redis when traffic justifies multi-instance.
-- "Contacts" page — the table is populated on every ticket but never read (a
-  ready-made CRM-lite feature).
-- Doc drift: README still describes self-serve sign-up and replies-from-client-
-  address; DMARC `rua` still points at a GoDaddy leftover address.
+- **Push + deploy the evening run** (9 local commits) — then the staging
+  dashboard steps in `DEPLOYMENT.md` (Neon branch + Preview env vars, ~10 min).
+- Error monitoring — blocked on a Sentry DSN (account needed); wiring is ready
+  to go once provided.
+- Upstash Redis rate limiting — blocked on Upstash credentials; not urgent.
+- Responsive mobile layout (split from the a11y pass — visual work).
+- Workspace teams — multiple logins per client (split; schema already allows it).
+- GDPR self-service data export (split; privacy policy promises on-request
+  handling meanwhile).
+- Professional review of the Terms/Privacy drafts before serious scale.
+- DMARC `rua` still points at a GoDaddy leftover address (60-second Cloudflare
+  edit).
 
 ## Blockers
 
