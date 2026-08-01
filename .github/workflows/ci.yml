@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    env:
+      # Dummy values: the build only needs env vars to EXIST — every page is
+      # dynamic, so nothing connects to real services at build time.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?sslmode=disable
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2ktZHVtbXkuY2xlcmsuYWNjb3VudHMuZGV2JA
+      CLERK_SECRET_KEY: sk_test_ci_dummy
+      RESEND_API_KEY: re_placeholder
+      INBOUND_WEBHOOK_SECRET: dev-secret-change-me
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      INBOUND_EMAIL_DOMAIN: ci.invalid
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Unit tests
+        run: npm test
+      - name: Production build
+        run: npm run build
