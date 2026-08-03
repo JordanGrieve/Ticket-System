@@ -1,35 +1,44 @@
 # Human actions — Postbox
 
-**Date:** 1 August 2026 · Things only Jordan can do. Claude handles everything code-side.
+**Date:** 3 August 2026 · Things only Jordan can do. Claude handles everything code-side.
 Ordered by leverage within each group. Tick as you go.
 
 ## 1 · Do now (quick, high leverage)
 
-- [ ] **Enable 2FA on your admin account** — *the* security gap: this account can
-  read every client's data. **How:** sign in at postbox.help → account menu →
-  Manage account → Security → add an authenticator app (Google Authenticator /
-  1Password). **2 min.** (Asana: 🚧 Enable 2FA)
-- [ ] **Eyeball the freshly deployed pages** — the landing page (`postbox.help`
-  signed out), `/terms`, `/privacy`, `/contacts`, and the new pagination controls
-  went live with today's push; I can verify content but not styled rendering
-  behind login. Report anything that looks off and it gets fixed same-day.
-  **5 min.**
-- [ ] **Confirm CI's first run went green** — github.com/JordanGrieve/Ticket-System
-  → Actions tab → the "CI" run on today's push should be ✅. If red, paste the
-  failing lines in chat. **1 min.**
-- [ ] **Fix the DMARC report address** — it still reports to GoDaddy's parking
-  service. **How:** Cloudflare → postbox.help → DNS → edit the `_dmarc` TXT
-  record → change `rua=mailto:dmarc_rua@onsecureserver.net` to
-  `rua=mailto:` + your own email. **1 min.** (helps email deliverability insight)
-- [ ] **Get a Sentry DSN** — unblocks error monitoring (code side is ~30 min once
-  you have it). **How:** sentry.io → sign up (free tier) → Create project →
-  Next.js → copy the DSN → add to Vercel env as `SENTRY_DSN` (Production ticked)
-  — don't paste it in chat, just say "Sentry DSN is in Vercel". **10 min.**
-  (Asana: Error monitoring)
-- [ ] **Delete the orphan Clerk user** — leftover test signup with production
-  access to nothing (lands on /no-access) — still, tidy it. **How:**
-  dashboard.clerk.com → Production instance → Users → the account that isn't
-  you or your client → ⋯ → Delete. **1 min.** (Asana: 🚧 orphan user)
+- [ ] **Turn on 2FA for your Google account** — this is the free substitute for
+  Clerk MFA, and it closes most of the gap. You sign into Postbox **only** via
+  Google OAuth, so Google's second factor gates the sign-in before Clerk is ever
+  reached. Clerk's own MFA is a paid add-on (deferred — see §2), but this isn't.
+  **How:** myaccount.google.com → Security → 2-Step Verification. **2 min.**
+- [ ] **Enable 2FA on your Clerk *dashboard* account** — different account, and
+  free: it administers the whole Clerk instance, so it's the bigger blast radius
+  of the two. dashboard.clerk.com → avatar → Account → Security → two-step
+  verification. **2 min.**
+- [ ] **Sentry: check the DSN you pasted into Vercel ends `/4511847016235088`**
+  — that is the live `postbox` project's ID, read straight from Sentry. An
+  earlier screenshot showed `4511847062306896`, which is *not* the current
+  project; if that's what landed in Vercel, production will report into nothing.
+  Both `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` should hold the same value and
+  end in the same ID. **2 min.** Local `.env.local` is already correct.
+- [ ] **Sentry: `SENTRY_AUTH_TOKEN` (optional, for readable stack traces)** —
+  sentry.io → Settings → Developer Settings → **Auth Tokens** → Create New
+  Token (scopes `project:releases`, `org:read`) → Vercel env, **Sensitive ON**,
+  Production + Preview. Without it errors still arrive; the frames just show
+  minified names. **5 min.** (Asana: Error monitoring)
+- [x] ~~**Eyeball the freshly deployed pages**~~ — done 3 Aug: Jordan confirmed
+  `/terms`, `/privacy`, `/inbox` and `/contacts` all look right; landing page,
+  `/terms` and `/privacy` also verified live over HTTP.
+- [x] ~~**Confirm CI's first run went green**~~ — done: both CI runs on the
+  2 Aug pushes passed (39s each). Nothing for you here.
+- [x] ~~**Fix the DMARC report address**~~ — done 3 Aug: `rua` now points at
+  jordangrieve.dev@gmail.com, verified live via Google's resolver. Note: Gmail
+  is an external destination, so strict reporters may skip you; if coverage
+  matters later, move `rua` to a free DMARC digest service.
+- [ ] **Decide on the Sentry plan** — you're on a 14-day trial of a paid tier.
+  The **free** Developer plan (5k errors/month) is plenty for a one-client
+  pilot; you can let the trial lapse rather than upgrading. Nothing in the code
+  depends on the paid features.
+- [x] ~~**Delete the orphan Clerk user**~~ — done 3 Aug by Jordan.
 - [ ] **Rotate the three exposed secrets** — Clerk `sk_live`, Neon DB password,
   Resend API key all passed through AI chat transcripts during setup. **How:**
   regenerate each in its dashboard (Clerk → API keys; Neon → Roles → reset
@@ -40,6 +49,20 @@ Ordered by leverage within each group. Tick as you go.
 
 ## 2 · Do soon (nothing stuck yet, but needed)
 
+- [ ] **Clerk MFA — deferred on cost (revisit when clients grow)** — TOTP is off
+  at the instance level and turning it on needs Clerk's paid Enhanced
+  Authentication add-on. Deliberately parked 3 Aug; Google-account 2FA (§1) is
+  the free stand-in and covers the sign-in path, since Google OAuth is the only
+  way in. Revisit when you take paying clients or add non-Google logins — at
+  that point client accounts, not just yours, will want a second factor.
+  (Asana: 🚧 Enable 2FA)
+- [ ] **Privacy policy: add Sentry as a sub-processor** — Sentry is now a third
+  party that can receive fragments of your clients' data in error reports. The
+  SDK is configured conservatively (no request bodies, headers, user info or
+  local variables — see [sentry.server.config.ts](sentry.server.config.ts)), but
+  stack traces and URLs can still incidentally carry identifiers. `/privacy`
+  lists sub-processors; Sentry should join Neon, Clerk, Resend and Vercel there.
+  Say the word and I'll draft the edit.
 - [ ] **Set up staging** — 10 minutes of dashboard clicks, documented
   click-by-click in `DEPLOYMENT.md`: Neon branch DB + Vercel Preview-scoped
   `DATABASE_URL` + dev-instance Clerk keys for previews. After this, risky

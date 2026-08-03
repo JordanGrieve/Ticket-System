@@ -1,15 +1,24 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
+import { useEffect } from "react";
+
 /**
  * Branded error boundary — without this, a server hiccup shows clients
  * Next.js's raw white error screen.
  */
 export default function ErrorPage({
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  // Makes the "it's been noted on our side" copy below actually true.
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   return (
     <div
       style={{

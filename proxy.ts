@@ -16,6 +16,9 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/(.*)",
+  // Sentry's tunnelRoute — browser error/trace events POST here and are
+  // forwarded to Sentry. Must not require a session.
+  "/monitoring(.*)",
 ]);
 
 export default clerkMiddleware(
