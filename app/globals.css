@@ -192,7 +192,8 @@ textarea:focus-visible {
    nothing there. */
 .pb-topbar,
 .pb-scrim,
-.pb-back {
+.pb-back,
+.pb-drawer-close {
   display: none;
 }
 
@@ -239,6 +240,14 @@ textarea:focus-visible {
   }
   .pb-sidebar[data-open="true"] {
     transform: translateX(0);
+  }
+
+  .pb-drawer-close {
+    display: inline-flex;
+  }
+  /* Clear the close button so it never sits on top of the first nav item. */
+  .pb-sidebar {
+    padding-top: 58px;
   }
 
   .pb-scrim {

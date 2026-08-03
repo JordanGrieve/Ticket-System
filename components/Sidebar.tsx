@@ -130,6 +130,32 @@ export default function Sidebar({
           borderRight: "1px solid var(--border)",
         }}
       >
+        {/* Mobile-only: the scrim and Esc already close the drawer, but an
+            explicit control is the one people look for. */}
+        <button
+          className="pb-drawer-close"
+          onClick={() => setNavOpen(false)}
+          aria-label="Close navigation"
+          style={{
+            position: "absolute",
+            top: 12,
+            right: 12,
+            width: 34,
+            height: 34,
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: 9,
+            border: "1px solid var(--border)",
+            background: "#fff",
+            color: "var(--ink-2)",
+            fontSize: 16,
+            lineHeight: 1,
+            cursor: "pointer",
+          }}
+        >
+          ✕
+        </button>
+
       {isAdmin && (
         <Link
           href="/admin"

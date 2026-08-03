@@ -63,23 +63,10 @@ export default async function AdminHomePage({
           p
         </div>
         <span style={{ fontSize: 20, fontWeight: 700 }}>postbox</span>
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: ".08em",
-            textTransform: "uppercase",
-            color: "var(--accent-strong)",
-            background: "var(--accent-soft)",
-            border: "1px solid var(--accent-line)",
-            borderRadius: 20,
-            padding: "3px 9px",
-          }}
-        >
-          Admin
-        </span>
+        {/* The Admin badge and signed-in email used to live here. On a phone
+            they crowded "Sign out" off the edge, and neither told you anything
+            the page itself doesn't — you can only reach /admin as an admin. */}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
-          <span style={{ fontSize: 13, color: "var(--muted)" }}>{viewer.email}</span>
           <SignOutButton>
             <button
               style={{
