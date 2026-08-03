@@ -5,7 +5,8 @@ import * as Sentry from "@sentry/nextjs";
  * register(). See sentry.server.config.ts for the PII rationale.
  */
 Sentry.init({
-  dsn: process.env.SENTRY_DSN,
+  // See sentry.server.config.ts — one DSN, either variable name.
+  dsn: process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN,
 
   tracesSampleRate: process.env.NODE_ENV === "development" ? 1.0 : 0.1,
 

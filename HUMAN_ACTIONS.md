@@ -14,12 +14,18 @@ Ordered by leverage within each group. Tick as you go.
   free: it administers the whole Clerk instance, so it's the bigger blast radius
   of the two. dashboard.clerk.com → avatar → Account → Security → two-step
   verification. **2 min.**
-- [ ] **Sentry: check the DSN you pasted into Vercel ends `/4511847016235088`**
-  — that is the live `postbox` project's ID, read straight from Sentry. An
-  earlier screenshot showed `4511847062306896`, which is *not* the current
-  project; if that's what landed in Vercel, production will report into nothing.
-  Both `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` should hold the same value and
-  end in the same ID. **2 min.** Local `.env.local` is already correct.
+- [ ] **Sentry: add the missing `SENTRY_DSN` in Vercel** — deployed and verified
+  3 Aug: **browser** errors reach Sentry from production (confirmed with a real
+  event, `environment=production`, `release=92361bb`). **Server** errors do not.
+  100 production requests produced zero server traces, which at a 10% sample
+  rate is not chance. `NEXT_PUBLIC_SENTRY_DSN` is clearly set — it's inlined in
+  the shipped bundle — so the likely cause is that the second variable,
+  **`SENTRY_DSN`** (no prefix), is missing, misspelled, or scoped to Preview
+  rather than Production. **How:** Vercel → `ticket-system` → Settings →
+  Environment Variables → confirm a variable named exactly `SENTRY_DSN` exists
+  with **Production** ticked and the same value as the public one, then
+  **Redeploy** (server vars are read at runtime, but a redeploy is the clean
+  way to be sure). **3 min.** Tell me when it's done and I'll re-verify.
 - [ ] **Sentry: `SENTRY_AUTH_TOKEN` (optional, for readable stack traces)** —
   sentry.io → Settings → Developer Settings → **Auth Tokens** → Create New
   Token (scopes `project:releases`, `org:read`) → Vercel env, **Sensitive ON**,

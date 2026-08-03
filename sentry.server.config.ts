@@ -13,7 +13,11 @@ import * as Sentry from "@sentry/nextjs";
  * lib/notify.ts and app/api/inbound hold raw customer content.
  */
 Sentry.init({
-  dsn: process.env.SENTRY_DSN,
+  // Falls back to the public var so there's ONE DSN to configure, not two under
+  // different names. A DSN is public by design, so reading the NEXT_PUBLIC_ one
+  // server-side costs nothing. (Setting only NEXT_PUBLIC_SENTRY_DSN is exactly
+  // how server reporting silently stayed dark after the first deploy.)
+  dsn: process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN,
 
   // 100% in dev, 10% in production
   tracesSampleRate: process.env.NODE_ENV === "development" ? 1.0 : 0.1,
