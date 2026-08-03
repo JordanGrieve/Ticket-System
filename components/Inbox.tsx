@@ -183,7 +183,7 @@ export default function Inbox({
 
       {/* rows */}
       <div
-        className="pb-pad-x"
+        className="pb-pad-x pb-scroll"
         style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "8px 20px 24px" }}
       >
         {visible.length === 0 ? (

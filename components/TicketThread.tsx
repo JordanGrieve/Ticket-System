@@ -230,7 +230,7 @@ export default function TicketThread({
       </div>
 
       {/* thread */}
-      <div className="pb-pad-x" style={{ flex: 1, overflowY: "auto", padding: "24px 32px 8px" }}>
+      <div className="pb-pad-x pb-scroll" style={{ flex: 1, overflowY: "auto", padding: "24px 32px 8px" }}>
         <div style={{ maxWidth: 780, margin: "0 auto" }}>
           {hasOlderMessages && (
             <p

@@ -245,6 +245,23 @@ textarea:focus-visible {
   .pb-drawer-close {
     display: inline-flex;
   }
+
+  /* Scroll-lock behind the open drawer.
+     The body never scrolls here — each pane scrolls internally, and its
+     overflow-y is an inline style, so only !important overrides it.
+     Keying off :has(.pb-scrim) means the lock appears and lifts with the
+     drawer itself, with no JS and nothing to leak if a render is missed.
+     Scoped inside the media query so a mobile-open drawer that gets rotated
+     to desktop width can't leave the page frozen. */
+  .pb-shell:has(.pb-scrim) .pb-scroll {
+    overflow: hidden !important;
+  }
+  /* Stops a drag that starts on the scrim from chaining to whatever is
+     scrollable underneath it. */
+  .pb-scrim {
+    touch-action: none;
+    overscroll-behavior: contain;
+  }
   /* Clear the close button so it never sits on top of the first nav item. */
   .pb-sidebar {
     padding-top: 58px;
