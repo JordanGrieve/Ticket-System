@@ -18,7 +18,7 @@ export default function PrivacyPage() {
         Message-IDs) used to thread conversations correctly.
       </p>
 
-      <h2 style={h2}>How it's used</h2>
+      <h2 style={h2}>How it&rsquo;s used</h2>
       <p>
         Solely to operate the service: creating tickets, sending replies and
         notifications, and threading conversations. We do not sell data, use

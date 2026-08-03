@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored Clerk skill templates — third-party sample code, not ours to
+    // lint or fix. Without this, CI fails on someone else's <head> element.
+    ".agents/**",
   ]),
 ]);
 

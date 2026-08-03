@@ -1,6 +1,7 @@
 "use client";
 
 import * as Sentry from "@sentry/nextjs";
+import Link from "next/link";
 import { useEffect } from "react";
 
 /**
@@ -84,7 +85,7 @@ export default function ErrorPage({
           >
             Try again
           </button>
-          <a
+          <Link
             href="/"
             style={{
               height: 40,
@@ -100,7 +101,7 @@ export default function ErrorPage({
             }}
           >
             Back to inbox
-          </a>
+          </Link>
         </div>
       </div>
     </div>

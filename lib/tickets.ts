@@ -117,7 +117,7 @@ export function stripQuotedReply(text: string): string {
     }
   }
 
-  let kept = lines.slice(0, cut);
+  const kept = lines.slice(0, cut);
 
   // Drop trailing quoted lines and blank lines left behind.
   while (kept.length > 0) {
