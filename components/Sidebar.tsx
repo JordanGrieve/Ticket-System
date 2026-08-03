@@ -20,9 +20,26 @@ export default function Sidebar({
   isAdmin?: boolean;
 }) {
   const [wsMenuOpen, setWsMenuOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const wsMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  // Navigating closes the drawer. Without this it stays open over the page
+  // you just tapped through to, which reads as a broken link.
+  useEffect(() => {
+    setNavOpen(false);
+  }, [pathname, searchParams]);
+
+  // Esc closes the drawer, matching the workspace menu's behaviour.
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setNavOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [navOpen]);
 
   // Standard menu semantics: Esc and clicking anywhere else close it.
   useEffect(() => {
@@ -50,17 +67,69 @@ export default function Sidebar({
   ];
 
   return (
-    <aside
-      style={{
-        width: 222,
-        flex: "0 0 222px",
-        background: "var(--sidebar-bg)",
-        borderRight: "1px solid var(--border)",
-        display: "flex",
-        flexDirection: "column",
-        padding: "16px 14px",
-      }}
-    >
+    <>
+      {/* Mobile top bar. CSS hides it entirely above 768px. */}
+      <header className="pb-topbar">
+        <button
+          onClick={() => setNavOpen(true)}
+          aria-label="Open navigation"
+          aria-expanded={navOpen}
+          style={{
+            width: 38,
+            height: 38,
+            flex: "0 0 auto",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 4,
+            borderRadius: 9,
+            border: "1px solid var(--border)",
+            background: "#fff",
+            cursor: "pointer",
+          }}
+        >
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              style={{ width: 15, height: 1.8, borderRadius: 2, background: "var(--ink-2)" }}
+            />
+          ))}
+        </button>
+        <div style={{ minWidth: 0, lineHeight: 1.2 }}>
+          <div
+            style={{
+              fontSize: 14.5,
+              fontWeight: 700,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {workspaceName}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--muted-2)" }}>
+            {isAdmin ? "viewing as admin" : "postbox"}
+          </div>
+        </div>
+      </header>
+
+      {navOpen && (
+        <div
+          className="pb-scrim"
+          onClick={() => setNavOpen(false)}
+          aria-hidden
+        />
+      )}
+
+      <aside
+        className="pb-sidebar"
+        data-open={navOpen}
+        style={{
+          background: "var(--sidebar-bg)",
+          borderRight: "1px solid var(--border)",
+        }}
+      >
       {isAdmin && (
         <Link
           href="/admin"
@@ -296,7 +365,8 @@ export default function Sidebar({
           </div>
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 

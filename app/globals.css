@@ -146,3 +146,182 @@ textarea:focus-visible {
 .pb-pulse {
   animation: pb-pulse 1.1s ease-in-out infinite;
 }
+
+/* ───────────────────────────────────────────────────────────────
+   Responsive shell.
+
+   The dashboard is styled with inline styles, which cannot carry
+   media queries — so anything that must CHANGE between phone and
+   desktop lives here as a class instead. Inline styles beat classes
+   on specificity, so a property moved here must be REMOVED from the
+   component's style object, not just overridden.
+
+   Phones (≤768px) get a messaging-app shape: a fixed top bar, the
+   sidebar as an off-canvas drawer, and one full-width pane at a time
+   (list OR thread), navigated by the routes we already have.
+   ─────────────────────────────────────────────────────────────── */
+
+.pb-shell {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  /* dvh tracks the mobile address bar as it hides/shows; vh does not,
+     which is what makes fixed composers get cut off on iOS Safari. */
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.pb-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pb-sidebar {
+  width: 222px;
+  flex: 0 0 222px;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 14px;
+  overflow-y: auto;
+}
+
+/* Mobile-only chrome: hidden entirely on desktop so the markup costs
+   nothing there. */
+.pb-topbar,
+.pb-scrim,
+.pb-back {
+  display: none;
+}
+
+/* Panes fill their parent; on mobile they also sit below the top bar. */
+.pb-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 768px) {
+  .pb-topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 14px;
+    background: var(--sidebar-bg);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Fixed top bar is out of flow, so the pane below reserves its space. */
+  .pb-pane {
+    padding-top: 56px;
+  }
+
+  .pb-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 60;
+    width: min(82vw, 300px);
+    flex-basis: auto;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    box-shadow: 0 0 40px -8px rgba(60, 50, 35, 0.45);
+  }
+  .pb-sidebar[data-open="true"] {
+    transform: translateX(0);
+  }
+
+  .pb-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(38, 34, 29, 0.42);
+  }
+
+  .pb-back {
+    display: inline-flex;
+  }
+
+  /* Breathing room shrinks on a 390px screen — 32px of side padding
+     was eating a sixth of the viewport. */
+  .pb-pad-x {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  /* Filter chips wrap instead of overflowing off-screen. */
+  .pb-chips {
+    flex-wrap: wrap;
+  }
+
+  /* Search stops being a fixed 238px box next to the title. */
+  .pb-search {
+    width: 100% !important;
+  }
+  .pb-list-head {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  /* Comfortable touch targets — 15px rows are a miss on a phone. */
+  .pb-row {
+    padding: 14px 13px !important;
+    gap: 11px !important;
+  }
+  /* Drop the status WORD but keep its coloured dot — the dot carries the
+     same meaning in a fraction of the width. The source pill stays: which
+     channel a ticket arrived on is the more useful of the two at a glance. */
+  .pb-row-status-label {
+    display: none;
+  }
+
+  /* The thread is the point of the screen, so the chrome around it has to
+     give way. Unchanged, the top bar + header ate 260px of an 844px phone
+     and left the conversation 277px — a third of the screen to read in. */
+  .pb-thread-head {
+    padding-top: 11px !important;
+    padding-bottom: 11px !important;
+  }
+  .pb-thread-title {
+    font-size: 16.5px !important;
+    margin-bottom: 5px !important;
+    /* Long subjects clamp rather than pushing the conversation off-screen. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  /* The address is on every message bubble already. */
+  .pb-thread-email {
+    display: none;
+  }
+  .pb-composer {
+    min-height: 62px !important;
+  }
+  /* To/Subject restate what the thread header already says, and cost ~90px
+     of a phone screen. The recipient is never ambiguous inside a thread. */
+  .pb-composer-meta {
+    display: none !important;
+  }
+  .pb-composer-wrap {
+    padding: 10px 14px 14px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pb-sidebar {
+    transition: none;
+  }
+}

@@ -108,9 +108,12 @@ export default function TicketThread({
   const canSend = replyText.trim().length > 0 && !sending;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", minHeight: 0 }}>
+    <div className="pb-pane">
       {/* header */}
-      <div style={{ padding: "18px 32px", borderBottom: "1px solid var(--border-soft)", background: "var(--app-bg)" }}>
+      <div
+        className="pb-pad-x pb-thread-head"
+        style={{ padding: "18px 32px", borderBottom: "1px solid var(--border-soft)", background: "var(--app-bg)" }}
+      >
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
           <div style={{ minWidth: 0 }}>
             <Link
@@ -127,7 +130,7 @@ export default function TicketThread({
             >
               <span style={{ fontSize: 14 }}>←</span> Back to inbox
             </Link>
-            <h1 style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.01em", color: "var(--ink)", marginBottom: 8, lineHeight: 1.25 }}>
+            <h1 className="pb-thread-title" style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.01em", color: "var(--ink)", marginBottom: 8, lineHeight: 1.25 }}>
               {ticket.subject}
             </h1>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -146,7 +149,9 @@ export default function TicketThread({
                 {src.label}
               </span>
               <span style={{ fontSize: 13.5, fontWeight: 600, color: "#3a3530" }}>{ticket.customerName}</span>
-              <span style={{ fontSize: 13, color: "var(--muted-2)" }}>{ticket.customerEmail}</span>
+              <span className="pb-thread-email" style={{ fontSize: 13, color: "var(--muted-2)" }}>
+                {ticket.customerEmail}
+              </span>
             </div>
           </div>
 
@@ -225,7 +230,7 @@ export default function TicketThread({
       </div>
 
       {/* thread */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "24px 32px 8px" }}>
+      <div className="pb-pad-x" style={{ flex: 1, overflowY: "auto", padding: "24px 32px 8px" }}>
         <div style={{ maxWidth: 780, margin: "0 auto" }}>
           {hasOlderMessages && (
             <p
@@ -360,7 +365,10 @@ export default function TicketThread({
       </div>
 
       {/* reply composer */}
-      <div style={{ borderTop: "1px solid var(--border-soft)", background: "#f6f2eb", padding: "16px 32px 20px" }}>
+      <div
+        className="pb-pad-x pb-composer-wrap"
+        style={{ borderTop: "1px solid var(--border-soft)", background: "#f6f2eb", padding: "16px 32px 20px" }}
+      >
         <div
           style={{
             maxWidth: 780,
@@ -372,18 +380,19 @@ export default function TicketThread({
             overflow: "hidden",
           }}
         >
-          <div style={rowLine}>
+          <div className="pb-composer-meta" style={rowLine}>
             <span style={{ color: "var(--muted-2)", width: 44 }}>To</span>
             <span style={{ fontWeight: 500, color: "#3a3530" }}>{ticket.customerName}</span>
             <span style={{ color: "#b0a795" }}>&lt;{ticket.customerEmail}&gt;</span>
           </div>
-          <div style={rowLine}>
+          <div className="pb-composer-meta" style={rowLine}>
             <span style={{ color: "var(--muted-2)", width: 44 }}>Subject</span>
             <span style={{ fontWeight: 500, color: "#3a3530" }}>
               {ticket.subject.startsWith("Re:") ? ticket.subject : `Re: ${ticket.subject}`}
             </span>
           </div>
           <textarea
+            className="pb-composer"
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
             placeholder="Write your reply… it sends as a real email and threads back here."

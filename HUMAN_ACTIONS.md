@@ -14,18 +14,14 @@ Ordered by leverage within each group. Tick as you go.
   free: it administers the whole Clerk instance, so it's the bigger blast radius
   of the two. dashboard.clerk.com → avatar → Account → Security → two-step
   verification. **2 min.**
-- [ ] **Sentry: add the missing `SENTRY_DSN` in Vercel** — deployed and verified
-  3 Aug: **browser** errors reach Sentry from production (confirmed with a real
-  event, `environment=production`, `release=92361bb`). **Server** errors do not.
-  100 production requests produced zero server traces, which at a 10% sample
-  rate is not chance. `NEXT_PUBLIC_SENTRY_DSN` is clearly set — it's inlined in
-  the shipped bundle — so the likely cause is that the second variable,
-  **`SENTRY_DSN`** (no prefix), is missing, misspelled, or scoped to Preview
-  rather than Production. **How:** Vercel → `ticket-system` → Settings →
-  Environment Variables → confirm a variable named exactly `SENTRY_DSN` exists
-  with **Production** ticked and the same value as the public one, then
-  **Redeploy** (server vars are read at runtime, but a redeploy is the clean
-  way to be sure). **3 min.** Tell me when it's done and I'll re-verify.
+- [x] ~~**Sentry error monitoring**~~ — **done and verified in production
+  3 Aug.** Browser errors confirmed (real event, `environment=production`).
+  Server-side confirmed after `226f90c` (server/edge now fall back to
+  `NEXT_PUBLIC_SENTRY_DSN`, so one variable is enough — the missing `SENTRY_DSN`
+  was why the server stayed dark). `SENTRY_AUTH_TOKEN` is set, so stack traces
+  upload source maps. Nothing further needed from you.
+  - Only remaining Sentry nicety: tick **Preview** on the Sentry env vars when
+    you set up staging, or preview deploys will report nothing.
 - [ ] **Sentry: `SENTRY_AUTH_TOKEN` (optional, for readable stack traces)** —
   sentry.io → Settings → Developer Settings → **Auth Tokens** → Create New
   Token (scopes `project:releases`, `org:read`) → Vercel env, **Sensitive ON**,

@@ -70,9 +70,10 @@ export default function Inbox({
   }, [tickets, source, search]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", minHeight: 0 }}>
-      <div style={{ padding: "22px 32px 0" }}>
+    <div className="pb-pane">
+      <div className="pb-pad-x" style={{ padding: "22px 32px 0" }}>
         <div
+          className="pb-list-head"
           style={{
             display: "flex",
             alignItems: "center",
@@ -90,6 +91,7 @@ export default function Inbox({
             </p>
           </div>
           <div
+            className="pb-search"
             style={{
               display: "flex",
               alignItems: "center",
@@ -129,6 +131,7 @@ export default function Inbox({
 
         {/* source filter chips */}
         <div
+          className="pb-chips"
           style={{
             display: "flex",
             alignItems: "center",
@@ -179,7 +182,10 @@ export default function Inbox({
       </div>
 
       {/* rows */}
-      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "8px 20px 24px" }}>
+      <div
+        className="pb-pad-x"
+        style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "8px 20px 24px" }}
+      >
         {visible.length === 0 ? (
           <EmptyState
             hasAny={counts.all > 0}
@@ -247,7 +253,7 @@ function Row({ t }: { t: TicketDTO }) {
   return (
     <Link
       href={`/tickets/${t.id}`}
-      className="pb-fade-up"
+      className="pb-fade-up pb-row"
       style={{
         position: "relative",
         display: "flex",
@@ -285,6 +291,7 @@ function Row({ t }: { t: TicketDTO }) {
         }}
       />
       <span
+        className="pb-row-source"
         style={{
           flex: "0 0 auto",
           fontSize: 11,
@@ -351,7 +358,7 @@ function Row({ t }: { t: TicketDTO }) {
         }}
       >
         <span style={{ width: 6, height: 6, borderRadius: "50%", background: st.dot }} />
-        {st.label}
+        <span className="pb-row-status-label">{st.label}</span>
       </span>
       <span style={{ flex: "0 0 46px", textAlign: "right", fontSize: 12, color: "var(--muted-2)" }}>
         {t.timeShort}

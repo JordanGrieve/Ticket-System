@@ -20,31 +20,22 @@ export default async function DashboardLayout({
 
   return (
     <div
+      className="pb-shell"
       style={{
         ...accentVars(workspace.accent),
-        display: "flex",
-        height: "100vh",
-        width: "100%",
         background: "var(--app-bg)",
         color: "var(--ink)",
-        overflow: "hidden",
       }}
     >
+      {/* Renders its own mobile top bar + scrim; on desktop it is just the
+          static 222px column it always was. */}
       <Sidebar
         workspaceName={workspace.name}
         userLabel={userLabel}
         counts={counts}
         isAdmin={viewer.isAdmin}
       />
-      <main
-        style={{
-          flex: 1,
-          minWidth: 0,
-          display: "flex",
-          flexDirection: "column",
-          background: "var(--app-bg)",
-        }}
-      >
+      <main className="pb-main" style={{ background: "var(--app-bg)" }}>
         {children}
       </main>
     </div>
