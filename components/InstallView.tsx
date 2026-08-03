@@ -262,6 +262,32 @@ human mailbox).
               );
             })}
           </div>
+
+          <div style={{ height: 24 }} />
+          <Label>Your data</Label>
+          <p style={{ fontSize: 12.5, color: "var(--muted-2)", lineHeight: 1.6, margin: "0 0 10px" }}>
+            Download every ticket, message and contact in this workspace as a
+            JSON file. It contains your customers&rsquo; personal data, so keep
+            it somewhere safe.
+          </p>
+          <a
+            href="/api/workspace/export"
+            download
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              height: 36,
+              padding: "0 14px",
+              borderRadius: 9,
+              background: "#fff",
+              border: "1px solid var(--border)",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#5f594f",
+            }}
+          >
+            Download my data
+          </a>
         </Section>
       </div>
     </div>

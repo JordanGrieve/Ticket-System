@@ -397,6 +397,112 @@ export async function getMessages(
   return { messages: rows.slice(0, limit).reverse(), hasMore };
 }
 
+// ── GDPR data export ─────────────────────────────────────────────
+
+export type WorkspaceExport = {
+  exportedAt: string;
+  workspace: {
+    name: string;
+    inboundEmail: string;
+    createdAt: Date | null;
+  };
+  tickets: {
+    id: number;
+    source: TicketSource;
+    orderId: string | null;
+    customerName: string;
+    customerEmail: string;
+    subject: string;
+    status: TicketStatus;
+    createdAt: Date | null;
+    updatedAt: Date | null;
+  }[];
+  messages: {
+    id: number;
+    ticketId: number;
+    direction: MessageDirection;
+    body: string;
+    sentAt: Date | null;
+  }[];
+  contacts: {
+    name: string;
+    email: string;
+    firstSeen: Date | null;
+  }[];
+};
+
+/**
+ * Everything a workspace holds about its customers, for the data-portability
+ * right the privacy policy promises.
+ *
+ * Deliberately omits credentials and internal security material — the API key
+ * and per-ticket reply tokens are not the customer's personal data, and an
+ * export is a file that gets emailed around. Columns are listed explicitly
+ * rather than `select()`ing whole rows, so a future column can't leak into
+ * exports just by existing.
+ */
+export async function exportWorkspaceData(
+  workspaceId: number,
+): Promise<WorkspaceExport | null> {
+  const workspace = await getWorkspaceById(workspaceId);
+  if (!workspace) return null;
+
+  const [ticketRows, messageRows, contactRows] = await Promise.all([
+    db
+      .select({
+        id: tickets.id,
+        source: tickets.source,
+        orderId: tickets.orderId,
+        customerName: tickets.customerName,
+        customerEmail: tickets.customerEmail,
+        subject: tickets.subject,
+        status: tickets.status,
+        createdAt: tickets.createdAt,
+        updatedAt: tickets.updatedAt,
+      })
+      .from(tickets)
+      .where(eq(tickets.workspaceId, workspaceId))
+      .orderBy(asc(tickets.id)),
+
+    // Messages have no workspace column of their own — they inherit tenancy
+    // through their ticket, so the join IS the tenant filter here.
+    db
+      .select({
+        id: ticketMessages.id,
+        ticketId: ticketMessages.ticketId,
+        direction: ticketMessages.direction,
+        body: ticketMessages.body,
+        sentAt: ticketMessages.sentAt,
+      })
+      .from(ticketMessages)
+      .innerJoin(tickets, eq(ticketMessages.ticketId, tickets.id))
+      .where(eq(tickets.workspaceId, workspaceId))
+      .orderBy(asc(ticketMessages.ticketId), asc(ticketMessages.sentAt)),
+
+    db
+      .select({
+        name: contacts.name,
+        email: contacts.email,
+        firstSeen: contacts.firstSeen,
+      })
+      .from(contacts)
+      .where(eq(contacts.workspaceId, workspaceId))
+      .orderBy(asc(contacts.id)),
+  ]);
+
+  return {
+    exportedAt: new Date().toISOString(),
+    workspace: {
+      name: workspace.name,
+      inboundEmail: workspace.inboundEmail,
+      createdAt: workspace.createdAt,
+    },
+    tickets: ticketRows,
+    messages: messageRows,
+    contacts: contactRows,
+  };
+}
+
 // ── Ticket writes ────────────────────────────────────────────────
 
 /** Per-ticket reply-address secret (8 hex chars). */
