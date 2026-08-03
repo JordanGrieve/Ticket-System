@@ -25,12 +25,6 @@ export default function Sidebar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Navigating closes the drawer. Without this it stays open over the page
-  // you just tapped through to, which reads as a broken link.
-  useEffect(() => {
-    setNavOpen(false);
-  }, [pathname, searchParams]);
-
   // Esc closes the drawer, matching the workspace menu's behaviour.
   useEffect(() => {
     if (!navOpen) return;
@@ -125,6 +119,13 @@ export default function Sidebar({
       <aside
         className="pb-sidebar"
         data-open={navOpen}
+        // Tapping any link in the drawer navigates, so the drawer must close —
+        // otherwise it sits over the page you just opened and reads as a dead
+        // link. Delegated here rather than in an effect on pathname, which
+        // would be setState-in-effect for something that is plainly an event.
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest("a")) setNavOpen(false);
+        }}
         style={{
           background: "var(--sidebar-bg)",
           borderRight: "1px solid var(--border)",
@@ -254,24 +255,17 @@ export default function Sidebar({
               onClick={() => setWsMenuOpen(false)}
               style={menuItem}
             >
-              <span style={{ fontSize: 14 }}>⚙</span> Settings &amp; install
+              Settings &amp; install
             </Link>
             <div style={{ height: 1, background: "#eee7db", margin: "5px 8px" }} />
             <SignOutButton>
               <button style={{ ...menuItem, color: "#9a5a4a", width: "100%" }}>
-                <span style={{ fontSize: 14 }}>⏻</span> Sign out
+                Sign out
               </button>
             </SignOutButton>
           </div>
         )}
       </div>
-
-      {/* Labelled for what it does — it opens Install & settings, there is
-          no manual "compose ticket" flow. */}
-      <Link href="/install" style={newBtn}>
-        <span style={{ fontSize: 16, fontWeight: 400, marginTop: -1 }}>⚡</span>{" "}
-        Connect your site
-      </Link>
 
       <div
         style={{
@@ -279,7 +273,9 @@ export default function Sidebar({
           fontWeight: 700,
           color: "var(--muted-3)",
           letterSpacing: ".07em",
-          padding: "2px 12px 8px",
+          // Restores the breathing room the removed "Connect your site"
+          // button used to provide above this label.
+          padding: "18px 12px 8px",
         }}
       >
         VIEWS
@@ -338,12 +334,12 @@ export default function Sidebar({
           border: `1px solid ${pathname === "/contacts" ? "var(--border)" : "transparent"}`,
         }}
       >
-        <span aria-hidden style={{ fontSize: 14 }}>☺</span> Contacts
+        Contacts
       </Link>
 
       <div style={{ marginTop: "auto" }}>
         <Link href="/install" style={{ ...menuItem, color: "#6b6255" }}>
-          <span style={{ fontSize: 15 }}>⚙</span> Settings
+          Settings
         </Link>
         <div
           style={{
@@ -410,17 +406,3 @@ const menuItem: React.CSSProperties = {
   border: "none",
 };
 
-const newBtn: React.CSSProperties = {
-  margin: "18px 4px 16px",
-  height: 40,
-  borderRadius: 10,
-  background: "var(--accent)",
-  color: "#fff",
-  fontSize: 13.5,
-  fontWeight: 600,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 7,
-};
