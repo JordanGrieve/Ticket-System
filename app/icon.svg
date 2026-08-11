@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Postbox">
+  <!--
+    Favicon mark. One message rather than the two of the full lockup: at 16px the
+    rear bubble and the gap around it collapse into noise. Scaled to fill the box,
+    since a favicon has no room to waste. Thread lines are knocked through with
+    evenodd so they read on a dark tab strip as well as a light one.
+  -->
+  <g transform="translate(32 32) scale(1.43) translate(-35.5 -28.5)">
+    <path
+      fill="#d6552f"
+      fill-rule="evenodd"
+      d="M16 10H51C53.21 10 55 11.79 55 14V35C55 37.21 53.21 39 51 39H24L16 47V10ZM22 17H49V22H22ZM22 27H41V32H22Z"
+    />
+  </g>
+</svg>

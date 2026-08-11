@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { accentVars } from "@/lib/theme";
+import { PostboxLockup } from "@/components/Logo";
 
 /** Shared chrome for the public legal pages. */
 export default function LegalLayout({
@@ -27,26 +28,7 @@ export default function LegalLayout({
           href="/"
           style={{ display: "inline-flex", alignItems: "center", gap: 10 }}
         >
-          <span
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: 8,
-              background: "var(--accent)",
-              color: "#fff",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 800,
-              fontSize: 16,
-            }}
-            aria-hidden
-          >
-            p
-          </span>
-          <span style={{ fontSize: 18, fontWeight: 700, color: "var(--ink)" }}>
-            postbox
-          </span>
+          <PostboxLockup size={30} fontSize={18} color="var(--ink)" />
         </Link>
       </header>
       <main

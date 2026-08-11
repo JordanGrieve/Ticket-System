@@ -1,4 +1,5 @@
 import { SignIn } from "@clerk/nextjs";
+import { PostboxLockup } from "@/components/Logo";
 
 export default function SignInPage() {
   return (
@@ -31,25 +32,7 @@ function Brand() {
         marginBottom: 24,
       }}
     >
-      <div
-        style={{
-          width: 34,
-          height: 34,
-          borderRadius: 9,
-          background: "var(--accent)",
-          color: "#fff",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontWeight: 800,
-          fontSize: 18,
-        }}
-      >
-        p
-      </div>
-      <span style={{ fontSize: 20, fontWeight: 700, color: "var(--ink)" }}>
-        postbox
-      </span>
+      <PostboxLockup color="var(--ink)" />
     </div>
   );
 }

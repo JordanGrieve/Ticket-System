@@ -2,6 +2,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
+import { PostboxLockup, LITERAL_COLORS } from "@/components/Logo";
 
 /**
  * Last-resort boundary for errors in the root layout itself. Must render its
@@ -33,8 +34,10 @@ export default function GlobalError({
         }}
       >
         <div style={{ textAlign: "center", padding: 24 }}>
-          <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
-            postbox
+          {/* Literal colours: this boundary replaces the root layout, so
+              globals.css never loaded and the accent tokens don't resolve. */}
+          <div style={{ marginBottom: 8 }}>
+            <PostboxLockup colors={LITERAL_COLORS} />
           </div>
           <p style={{ color: "#7a7264", margin: "0 0 20px" }}>
             Something went wrong. Please try again.

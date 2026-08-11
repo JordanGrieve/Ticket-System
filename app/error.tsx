@@ -3,6 +3,7 @@
 import * as Sentry from "@sentry/nextjs";
 import Link from "next/link";
 import { useEffect } from "react";
+import { PostboxLockup, LITERAL_COLORS } from "@/components/Logo";
 
 /**
  * Branded error boundary — without this, a server hiccup shows clients
@@ -43,23 +44,7 @@ export default function ErrorPage({
             marginBottom: 24,
           }}
         >
-          <div
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 9,
-              background: "#d6552f",
-              color: "#fff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 800,
-              fontSize: 18,
-            }}
-          >
-            p
-          </div>
-          <span style={{ fontSize: 20, fontWeight: 700 }}>postbox</span>
+          <PostboxLockup colors={LITERAL_COLORS} />
         </div>
         <h1 style={{ fontSize: 21, fontWeight: 700, marginBottom: 8 }}>
           Something went wrong

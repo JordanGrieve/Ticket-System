@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { accentVars } from "@/lib/theme";
+import { PostboxLockup } from "@/components/Logo";
 
 /**
  * Public landing page. Signed-in users go straight to their inbox;
@@ -35,26 +36,7 @@ export default async function LandingPage() {
           padding: "22px 24px",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 9,
-              background: "var(--accent)",
-              color: "#fff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 800,
-              fontSize: 18,
-            }}
-            aria-hidden
-          >
-            p
-          </div>
-          <span style={{ fontSize: 20, fontWeight: 700 }}>postbox</span>
-        </div>
+        <PostboxLockup />
         <Link
           href="/sign-in"
           style={{

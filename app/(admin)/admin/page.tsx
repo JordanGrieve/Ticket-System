@@ -3,6 +3,7 @@ import { SignOutButton } from "@clerk/nextjs";
 import { resolveViewer } from "@/lib/viewer";
 import { listWorkspaceSummaries } from "@/lib/data";
 import { listAdmins } from "@/lib/admin";
+import { PostboxLockup } from "@/components/Logo";
 import {
   selectWorkspaceAction,
   addAdminAction,
@@ -46,23 +47,7 @@ export default async function AdminHomePage({
           marginBottom: 4,
         }}
       >
-        <div
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 9,
-            background: "var(--accent)",
-            color: "#fff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontWeight: 800,
-            fontSize: 18,
-          }}
-        >
-          p
-        </div>
-        <span style={{ fontSize: 20, fontWeight: 700 }}>postbox</span>
+        <PostboxLockup />
         {/* The Admin badge and signed-in email used to live here. On a phone
             they crowded "Sign out" off the edge, and neither told you anything
             the page itself doesn't — you can only reach /admin as an admin. */}

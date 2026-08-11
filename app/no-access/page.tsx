@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { SignOutButton } from "@clerk/nextjs";
 import { resolveViewer } from "@/lib/viewer";
 import { accentVars } from "@/lib/theme";
+import { PostboxLockup } from "@/components/Logo";
 
 /**
  * Shown to signed-in users with no workspace and no invite (invite-only
@@ -36,23 +37,7 @@ export default async function NoAccessPage() {
             marginBottom: 26,
           }}
         >
-          <div
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 9,
-              background: "var(--accent)",
-              color: "#fff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 800,
-              fontSize: 18,
-            }}
-          >
-            p
-          </div>
-          <span style={{ fontSize: 20, fontWeight: 700 }}>postbox</span>
+          <PostboxLockup />
         </div>
 
         <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 10 }}>

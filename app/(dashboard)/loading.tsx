@@ -1,3 +1,5 @@
+import { PostboxMark, LITERAL_COLORS } from "@/components/Logo";
+
 /** Route-transition state — previously a blank pause. */
 export default function DashboardLoading() {
   return (
@@ -18,25 +20,9 @@ export default function DashboardLoading() {
           opacity: 0.65,
         }}
       >
-        <div
-          className="pb-pulse"
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 9,
-            background: "#d6552f",
-            color: "#fff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontWeight: 800,
-            fontSize: 18,
-          }}
-        >
-          p
-        </div>
+        <PostboxMark className="pb-pulse" colors={LITERAL_COLORS} />
         <span style={{ fontSize: 20, fontWeight: 700, color: "#26221d" }}>
-          postbox
+          Postbox
         </span>
       </div>
     </div>
