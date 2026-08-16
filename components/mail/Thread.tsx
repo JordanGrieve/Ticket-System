@@ -9,7 +9,9 @@ import type { TicketStatus } from "@/db/schema";
 import { SOURCE_META, STATUS_META, STATUS_ORDER } from "@/lib/theme";
 import { Icon, OverflowIcon } from "./icons";
 import ContactRail from "./ContactRail";
-import type { ContactCard } from "./types";
+import LabelPicker from "./LabelPicker";
+import StarButton from "./StarButton";
+import type { ContactCard, LabelChipDTO } from "./types";
 
 /**
  * The conversation pane, plus the contact rail it can open.
@@ -26,6 +28,11 @@ export default function Thread({
   fromAddress,
   contact,
   backHref,
+  starred,
+  unread,
+  labels,
+  allLabels,
+  canPersonalise,
 }: {
   ticket: TicketDTO;
   messages: MessageDTO[];
@@ -33,6 +40,13 @@ export default function Thread({
   fromAddress: string;
   contact: ContactCard;
   backHref: string;
+  /** Per-agent state. Both false when the viewer has no agent row here. */
+  starred: boolean;
+  unread: boolean;
+  labels: LabelChipDTO[];
+  /** Every label in the workspace, for the picker. */
+  allLabels: LabelChipDTO[];
+  canPersonalise: boolean;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<TicketStatus>(ticket.status);
@@ -104,6 +118,37 @@ export default function Thread({
     endRef.current?.scrollIntoView({ block: "end" });
   }, [messages.length]);
 
+  /**
+   * Opening a thread marks it read for this agent.
+   *
+   * Deliberately a POST from the client rather than a write inside the page's
+   * server render: the render is a GET that Next also runs to satisfy a
+   * prefetch, so writing there would mark mail read merely because a link in
+   * the list was hovered.
+   *
+   * The refresh afterwards is only worth its round trip when the ticket was
+   * actually unread — that is the case where the nav's Unread count and the
+   * row's dot are now stale.
+   */
+  useEffect(() => {
+    if (!canPersonalise) return;
+    let cancelled = false;
+    const wasUnread = unread;
+    void fetch(`/api/tickets/${ticket.id}/read`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ read: true }),
+    }).then(() => {
+      if (!cancelled && wasUnread) router.refresh();
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Once per thread. `unread` is read at mount on purpose: re-running this
+    // when the refresh flips it to false would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticket.id, canPersonalise]);
+
   const st = STATUS_META[status];
   const src = SOURCE_META[ticket.source];
   const canSend = replyText.trim().length > 0 && !sending;
@@ -124,6 +169,24 @@ export default function Thread({
       return;
     }
     router.refresh();
+  }
+
+  /**
+   * Put this thread back in my unread pile, and leave — reading on is exactly
+   * what would undo it (the mount effect has already fired, but a reload would
+   * re-mark it), and going back to the list is what the gesture means.
+   */
+  async function markUnread() {
+    const res = await fetch(`/api/tickets/${ticket.id}/read`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ read: false }),
+    });
+    if (!res.ok) {
+      setError("Couldn't mark this unread.");
+      return;
+    }
+    router.push(backHref);
   }
 
   async function sendReply() {
@@ -167,17 +230,23 @@ export default function Thread({
             <p className="pbm-thread-email">{ticket.customerEmail}</p>
           </div>
           <div className="pbm-thread-actions">
-            {/* Starring and deleting have no table and no endpoint. They are
-                rendered disabled rather than omitted so the shape of the
-                header matches the design and the gap is visible, not hidden. */}
-            <button
-              className="pbm-icon-btn"
-              disabled
-              aria-label="Star this thread (not available yet)"
-              title="Starring isn't available yet."
-            >
-              <Icon name="star" size={17} strokeWidth={1.8} />
-            </button>
+            <StarButton
+              ticketId={ticket.id}
+              starred={starred}
+              canStar={canPersonalise}
+            />
+            {canPersonalise && (
+              <button
+                className="pbm-icon-btn"
+                onClick={() => void markUnread()}
+                aria-label="Mark as unread and go back"
+                title="Mark as unread — this thread goes back into your unread pile and you return to the list."
+              >
+                <Icon name="envelopeOpen" size={17} strokeWidth={1.8} />
+              </button>
+            )}
+            {/* Deleting still has no table and no endpoint: disabled rather
+                than omitted, so the gap is visible instead of hidden. */}
             <button
               className="pbm-icon-btn"
               disabled
@@ -239,6 +308,11 @@ export default function Thread({
             </div>
             <span className="pbm-chip-static pbm-chip-static--src">{src.label}</span>
           </div>
+          <LabelPicker
+            ticketId={ticket.id}
+            labels={labels}
+            allLabels={allLabels}
+          />
         </div>
 
         <div className="pbm-transcript pb-scroll">

@@ -2,12 +2,17 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import type { Workspace } from "@/db/schema";
+import type { Admin, ImpersonationSession, Workspace } from "@/db/schema";
 import {
   findAdminByEmail,
   findAdminByClerkId,
   linkAdminClerkId,
 } from "./admin";
+import {
+  ADMIN_IMP_COOKIE,
+  getOpenSession,
+  touchImpersonation,
+} from "./impersonation";
 import { getAgentByClerkId, getWorkspaceById } from "./data";
 import { resolveWorkspace } from "./workspace";
 
@@ -23,9 +28,20 @@ import { resolveWorkspace } from "./workspace";
  * Admins and clients flow through the same dashboard UI scoped to
  * `workspace`, so admins get the full inbox/reply/settings experience for
  * any client.
+ *
+ * An admin with a `workspace` also carries `impersonation`: the open audit row
+ * for this visit (lib/impersonation). It is null when the selection predates
+ * the audit trail, or the row was closed under them — those visits still work,
+ * because recording access must never be the thing that decides access, but
+ * the banner says out loud that nothing is being written.
  */
 export type Viewer =
-  | { isAdmin: true; email: string; workspace: Workspace | null }
+  | {
+      isAdmin: true;
+      email: string;
+      workspace: Workspace | null;
+      impersonation: ImpersonationSession | null;
+    }
   | {
       isAdmin: false;
       email: string;
@@ -47,12 +63,48 @@ function primaryEmail(
   ).toLowerCase();
 }
 
-async function selectedAdminWorkspace(): Promise<Workspace | null> {
+/**
+ * What an admin is currently pointed at: the client they picked, plus the
+ * audit row covering it.
+ *
+ * Two cookies, two very different trust levels. ADMIN_WS_COOKIE is the
+ * selection. ADMIN_IMP_COOKIE only *names* an audit row — the row itself is
+ * the record, so a cookie naming a session that is closed, missing, or belongs
+ * to another admin or another workspace is treated as no session at all rather
+ * than being believed.
+ *
+ * This is also where the heartbeat fires. resolveViewer runs on every
+ * dashboard render and every authed API route, so an operator cannot touch a
+ * client's data without moving `lastSeenAt` — which is what bounds the access
+ * window when they never exit cleanly.
+ */
+async function selectedAdminWorkspace(adminId: number): Promise<{
+  workspace: Workspace | null;
+  impersonation: ImpersonationSession | null;
+}> {
   const store = await cookies();
   const raw = store.get(ADMIN_WS_COOKIE)?.value;
   const id = raw ? Number(raw) : NaN;
-  if (!Number.isInteger(id)) return null;
-  return getWorkspaceById(id);
+  if (!Number.isInteger(id)) return { workspace: null, impersonation: null };
+
+  const workspace = await getWorkspaceById(id);
+  if (!workspace) return { workspace: null, impersonation: null };
+
+  const rawSession = store.get(ADMIN_IMP_COOKIE)?.value;
+  const sessionId = rawSession ? Number(rawSession) : NaN;
+  if (!Number.isInteger(sessionId)) return { workspace, impersonation: null };
+
+  const session = await getOpenSession(sessionId);
+  if (
+    !session ||
+    session.adminId !== adminId ||
+    session.workspaceId !== workspace.id
+  ) {
+    return { workspace, impersonation: null };
+  }
+
+  await touchImpersonation(session.id);
+  return { workspace, impersonation: session };
 }
 
 export const resolveViewer = cache(_resolveViewer);
@@ -67,7 +119,7 @@ async function _resolveViewer(): Promise<Viewer> {
     return {
       isAdmin: true,
       email: adminById.email,
-      workspace: await selectedAdminWorkspace(),
+      ...(await selectedAdminWorkspace(adminById.id)),
     };
   }
 
@@ -95,7 +147,11 @@ async function _resolveViewer(): Promise<Viewer> {
   const admin = email ? await findAdminByEmail(email) : null;
   if (admin) {
     if (!admin.clerkUserId) await linkAdminClerkId(admin.id, userId);
-    return { isAdmin: true, email, workspace: await selectedAdminWorkspace() };
+    return {
+      isAdmin: true,
+      email,
+      ...(await selectedAdminWorkspace(admin.id)),
+    };
   }
 
   // Regular tenant: claim a matching invite, or (open sign-up only)
@@ -129,4 +185,41 @@ export async function requireAdmin(): Promise<string> {
   const viewer = await resolveViewer();
   if (!viewer.isAdmin) redirect("/inbox");
   return viewer.email;
+}
+
+/**
+ * As requireAdmin, but hands back the whole admin row — needed wherever we
+ * write an audit record, which has to name a specific operator id and not just
+ * whatever email happened to be on the session.
+ */
+export async function requireAdminRow(): Promise<Admin> {
+  const email = await requireAdmin();
+  const admin = await findAdminByEmail(email);
+  // Only reachable if the admin row vanished between resolveViewer and here.
+  if (!admin) redirect("/inbox");
+  return admin;
+}
+
+/**
+ * Everything the impersonation banner needs, or null when the viewer is not an
+ * operator inside a client workspace.
+ *
+ * `session` being null while this returns non-null is the unrecorded case: the
+ * operator IS inside a client, and we are NOT writing it down. The banner must
+ * say so rather than fall back to looking normal.
+ */
+export type ImpersonationContext = {
+  workspace: Workspace;
+  operatorEmail: string;
+  session: ImpersonationSession | null;
+};
+
+export async function currentImpersonation(): Promise<ImpersonationContext | null> {
+  const viewer = await resolveViewer();
+  if (!viewer.isAdmin || !viewer.workspace) return null;
+  return {
+    workspace: viewer.workspace,
+    operatorEmail: viewer.email,
+    session: viewer.impersonation,
+  };
 }

@@ -1,4 +1,3 @@
-import { cache } from "react";
 import { and, asc, desc, eq, notLike, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -300,71 +299,7 @@ export async function listContactsWithCounts(
 
 // ── Ticket reads (always scoped to a workspace) ──────────────────
 
-// Wrapped in React cache() so the dashboard layout (which needs counts) and the
-// inbox page (which needs the list) share a single query per request instead of
-// hitting the database twice for the same workspace.
-export const listTickets = cache(
-  async (workspaceId: number): Promise<Ticket[]> => {
-    return db
-      .select()
-      .from(tickets)
-      .where(eq(tickets.workspaceId, workspaceId))
-      .orderBy(desc(tickets.updatedAt));
-  },
-);
-
-export type TicketFolder = "inbox" | "all" | "closed";
-
-export type TicketCounts = { inbox: number; all: number; closed: number };
-
-/** Folder counts via one grouped query — no full-table load for the sidebar. */
-export const countTickets = cache(
-  async (workspaceId: number): Promise<TicketCounts> => {
-    const rows = await db
-      .select({
-        status: tickets.status,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(tickets)
-      .where(eq(tickets.workspaceId, workspaceId))
-      .groupBy(tickets.status);
-
-    let open = 0,
-      closed = 0;
-    for (const r of rows) {
-      if (r.status === "closed") closed += r.count;
-      else open += r.count;
-    }
-    return { inbox: open, all: open + closed, closed };
-  },
-);
-
 export const TICKETS_PAGE_SIZE = 50;
-
-/** One page of a folder, newest activity first. Pages are 1-based. */
-export async function listTicketsPage(
-  workspaceId: number,
-  folder: TicketFolder,
-  page: number,
-): Promise<Ticket[]> {
-  const where =
-    folder === "closed"
-      ? and(eq(tickets.workspaceId, workspaceId), eq(tickets.status, "closed"))
-      : folder === "inbox"
-        ? and(
-            eq(tickets.workspaceId, workspaceId),
-            sql`${tickets.status} != 'closed'`,
-          )
-        : eq(tickets.workspaceId, workspaceId);
-
-  return db
-    .select()
-    .from(tickets)
-    .where(where)
-    .orderBy(desc(tickets.updatedAt))
-    .limit(TICKETS_PAGE_SIZE)
-    .offset((Math.max(1, page) - 1) * TICKETS_PAGE_SIZE);
-}
 
 /** A single ticket — returns null if it isn't in this workspace. */
 export async function getTicket(
@@ -592,4 +527,150 @@ export async function setTicketStatus(
     .where(and(eq(tickets.id, ticketId), eq(tickets.workspaceId, workspaceId)))
     .returning();
   return updated ?? null;
+}
+
+// ── Per-agent state: stars and read receipts ─────────────────────
+
+/**
+ * Stars and read receipts belong to a PERSON, not to a workspace: my starred
+ * inbox is mine, and a ticket a colleague has read is still unread for me.
+ * Both tables key on `agent_id`, so every one of these calls needs the agent
+ * row for the signed-in user *in the workspace being viewed*.
+ *
+ * Neither table carries a workspace_id, so tenancy comes from their parents.
+ * As in lib/labels.ts, the workspace predicate is written INTO the mutating
+ * statement (INSERT … SELECT FROM tickets WHERE workspace_id = $ws) rather
+ * than performed as a separate check first.
+ */
+
+/**
+ * The agent row for this Clerk user **within this workspace**, or null.
+ *
+ * The workspace match is the important half. `agents.clerk_user_id` is unique
+ * globally, so a user who is a client of workspace A and is later made an
+ * operator can still resolve to an agent row — but that row belongs to A, and
+ * using it while they are viewing workspace B would write A's agent id onto
+ * B's tickets. Filtering on workspaceId makes that return null instead.
+ *
+ * A super-admin viewing a client therefore has no agent id at all, and gets no
+ * personal state. That is a real limitation, not an oversight: there is no
+ * column that could hold "admin 3's stars inside workspace 12", and inventing
+ * an agent row for them would put them into notification and owner lookups
+ * that read the agents table.
+ */
+export async function getWorkspaceAgentId(
+  workspaceId: number,
+  clerkUserId: string,
+): Promise<number | null> {
+  const rows = await db
+    .select({ id: agents.id })
+    .from(agents)
+    .where(
+      and(
+        eq(agents.clerkUserId, clerkUserId),
+        eq(agents.workspaceId, workspaceId),
+      ),
+    )
+    .limit(1);
+  return rows[0]?.id ?? null;
+}
+
+/**
+ * Star or unstar a ticket for one agent. Presence of the row is the star.
+ * Returns the new state, or null when the ticket isn't in `workspaceId`.
+ */
+export async function setTicketStar(
+  workspaceId: number,
+  ticketId: number,
+  agentId: number,
+  starred: boolean,
+): Promise<boolean | null> {
+  if (starred) {
+    const res = await db.execute(sql`
+      INSERT INTO ticket_stars (ticket_id, agent_id)
+      SELECT t.id, ${agentId}
+      FROM tickets t
+      WHERE t.id = ${ticketId} AND t.workspace_id = ${workspaceId}
+      ON CONFLICT (ticket_id, agent_id) DO UPDATE
+        SET created_at = ticket_stars.created_at
+      RETURNING ticket_id
+    `);
+    // DO UPDATE, not DO NOTHING: an already-starred ticket must still return a
+    // row, or "starred twice" would look like "not your ticket".
+    return res.rows.length > 0 ? true : null;
+  }
+
+  const res = await db.execute(sql`
+    DELETE FROM ticket_stars s
+    USING tickets t
+    WHERE s.ticket_id = t.id
+      AND s.ticket_id = ${ticketId}
+      AND s.agent_id = ${agentId}
+      AND t.workspace_id = ${workspaceId}
+    RETURNING s.ticket_id
+  `);
+  if (res.rows.length > 0) return false;
+  // Nothing removed — was it already unstarred, or not ours at all?
+  const owned = await getTicket(workspaceId, ticketId);
+  return owned ? false : null;
+}
+
+/** Is this ticket starred by this agent? Workspace-scoped. */
+export async function isTicketStarred(
+  workspaceId: number,
+  ticketId: number,
+  agentId: number,
+): Promise<boolean> {
+  const res = await db.execute(sql`
+    SELECT 1
+    FROM ticket_stars s
+    JOIN tickets t ON t.id = s.ticket_id
+    WHERE s.ticket_id = ${ticketId}
+      AND s.agent_id = ${agentId}
+      AND t.workspace_id = ${workspaceId}
+    LIMIT 1
+  `);
+  return res.rows.length > 0;
+}
+
+/**
+ * Record that this agent has seen everything on this ticket up to now.
+ * Idempotent; safe to call on every thread render.
+ */
+export async function markTicketRead(
+  workspaceId: number,
+  ticketId: number,
+  agentId: number,
+): Promise<boolean> {
+  const res = await db.execute(sql`
+    INSERT INTO ticket_reads (ticket_id, agent_id, last_read_at)
+    SELECT t.id, ${agentId}, now()
+    FROM tickets t
+    WHERE t.id = ${ticketId} AND t.workspace_id = ${workspaceId}
+    ON CONFLICT (ticket_id, agent_id) DO UPDATE SET last_read_at = now()
+    RETURNING ticket_id
+  `);
+  return res.rows.length > 0;
+}
+
+/**
+ * Put a ticket back into this agent's unread pile. Deleting the receipt is the
+ * whole mechanism: unread is "no row, or an inbound message newer than the
+ * row", so removing it restores the state the ticket had before it was opened.
+ */
+export async function markTicketUnread(
+  workspaceId: number,
+  ticketId: number,
+  agentId: number,
+): Promise<boolean> {
+  await db.execute(sql`
+    DELETE FROM ticket_reads r
+    USING tickets t
+    WHERE r.ticket_id = t.id
+      AND r.ticket_id = ${ticketId}
+      AND r.agent_id = ${agentId}
+      AND t.workspace_id = ${workspaceId}
+  `);
+  const owned = await getTicket(workspaceId, ticketId);
+  return owned !== null;
 }

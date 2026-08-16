@@ -25,6 +25,11 @@ export const ICON_PATHS = {
   back: "M14.5 5l-7 7 7 7",
   chevronDown: "M7 10l5 5 5-5",
   close: "M5 5l14 14M19 5L5 19",
+  plus: "M12 5v14M5 12h14",
+  /** "Mark unread" — an envelope with its flap still up. */
+  envelopeOpen:
+    "M3.5 10.5L12 4.5l8.5 6v7a2.5 2.5 0 01-2.5 2.5H6a2.5 2.5 0 01-2.5-2.5z M3.5 10.5l7.4 4.9a2 2 0 002.2 0l7.4-4.9",
+  pencil: "M4 20h4L19.5 8.5a2.1 2.1 0 00-3-3L5 17z",
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;
@@ -34,18 +39,25 @@ export function Icon({
   size = 18,
   strokeWidth = 1.9,
   className,
+  filled = false,
 }: {
   name: IconName;
   size?: number;
   strokeWidth?: number;
   className?: string;
+  /**
+   * Fill the shape with currentColor as well as stroking it. Used for the
+   * "on" state of a toggle (a starred thread), where an outline alone reads
+   * as off at 17px.
+   */
+  filled?: boolean;
 }) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="none"
+      fill={filled ? "currentColor" : "none"}
       aria-hidden
       focusable="false"
       className={className}

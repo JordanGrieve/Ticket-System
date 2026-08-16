@@ -3,8 +3,15 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireAdmin, ADMIN_WS_COOKIE } from "@/lib/viewer";
+import { requireAdmin, requireAdminRow, ADMIN_WS_COOKIE } from "@/lib/viewer";
 import { addAdmin, findAdminByEmail, getAdminById, removeAdmin } from "@/lib/admin";
+import {
+  ADMIN_IMP_COOKIE,
+  endImpersonation,
+  endOpenSessionsForAdmin,
+  endOpenSessionsForWorkspace,
+  startImpersonation,
+} from "@/lib/impersonation";
 import {
   getAgentByEmail,
   getWorkspaceById,
@@ -30,19 +37,73 @@ function inviteToken(): string {
  * caller is an admin via requireAdmin() before doing anything.
  */
 
-/** Pick a client to work within: remember it in a cookie, then open its inbox. */
+const IMP_COOKIE_OPTS = {
+  httpOnly: true,
+  sameSite: "lax",
+  path: "/",
+} as const;
+
+/**
+ * Pick a client to work within, and open the audit record for doing so.
+ *
+ * The order matters: the impersonation_sessions row is written FIRST and the
+ * cookies only afterwards. If the audit write fails we bail out without
+ * setting anything, because an operator inside a client workspace with no row
+ * naming them is the exact situation this exists to prevent. It fails closed —
+ * but only on the recording, never on the permission: who may impersonate is
+ * unchanged.
+ */
 export async function selectWorkspaceAction(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const admin = await requireAdminRow();
   const id = Number(formData.get("workspaceId"));
   if (!Number.isInteger(id)) redirect("/admin");
 
+  const workspace = await getWorkspaceById(id);
+  if (!workspace) redirect("/admin?error=That workspace no longer exists.");
+
+  // Optional and free-text. Empty stays empty — a blank reason is recorded as
+  // "none given", not padded out with a plausible one.
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500);
+
+  let sessionId: number;
+  try {
+    sessionId = await startImpersonation({ admin, workspace, reason });
+  } catch {
+    redirect(
+      `/admin?account=${id}&error=${encodeURIComponent(
+        "Couldn't open the access record, so you were not let in. Impersonation is only permitted when it can be logged — try again.",
+      )}`,
+    );
+  }
+
   const store = await cookies();
-  store.set(ADMIN_WS_COOKIE, String(id), {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-  });
+  store.set(ADMIN_WS_COOKIE, String(id), IMP_COOKIE_OPTS);
+  store.set(ADMIN_IMP_COOKIE, String(sessionId), IMP_COOKIE_OPTS);
   redirect("/inbox");
+}
+
+/**
+ * Leave the client workspace and close the audit row. Called from the banner
+ * that sits over the tenant dashboard, so this is the one exit an operator can
+ * always reach from wherever they are.
+ *
+ * endOpenSessionsForAdmin runs as well as endImpersonation: it sweeps up rows
+ * left open by an earlier abandoned visit in another browser or tab, which the
+ * cookie alone knows nothing about.
+ */
+export async function stopImpersonatingAction(): Promise<void> {
+  const admin = await requireAdminRow();
+
+  const store = await cookies();
+  const sessionId = Number(store.get(ADMIN_IMP_COOKIE)?.value);
+  if (Number.isInteger(sessionId)) {
+    await endImpersonation(sessionId, "stopped");
+  }
+  await endOpenSessionsForAdmin(admin.id, "stopped");
+
+  store.delete(ADMIN_WS_COOKIE);
+  store.delete(ADMIN_IMP_COOKIE);
+  redirect("/admin?section=access");
 }
 
 /**
@@ -101,6 +162,11 @@ export async function removeAdminAction(formData: FormData): Promise<void> {
     redirect("/admin?error=You can't remove your own admin access.");
   }
 
+  // They may be sitting inside a client right now. Their access ends with this
+  // click, so the audit row has to end here too — a moment later the admins row
+  // is gone and nothing points at their open session any more. The log rows
+  // survive the delete (admin_id goes null, admin_email is frozen).
+  await endOpenSessionsForAdmin(id, "admin_removed");
   await removeAdmin(id);
   revalidatePath("/admin");
   redirect(`/admin?removed=${encodeURIComponent(target.email)}`);
@@ -160,12 +226,18 @@ export async function deleteClientAction(formData: FormData): Promise<void> {
     );
   }
 
+  // Before the delete, not after: the audit rows' workspace_id is "set null"
+  // so they outlive the workspace, and once it is null there is nothing left
+  // to match an open session on.
+  await endOpenSessionsForWorkspace(id, "workspace_deleted");
+
   await deleteWorkspace(id);
 
-  // If the admin was acting inside this workspace, clear the selection.
+  // If any admin was acting inside this workspace, clear the selection.
   const store = await cookies();
   if (store.get(ADMIN_WS_COOKIE)?.value === String(id)) {
     store.delete(ADMIN_WS_COOKIE);
+    store.delete(ADMIN_IMP_COOKIE);
   }
 
   revalidatePath("/admin");

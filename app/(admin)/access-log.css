@@ -1,0 +1,47 @@
+/*
+  Access-log extras for the admin console.
+
+  Kept out of app/admin.css only to avoid two hands in one file; the rules
+  follow that file's conventions exactly — scoped under .pba-root, tokens only,
+  no colours invented here.
+*/
+
+/* Operator · Workspace · Started · Duration · Reason · State */
+.pba-root .pba-row-access {
+  grid-template-columns: 1.5fr 1.4fr 1.3fr 0.9fr 1.6fr 1.2fr;
+}
+
+/* The log is wider than the 700px the other tables get away with. */
+.pba-root .pba-grid-access {
+  min-width: 980px;
+}
+
+/* A reason nobody typed. Distinct from a reason we failed to store — this is
+   the operator declining to give one, and it should read as a gap. */
+.pba-root .pba-unset {
+  color: var(--muted-2);
+  font-style: italic;
+}
+
+/* Compact log inside the account drawer, where there is no room for a table. */
+.pba-root .pba-log-entry {
+  padding: 10px 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.pba-root .pba-log-entry + .pba-log-entry {
+  border-top: 1px solid var(--border-soft);
+}
+
+.pba-root .pba-log-who {
+  font-weight: 700;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.pba-root .pba-log-when {
+  margin-top: 2px;
+  color: var(--muted-2);
+  font-size: 11.5px;
+}

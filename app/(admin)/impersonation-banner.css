@@ -1,0 +1,135 @@
+/*
+  The impersonation banner.
+
+  Unlike everything else under (admin), this renders inside the TENANT
+  dashboard, so it cannot live in app/admin.css (scoped to .pba-root) and it
+  cannot use the workspace palette either.
+
+  It deliberately hardcodes its colours. Every other surface in the dashboard
+  re-themes per workspace; this bar must look identical in all of them, because
+  an operator who has learned to recognise it as "I am inside someone else's
+  data" must recognise it in the next client too. A themed banner is a banner
+  you stop seeing.
+*/
+
+.pbi-banner {
+  /* Kept in sync with the .pb-shell offset below — the shell is height:100dvh
+     with overflow:hidden, so the banner has to buy its own space back. */
+  --pbi-h: 46px;
+
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 200;
+  box-sizing: border-box;
+  min-height: var(--pbi-h);
+
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 16px;
+
+  background: #2b1608;
+  color: #ffe7c4;
+  border-bottom: 2px solid #f5a623;
+  font-family: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+/* The banner is rendered immediately before the dashboard shell; this is what
+   stops it covering the top of the inbox. */
+.pbi-banner ~ .pb-shell {
+  box-sizing: border-box;
+  padding-top: var(--pbi-h, 46px);
+}
+
+.pbi-stripe {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #f5a623;
+}
+
+.pbi-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.pbi-title {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.pbi-name {
+  color: #ffffff;
+}
+
+.pbi-meta {
+  color: #d9b98d;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The unrecorded case. Louder than the normal state on purpose: an operator
+   inside a client with nothing being written down is the failure this whole
+   feature exists to remove, and it should look like a fault, not a variant. */
+.pbi-banner[data-unlogged="true"] {
+  background: #4a0f16;
+  border-bottom-color: #ff5f7e;
+  color: #ffd8de;
+}
+
+.pbi-banner[data-unlogged="true"] .pbi-stripe {
+  background: #ff5f7e;
+}
+
+.pbi-banner[data-unlogged="true"] .pbi-meta {
+  color: #f0a9b5;
+}
+
+.pbi-stop {
+  flex: none;
+  cursor: pointer;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #f5a623;
+  color: #2b1608;
+  font: inherit;
+  font-weight: 700;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.pbi-stop:hover {
+  background: #ffbe4d;
+}
+
+.pbi-banner[data-unlogged="true"] .pbi-stop {
+  background: #ff5f7e;
+  color: #4a0f16;
+}
+
+.pbi-banner[data-unlogged="true"] .pbi-stop:hover {
+  background: #ff8098;
+}
+
+@media (max-width: 640px) {
+  .pbi-banner {
+    --pbi-h: 62px;
+    gap: 10px;
+    padding: 8px 12px;
+  }
+
+  /* Two short lines beat one truncated one on a 390px screen. */
+  .pbi-meta {
+    white-space: normal;
+  }
+
+  .pbi-stop {
+    padding: 7px 10px;
+  }
+}

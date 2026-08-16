@@ -1,6 +1,12 @@
 import Link from "next/link";
-import type { Admin } from "@/db/schema";
+import type { Admin, ImpersonationEnd, ImpersonationSession } from "@/db/schema";
 import type { WorkspaceSummary } from "@/lib/data";
+import {
+  sessionState,
+  sessionStates,
+  type SessionState,
+} from "@/lib/impersonation";
+import "../access-log.css";
 import {
   addAdminAction,
   createClientAction,
@@ -12,12 +18,16 @@ import {
 import {
   accountStatus,
   formatDate,
+  formatDateTime,
+  formatDuration,
   hrefFor,
   KpiGrid,
   NotBuilt,
+  Pill,
   StatusPill,
   type AdminQuery,
   type Filter,
+  type PillTone,
 } from "./ui";
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -246,6 +256,165 @@ export function OverviewSection({ accounts }: { accounts: WorkspaceSummary[] }) 
 }
 
 /* ────────────────────────────────────────────────────────────────────────
+   ACCESS LOG
+   ──────────────────────────────────────────────────────────────────────── */
+
+const END_LABEL: Record<ImpersonationEnd, string> = {
+  stopped: "Stopped",
+  switched: "Switched client",
+  workspace_deleted: "Workspace deleted",
+  admin_removed: "Admin access revoked",
+};
+
+const STATE_TONE: Record<SessionState, PillTone> = {
+  active: "accent",
+  abandoned: "risk",
+  ended: "muted",
+};
+
+/**
+ * What a row's end state actually is. An ended row says how it ended; an open
+ * one says either "in progress" or "abandoned", and never pretends to know an
+ * end time it was never told.
+ */
+function StatePill({ state, session }: { state: SessionState; session: ImpersonationSession }) {
+  const label =
+    state === "ended"
+      ? session.endedReason
+        ? END_LABEL[session.endedReason]
+        : "Ended"
+      : state === "active"
+        ? "In progress"
+        : "Abandoned";
+  return <Pill tone={STATE_TONE[state]}>{label}</Pill>;
+}
+
+/**
+ * How long the operator was in there.
+ *
+ * Only a closed session has a real duration. For everything else this reports
+ * a floor — start to last-seen — and says it is a floor, because the operator
+ * could have sat on an open page for an hour after the last request we saw.
+ */
+function duration(session: ImpersonationSession, state: SessionState): string {
+  if (state === "ended" && session.endedAt) {
+    return formatDuration(session.startedAt, session.endedAt);
+  }
+  return `${formatDuration(session.startedAt, session.lastSeenAt)}+`;
+}
+
+export function AccessSection({ sessions }: { sessions: ImpersonationSession[] }) {
+  const states = sessionStates(sessions);
+  const open = states.filter((s) => s === "active").length;
+  const abandoned = states.filter((s) => s === "abandoned").length;
+
+  return (
+    <div className="pba-stack">
+      <div className="pba-card">
+        <div className="pba-card-head">
+          <h2 className="pba-card-title">Operator access to client data</h2>
+          <p className="pba-card-sub">
+            Every time someone from Postbox entered a client workspace. Our
+            clients are the data controllers and we are their processor, so this
+            is the record we owe them when they ask who read their customers&rsquo;
+            messages. It is append-only — nothing in this console can remove a
+            row, including your own.
+          </p>
+        </div>
+
+        <div className="pba-tiles">
+          <div className="pba-tile">
+            <div className="pba-tile-value">{sessions.length}</div>
+            <div className="pba-tile-label">Recorded visits</div>
+          </div>
+          <div className="pba-tile">
+            <div className="pba-tile-value">{open}</div>
+            <div className="pba-tile-label">Happening now</div>
+          </div>
+          <div className="pba-tile">
+            <div className="pba-tile-value">{abandoned}</div>
+            <div className="pba-tile-label">Never closed</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="pba-table">
+        <div className="pba-scroll">
+          <div className="pba-grid pba-grid-access">
+            <div className="pba-thead">
+              <div className="pba-row pba-row-access pba-th">
+                <div>Operator</div>
+                <div>Workspace</div>
+                <div>Started</div>
+                <div>Duration</div>
+                <div>Reason given</div>
+                <div>State</div>
+              </div>
+            </div>
+            <div className="pba-tbody">
+              {sessions.length === 0 && (
+                <div className="pba-row">
+                  <div className="pba-td">
+                    No operator has entered a client workspace since access
+                    logging was switched on. Visits made before that were not
+                    recorded and cannot be reconstructed.
+                  </div>
+                </div>
+              )}
+              {sessions.map((s, i) => {
+                const state = states[i];
+                return (
+                  <div key={s.id} className="pba-row pba-row-access">
+                    <div>
+                      <div className="pba-cell-main">{s.adminEmail}</div>
+                      <div className="pba-cell-sub">
+                        {s.adminId === null
+                          ? "no longer an admin"
+                          : (s.adminClerkUserId ?? "no login linked")}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="pba-cell-main">{s.workspaceName}</div>
+                      {s.workspaceId === null && (
+                        <div className="pba-cell-sub">workspace since deleted</div>
+                      )}
+                    </div>
+                    <div className="pba-td">{formatDateTime(s.startedAt)}</div>
+                    <div className="pba-td">{duration(s, state)}</div>
+                    <div className="pba-td">
+                      {s.reason ?? <span className="pba-unset">none given</span>}
+                    </div>
+                    <div>
+                      <StatePill state={state} session={s} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p className="pba-note">
+        A <b>+</b> on a duration means it is a lower bound. Nothing forces an
+        operator to leave cleanly — they can close the tab — so a visit that was
+        never stopped is timed from its start to the last request we actually
+        saw from it, and marked <b>Abandoned</b> once that goes quiet. The gap
+        between &ldquo;last seen&rdquo; and &ldquo;actually stopped looking&rdquo;
+        is not measurable and is not guessed at here.
+      </p>
+      <p className="pba-note">
+        This log records <b>entry into a workspace</b>, not individual reads. It
+        cannot tell you which tickets were opened or which customer&rsquo;s
+        details were on screen — no per-record access is captured anywhere in
+        Postbox. It also does not cover sign-ins, API-key traffic or anything
+        done directly against the database.
+      </p>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────
    BILLING
    ──────────────────────────────────────────────────────────────────────── */
 
@@ -403,11 +572,14 @@ export function AccountDrawer({
   account,
   teamSize,
   query,
+  recentAccess,
 }: {
   account: WorkspaceSummary | null;
   /** Agents attached to this workspace — real, from listAgentEmails. */
   teamSize: number;
   query: AdminQuery;
+  /** This workspace's slice of the access log, newest first. */
+  recentAccess: ImpersonationSession[];
 }) {
   if (!account) {
     return (
@@ -496,18 +668,61 @@ export function AccountDrawer({
 
       <div className="pba-card">
         <div className="pba-card-head">
-          <h2 className="pba-card-title">Recent activity</h2>
+          <h2 className="pba-card-title">Operator access</h2>
+          <p className="pba-card-sub">
+            Who from Postbox has been inside this workspace. Impersonation only
+            — sign-ins, admin actions and API traffic are still not logged
+            anywhere.
+          </p>
         </div>
-        <NotBuilt
-          small
-          title="Nothing is logged"
-          text="No audit trail is written — not sign-ins, not admin actions, not impersonation. There is no activity to list."
-        />
+        {recentAccess.length === 0 ? (
+          <p className="pba-log-entry">
+            No recorded visit to this workspace. Anything before access logging
+            shipped left no trace, so this is not proof that nobody ever went in.
+          </p>
+        ) : (
+          <div>
+            {recentAccess.map((s) => {
+              const state = sessionState(s);
+              return (
+                <div key={s.id} className="pba-log-entry">
+                  <div className="pba-log-who">{s.adminEmail}</div>
+                  <div className="pba-log-when">
+                    {formatDateTime(s.startedAt)} · {duration(s, state)} ·{" "}
+                    {state === "ended"
+                      ? s.endedReason
+                        ? END_LABEL[s.endedReason]
+                        : "ended"
+                      : state === "active"
+                        ? "in progress"
+                        : "never closed"}
+                  </div>
+                  {s.reason && <div className="pba-log-when">{s.reason}</div>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <p className="pba-note">
+          <Link href={hrefFor(query, { section: "access" })}>
+            Full access log →
+          </Link>
+        </p>
       </div>
 
       <div className="pba-drawer-actions">
+        {/* The reason is optional — making it mandatory only teaches people to
+            type "support". It is recorded exactly as given, or as "none". */}
         <form action={selectWorkspaceAction}>
           <input type="hidden" name="workspaceId" value={account.id} />
+          <input
+            type="text"
+            name="reason"
+            maxLength={500}
+            autoComplete="off"
+            placeholder="Why are you going in? (optional, logged)"
+            className="pba-input pba-input-grow"
+          />
           <button type="submit" className="pba-btn pba-btn-block">
             Impersonate
           </button>

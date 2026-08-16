@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { TicketSource } from "@/db/schema";
 import { SOURCE_META } from "@/lib/theme";
 import { Icon, SearchIcon } from "./icons";
+import StarButton from "./StarButton";
 import type { MailRow } from "./types";
 
 /**
@@ -16,18 +17,7 @@ import type { MailRow } from "./types";
  * its own — a chip count would contradict the nav's real totals.
  */
 
-type Refine = "all" | "awaiting" | TicketSource;
-
-const REFINE_CHIPS: { key: Refine; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "awaiting", label: "Awaiting" },
-  { key: "contact_form", label: "Contact form" },
-  { key: "email", label: "Email" },
-  { key: "order", label: "Order" },
-];
-
-/** Chips the design shows that nothing in the schema can answer. */
-const DEAD_CHIPS = ["Starred", "Labeled"];
+type Refine = "all" | "unread" | "awaiting" | "starred" | "tagged" | TicketSource;
 
 export default function MessageList({
   rows,
@@ -36,6 +26,8 @@ export default function MessageList({
   pageCount,
   total,
   selectedId,
+  labelId,
+  canPersonalise,
   hideOnMobile = false,
 }: {
   rows: MailRow[];
@@ -45,12 +37,33 @@ export default function MessageList({
   /** Real COUNT(*) for this folder — not the length of the loaded page. */
   total: number;
   selectedId?: number;
+  /** Active per-label filter, carried through links so it survives paging. */
+  labelId?: number;
+  /** Viewer has an agent row here — Unread and Starred are meaningful. */
+  canPersonalise: boolean;
   /** True on a thread route, where the phone shows the thread instead. */
   hideOnMobile?: boolean;
 }) {
   const [refine, setRefine] = useState<Refine>("all");
   const [search, setSearch] = useState("");
   const router = useRouter();
+
+  // "Unread" and "Starred" only exist for a viewer with an agent row; the rest
+  // are properties of the ticket and always apply.
+  const chips: { key: Refine; label: string }[] = [
+    { key: "all", label: "All" },
+    ...(canPersonalise
+      ? ([
+          { key: "unread", label: "Unread" },
+          { key: "starred", label: "Starred" },
+        ] as { key: Refine; label: string }[])
+      : []),
+    { key: "awaiting", label: "Awaiting" },
+    { key: "tagged", label: "Tagged" },
+    { key: "contact_form", label: "Contact form" },
+    { key: "email", label: "Email" },
+    { key: "order", label: "Order" },
+  ];
 
   // Keep the list live: new tickets used to appear only on manual reload.
   // Skipped while a thread is open — Thread runs its own 30s refresh for the
@@ -67,21 +80,26 @@ export default function MessageList({
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
+      if (refine === "unread" && !r.unread) return false;
+      if (refine === "starred" && !r.starred) return false;
       if (refine === "awaiting" && !r.awaitingReply) return false;
-      if (refine !== "all" && refine !== "awaiting" && r.source !== refine) {
-        return false;
-      }
+      if (refine === "tagged" && r.labels.length === 0) return false;
+      const isSource =
+        refine === "contact_form" || refine === "email" || refine === "order";
+      if (isSource && r.source !== refine) return false;
       if (!q) return true;
       return (
         r.name.toLowerCase().includes(q) ||
         r.subject.toLowerCase().includes(q) ||
         r.preview.toLowerCase().includes(q) ||
+        r.labels.some((l) => l.name.toLowerCase().includes(q)) ||
         (r.orderId ?? "").toLowerCase().includes(q)
       );
     });
   }, [rows, refine, search]);
 
   const refined = refine !== "all" || search.trim() !== "";
+  const labelQuery = labelId === undefined ? "" : `&label=${labelId}`;
 
   return (
     <section
@@ -104,7 +122,7 @@ export default function MessageList({
         </div>
 
         <div className="pbm-chips" role="group" aria-label="Refine this page">
-          {REFINE_CHIPS.map((c) => (
+          {chips.map((c) => (
             <button
               key={c.key}
               type="button"
@@ -114,17 +132,6 @@ export default function MessageList({
               onClick={() => setRefine(c.key)}
             >
               {c.label}
-            </button>
-          ))}
-          {DEAD_CHIPS.map((label) => (
-            <button
-              key={label}
-              type="button"
-              className="pbm-chip pbm-chip--dead"
-              disabled
-              title={`${label} isn't available yet — nothing stores it.`}
-            >
-              {label}
             </button>
           ))}
         </div>
@@ -154,6 +161,8 @@ export default function MessageList({
               selected={r.id === selectedId}
               folder={folder}
               page={page}
+              labelQuery={labelQuery}
+              canPersonalise={canPersonalise}
             />
           ))
         )}
@@ -161,7 +170,9 @@ export default function MessageList({
         {pageCount > 1 && (
           <nav className="pbm-pager" aria-label="Ticket pages">
             {page > 1 ? (
-              <Link href={`/inbox?folder=${folder}&page=${page - 1}`}>← Newer</Link>
+              <Link href={`/inbox?folder=${folder}${labelQuery}&page=${page - 1}`}>
+                ← Newer
+              </Link>
             ) : (
               <span className="pbm-pager-off">← Newer</span>
             )}
@@ -169,7 +180,9 @@ export default function MessageList({
               Page {page} of {pageCount}
             </span>
             {page < pageCount ? (
-              <Link href={`/inbox?folder=${folder}&page=${page + 1}`}>Older →</Link>
+              <Link href={`/inbox?folder=${folder}${labelQuery}&page=${page + 1}`}>
+                Older →
+              </Link>
             ) : (
               <span className="pbm-pager-off">Older →</span>
             )}
@@ -185,53 +198,71 @@ function MailCard({
   selected,
   folder,
   page,
+  labelQuery,
+  canPersonalise,
 }: {
   row: MailRow;
   selected: boolean;
   folder: string;
   page: number;
+  labelQuery: string;
+  canPersonalise: boolean;
 }) {
   const src = SOURCE_META[row.source];
   return (
-    <Link
-      href={`/tickets/${row.id}?folder=${folder}&page=${page}`}
-      className="pbm-card pb-fade-up"
-      data-selected={selected || undefined}
-      aria-current={selected ? "true" : undefined}
-    >
-      <div className="pbm-card-top">
-        <span className="pbm-card-who">
-          {row.awaitingReply && (
-            <span
-              className="pbm-dot"
-              title="The last message on this ticket came from the customer"
-            >
-              <span className="pbm-sr">Awaiting your reply</span>
+    // The star is a button and the card is a link, so they cannot nest. The
+    // wrapper gives the star somewhere to sit without swallowing the row's
+    // click target.
+    <div className="pbm-card-wrap">
+      <Link
+        href={`/tickets/${row.id}?folder=${folder}${labelQuery}&page=${page}`}
+        className="pbm-card pb-fade-up"
+        data-selected={selected || undefined}
+        data-unread={row.unread || undefined}
+        aria-current={selected ? "true" : undefined}
+      >
+        <div className="pbm-card-top">
+          <span className="pbm-card-who">
+            {row.unread && (
+              <span className="pbm-dot" aria-hidden>
+                <span className="pbm-sr">Unread</span>
+              </span>
+            )}
+            <span className="pbm-card-name">{row.name}</span>
+          </span>
+          <span className="pbm-card-time">{row.time}</span>
+        </div>
+        <div className="pbm-card-subject">{row.subject}</div>
+        <div className="pbm-card-preview">
+          {row.preview || "No messages on this ticket yet."}
+        </div>
+        <div className="pbm-card-chips">
+          {/* Real: which channel this ticket arrived on. */}
+          <span className="pbm-tag" style={{ background: src.bg, color: src.fg }}>
+            {src.label}
+          </span>
+          {row.labels.map((l) => (
+            <span key={l.id} className="pbm-label pbm-label--sm" data-color={l.color}>
+              <span className="pbm-label-name">{l.name}</span>
             </span>
+          ))}
+          {/* "Awaiting" is a property of the ticket, not of you: nobody has
+              answered this customer. It stays after you read the thread, which
+              is exactly what separates it from the unread dot above. */}
+          {row.awaitingReply && (
+            <span className="pbm-tag pbm-tag--awaiting">Awaiting</span>
           )}
-          <span className="pbm-card-name">{row.name}</span>
-        </span>
-        <span className="pbm-card-time">{row.time}</span>
-      </div>
-      <div className="pbm-card-subject">{row.subject}</div>
-      <div className="pbm-card-preview">
-        {row.preview || "No messages on this ticket yet."}
-      </div>
-      <div className="pbm-card-chips">
-        {/* Real: which channel this ticket arrived on. The design's coloured
-            "tag" chip has no labels table behind it, so the source badge —
-            which uses the same tag tokens — takes that slot. */}
-        <span
-          className="pbm-tag"
-          style={{ background: src.bg, color: src.fg }}
-        >
-          {src.label}
-        </span>
-        {row.orderId && <span className="pbm-tag pbm-tag--order">{row.orderId}</span>}
-        {/* No attachment chip: attachments are not stored, and a chip that is
-            always absent is more honest than one that is always fake. */}
-      </div>
-    </Link>
+          {row.orderId && <span className="pbm-tag pbm-tag--order">{row.orderId}</span>}
+        </div>
+      </Link>
+      <StarButton
+        ticketId={row.id}
+        starred={row.starred}
+        canStar={canPersonalise}
+        size={15}
+        className="pbm-card-star"
+      />
+    </div>
   );
 }
 

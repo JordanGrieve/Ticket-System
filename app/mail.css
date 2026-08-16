@@ -37,13 +37,27 @@
   border-radius: 18px;
 }
 .pbm-chip:focus-visible,
-.pbm-tab:focus-visible {
+.pbm-tab:focus-visible,
+.pbm-label-add:focus-visible,
+.pbm-label-create:focus-visible,
+.pbm-nav-manage:focus-visible {
   border-radius: 12px;
 }
 .pbm-icon-btn:focus-visible,
 .pbm-send:focus-visible,
 .pbm-btn:focus-visible {
   border-radius: 13px;
+}
+.pbm-card-star:focus-visible,
+.pbm-label-icon:focus-visible {
+  border-radius: 10px;
+}
+.pbm-label-x:focus-visible,
+.pbm-label-swatch--pick:focus-visible {
+  border-radius: 50%;
+}
+.pbm-label-input:focus-visible {
+  border-radius: 10px;
 }
 .pbm-composer-input:focus-visible {
   border-radius: 12px;
@@ -550,6 +564,9 @@
   align-items: center;
   gap: 6px;
   margin-top: 8px;
+  flex-wrap: wrap;
+  /* Clears the star, which floats over the card's bottom-right corner. */
+  padding-right: 30px;
 }
 .pbm-tag {
   font-size: 10px;
@@ -1018,6 +1035,405 @@
   border: 1px dashed var(--border-strong);
 }
 
+/* ───────────────────────────── labels ──────────────────────────── */
+
+/*
+  A label's colour is a TOKEN KEY in the database ("tag_a"), never a hex value.
+  It arrives on the element as data-color and is resolved here, so the same
+  label is green in one theme and amber in another without a write. This is the
+  whole reason the column stores a key: six themes, one row.
+*/
+/* Chips: the pale ground with its matching ink. */
+.pbm-label {
+  background: var(--tag-a-bg);
+  color: var(--tag-a-fg);
+}
+.pbm-label[data-color="tag_b"] {
+  background: var(--tag-b-bg);
+  color: var(--tag-b-fg);
+}
+.pbm-label[data-color="tag_c"] {
+  background: var(--tag-c-bg);
+  color: var(--tag-c-fg);
+}
+/* Dots and swatches: the ink alone, since there is no text to sit on it. */
+.pbm-label-swatch {
+  background: var(--tag-a-fg);
+  color: var(--tag-a-fg);
+}
+.pbm-label-swatch[data-color="tag_b"] {
+  background: var(--tag-b-fg);
+  color: var(--tag-b-fg);
+}
+.pbm-label-swatch[data-color="tag_c"] {
+  background: var(--tag-c-fg);
+  color: var(--tag-c-fg);
+}
+
+.pbm-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.pbm-label--sm {
+  font-size: 10px;
+  padding: 3px 7px;
+}
+.pbm-label-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pbm-label-x {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+}
+.pbm-label-x:hover {
+  opacity: 1;
+}
+
+/* The dot in front of a label's nav row, and the picker's colour swatches. */
+.pbm-label-swatch {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+}
+.pbm-label-swatch--pick {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 2px var(--border);
+}
+.pbm-label-swatch--pick[data-on] {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px currentColor;
+}
+
+/* The label row under a thread's subject. */
+.pbm-labels {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+.pbm-label-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  padding: 4px 9px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted-2);
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.16s ease, border-color 0.16s ease;
+}
+.pbm-label-add:hover {
+  color: var(--accent-text);
+  border-color: var(--accent-text);
+}
+
+.pbm-menu--labels {
+  top: calc(100% + 6px);
+  bottom: auto;
+  left: 0;
+  right: auto;
+  width: 232px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.pbm-menu-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pbm-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 4px;
+}
+.pbm-menu-note {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted-2);
+  padding: 6px 10px;
+}
+.pbm-menu-note--error {
+  color: var(--pdf-fg);
+  font-weight: 700;
+}
+
+.pbm-label-new {
+  padding: 2px 4px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pbm-label-input {
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.pbm-swatches {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.pbm-label-create {
+  margin-left: auto;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 12px;
+  background: var(--accent-grad);
+  color: var(--pbm-on-dark);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pbm-label-create:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── labels in the nav ── */
+
+.pbm-nav-heading-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-right: 8px;
+}
+.pbm-nav-manage {
+  flex: none;
+  padding: 3px 8px;
+  border: none;
+  border-radius: 8px;
+  background: var(--pbm-nav-line);
+  color: var(--muted-2);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.pbm-nav-manage:hover {
+  color: var(--nav-active-fg);
+}
+.pbm-nav-note {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted-2);
+  padding: 2px 14px 4px;
+}
+
+/* ── the label manager ── */
+
+.pbm-modal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: var(--pbm-scrim);
+}
+.pbm-modal {
+  position: fixed;
+  z-index: 91;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(94vw, 560px);
+  max-height: min(84vh, 640px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 26px 60px var(--shadow-2);
+}
+.pbm-modal-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 18px 18px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.pbm-modal-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+.pbm-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pbm-modal-note {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted-2);
+}
+.pbm-modal-note--error {
+  color: var(--pdf-fg);
+  font-weight: 700;
+}
+
+.pbm-label-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--border);
+}
+.pbm-label-row--new {
+  border-bottom: none;
+  border-top: 1px dashed var(--border-strong);
+  margin-top: 6px;
+  padding-top: 14px;
+}
+.pbm-label-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.pbm-label-icon {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: var(--surface-3);
+  color: var(--text-3);
+  cursor: pointer;
+}
+.pbm-label-icon:hover {
+  color: var(--accent-text);
+}
+.pbm-label-icon--danger:hover {
+  color: var(--pdf-fg);
+}
+/* Push the two icon buttons to the right of whatever is before them. */
+.pbm-label-row .pbm-swatches {
+  margin-left: auto;
+}
+
+/* ───────────────────────────── stars ───────────────────────────── */
+
+/*
+  The card is a link and the star is a button, so they cannot nest. The wrapper
+  is the positioning context; the star floats over the card's bottom-right
+  corner, which is why .pbm-card-chips reserves room for it.
+*/
+.pbm-card-wrap {
+  position: relative;
+  flex: none;
+}
+.pbm-card-star {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0.45;
+  transition: opacity 0.16s ease, color 0.16s ease;
+}
+.pbm-card-wrap:hover .pbm-card-star,
+.pbm-card-star:focus-visible {
+  opacity: 1;
+}
+/* A star that is on is a fact, not a hover affordance — always at full
+   strength, and in the accent so it reads at 15px. */
+.pbm-card-star[data-star="on"],
+.pbm-card-wrap:hover .pbm-card-star[data-star="on"] {
+  opacity: 1;
+  color: var(--accent-text);
+}
+.pbm-card-star:disabled {
+  display: none;
+}
+.pbm-icon-btn[data-star="on"] {
+  color: var(--accent-text);
+}
+
+/* ───────────────────────────── unread ──────────────────────────── */
+
+/*
+  Two different signals, deliberately not merged:
+    the dot + weight  = unread by ME (personal, cleared by opening the thread)
+    the "Awaiting" chip = nobody has answered the customer (shared, cleared by
+                          replying)
+  A ticket can carry either without the other.
+*/
+.pbm-card[data-unread] .pbm-card-name {
+  font-weight: 800;
+}
+.pbm-card[data-unread] .pbm-card-subject {
+  color: var(--text);
+  font-weight: 700;
+}
+.pbm-tag--awaiting {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
 /* ───────────────────────────── mobile chrome ───────────────────── */
 
 .pbm-topbar,
@@ -1191,6 +1607,14 @@
   .pbm-card[data-selected] {
     background: var(--sel);
   }
+  /* No hover on a touch screen, so the star can't be a hover affordance. */
+  .pbm-card-star {
+    opacity: 1;
+    right: 14px;
+    bottom: 14px;
+    width: 32px;
+    height: 32px;
+  }
   .pbm-card-name {
     font-size: 14.5px;
   }
@@ -1319,7 +1743,14 @@
 @media (prefers-reduced-motion: reduce) {
   .pbm-folder,
   .pbm-chip,
-  .pbm-card {
+  .pbm-card,
+  .pbm-card-star,
+  .pbm-label-add {
     transition: none;
+  }
+  /* Without a transition the star has no fade to rely on, so it must not
+     depend on hover to be findable. */
+  .pbm-card-star {
+    opacity: 1;
   }
 }

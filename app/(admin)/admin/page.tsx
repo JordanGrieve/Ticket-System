@@ -4,6 +4,11 @@ import { resolveViewer } from "@/lib/viewer";
 import { listAgentEmails, listWorkspaceSummaries } from "@/lib/data";
 import { listAdmins } from "@/lib/admin";
 import {
+  listImpersonationSessions,
+  listImpersonationSessionsForWorkspace,
+} from "@/lib/impersonation";
+import {
+  AccessSection,
   AccountDrawer,
   AccountsSection,
   BillingSection,
@@ -44,6 +49,10 @@ const PANE: Record<Section, { title: string; subtitle: string }> = {
   overview: {
     title: "Overview",
     subtitle: "The whole estate at a glance.",
+  },
+  access: {
+    title: "Access log",
+    subtitle: "Every time one of us went inside a client's data.",
   },
   billing: {
     title: "Billing",
@@ -125,6 +134,14 @@ export default async function AdminHomePage({
   // Real: how many agent logins the selected workspace has.
   const teamSize = selected ? (await listAgentEmails(selected.id)).length : 0;
 
+  // The access log: the whole thing for its own pane, and the selected
+  // account's slice for the drawer. Both are only fetched where they're shown.
+  const sessions = section === "access" ? await listImpersonationSessions() : [];
+  const recentAccess =
+    section === "accounts" && selected
+      ? await listImpersonationSessionsForWorkspace(selected.id, 5)
+      : [];
+
   const pane = PANE[section];
 
   return (
@@ -151,6 +168,7 @@ export default async function AdminHomePage({
               label="Accounts"
               count={accounts.length}
             />
+            <NavRow query={query} to="access" label="Access log" />
             <NavRow query={query} to="billing" label="Billing" />
             <NavRow query={query} to="deliverability" label="Deliverability" />
             <NavRow query={query} to="support" label="Support" />
@@ -214,6 +232,7 @@ export default async function AdminHomePage({
                 />
               )}
               {section === "overview" && <OverviewSection accounts={accounts} />}
+              {section === "access" && <AccessSection sessions={sessions} />}
               {section === "billing" && <BillingSection />}
               {section === "deliverability" && (
                 <DeliverabilitySection accounts={accounts} />
@@ -228,6 +247,7 @@ export default async function AdminHomePage({
                 account={selected}
                 teamSize={teamSize}
                 query={query}
+                recentAccess={recentAccess}
               />
             )}
           </div>

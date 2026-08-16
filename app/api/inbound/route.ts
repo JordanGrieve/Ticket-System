@@ -11,6 +11,7 @@ import {
   messageIdExists,
 } from "@/lib/data";
 import { notifyWorkspace } from "@/lib/notify";
+import { maybeSendAutoReply } from "@/lib/auto-reply-send";
 import { EMAIL_FROM_ADDRESS } from "@/lib/config";
 import {
   classifyInbound,
@@ -161,6 +162,12 @@ export async function POST(req: Request) {
         messageId,
       });
       await notifyWorkspace({ workspace, ticket, kind: "new", body });
+      // Acknowledge the sender. The raw payload goes through so the engine can
+      // read Auto-Submitted / Precedence / List-* and refuse to answer bulk or
+      // automated mail — see lib/auto-reply.ts. Only NEW tickets get one:
+      // replies into an existing thread never do, which is what stops two
+      // autoresponders from talking to each other.
+      await maybeSendAutoReply({ workspace, ticket, inboundPayload: data });
       return json({ ok: true, ticket: ticket.id, source }, { status: 201 });
     }
   }

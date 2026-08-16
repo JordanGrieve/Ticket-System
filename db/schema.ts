@@ -166,6 +166,88 @@ export const admins = pgTable("admins", {
     .defaultNow(),
 });
 
+/**
+ * How an impersonation session stopped. There is deliberately no "unknown" —
+ * an unfinished session is `endedAt IS NULL`, which is a different statement
+ * from "it ended and we don't know how". See the note on endedAt below.
+ */
+export type ImpersonationEnd =
+  // The operator clicked "Stop impersonating".
+  | "stopped"
+  // They opened a different client, which ends the previous session.
+  | "switched"
+  // The workspace was deleted out from under them.
+  | "workspace_deleted"
+  // Their admin access was revoked while they were inside a client.
+  | "admin_removed";
+
+/**
+ * Every occasion a Postbox operator acted inside a client workspace.
+ *
+ * The client is the GDPR data controller and we are the processor, so this
+ * table is the answer to "did anyone at Postbox read my customers' data, when,
+ * and why". It is append-only in spirit: rows are inserted on entry and closed
+ * on exit, and nothing in the admin console can delete one.
+ *
+ * ── Why identity is frozen as text ──
+ * `adminId` and `workspaceId` are nullable and "set null", never cascade —
+ * same reasoning as campaignRecipients. Removing an admin or deleting a client
+ * must not erase the record that they read that client's data; "we deleted the
+ * proof" is not an answer to a regulator. `adminEmail` and `workspaceName` are
+ * copied at start time and carry the row forward once the FKs go null.
+ *
+ * ── Why endedAt is not enough ──
+ * Nothing forces an operator to leave cleanly. They can close the tab, lose the
+ * session cookie, or simply walk away, and no request ever arrives to write
+ * endedAt. A schema that only had startedAt/endedAt would leave those sessions
+ * open forever and imply unbounded access. So `lastSeenAt` is refreshed
+ * (throttled) on every request made while the impersonation cookie is live: for
+ * an abandoned session it is the last moment we can honestly claim the operator
+ * was still in there. endedAt stays null — we do NOT backfill it from
+ * lastSeenAt, because "they left at 14:32" and "we last saw them at 14:32" are
+ * different claims and only one of them is true.
+ */
+export const impersonationSessions = pgTable(
+  "impersonation_sessions",
+  {
+    id: serial("id").primaryKey(),
+    // Nullable + frozen email below: see the header note.
+    adminId: integer("admin_id").references(() => admins.id, {
+      onDelete: "set null",
+    }),
+    adminEmail: text("admin_email").notNull(),
+    // The Clerk identity that actually held the browser session. Null when the
+    // admin row was never linked (admins.clerkUserId is itself nullable).
+    adminClerkUserId: text("admin_clerk_user_id"),
+    workspaceId: integer("workspace_id").references(() => workspaces.id, {
+      onDelete: "set null",
+    }),
+    workspaceName: text("workspace_name").notNull(),
+    // Free text the operator typed before entering. Optional, and never
+    // invented — null means they gave no reason, which is itself worth showing.
+    reason: text("reason"),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    // Heartbeat, not a guess. Bounds the access window for abandoned sessions.
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    // Null = never closed cleanly. Read it with lastSeenAt, not instead of it.
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    endedReason: text("ended_reason").$type<ImpersonationEnd>(),
+  },
+  (t) => [
+    // The question a client asks: "who has been in my workspace?"
+    index("impersonation_sessions_workspace_idx").on(t.workspaceId, t.startedAt),
+    // The question we ask: one operator's history — and, on the adminId prefix,
+    // "does this operator already have a session open?"
+    index("impersonation_sessions_admin_idx").on(t.adminId, t.startedAt),
+    // The console's log view, newest first across every workspace.
+    index("impersonation_sessions_started_idx").on(t.startedAt),
+  ],
+);
+
 // ── Support-desk extras ──────────────────────────────────────────
 
 export type LabelColor = "tag_a" | "tag_b" | "tag_c";
@@ -680,6 +762,7 @@ export type TicketMessage = typeof ticketMessages.$inferSelect;
 export type Contact = typeof contacts.$inferSelect;
 export type Agent = typeof agents.$inferSelect;
 export type Admin = typeof admins.$inferSelect;
+export type ImpersonationSession = typeof impersonationSessions.$inferSelect;
 export type Label = typeof labels.$inferSelect;
 export type TicketLabel = typeof ticketLabels.$inferSelect;
 export type TicketStar = typeof ticketStars.$inferSelect;

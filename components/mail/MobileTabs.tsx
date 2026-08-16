@@ -10,18 +10,37 @@ import { Icon, type IconName } from "./icons";
  * composer, which is what the design does too).
  */
 
-const TABS: { key: string; label: string; icon: IconName; href: string }[] = [
+type Tab = { key: string; label: string; icon: IconName; href: string };
+
+const BASE_TABS: Tab[] = [
   { key: "inbox", label: "Open", icon: "mail", href: "/inbox" },
   { key: "awaiting", label: "Awaiting", icon: "lines", href: "/inbox?folder=awaiting" },
   { key: "all", label: "All", icon: "news", href: "/inbox?folder=all" },
   { key: "settings", label: "Settings", icon: "settings", href: "/install" },
 ];
 
-export default function MobileTabs() {
+/** Starred is the design's fourth tab. It is real now, so it goes in — but
+ *  only for a viewer who has an agent row here, since a super-admin has no
+ *  stars and a tab that is always empty is worse than no tab. */
+const STARRED_TAB: Tab = {
+  key: "starred",
+  label: "Starred",
+  icon: "star",
+  href: "/inbox?folder=starred",
+};
+
+export default function MobileTabs({
+  canPersonalise = false,
+}: {
+  canPersonalise?: boolean;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const folder = pathname === "/inbox" ? (searchParams.get("folder") ?? "inbox") : "";
   const active = pathname === "/install" ? "settings" : folder;
+  const TABS = canPersonalise
+    ? [...BASE_TABS.slice(0, 3), STARRED_TAB, BASE_TABS[3]]
+    : BASE_TABS;
 
   return (
     <nav className="pbm-tabs" aria-label="Sections">
@@ -37,9 +56,6 @@ export default function MobileTabs() {
           <span>{t.label}</span>
         </Link>
       ))}
-      {/* Starred would be the fourth tab in the design. It is left out rather
-          than shipped as a dead tab: a tab bar is a primary control and a
-          disabled one on a phone is just a trap for a thumb. */}
     </nav>
   );
 }

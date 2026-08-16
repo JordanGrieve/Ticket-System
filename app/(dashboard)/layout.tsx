@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import MailNav from "@/components/mail/MailNav";
 import { resolveViewer } from "@/lib/viewer";
 import { ThemeApplier } from "@/components/ThemeApplier";
+import ImpersonationBanner from "@/app/(admin)/ImpersonationBanner";
 import { mailCounts } from "./queries";
 import "../mail.css";
 
@@ -20,18 +21,24 @@ export default async function DashboardLayout({
   const counts = await mailCounts(workspace.id);
 
   return (
-    <div className="pb-shell pbm">
-      {/* The `accent` column stores a theme key since the pivot. */}
-      <ThemeApplier theme={workspace.accent} />
-      {/* Renders its own mobile top bar + scrim; on desktop it is the static
-          262px navigation column. */}
-      <MailNav
-        workspaceName={workspace.name}
-        userLabel={userLabel}
-        counts={counts}
-        isAdmin={viewer.isAdmin}
-      />
-      <main className="pb-main pbm-main">{children}</main>
-    </div>
+    <>
+      {/* Renders null for tenants. Must be a SIBLING immediately before the
+          shell: its CSS uses a `~` selector to buy back its own height from
+          .pb-shell, which is height:100dvh with overflow hidden. */}
+      <ImpersonationBanner />
+      <div className="pb-shell pbm">
+        {/* The `accent` column stores a theme key since the pivot. */}
+        <ThemeApplier theme={workspace.accent} />
+        {/* Renders its own mobile top bar + scrim; on desktop it is the static
+            262px navigation column. */}
+        <MailNav
+          workspaceName={workspace.name}
+          userLabel={userLabel}
+          counts={counts}
+          isAdmin={viewer.isAdmin}
+        />
+        <main className="pb-main pbm-main">{children}</main>
+      </div>
+    </>
   );
 }

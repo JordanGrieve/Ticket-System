@@ -7,6 +7,7 @@ import {
   createTicket,
 } from "@/lib/data";
 import { notifyWorkspace } from "@/lib/notify";
+import { maybeSendAutoReply } from "@/lib/auto-reply-send";
 
 /**
  * POST /api/tickets/:apiKey — PUBLIC contact-form ingestion. The dashboard
@@ -76,6 +77,10 @@ export async function POST(
   });
 
   await notifyWorkspace({ workspace, ticket, kind: "new", body: message });
+  // Acknowledge the customer. Best-effort and self-guarding — see
+  // lib/auto-reply.ts; a suppressed or failed auto-reply never fails the
+  // submission.
+  await maybeSendAutoReply({ workspace, ticket });
 
   // A native form submit (Mode A) navigates the browser here — show a tidy
   // confirmation page instead of raw JSON. Fetch/JSON callers get JSON.
