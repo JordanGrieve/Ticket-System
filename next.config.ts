@@ -2,7 +2,16 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async redirects() {
+    // Contacts and Install moved under /settings when the three configuration
+    // surfaces became tabs. These are permanent because the pages genuinely
+    // moved — and because the install page's URL is the one a client is most
+    // likely to have bookmarked or pasted to whoever builds their website.
+    return [
+      { source: "/contacts", destination: "/settings/contacts", permanent: true },
+      { source: "/install", destination: "/settings/install", permanent: true },
+    ];
+  },
 };
 
 export default withSentryConfig(nextConfig, {

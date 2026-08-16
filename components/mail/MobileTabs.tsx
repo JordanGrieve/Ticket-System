@@ -16,7 +16,7 @@ const BASE_TABS: Tab[] = [
   { key: "inbox", label: "Open", icon: "mail", href: "/inbox" },
   { key: "awaiting", label: "Awaiting", icon: "lines", href: "/inbox?folder=awaiting" },
   { key: "all", label: "All", icon: "news", href: "/inbox?folder=all" },
-  { key: "settings", label: "Settings", icon: "settings", href: "/install" },
+  { key: "settings", label: "Settings", icon: "settings", href: "/settings" },
 ];
 
 /** Starred is the design's fourth tab. It is real now, so it goes in — but
@@ -37,7 +37,7 @@ export default function MobileTabs({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const folder = pathname === "/inbox" ? (searchParams.get("folder") ?? "inbox") : "";
-  const active = pathname === "/install" ? "settings" : folder;
+  const active = pathname.startsWith("/settings") ? "settings" : folder;
   const TABS = canPersonalise
     ? [...BASE_TABS.slice(0, 3), STARRED_TAB, BASE_TABS[3]]
     : BASE_TABS;

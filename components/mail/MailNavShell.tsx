@@ -294,31 +294,17 @@ export default function MailNavShell({
         <div className="pbm-nav-divider" />
 
         <div className="pbm-folders">
-          <Link
-            href="/contacts"
-            className="pbm-folder"
-            data-active={pathname === "/contacts"}
-          >
-            <Icon name="people" size={18} />
-            <span className="pbm-folder-label">Contacts</span>
-          </Link>
+          {/* Contacts, Auto-reply and Install are all "things you configure
+              about this workspace", so they are one entry here and tabs inside
+              /settings. Three separate links made an already long sidebar
+              longer and read as unrelated to each other. */}
           <Link
             href="/settings"
             className="pbm-folder"
-            data-active={pathname === "/settings"}
+            data-active={pathname.startsWith("/settings")}
           >
             <Icon name="settings" size={18} />
-            <span className="pbm-folder-label">Auto-reply</span>
-          </Link>
-          {/* Relabelled from "Settings" now that /settings exists — two nav
-              entries both called Settings would be a coin toss. */}
-          <Link
-            href="/install"
-            className="pbm-folder"
-            data-active={pathname === "/install"}
-          >
-            <Icon name="clip" size={18} />
-            <span className="pbm-folder-label">Install</span>
+            <span className="pbm-folder-label">Settings</span>
           </Link>
         </div>
 
@@ -348,12 +334,12 @@ export default function MailNavShell({
           {menuOpen && (
             <div className="pbm-menu" role="menu">
               <Link
-                href="/install"
+                href="/settings"
                 role="menuitem"
                 className="pbm-menu-item"
                 onClick={() => setMenuOpen(false)}
               >
-                Settings &amp; install
+                Settings
               </Link>
               <SignOutButton>
                 <button role="menuitem" className="pbm-menu-item pbm-menu-item--danger">

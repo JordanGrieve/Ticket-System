@@ -296,7 +296,7 @@ function EmptyList({
         </button>
       ) : (
         !hasAny && (
-          <Link className="pbm-btn" href="/install">
+          <Link className="pbm-btn" href="/settings/install">
             Connect your form
           </Link>
         )

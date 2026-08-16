@@ -621,3 +621,65 @@
     transition: none;
   }
 }
+
+/* ── settings tab strip ─────────────────────────────────────────
+   Contacts, Auto-reply and Install are one nav entry and three tabs.
+   Sticky so the tabs stay reachable while a long tab (Install, Contacts)
+   scrolls underneath — .pbm-page is the scroll container, not the body.
+   Colours are tokens; six themes ride on them.                          */
+
+.pbs-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 32px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.pbs-tab {
+  padding: 8px 14px;
+  border-radius: 11px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-4);
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.pbs-tab:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+
+.pbs-tab[data-active="true"] {
+  background: var(--accent-grad);
+  color: #fff;
+  box-shadow: 0 4px 10px var(--glow);
+}
+
+/* The tabs sit above content that already carries its own top padding, so
+   the first child does not need to re-pad against the sticky strip. */
+@media (max-width: 768px) {
+  .pbs-tabs {
+    padding: 12px 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .pbs-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .pbs-tab {
+    flex: 0 0 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pbs-tab {
+    transition: none;
+  }
+}

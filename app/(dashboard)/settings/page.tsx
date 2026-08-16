@@ -3,15 +3,14 @@ import { resolveViewer } from "@/lib/viewer";
 import { DEFAULT_CONFIG } from "@/lib/auto-reply";
 import { getAutoReplyConfig } from "@/lib/auto-reply-send";
 import AutoReplySettings from "./AutoReplySettings";
-import "../../settings.css";
 
-export const metadata = { title: "Auto-reply · Postbox" };
+export const metadata = { title: "Auto-reply · Settings · Postbox" };
 
 /**
- * /settings — auto-acknowledgement configuration.
+ * /settings — auto-acknowledgement configuration, and the default settings tab.
  *
- * `.pbm-page` makes a non-mail route render as a single document pane inside
- * the mail shell (same trick as /install and /contacts).
+ * The pane wrapper and the stylesheet live in the settings layout, which is
+ * shared with the Contacts and Install tabs.
  */
 export default async function SettingsPage() {
   const viewer = await resolveViewer();
@@ -21,12 +20,10 @@ export default async function SettingsPage() {
   const stored = await getAutoReplyConfig(workspace.id);
 
   return (
-    <div className="pbm-page pb-scroll">
-      <AutoReplySettings
-        initialConfig={stored ?? DEFAULT_CONFIG}
-        configured={!!stored}
-        workspaceName={workspace.name}
-      />
-    </div>
+    <AutoReplySettings
+      initialConfig={stored ?? DEFAULT_CONFIG}
+      configured={!!stored}
+      workspaceName={workspace.name}
+    />
   );
 }
