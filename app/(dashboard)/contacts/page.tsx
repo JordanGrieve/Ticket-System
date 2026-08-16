@@ -15,7 +15,9 @@ export default async function ContactsPage() {
   const now = new Date();
 
   return (
-    <div style={{ height: "100vh", overflowY: "auto" }}>
+    // A single pane inside the mail shell, which is a flex row since the
+    // rebuild. Height and scrolling are the class's job, not an inline style's.
+    <div className="pbm-page pb-scroll">
       <div style={{ maxWidth: 760, margin: "0 auto", padding: "28px 32px 64px" }}>
         <h1
           style={{

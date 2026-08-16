@@ -1,0 +1,1325 @@
+/*
+  Postbox — tenant mail client.
+
+  Everything the rebuilt inbox needs, as classes. Nothing here is inline in the
+  components on purpose: inline styles cannot carry media queries or a :hover,
+  and the last mobile layout in this codebase was unfixable until the layout
+  properties came out of style objects. The only inline styles left in
+  components/mail are genuinely per-instance values (a tag's colour pair, a
+  status dot).
+
+  Colours are tokens from globals.css so all six themes work. The three
+  literals below are the exception and are deliberate: they sit on surfaces that
+  are dark in EVERY theme (the nav column, --accent-grad), where a token that
+  flips with the palette would be wrong. They are declared once, here.
+*/
+
+.pbm {
+  /* Ink on an always-dark surface (nav column, accent-gradient bubbles). */
+  --pbm-on-dark: #fff;
+  /* Hairline / chip ground knocked out of the always-dark nav. */
+  --pbm-nav-line: rgba(255, 255, 255, 0.08);
+  /* Overlay veil behind a drawer or sheet. An ink wash, not a palette colour —
+     it has to darken every theme, including the already-dark ones. */
+  --pbm-scrim: rgba(14, 10, 28, 0.46);
+  /* Selected mail card lift. --shadow is already theme-aware. */
+  --pbm-lift: 0 10px 22px var(--shadow-2);
+}
+
+/*
+  globals.css gives every focusable element a 2px ring AND `border-radius: 6px`.
+  The ring is wanted; the radius is not — it squares off an 18px card while it
+  has focus. These restate each radius at a specificity that beats
+  `a:focus-visible` / `button:focus-visible`, and touch nothing else.
+*/
+.pbm-card:focus-visible,
+.pbm-folder:focus-visible {
+  border-radius: 18px;
+}
+.pbm-chip:focus-visible,
+.pbm-tab:focus-visible {
+  border-radius: 12px;
+}
+.pbm-icon-btn:focus-visible,
+.pbm-send:focus-visible,
+.pbm-btn:focus-visible {
+  border-radius: 13px;
+}
+.pbm-composer-input:focus-visible {
+  border-radius: 12px;
+}
+.pbm-account-btn:focus-visible,
+.pbm-pro-btn:focus-visible {
+  border-radius: 14px;
+}
+
+.pbm-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ───────────────────────────── shell ───────────────────────────── */
+
+.pbm .pb-main {
+  /* Three panes side by side; globals.css makes .pb-main a column. */
+  flex-direction: row;
+}
+
+/*
+  Routes inside the shell that aren't the mail client (/contacts, /install).
+  They render one document-shaped pane in the space the list + thread would use.
+*/
+.pbm-page {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+}
+/*
+  components/InstallView sets `height: 100vh; overflow-y: auto` inline, which
+  predates the shell and is now 100vh inside a 100dvh box — 56px too tall on a
+  phone, where the top bar overlays. An inline style can only be beaten with
+  !important, which is exactly why globals.css does the same for .pb-pad-x.
+*/
+.pbm-page > * {
+  height: auto !important;
+  overflow: visible !important;
+  flex: 0 0 auto;
+}
+
+/* ───────────────────────────── nav column ──────────────────────── */
+
+.pbm .pb-sidebar {
+  width: 262px;
+  flex: 0 0 262px;
+  padding: 26px 18px 22px;
+  background: var(--nav);
+  border-right: none;
+  gap: 0;
+}
+
+.pbm-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0 8px 22px;
+}
+.pbm-brand-mark {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 13px;
+  background: var(--accent-grad);
+  box-shadow: 0 4px 10px var(--glow);
+  color: var(--pbm-on-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pbm-brand-name {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: var(--pbm-on-dark);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pbm-admin-link {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 10px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--nav-active-fg);
+  background: var(--nav-active-bg);
+}
+.pbm-admin-link:hover {
+  color: var(--nav-active-fg);
+}
+
+.pbm-folders {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pbm-folder {
+  height: 44px;
+  flex: none;
+  border-radius: 14px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--muted-2);
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+.pbm-folder:hover:not(:disabled) {
+  background: var(--pbm-nav-line);
+  color: var(--nav-active-fg);
+}
+.pbm-folder[data-active="true"] {
+  background: var(--nav-active-bg);
+  color: var(--nav-active-fg);
+}
+.pbm-folder-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pbm-folder-count {
+  flex: none;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 8px;
+  color: inherit;
+  background: var(--pbm-nav-line);
+}
+.pbm-folder[data-active="true"] .pbm-folder-count {
+  background: var(--nav-badge-on);
+  color: var(--nav-badge-fg);
+}
+
+/* A folder the schema cannot answer. Genuinely disabled, never a dead link,
+   and carrying no count — a "0" would read as a fact we do not have. */
+.pbm-folder--dead {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+.pbm-folder-soon {
+  flex: none;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 7px;
+  border: 1px dashed currentColor;
+}
+
+.pbm-nav-divider {
+  height: 1px;
+  flex: none;
+  background: var(--pbm-nav-line);
+  margin: 14px 6px;
+}
+.pbm-nav-heading {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  opacity: 0.75;
+  padding: 0 14px 7px;
+}
+.pbm-nav-spacer {
+  flex: 1 1 auto;
+  min-height: 16px;
+}
+
+/* account */
+.pbm-account {
+  position: relative;
+  flex: none;
+  margin-bottom: 12px;
+}
+.pbm-account-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 14px;
+  border: none;
+  background: transparent;
+  color: var(--muted-2);
+  cursor: pointer;
+  text-align: left;
+}
+.pbm-account-btn:hover {
+  background: var(--pbm-nav-line);
+}
+.pbm-avatar {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--nav-active-bg);
+  color: var(--nav-active-fg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+.pbm-account-text {
+  flex: 1;
+  min-width: 0;
+  display: block;
+}
+.pbm-account-name {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--pbm-on-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pbm-account-role {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+/* Postbox Pro — a real card shape with an honest message inside it. */
+.pbm-pro {
+  flex: none;
+  border-radius: 20px;
+  padding: 16px;
+  background: var(--pro-grad);
+  box-shadow: 0 8px 18px var(--pro-shadow);
+  color: var(--pbm-on-dark);
+}
+.pbm-pro-title {
+  font-size: 13px;
+  font-weight: 800;
+}
+.pbm-pro-body {
+  font-size: 11.5px;
+  line-height: 1.5;
+  opacity: 0.78;
+  margin-top: 6px;
+}
+.pbm-pro-btn {
+  margin-top: 12px;
+  width: 100%;
+  height: 36px;
+  border: none;
+  border-radius: 13px;
+  background: var(--nav-deep);
+  color: var(--pbm-on-dark);
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ───────────────────────────── menus ───────────────────────────── */
+
+.pbm-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 34px var(--shadow-2);
+}
+.pbm-menu--status {
+  top: calc(100% + 6px);
+  bottom: auto;
+  left: 0;
+  right: auto;
+  width: 180px;
+}
+.pbm-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-align: left;
+  cursor: pointer;
+}
+.pbm-menu-item:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.pbm-menu-item--danger {
+  color: var(--pdf-fg);
+}
+.pbm-menu-check {
+  margin-left: auto;
+  color: var(--accent-text);
+}
+
+/* ───────────────────────────── list pane ───────────────────────── */
+
+.pbm-list {
+  width: 336px;
+  flex: 0 0 336px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-2);
+  border-right: 1px solid var(--border);
+}
+
+.pbm-list-head {
+  flex: none;
+  padding: 22px 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pbm-search {
+  height: 42px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 14px;
+}
+.pbm-search-icon {
+  flex: none;
+  display: flex;
+  color: var(--muted);
+}
+.pbm-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.pbm-chips {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  /* The chip row scrolls rather than wrapping: in a 336px pane, wrapping
+     pushed the first mail card below the fold. */
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.pbm-chips::-webkit-scrollbar {
+  display: none;
+}
+.pbm-chip {
+  flex: none;
+  padding: 7px 12px;
+  border: none;
+  border-radius: 11px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--surface-3);
+  color: var(--text-4);
+  box-shadow: 0 0 0 1px var(--border);
+  transition: background 0.16s ease, color 0.16s ease;
+}
+.pbm-chip[data-on="true"] {
+  background: var(--accent-grad);
+  color: var(--pbm-on-dark);
+  box-shadow: 0 3px 8px var(--glow);
+}
+.pbm-chip--dead {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border: 1px dashed var(--border-strong);
+  box-shadow: none;
+}
+
+.pbm-list-meta {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted-2);
+}
+
+.pbm-list-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pbm-card {
+  display: block;
+  flex: none;
+  border-radius: 18px;
+  padding: 13px;
+  background: transparent;
+  color: inherit;
+  transition: background 0.16s ease;
+}
+.pbm-card:hover {
+  background: var(--surface-3);
+  color: inherit;
+}
+.pbm-card[data-selected] {
+  background: var(--sel);
+  box-shadow: var(--pbm-lift);
+}
+.pbm-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pbm-card-who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.pbm-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.pbm-card-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pbm-card-time {
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.pbm-card-subject {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pbm-card-preview {
+  font-size: 12px;
+  color: var(--muted-2);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pbm-card-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.pbm-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 7px;
+}
+.pbm-tag--order {
+  background: var(--accent-chip);
+  color: var(--accent-text);
+  font-family: var(--font-mono);
+}
+
+.pbm-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 0 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.pbm-pager-off {
+  color: var(--muted);
+  opacity: 0.6;
+}
+.pbm-pager-pos {
+  color: var(--muted-2);
+  font-weight: 500;
+}
+
+.pbm-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 54px 20px;
+  gap: 8px;
+}
+.pbm-empty-mark {
+  width: 62px;
+  height: 62px;
+  border-radius: 20px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+.pbm-empty-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+.pbm-empty-body {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted-2);
+  max-width: 250px;
+}
+.pbm-btn {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.pbm-btn:hover {
+  color: var(--text);
+}
+
+/* ───────────────────────────── thread pane ─────────────────────── */
+
+.pbm-thread {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+
+.pbm-thread--empty {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  padding: 24px;
+}
+.pbm-placeholder-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+.pbm-placeholder-body {
+  font-size: 12.5px;
+  color: var(--muted-2);
+  max-width: 260px;
+  line-height: 1.6;
+}
+
+.pbm-thread-head {
+  height: 74px;
+  flex: none;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+}
+.pbm-thread-who {
+  flex: 1;
+  min-width: 0;
+}
+.pbm-thread-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pbm-thread-email {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pbm-thread-actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+
+.pbm-icon-btn {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border: none;
+  border-radius: 13px;
+  background: var(--accent-soft);
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.pbm-icon-btn:hover:not(:disabled) {
+  color: var(--accent-text);
+}
+.pbm-icon-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+/* The back arrow is a phone control; on desktop the list is already visible. */
+.pbm-back {
+  display: none;
+}
+
+.pbm-thread-subject {
+  flex: none;
+  padding: 18px 20px 6px;
+}
+.pbm-subject {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text);
+  text-wrap: pretty;
+}
+.pbm-subject-chips {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.pbm-chip-static {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 9px;
+  background: var(--accent-chip);
+  color: var(--accent-text);
+}
+.pbm-chip-static--src {
+  background: var(--surface-3);
+  color: var(--text-4);
+}
+
+.pbm-status {
+  position: relative;
+}
+.pbm-status-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pbm-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.pbm-transcript {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.pbm-transcript-note {
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted-2);
+}
+
+.pbm-bubble-row {
+  display: flex;
+}
+.pbm-bubble-row[data-out] {
+  justify-content: flex-end;
+}
+.pbm-bubble-wrap {
+  max-width: 70%;
+  min-width: 0;
+}
+.pbm-bubble {
+  background: var(--surface-3);
+  border-radius: 18px 18px 18px 6px;
+  padding: 13px 16px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+.pbm-bubble-row[data-out] .pbm-bubble {
+  background: var(--accent-grad);
+  border-radius: 18px 18px 6px 18px;
+  color: var(--pbm-on-dark);
+  box-shadow: 0 4px 12px var(--glow);
+}
+.pbm-bubble-foot {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 6px 0 0 6px;
+}
+.pbm-bubble-row[data-out] .pbm-bubble-foot {
+  margin: 6px 6px 0 0;
+  text-align: right;
+}
+
+.pbm-composer-wrap {
+  flex: none;
+  padding: 0 20px 18px;
+}
+.pbm-composer {
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 9px 9px 9px 16px;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 26px var(--shadow);
+}
+.pbm-composer-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  resize: none;
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+  padding: 10px 0;
+  max-height: 132px;
+}
+.pbm-send {
+  flex: none;
+  height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 14px;
+  background: var(--accent-grad);
+  box-shadow: 0 5px 12px var(--glow);
+  color: var(--pbm-on-dark);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pbm-send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.pbm-composer-foot {
+  font-size: 11px;
+  color: var(--muted-2);
+  padding: 8px 8px 0;
+}
+.pbm-composer-foot b {
+  font-weight: 700;
+  color: var(--text-4);
+}
+.pbm-error {
+  color: var(--pdf-fg);
+  font-weight: 700;
+}
+
+/* ───────────────────────────── contact rail ────────────────────── */
+
+/*
+  data-rail: "auto" | "open" | "closed". "auto" is the un-clicked state — a
+  column on a wide screen, hidden below 1180px where the rail is an overlay.
+  Doing this in CSS rather than JS is what keeps the server render correct and
+  avoids a post-hydration jump. "closed" always wins.
+*/
+.pbm-rail[data-rail="closed"],
+.pbm-rail-scrim[data-rail="closed"] {
+  display: none;
+}
+.pbm-rail-scrim {
+  display: none;
+}
+.pbm-rail {
+  width: 290px;
+  flex: 0 0 290px;
+  min-height: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+  background: var(--surface-2);
+  padding: 20px 18px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+.pbm-rail-grip {
+  display: none;
+}
+.pbm-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex: none;
+}
+.pbm-rail-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text);
+}
+.pbm-rail-title--sub {
+  margin-top: 4px;
+}
+.pbm-rail-close {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border: none;
+  border-radius: 9px;
+  background: var(--surface-3);
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.pbm-rail-card {
+  flex: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pbm-rail-card--empty {
+  border-style: dashed;
+  background: transparent;
+}
+.pbm-rail-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+}
+.pbm-rail-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.pbm-rail-value {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-2);
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+}
+/* Anything the schema cannot answer. Italic + muted so it never reads as data. */
+.pbm-rail-void {
+  font-size: 11.5px;
+  font-style: italic;
+  line-height: 1.5;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.pbm-rail-sections {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+}
+.pbm-rail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 2px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: left;
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.pbm-rail-soon {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 3px 7px;
+  border-radius: 7px;
+  border: 1px dashed var(--border-strong);
+}
+
+/* ───────────────────────────── mobile chrome ───────────────────── */
+
+.pbm-topbar,
+.pbm-tabs {
+  display: none;
+}
+
+/* ──────────────── narrow desktop / tablet (≤1180px) ────────────── */
+
+/*
+  Four columns need ~1250px before the conversation itself gets squeezed. Below
+  that the rail stops being a column and becomes an overlay, so the thread keeps
+  its width. Below 1024 the list narrows too, and below 900 the list drops out
+  entirely on a thread route (it is one tap away via the back arrow).
+*/
+@media (max-width: 1180px) {
+  .pbm-rail-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    background: var(--pbm-scrim);
+    touch-action: none;
+    overscroll-behavior: contain;
+  }
+  .pbm-rail {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    z-index: 71;
+    width: min(88vw, 320px);
+    flex-basis: auto;
+    box-shadow: 0 0 44px var(--shadow-2);
+  }
+  /* An overlay must never be the landing state — it would cover the thread. */
+  .pbm-rail[data-rail="auto"],
+  .pbm-rail-scrim[data-rail="auto"] {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .pbm-list {
+    width: 296px;
+    flex: 0 0 296px;
+  }
+}
+
+@media (max-width: 900px) and (min-width: 769px) {
+  /* `data-hide-mobile` is set on the list only while a thread is open. */
+  .pbm-list[data-hide-mobile] {
+    display: none;
+  }
+  .pbm-back {
+    display: flex;
+  }
+}
+
+/* ───────────────────────────── ≤768px ──────────────────────────── */
+
+@media (max-width: 768px) {
+  .pbm .pb-main {
+    flex-direction: column;
+  }
+
+  /* globals.css turns .pb-sidebar into the off-canvas drawer here (fixed,
+     translateX, scroll-lock via :has(.pb-scrim)). Only the paint changes. */
+  .pbm .pb-sidebar {
+    width: min(84vw, 300px);
+    flex-basis: auto;
+    /* Clear the drawer's own close button, which globals.css positions at 12px. */
+    padding: 58px 16px 20px;
+  }
+
+  .pbm-topbar {
+    display: flex;
+  }
+  .pbm-burger {
+    width: 38px;
+    height: 38px;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+  }
+  .pbm-burger span {
+    width: 15px;
+    height: 1.8px;
+    border-radius: 2px;
+    background: var(--text-2);
+  }
+  .pbm-topbar-text {
+    min-width: 0;
+    line-height: 1.2;
+  }
+  .pbm-topbar-name {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pbm-topbar-sub {
+    font-size: 11px;
+    color: var(--muted-2);
+  }
+  .pbm-drawer-close {
+    color: var(--text-3);
+    background: var(--surface);
+    border-color: var(--border);
+  }
+
+  /* One pane at a time: the list on /inbox, the thread on /tickets/[id]. */
+  [data-hide-mobile] {
+    display: none !important;
+  }
+
+  .pbm-page {
+    /* Clears the fixed top bar. */
+    padding-top: 56px;
+  }
+
+  .pbm-list {
+    width: 100%;
+    flex: 1 1 auto;
+    border-right: none;
+    background: var(--surface-2);
+    /* Clears the fixed top bar. */
+    padding-top: 56px;
+  }
+  .pbm-list-head {
+    padding: 14px 18px 10px;
+  }
+  .pbm-search {
+    height: 46px;
+    border-radius: 16px;
+    border-color: transparent;
+    box-shadow: 0 8px 18px var(--shadow-2);
+  }
+  .pbm-search-input {
+    font-size: 14px;
+  }
+  .pbm-chips {
+    padding-left: 0;
+  }
+  .pbm-chip {
+    padding: 8px 15px;
+    font-size: 12.5px;
+    background: var(--surface);
+    box-shadow: 0 4px 10px var(--shadow);
+  }
+  .pbm-list-scroll {
+    padding: 2px 16px 116px;
+    gap: 10px;
+  }
+  .pbm-card {
+    border-radius: 22px;
+    padding: 14px 15px;
+    background: var(--surface);
+    box-shadow: 0 10px 22px var(--shadow-2);
+  }
+  .pbm-card[data-selected] {
+    background: var(--sel);
+  }
+  .pbm-card-name {
+    font-size: 14.5px;
+  }
+  .pbm-card-subject {
+    font-size: 13px;
+  }
+  .pbm-card-preview {
+    font-size: 12.5px;
+  }
+
+  /* Floating tab bar from the mobile design. */
+  .pbm-tabs {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    height: 66px;
+    z-index: 45;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 10px;
+    border-radius: 24px;
+    background: var(--glass);
+    backdrop-filter: blur(18px);
+    box-shadow: 0 18px 40px var(--shadow-2);
+  }
+  .pbm-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 62px;
+    min-height: 48px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .pbm-tab:hover {
+    color: var(--accent-text);
+  }
+  .pbm-tab[data-on],
+  .pbm-tab[data-on]:hover {
+    color: var(--accent-text);
+  }
+
+  /* Thread fills the screen; its own header replaces the top bar. */
+  .pbm-thread {
+    flex: 1 1 auto;
+    background: var(--surface-2);
+  }
+  /* Header and subject form one rounded card; the radius and shadow live on
+     the lower half only, so nothing has to be pulled up over anything. */
+  .pbm-thread-head {
+    height: auto;
+    padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 10px;
+    background: var(--surface);
+    border-bottom: none;
+  }
+  .pbm-back {
+    display: flex;
+  }
+  /* The star and delete buttons are disabled placeholders; on a phone they are
+     pure noise next to the one control that works, so they come out. */
+  .pbm-thread-actions .pbm-icon-btn:disabled {
+    display: none;
+  }
+  .pbm-thread-subject {
+    padding: 2px 16px 14px;
+    background: var(--surface);
+    border-radius: 0 0 26px 26px;
+    box-shadow: 0 10px 26px var(--shadow-2);
+  }
+  .pbm-subject {
+    font-size: 17px;
+    letter-spacing: -0.4px;
+    /* Long subjects clamp rather than pushing the conversation off-screen. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .pbm-transcript {
+    padding: 16px 16px 8px;
+  }
+  .pbm-bubble-wrap {
+    max-width: 86%;
+  }
+  .pbm-composer-wrap {
+    padding: 0 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+  .pbm-composer {
+    border-color: transparent;
+    box-shadow: 0 16px 34px var(--shadow-2);
+  }
+  .pbm-send {
+    padding: 0 14px;
+  }
+
+  /* The ≤1180px block already made the rail an overlay; on a phone it becomes
+     a bottom sheet instead of a right-hand panel. */
+  .pbm-rail {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: 15vh;
+    width: auto;
+    border-left: none;
+    border-radius: 28px 28px 0 0;
+    box-shadow: 0 -10px 40px var(--shadow-2);
+    padding: 8px 18px calc(26px + env(safe-area-inset-bottom, 0px));
+  }
+  .pbm-rail-grip {
+    display: block;
+    flex: none;
+    width: 44px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--border-strong);
+    margin: 4px auto 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pbm-folder,
+  .pbm-chip,
+  .pbm-card {
+    transition: none;
+  }
+}

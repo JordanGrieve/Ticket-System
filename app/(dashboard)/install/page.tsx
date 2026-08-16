@@ -11,14 +11,18 @@ export default async function InstallPage() {
   // Prefer the request's own origin at runtime when APP_URL is left default.
   const appUrl = APP_URL;
 
+  // .pbm-page makes a non-mail route behave as a single pane inside the mail
+  // shell (which is a flex row since the rebuild).
   return (
-    <InstallView
-      apiKey={workspace.apiKey}
-      inboundEmail={workspace.inboundEmail}
-      replyFrom={`"${workspace.name}" <${EMAIL_FROM_ADDRESS}>`}
-      workspaceName={workspace.name}
-      accent={workspace.accent}
-      appUrl={appUrl}
-    />
+    <div className="pbm-page pb-scroll">
+      <InstallView
+        apiKey={workspace.apiKey}
+        inboundEmail={workspace.inboundEmail}
+        replyFrom={`"${workspace.name}" <${EMAIL_FROM_ADDRESS}>`}
+        workspaceName={workspace.name}
+        accent={workspace.accent}
+        appUrl={appUrl}
+      />
+    </div>
   );
 }

@@ -1,22 +1,80 @@
 import Link from "next/link";
 import { SignOutButton } from "@clerk/nextjs";
 import { resolveViewer } from "@/lib/viewer";
-import { listWorkspaceSummaries } from "@/lib/data";
+import { listAgentEmails, listWorkspaceSummaries } from "@/lib/data";
 import { listAdmins } from "@/lib/admin";
-import { PostboxLockup } from "@/components/Logo";
 import {
-  selectWorkspaceAction,
-  addAdminAction,
-  createClientAction,
-  deleteClientAction,
-  resendInviteAction,
-  removeAdminAction,
-} from "./actions";
+  AccountDrawer,
+  AccountsSection,
+  BillingSection,
+  DeliverabilitySection,
+  OverviewSection,
+  SupportSection,
+} from "./sections";
+import {
+  EnvelopeIcon,
+  FILTERS,
+  SearchIcon,
+  SECTIONS,
+  accountStatus,
+  hrefFor,
+  type AdminQuery,
+  type Filter,
+  type Section,
+} from "./ui";
+
+/**
+ * Postbox internal admin console.
+ *
+ * All state is in the URL — ?section, ?filter, ?q, ?account — so the whole
+ * console is one Server Component with no client JavaScript, and the existing
+ * Server Actions (create / invite / delete / impersonate / admins) keep working
+ * unchanged.
+ *
+ * Where the design asked for numbers the product does not collect (billing,
+ * subscribers, MRR, deliverability, an operator support queue), the pane says
+ * so instead of showing a figure. See sections.tsx.
+ */
+
+const PANE: Record<Section, { title: string; subtitle: string }> = {
+  accounts: {
+    title: "Accounts",
+    subtitle: "Every client workspace, its owner and its enquiry volume.",
+  },
+  overview: {
+    title: "Overview",
+    subtitle: "The whole estate at a glance.",
+  },
+  billing: {
+    title: "Billing",
+    subtitle: "Invoices and payment state.",
+  },
+  deliverability: {
+    title: "Deliverability",
+    subtitle: "How mail leaves Postbox, and where it lands.",
+  },
+  support: {
+    title: "Support",
+    subtitle: "Requests from clients, and who on our side can answer them.",
+  },
+};
+
+function parseSection(raw: string | undefined): Section {
+  return SECTIONS.includes(raw as Section) ? (raw as Section) : "accounts";
+}
+
+function parseFilter(raw: string | undefined): Filter {
+  return FILTERS.includes(raw as Filter) ? (raw as Filter) : "all";
+}
 
 export default async function AdminHomePage({
   searchParams,
 }: {
   searchParams: Promise<{
+    section?: string;
+    filter?: string;
+    q?: string;
+    account?: string;
     error?: string;
     created?: string;
     emailed?: string;
@@ -25,401 +83,226 @@ export default async function AdminHomePage({
     delete?: string;
   }>;
 }) {
-  const { error, created, emailed, deleted, removed, delete: deleteParam } =
-    await searchParams;
+  const params = await searchParams;
   const viewer = await resolveViewer();
-  const [workspaces, admins] = await Promise.all([
+  const [accounts, admins] = await Promise.all([
     listWorkspaceSummaries(),
     listAdmins(),
   ]);
 
-  // ?delete=<id> opens the double-confirmation panel for that workspace.
-  const deleteTarget = workspaces.find((w) => String(w.id) === deleteParam);
+  const section = parseSection(params.section);
+  const filter = parseFilter(params.filter);
+  const q = (params.q ?? "").trim();
+
+  const requestedAccount = Number(params.account);
+  const selected =
+    accounts.find((w) => w.id === requestedAccount) ?? accounts[0] ?? null;
+
+  const query: AdminQuery = {
+    section,
+    filter,
+    q,
+    account: Number.isInteger(requestedAccount) ? requestedAccount : null,
+  };
+
+  // Search matches on the things an operator actually knows: the business
+  // name, the owner's login and the workspace's inbound address.
+  const needle = q.toLowerCase();
+  const visible = accounts.filter((w) => {
+    const matchesQuery =
+      !needle ||
+      w.name.toLowerCase().includes(needle) ||
+      (w.ownerEmail ?? "").toLowerCase().includes(needle) ||
+      w.inboundEmail.toLowerCase().includes(needle);
+    const matchesFilter = filter === "all" || accountStatus(w) === filter;
+    return matchesQuery && matchesFilter;
+  });
+
+  // ?delete=<id> opens the type-the-name confirmation for that workspace.
+  const deleteTarget =
+    accounts.find((w) => String(w.id) === params.delete) ?? null;
+
+  // Real: how many agent logins the selected workspace has.
+  const teamSize = selected ? (await listAgentEmails(selected.id)).length : 0;
+
+  const pane = PANE[section];
 
   return (
-    <div style={{ maxWidth: 940, margin: "0 auto", padding: "40px 24px 80px" }}>
-      {/* header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 4,
-        }}
-      >
-        <PostboxLockup />
-        {/* The Admin badge and signed-in email used to live here. On a phone
-            they crowded "Sign out" off the edge, and neither told you anything
-            the page itself doesn't — you can only reach /admin as an admin. */}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
-          <SignOutButton>
-            <button
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#9a5a4a",
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
-              Sign out
-            </button>
-          </SignOutButton>
-        </div>
-      </div>
-
-      <h1 style={{ fontSize: 26, fontWeight: 700, margin: "22px 0 4px" }}>
-        Clients
-      </h1>
-      <p style={{ color: "var(--muted)", margin: "0 0 22px", fontSize: 14.5 }}>
-        Open any workspace to view and help with its tickets.
-      </p>
-
-      {/* status banners from the create-client action */}
-      {error && (
-        <div style={{ ...banner, background: "#fbe9e5", border: "1px solid #efcabf", color: "#9a4a33" }}>
-          {error}
-        </div>
-      )}
-      {deleted && (
-        <div style={{ ...banner, background: "#e6f2ec", border: "1px solid #cbe3d6", color: "#2c7a54" }}>
-          <b>{deleted}</b> and all of its data has been permanently deleted.
-        </div>
-      )}
-      {removed && (
-        <div style={{ ...banner, background: "#e6f2ec", border: "1px solid #cbe3d6", color: "#2c7a54" }}>
-          <b>{removed}</b> is no longer an admin.
-        </div>
-      )}
-      {deleteTarget && (
-        <div
-          style={{
-            background: "#fff",
-            border: "1.5px solid #d9756a",
-            borderRadius: 14,
-            padding: 18,
-            marginBottom: 22,
-          }}
-        >
-          <div style={{ fontSize: 14.5, fontWeight: 700, color: "#9a3a2e", marginBottom: 4 }}>
-            Permanently delete {deleteTarget.name}?
+    <div className="pba-page">
+      <div className="pba-shell">
+        <nav className="pba-side">
+          <div className="pba-brand">
+            <span className="pba-brand-tile">
+              <EnvelopeIcon />
+            </span>
+            <span>
+              <span className="pba-brand-name">Postbox</span>
+              <span className="pba-brand-sub">Internal admin</span>
+            </span>
           </div>
-          <p style={{ color: "#7a5a52", margin: "0 0 12px", fontSize: 13, lineHeight: 1.6 }}>
-            This erases the workspace and everything in it —{" "}
-            <b>{deleteTarget.totalCount} ticket{deleteTarget.totalCount === 1 ? "" : "s"}</b>, all
-            message history, and its contacts. It cannot be undone. To confirm,
-            type the workspace name exactly: <b>{deleteTarget.name}</b>
-          </p>
-          <form
-            action={deleteClientAction}
-            style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
-          >
-            <input type="hidden" name="workspaceId" value={deleteTarget.id} />
-            <input
-              type="text"
-              name="confirmName"
-              required
-              autoComplete="off"
-              placeholder={`Type "${deleteTarget.name}" to confirm`}
-              style={{ ...inputStyle, flex: "2 1 260px", border: "1px solid #e3b3ab" }}
+
+          <div className="pba-divider" />
+
+          <div className="pba-nav">
+            <NavRow query={query} to="overview" label="Overview" />
+            <NavRow
+              query={query}
+              to="accounts"
+              label="Accounts"
+              count={accounts.length}
             />
-            <button
-              type="submit"
-              style={{ ...buttonStyle, background: "#b0402f", flex: "0 0 auto" }}
-            >
-              Permanently delete
-            </button>
-            <Link
-              href="/admin"
-              style={{
-                ...buttonStyle,
-                background: "transparent",
-                color: "#6b6255",
-                border: "1px solid var(--border)",
-                display: "inline-flex",
-                alignItems: "center",
-              }}
-            >
-              Cancel
-            </Link>
-          </form>
-        </div>
-      )}
-      {created && (
-        <div style={{ ...banner, background: "#e6f2ec", border: "1px solid #cbe3d6", color: "#2c7a54" }}>
-          {emailed === "1" ? (
-            <>
-              <b>{created}</b> is ready — we&rsquo;ve emailed your client an
-              invitation to sign up.
-            </>
-          ) : (
-            <>
-              <b>{created}</b> is ready, but the invite email couldn&rsquo;t be
-              sent. Ask your client to sign up at <b>postbox.help</b> using the
-              email you entered — they&rsquo;ll land straight in their workspace.
-            </>
-          )}
-        </div>
-      )}
+            <NavRow query={query} to="billing" label="Billing" />
+            <NavRow query={query} to="deliverability" label="Deliverability" />
+            <NavRow query={query} to="support" label="Support" />
+          </div>
 
-      {/* onboard a new client */}
-      <div
-        style={{
-          background: "#fff",
-          border: "1px solid var(--border)",
-          borderRadius: 14,
-          padding: 18,
-          marginBottom: 22,
-        }}
-      >
-        <div style={{ fontSize: 14.5, fontWeight: 700, marginBottom: 4 }}>
-          New client
-        </div>
-        <p style={{ color: "var(--muted)", margin: "0 0 12px", fontSize: 13 }}>
-          Creates their workspace now. When they sign up with this email, they
-          connect to it automatically.
-        </p>
-        <form
-          action={createClientAction}
-          style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
-        >
-          <input
-            type="text"
-            name="name"
-            required
-            placeholder="Business name — e.g. Open Door Bakery"
-            style={{ ...inputStyle, flex: "2 1 220px" }}
-          />
-          <input
-            type="email"
-            name="email"
-            required
-            placeholder="Client's login email"
-            style={{ ...inputStyle, flex: "2 1 220px" }}
-          />
-          <button type="submit" style={{ ...buttonStyle, flex: "0 0 auto" }}>
-            Create workspace
-          </button>
-        </form>
-      </div>
+          <div className="pba-side-foot">
+            <div className="pba-whoami">
+              <div className="pba-whoami-label">Signed in as</div>
+              <div className="pba-whoami-email">{viewer.email}</div>
+              <SignOutButton>
+                <button type="button" className="pba-signout">
+                  Sign out
+                </button>
+              </SignOutButton>
+            </div>
+          </div>
+        </nav>
 
-      {/* workspaces */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-          gap: 14,
-        }}
-      >
-        {workspaces.length === 0 && (
-          <p style={{ color: "var(--muted)" }}>No client workspaces yet.</p>
-        )}
-        {workspaces.map((w) => (
-          <div
-            key={w.id}
-            style={{
-              background: "#fff",
-              border: "1px solid var(--border)",
-              borderRadius: 14,
-              padding: 18,
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-            }}
-          >
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ fontSize: 16, fontWeight: 700 }}>{w.name}</div>
-                {w.pending && (
-                  <span
-                    style={{
-                      fontSize: 10.5,
-                      fontWeight: 700,
-                      letterSpacing: ".05em",
-                      textTransform: "uppercase",
-                      color: "#b07d1a",
-                      background: "#f8ecd4",
-                      border: "1px solid #efe0bf",
-                      borderRadius: 20,
-                      padding: "2px 8px",
-                    }}
-                  >
-                    Awaiting sign-in
-                  </span>
+        <div className="pba-main">
+          <header className="pba-header">
+            <div className="pba-htitles">
+              <h1 className="pba-htitle">{pane.title}</h1>
+              <p className="pba-hsub">{pane.subtitle}</p>
+            </div>
+            <div className="pba-hactions">
+              <form method="get" action="/admin" className="pba-search">
+                <SearchIcon />
+                {section !== "accounts" && (
+                  <input type="hidden" name="section" value={section} />
                 )}
-              </div>
-              <div style={{ fontSize: 12.5, color: "var(--muted-2)", marginTop: 2 }}>
-                {w.ownerEmail ?? w.inboundEmail}
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 16, fontSize: 13 }}>
-              <span>
-                <strong style={{ color: "var(--accent-strong)" }}>{w.openCount}</strong>{" "}
-                <span style={{ color: "var(--muted)" }}>open</span>
-              </span>
-              <span>
-                <strong>{w.totalCount}</strong>{" "}
-                <span style={{ color: "var(--muted)" }}>total</span>
-              </span>
-            </div>
-            <form action={selectWorkspaceAction} style={{ marginTop: "auto" }}>
-              <input type="hidden" name="workspaceId" value={w.id} />
-              <button
-                type="submit"
-                style={{
-                  width: "100%",
-                  height: 36,
-                  borderRadius: 9,
-                  background: "var(--accent)",
-                  color: "#fff",
-                  fontSize: 13.5,
-                  fontWeight: 600,
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                Open workspace →
-              </button>
-            </form>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                gap: 16,
-                alignItems: "center",
-              }}
-            >
-              {w.pending && (
-                <form action={resendInviteAction} style={{ display: "inline" }}>
-                  <input type="hidden" name="workspaceId" value={w.id} />
-                  <button
-                    type="submit"
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "var(--accent-strong)",
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: 0,
-                    }}
-                  >
-                    Resend invite
-                  </button>
-                </form>
-              )}
+                {filter !== "all" && (
+                  <input type="hidden" name="filter" value={filter} />
+                )}
+                <input
+                  type="search"
+                  name="q"
+                  defaultValue={q}
+                  placeholder="Search accounts…"
+                  aria-label="Search accounts"
+                />
+              </form>
               <Link
-                href={`/admin?delete=${w.id}`}
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "#b0402f",
-                  opacity: 0.75,
-                }}
+                href={`${hrefFor(query, { section: "accounts" })}#new-account`}
+                className="pba-btn pba-btn-primary"
               >
-                Delete workspace…
+                New account
               </Link>
             </div>
-          </div>
-        ))}
-      </div>
+          </header>
 
-      {/* team / admins */}
-      <h2 style={{ fontSize: 20, fontWeight: 700, margin: "44px 0 4px" }}>Team</h2>
-      <p style={{ color: "var(--muted)", margin: "0 0 18px", fontSize: 14.5 }}>
-        Admins can see and help with every client. Add a teammate&rsquo;s email to
-        grant them the same access.
-      </p>
+          <div className="pba-body">
+            <main className="pba-content">
+              <Banners params={params} />
 
-      <div
-        style={{
-          background: "#fff",
-          border: "1px solid var(--border)",
-          borderRadius: 14,
-          padding: 18,
-          maxWidth: 520,
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-          {admins.map((a) => (
-            <div
-              key={a.id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                fontSize: 14,
-              }}
-            >
-              <span>{a.email}</span>
-              {a.email === viewer.email ? (
-                <span style={{ fontSize: 12, color: "var(--muted-2)" }}>you</span>
-              ) : (
-                <form action={removeAdminAction} style={{ display: "inline" }}>
-                  <input type="hidden" name="adminId" value={a.id} />
-                  <button
-                    type="submit"
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "#b0402f",
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: 0,
-                    }}
-                  >
-                    Remove
-                  </button>
-                </form>
+              {section === "accounts" && (
+                <AccountsSection
+                  accounts={accounts}
+                  visible={visible}
+                  query={query}
+                  deleteTarget={deleteTarget}
+                />
               )}
-            </div>
-          ))}
-        </div>
+              {section === "overview" && <OverviewSection accounts={accounts} />}
+              {section === "billing" && <BillingSection />}
+              {section === "deliverability" && (
+                <DeliverabilitySection accounts={accounts} />
+              )}
+              {section === "support" && (
+                <SupportSection admins={admins} viewerEmail={viewer.email} />
+              )}
+            </main>
 
-        <form action={addAdminAction} style={{ display: "flex", gap: 8 }}>
-          <input
-            type="email"
-            name="email"
-            required
-            placeholder="teammate@example.com"
-            style={{ ...inputStyle, flex: 1 }}
-          />
-          <button type="submit" style={buttonStyle}>
-            Add admin
-          </button>
-        </form>
+            {section === "accounts" && (
+              <AccountDrawer
+                account={selected}
+                teamSize={teamSize}
+                query={query}
+              />
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-const banner: React.CSSProperties = {
-  borderRadius: 11,
-  padding: "12px 16px",
-  fontSize: 13.5,
-  lineHeight: 1.5,
-  marginBottom: 16,
-};
+function NavRow({
+  query,
+  to,
+  label,
+  count,
+}: {
+  query: AdminQuery;
+  to: Section;
+  label: string;
+  count?: number;
+}) {
+  const active = query.section === to;
+  return (
+    <Link
+      href={hrefFor(query, { section: to, filter: "all" })}
+      className={`pba-navrow${active ? " is-active" : ""}`}
+    >
+      <span className="pba-dot" />
+      <span className="pba-navlabel">{label}</span>
+      {count !== undefined && <span className="pba-count">{count}</span>}
+    </Link>
+  );
+}
 
-const inputStyle: React.CSSProperties = {
-  height: 38,
-  borderRadius: 9,
-  border: "1px solid var(--border)",
-  padding: "0 12px",
-  fontSize: 14,
-  background: "var(--app-bg)",
-};
-
-const buttonStyle: React.CSSProperties = {
-  height: 38,
-  padding: "0 16px",
-  borderRadius: 9,
-  background: "var(--accent)",
-  color: "#fff",
-  fontSize: 13.5,
-  fontWeight: 600,
-  border: "none",
-  cursor: "pointer",
-};
+/** Outcome banners from the Server Actions. */
+function Banners({
+  params,
+}: {
+  params: {
+    error?: string;
+    created?: string;
+    emailed?: string;
+    deleted?: string;
+    removed?: string;
+  };
+}) {
+  const { error, created, emailed, deleted, removed } = params;
+  return (
+    <>
+      {error && <div className="pba-banner pba-banner-err">{error}</div>}
+      {deleted && (
+        <div className="pba-banner pba-banner-ok">
+          <b>{deleted}</b> and all of its data has been permanently deleted.
+        </div>
+      )}
+      {removed && (
+        <div className="pba-banner pba-banner-ok">
+          <b>{removed}</b> is no longer an admin.
+        </div>
+      )}
+      {created && (
+        <div className="pba-banner pba-banner-ok">
+          {emailed === "1" ? (
+            <>
+              <b>{created}</b> is ready — we&rsquo;ve emailed the client an
+              invitation to sign up.
+            </>
+          ) : (
+            <>
+              <b>{created}</b> is ready, but the invite email couldn&rsquo;t be
+              sent. Ask the client to sign up at <b>postbox.help</b> using the
+              email you entered.
+            </>
+          )}
+        </div>
+      )}
+    </>
+  );
+}

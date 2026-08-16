@@ -37,6 +37,7 @@ describe("DTO mapping", () => {
     source: "order",
     replyToken: "9f3a2c1d",
     orderId: "ORD-7",
+    formId: null,
     customerName: "Sharon",
     customerEmail: "s@example.com",
     subject: "Cakes",
@@ -59,6 +60,7 @@ describe("DTO mapping", () => {
       direction: "inbound",
       body: "hi",
       messageId: null,
+      deliveryStatus: null,
       sentAt: new Date("2026-08-01T10:30:00Z"),
     };
     expect(toMessageDTO(msg).sentAtIso).toBe("2026-08-01T10:30:00.000Z");

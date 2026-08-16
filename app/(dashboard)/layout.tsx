@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
-import Sidebar from "@/components/Sidebar";
+import MailNav from "@/components/mail/MailNav";
 import { resolveViewer } from "@/lib/viewer";
-import { countTickets } from "@/lib/data";
 import { ThemeApplier } from "@/components/ThemeApplier";
+import { mailCounts } from "./queries";
+import "../mail.css";
 
 export default async function DashboardLayout({
   children,
@@ -15,30 +16,22 @@ export default async function DashboardLayout({
 
   const workspace = viewer.workspace;
   const userLabel = viewer.isAdmin ? viewer.email : viewer.agentEmail;
-  // Grouped COUNT — the sidebar no longer loads every ticket row.
-  const counts = await countTickets(workspace.id);
+  // One grouped COUNT for all four folders.
+  const counts = await mailCounts(workspace.id);
 
   return (
-    <div
-      className="pb-shell"
-      style={{
-        background: "var(--app-bg)",
-        color: "var(--ink)",
-      }}
-    >
+    <div className="pb-shell pbm">
       {/* The `accent` column stores a theme key since the pivot. */}
       <ThemeApplier theme={workspace.accent} />
-      {/* Renders its own mobile top bar + scrim; on desktop it is just the
-          static 222px column it always was. */}
-      <Sidebar
+      {/* Renders its own mobile top bar + scrim; on desktop it is the static
+          262px navigation column. */}
+      <MailNav
         workspaceName={workspace.name}
         userLabel={userLabel}
         counts={counts}
         isAdmin={viewer.isAdmin}
       />
-      <main className="pb-main" style={{ background: "var(--app-bg)" }}>
-        {children}
-      </main>
+      <main className="pb-main pbm-main">{children}</main>
     </div>
   );
 }
