@@ -1,0 +1,111 @@
+/*
+  Postbox — loading skeletons.
+
+  Owned by the loading.tsx files under app/, and imported by each of them.
+  Nothing else imports this.
+
+  Four rules this file keeps:
+
+  1. NO COLOUR LITERALS. A block is --surface-3 — the token that already
+     contrasts with both pane grounds (--surface in the thread, --surface-2 in
+     the list and the rail) in every theme. A skeleton in hardcoded grey looks
+     broken in five of the six.
+
+     The sweep highlight is --border-strong, NOT --surface. --surface is the
+     obvious choice and it is wrong: measured across all six palettes it gives
+     a relative-luminance gap against --surface-3 of only 2.6 (ocean, on
+     --surface-2) to 11, i.e. a shimmer nobody can see. --border-strong holds
+     28–29 in every theme on both grounds, because it is defined to sit a step
+     away from the surfaces rather than beside them. It is a step DARKER in
+     the light palette and LIGHTER in the five dark ones, which is why one
+     token covers both directions without this file having to know which theme
+     is on — and why a seventh theme will not need a line changed here.
+
+  2. GEOMETRY IS NEVER RESTATED HERE. Every skeleton box reuses the real
+     component class (.pbm-card, .pbm-thread-head, .pba-row, .st-card …) and
+     this file only paints a fill on top of it. Pane widths, paddings, radii
+     and row heights therefore cannot drift from the real layout, because they
+     are only ever declared once — in mail.css / admin.css / settings.css.
+
+     Text bars are real text elements carrying a non-breaking space, so their
+     height is the real font's line box at the real font-size rather than a
+     guessed pixel value. That is what keeps a skeleton row exactly as tall as
+     the row it stands in for.
+
+  3. SPECIFICITY, NOT FILE ORDER. The fills are written as descendants of
+     .pbk (which every skeleton root carries) so .pbk .pbk-fill (0,2,0) beats
+     the single-class rules it has to paint over — .pbm-bubble's surface-3,
+     .pbm-send's accent gradient — whichever stylesheet the bundler emits
+     first. Nothing here needs an !important.
+
+  4. THE MOTION IS OPTIONAL. Under prefers-reduced-motion the sweep is removed
+     entirely and the blocks sit flat, which is the whole point: a full-screen
+     pulse is exactly the motion that hurts people.
+*/
+
+/*
+  The highlight travels left → right. background-size is wider than the box, so
+  a percentage position slides the gradient by (box − image), i.e. leftwards as
+  the percentage grows — hence the high-to-low keyframes.
+*/
+@keyframes pbk-sweep {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+.pbk .pbk-fill,
+.pbk .pbk-text {
+  background-color: var(--surface-3);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--border-strong) 46%,
+    var(--border-strong) 54%,
+    transparent 100%
+  );
+  background-repeat: no-repeat;
+  background-size: 220% 100%;
+  background-position: 150% 0;
+  animation: pbk-sweep 1.7s linear infinite;
+  /* The &nbsp; that gives the bar its line box must not be visible, and a
+     real component class underneath may carry a border or a coloured glow. */
+  color: transparent;
+  box-shadow: none;
+  border-color: transparent;
+}
+
+/* A stand-in for a line of text. Keeps the parent's font metrics; adds only
+   the bar's own corner. */
+.pbk .pbk-text {
+  display: block;
+  border-radius: 6px;
+}
+
+/*
+  A stand-in for a whole box — a bubble, a button, an avatar. It takes its
+  radius from the real class it is sitting on (.pbm-bubble, .pbm-icon-btn …),
+  or from an inline radius where the real element has no class of its own.
+*/
+.pbk .pbk-fill {
+  flex: none;
+}
+
+/* Bars sitting inside a flex row (a card's name beside its timestamp) need a
+   width that does not depend on their invisible content. */
+.pbk .pbk-text--fixed {
+  flex: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pbk .pbk-fill,
+  .pbk .pbk-text {
+    animation: none;
+    /* Flat, not mid-sweep: without the gradient the block is a plain
+       --surface-3 rectangle. */
+    background-image: none;
+  }
+}

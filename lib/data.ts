@@ -14,6 +14,7 @@ import {
   type TicketStatus,
   type MessageDirection,
 } from "@/db/schema";
+import { generateReplyToken } from "./tokens";
 
 // ── Workspace lookups ────────────────────────────────────────────
 
@@ -440,13 +441,6 @@ export async function exportWorkspaceData(
 
 // ── Ticket writes ────────────────────────────────────────────────
 
-/** Per-ticket reply-address secret (8 hex chars). */
-function generateReplyToken(): string {
-  const arr = new Uint8Array(4);
-  crypto.getRandomValues(arr);
-  return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
-}
-
 export async function createTicket(input: {
   workspaceId: number;
   source: TicketSource;
@@ -492,6 +486,13 @@ export async function addMessage(input: {
   status?: TicketStatus;
   /** Email Message-ID (ours for outbound, the sender's for inbound). */
   messageId?: string | null;
+  /**
+   * True only when WE generated the message rather than a human — currently
+   * just the auto-acknowledgement. Defaults to false, so every caller that
+   * doesn't say otherwise records a human send, which is what the auto-reply
+   * guard reads as "a teammate already answered".
+   */
+  automated?: boolean;
 }): Promise<TicketMessage> {
   const [message] = await db
     .insert(ticketMessages)
@@ -500,6 +501,7 @@ export async function addMessage(input: {
       direction: input.direction,
       body: input.body,
       messageId: input.messageId ?? null,
+      automated: input.automated ?? false,
     })
     .returning();
 
@@ -613,24 +615,6 @@ export async function setTicketStar(
   // Nothing removed — was it already unstarred, or not ours at all?
   const owned = await getTicket(workspaceId, ticketId);
   return owned ? false : null;
-}
-
-/** Is this ticket starred by this agent? Workspace-scoped. */
-export async function isTicketStarred(
-  workspaceId: number,
-  ticketId: number,
-  agentId: number,
-): Promise<boolean> {
-  const res = await db.execute(sql`
-    SELECT 1
-    FROM ticket_stars s
-    JOIN tickets t ON t.id = s.ticket_id
-    WHERE s.ticket_id = ${ticketId}
-      AND s.agent_id = ${agentId}
-      AND t.workspace_id = ${workspaceId}
-    LIMIT 1
-  `);
-  return res.rows.length > 0;
 }
 
 /**

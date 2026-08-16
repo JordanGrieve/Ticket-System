@@ -93,24 +93,30 @@ export async function saveAutoReplyConfig(
 }
 
 /**
- * Has anyone (us or a human) already sent something on this ticket? This is
- * both the "already auto-replied" idempotency check and the
- * `skipIfTeammateReplied` re-check.
+ * Who has already spoken on this ticket, split the way the guard needs it:
+ * our own acknowledgement (the idempotency check) and a human's reply (the
+ * `skipIfTeammateReplied` check). One scan, two booleans — asking twice would
+ * read the same rows twice and could disagree with itself under a concurrent
+ * insert.
  */
-export async function ticketHasOutboundMessage(
+export async function ticketOutboundKinds(
   ticketId: number,
-): Promise<boolean> {
+): Promise<{ hasAutomatedReply: boolean; hasHumanReply: boolean }> {
   const rows = await db
-    .select({ id: ticketMessages.id })
+    .select({ automated: ticketMessages.automated })
     .from(ticketMessages)
     .where(
       and(
         eq(ticketMessages.ticketId, ticketId),
         eq(ticketMessages.direction, "outbound"),
       ),
-    )
-    .limit(1);
-  return rows.length > 0;
+    );
+  return {
+    hasAutomatedReply: rows.some((r) => r.automated),
+    // Rows written before ticket_messages.automated existed default to false
+    // and so count as human here. See the column's note in db/schema.ts.
+    hasHumanReply: rows.some((r) => !r.automated),
+  };
 }
 
 /** The named form a ticket arrived through, scoped to its workspace. */
@@ -158,9 +164,9 @@ export async function maybeSendAutoReply(input: {
       return { sent: false, reason: config ? "disabled" : "not_configured" };
     }
 
-    const [formName, hasOutboundMessage] = await Promise.all([
+    const [formName, outbound] = await Promise.all([
       getFormName(workspace.id, ticket.formId),
-      ticketHasOutboundMessage(ticket.id),
+      ticketOutboundKinds(ticket.id),
     ]);
 
     const decision = decideAutoReply({
@@ -173,7 +179,8 @@ export async function maybeSendAutoReply(input: {
       },
       formName,
       headers: extractHeaders(input.inboundPayload),
-      hasOutboundMessage,
+      hasAutomatedReply: outbound.hasAutomatedReply,
+      hasHumanReply: outbound.hasHumanReply,
       now: new Date(),
     });
 
@@ -233,6 +240,11 @@ export async function maybeSendAutoReply(input: {
       ticketId: ticket.id,
       direction: "outbound",
       body: decision.body,
+      // The flag that makes this row distinguishable from an agent's reply,
+      // and so the thing that makes skipIfTeammateReplied mean anything. If
+      // this is ever dropped the guard silently reverts to treating our own
+      // acknowledgement as a human answer.
+      automated: true,
       // Deliberately no status change — a robot acknowledging receipt has not
       // put the ticket "in progress".
     });

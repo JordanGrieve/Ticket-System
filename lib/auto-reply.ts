@@ -256,6 +256,21 @@ export function selfAddresses(workspace: {
     .map((a) => a.trim().toLowerCase());
 }
 
+/**
+ * True when `addr` is a plus-tagged alias of `self` — same local part before
+ * the "+", same domain. Deliberately one-directional: we ask "is the candidate
+ * an alias of one of ours", never the reverse, so a stranger's
+ * hello@other.example is not mistaken for ours.
+ */
+function isPlusAliasOf(addr: string, self: string): boolean {
+  const [addrLocal, addrDomain] = addr.split("@");
+  const [selfLocal, selfDomain] = self.split("@");
+  if (!addrLocal || !addrDomain || !selfLocal || !selfDomain) return false;
+  if (addrDomain !== selfDomain) return false;
+  if (!addrLocal.includes("+")) return false;
+  return addrLocal.slice(0, addrLocal.indexOf("+")) === selfLocal;
+}
+
 export function isSelfAddress(
   email: string,
   workspace: { inboundEmail: string; sendingEmail: string },
@@ -263,6 +278,14 @@ export function isSelfAddress(
   const addr = (email ?? "").trim().toLowerCase();
   if (!addr) return true;
   if (selfAddresses(workspace).includes(addr)) return true;
+  // Plus-tag aliases of our own addresses are still our own addresses.
+  // hello+anything@client.co.uk delivers to hello@client.co.uk, so an exact
+  // comparison alone would acknowledge the workspace's own inbox. That did not
+  // loop forever only because the inbound route drops mail from our sending
+  // address a hop later — a backstop this guard should not be leaning on.
+  if (selfAddresses(workspace).some((self) => isPlusAliasOf(addr, self))) {
+    return true;
+  }
   // Anything on the inbound domain is one of our own ingestion addresses,
   // including the per-ticket reply addresses of OTHER tickets.
   if (addr.endsWith(`@${INBOUND_DOMAIN.toLowerCase()}`)) return true;
@@ -315,7 +338,14 @@ export function isRoleOrNoReplyAddress(email: string): boolean {
   if (/(^|[-_.])(bounces?|request|owner|unsubscribe|confirm)$/.test(base)) {
     return true;
   }
-  if (/^(no|do)[-_.]?no?t?[-_.]?repl(y|ies)/.test(base)) return true;
+  // The `not` segment must be OPTIONAL. It previously read `no?t?` without the
+  // surrounding group being optional, which still required a second literal
+  // "n" — so this only ever matched the doubled "donotreply" shape, and
+  // noreply2@, noreplies@, no-replies@ and no-reply-2@ all fell through. Plain
+  // noreply@ and no-reply@ were caught only because they are in the literal set
+  // above. Every miss is a live autoresponder, and every live autoresponder is
+  // a mail loop.
+  if (/^(no|do)[-_.]?(?:no?t?[-_.]?)?repl(y|ies)/.test(base)) return true;
   return false;
 }
 
@@ -405,7 +435,10 @@ export type SuppressReason =
   | "self_address"
   | "role_address"
   | "automated_mail"
+  // We have already acknowledged this ticket. Never conditional.
   | "already_answered"
+  // A human got there first, and skipIfTeammateReplied says stay out of it.
+  | "teammate_replied"
   | "schedule";
 
 export type AutoReplyDecision =
@@ -424,11 +457,20 @@ export type DecisionInput = {
   /** Normalised inbound headers, when the enquiry came from email. */
   headers?: Record<string, string> | null;
   /**
-   * Does the ticket already carry an outbound message? True means either we
-   * already acknowledged it or a teammate already replied — both are reasons
-   * to stay quiet.
+   * Have WE already sent an acknowledgement on this ticket? Outbound rows
+   * carrying ticket_messages.automated.
    */
-  hasOutboundMessage: boolean;
+  hasAutomatedReply: boolean;
+  /**
+   * Has a HUMAN already sent something on this ticket? Outbound rows that are
+   * not automated.
+   *
+   * Two fields rather than one "hasOutboundMessage", because they gate on
+   * different things: the first is idempotency and is absolute, the second is
+   * a courtesy the workspace can switch off. Collapsing them is what made
+   * skipIfTeammateReplied a setting that did nothing.
+   */
+  hasHumanReply: boolean;
   now: Date;
 };
 
@@ -465,20 +507,27 @@ export function decideAutoReply(input: DecisionInput): AutoReplyDecision {
     return { send: false, reason: "automated_mail" };
   }
 
-  // 5. One acknowledgement per ticket, ever — and never over the top of a
-  //    human. We cannot distinguish our own acknowledgement from an agent's
-  //    reply without a column to mark it, so this is unconditional rather
-  //    than gated on `skipIfTeammateReplied`.
-  if (input.hasOutboundMessage) {
+  // 5. One acknowledgement per ticket, ever. Unconditional: sending a second
+  //    one is a bug whatever the settings say, and this is the check that
+  //    holds when skipIfTeammateReplied is OFF.
+  if (input.hasAutomatedReply) {
     return { send: false, reason: "already_answered" };
   }
 
-  // 6. The delay must be one we can actually honour.
+  // 6. Don't talk over a colleague — but only if the workspace asked us not
+  //    to. Switching it off means "acknowledge anyway", which is a legitimate
+  //    choice: the acknowledgement confirms receipt, and a workspace may want
+  //    that sent even when someone happened to answer first.
+  if (input.hasHumanReply && config.skipIfTeammateReplied) {
+    return { send: false, reason: "teammate_replied" };
+  }
+
+  // 7. The delay must be one we can actually honour.
   if (!isDelaySupported(config.delay)) {
     return { send: false, reason: "delay_unsupported" };
   }
 
-  // 7. Schedule, evaluated in the workspace's own timezone.
+  // 8. Schedule, evaluated in the workspace's own timezone.
   const schedule = evaluateSchedule(
     config.scheduleMode,
     input.now,

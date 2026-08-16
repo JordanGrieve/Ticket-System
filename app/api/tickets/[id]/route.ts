@@ -115,12 +115,22 @@ async function readFields(req: Request): Promise<Record<string, string>> {
       return {};
     }
   }
-  const form = await req.formData();
-  const out: Record<string, string> = {};
-  for (const [k, v] of form.entries()) {
-    if (typeof v === "string") out[k] = v;
+  // formData() THROWS on a body it cannot parse — text/plain, application/xml,
+  // or no content-type at all — and this is a public endpoint whose API key is
+  // embedded in the client's own page source. Unguarded, anyone who views
+  // source could turn a malformed POST into a 500. Fall through to the same
+  // empty result the JSON branch gives, and let the caller's validation
+  // produce the honest 400.
+  try {
+    const form = await req.formData();
+    const out: Record<string, string> = {};
+    for (const [k, v] of form.entries()) {
+      if (typeof v === "string") out[k] = v;
+    }
+    return out;
+  } catch {
+    return {};
   }
-  return out;
 }
 
 function badRequest(req: Request, error: string): Response {

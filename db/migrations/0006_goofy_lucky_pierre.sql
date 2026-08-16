@@ -1,0 +1,2 @@
+ALTER TABLE "ticket_messages" ADD COLUMN "automated" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+CREATE INDEX "ticket_messages_ticket_direction_idx" ON "ticket_messages" USING btree ("ticket_id","direction","sent_at");

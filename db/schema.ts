@@ -106,12 +106,42 @@ export const ticketMessages = pgTable(
     // Outbound only — advanced by provider webhooks. Null means "not
     // applicable" (inbound), NOT "unknown", so don't default it.
     deliveryStatus: text("delivery_status").$type<DeliveryStatus>(),
+    /**
+     * Did WE compose this, or did a human? Today only the auto-acknowledgement
+     * sets it (see lib/auto-reply-send.ts).
+     *
+     * Without this column an auto-reply and an agent's reply are the same
+     * thing — two outbound rows — so the auto-reply guard has to suppress on
+     * *any* outbound message, and autoReplies.skipIfTeammateReplied cannot
+     * mean anything. With it, "we already acknowledged" and "a teammate
+     * already answered" are separate questions with separate answers.
+     *
+     * Defaulted false, not nullable: "we don't know" is not a state the guard
+     * could act on, and every write path now states which it is. Rows that
+     * predate the column therefore read as human-sent. That is the same
+     * suppression they already produced while skipIfTeammateReplied is on;
+     * with it off it would in principle permit a second acknowledgement, but
+     * an auto-reply is only ever evaluated at ticket CREATION, so no ticket
+     * old enough to hold a pre-migration row is ever asked again.
+     */
+    automated: boolean("automated").notNull().default(false),
     sentAt: timestamp("sent_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (t) => [
     index("ticket_messages_ticket_idx").on(t.ticketId, t.sentAt),
+    // The inbox's unread anchor: max(sent_at) over one ticket's INBOUND
+    // messages. Both equality columns lead so the aggregated one is last and
+    // ordered within them — Postgres takes the max off the end of the index
+    // instead of walking the whole (ticket_id, sent_at) range discarding
+    // outbound rows. Column order is the whole point here; ticket_id first
+    // because it is also the only prefix the other reads share.
+    index("ticket_messages_ticket_direction_idx").on(
+      t.ticketId,
+      t.direction,
+      t.sentAt,
+    ),
     // Dedupe lookups: inbound webhook retries are matched by Message-ID.
     index("ticket_messages_message_id_idx").on(t.messageId),
   ],
@@ -375,7 +405,7 @@ export const attachments = pgTable(
  * Named contact forms. A workspace can run several (Support, Sales, Returns…)
  * and route each to the same inbox with different framing. `key` is the public
  * identifier posted by the embed snippet, so it must be unguessable — generate
- * with generateFormKey() from db/tokens.
+ * with generateFormKey() from lib/tokens.
  */
 export const forms = pgTable(
   "forms",
@@ -676,7 +706,7 @@ export const campaignRecipients = pgTable(
     email: text("email").notNull(),
     status: text("status").$type<RecipientStatus>().notNull().default("queued"),
     // Per-recipient secret in the List-Unsubscribe URL. Must be unguessable —
-    // generate with generateUnsubscribeToken() from db/tokens — otherwise
+    // generate with generateUnsubscribeToken() from lib/tokens — otherwise
     // anyone could unsubscribe anyone.
     unsubscribeToken: text("unsubscribe_token").notNull().unique(),
     // Provider id, used to match delivery/bounce webhooks back to this row.

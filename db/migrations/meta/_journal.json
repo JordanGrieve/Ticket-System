@@ -43,6 +43,13 @@
       "when": 1786908051129,
       "tag": "0005_light_thena",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786914434811,
+      "tag": "0006_goofy_lucky_pierre",
+      "breakpoints": true
     }
   ]
 }

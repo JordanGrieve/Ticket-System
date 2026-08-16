@@ -274,7 +274,8 @@ function decide(overrides: Partial<DecisionInput> = {}) {
     },
     formName: "Wholesale enquiries",
     headers: {},
-    hasOutboundMessage: false,
+    hasAutomatedReply: false,
+    hasHumanReply: false,
     now: new Date("2025-07-15T12:00:00Z"), // Tue midday
     ...overrides,
   });
@@ -359,19 +360,40 @@ describe("decideAutoReply", () => {
     ).toEqual({ send: false, reason: "invalid_recipient" });
   });
 
-  it("only ever acknowledges once — and never over a teammate", () => {
-    expect(decide({ hasOutboundMessage: true })).toEqual({
+  it("never acknowledges the same enquiry twice, whatever the toggle says", () => {
+    // Idempotency is unconditional — it is not what skipIfTeammateReplied
+    // governs. Our own acknowledgement always suppresses a second one.
+    expect(decide({ hasAutomatedReply: true })).toEqual({
       send: false,
       reason: "already_answered",
     });
-    // Unconditional: it does not matter what skipIfTeammateReplied says,
-    // because we cannot tell our own acknowledgement from an agent's reply.
     expect(
       decide({
-        hasOutboundMessage: true,
+        hasAutomatedReply: true,
         config: { ...ENABLED, skipIfTeammateReplied: false },
       }),
     ).toEqual({ send: false, reason: "already_answered" });
+  });
+
+  it("stands down for a human reply only when asked to", () => {
+    // Toggle on: a teammate got there first, so stay quiet.
+    expect(
+      decide({
+        hasHumanReply: true,
+        config: { ...ENABLED, skipIfTeammateReplied: true },
+      }),
+    ).toEqual({ send: false, reason: "teammate_replied" });
+
+    // Toggle off: acknowledge anyway. This is the case that was broken before
+    // ticket_messages.automated existed — every outbound message suppressed
+    // the send, so the switch did nothing. toMatchObject because a sending
+    // decision also carries the composed subject and body.
+    expect(
+      decide({
+        hasHumanReply: true,
+        config: { ...ENABLED, skipIfTeammateReplied: false },
+      }),
+    ).toMatchObject({ send: true });
   });
 
   it("refuses a delay it cannot honour instead of silently dropping it", () => {

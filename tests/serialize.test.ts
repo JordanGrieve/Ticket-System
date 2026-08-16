@@ -59,6 +59,8 @@ describe("DTO mapping", () => {
       ticketId: 18,
       direction: "inbound",
       body: "hi",
+      // Meaningless on inbound — nothing we generated. See ticket_messages.
+      automated: false,
       messageId: null,
       deliveryStatus: null,
       sentAt: new Date("2026-08-01T10:30:00Z"),

@@ -477,11 +477,9 @@ export default function AutoReplySettings({
               <div>
                 <h2 className="st-card-title">Don&rsquo;t talk over a teammate</h2>
                 <p className="st-card-sub">
-                  Skip the acknowledgement if someone has already replied to the
-                  ticket. This is enforced whatever this switch says — we
-                  can&rsquo;t tell our own acknowledgement from an agent&rsquo;s
-                  reply without a column that marks it, so any existing outbound
-                  message suppresses the send.
+                  Skip the acknowledgement if one of your team has already
+                  replied to the enquiry. An enquiry never gets acknowledged
+                  twice either way — that part is always on.
                 </p>
               </div>
               <button
