@@ -1,46 +1,331 @@
 @import "tailwindcss";
 
 /*
-  Postbox — warm, calm support inbox.
-  Design tokens mirror the reference mockup (terracotta accent, Hanken Grotesk).
+  Postbox — mailer product design system.
+
+  Tokens come from the Claude Design project "Postmark mobile mailer"; all three
+  design files declare the identical set, so this is the shared foundation.
+
+  SIX themes: light (default), dark, forest, slate, ocean, plus "system" which is
+  the absence of a data-theme attribute and follows prefers-color-scheme.
+
+  Only the palette is redefined per theme. Everything below the palette blocks —
+  layout, radii, component classes — reads the tokens and never hardcodes a
+  colour, which is what makes six themes cost six token blocks rather than six
+  stylesheets.
+
+  The legacy aliases at the end of each block keep the pre-pivot component tree
+  rendering while it is migrated off inline styles. Delete them once no file
+  references --ink, --panel, --app-bg or --sidebar-bg.
 */
 :root {
-  --app-bg: #faf8f4;
-  --sidebar-bg: #f3efe8;
-  --panel: #ffffff;
-  --border: #e7e1d7;
-  --border-soft: #ece7dd;
-  --ink: #26221d;
-  --ink-2: #3a3530;
-  --ink-3: #4a453d;
-  --muted: #7a7264;
-  --muted-2: #a49a89;
-  --muted-3: #b3a999;
+  /* surfaces */
+  --page-grad: linear-gradient(135deg, #dcd3f5 0%, #d5d8f0 45%, #e3d8f2 100%);
+  --screen-grad: linear-gradient(180deg, #efeafb 0%, #e9e5f7 100%);
+  --surface: #ffffff;
+  --surface-2: #f6f3fc;
+  --surface-3: #f1edf9;
+  --sel: #ffffff;
+  --glass: rgba(255, 255, 255, 0.92);
 
-  /* accent (terracotta by default; overridable per-workspace) */
-  --accent: #d6552f;
-  --accent-strong: #ab441f;
-  --accent-soft: #f9e7de;
-  --accent-line: #f1dacd;
+  /* lines */
+  --border: #e6e1f1;
+  --border-soft: #ede9f6;
+  --border-strong: #ded6f5;
 
-  /* source palette */
-  --order-fg: #b4491f;
-  --order-bg: #fbe9df;
-  --order-dot: #d6552f;
-  --email-fg: #2f5fb0;
-  --email-bg: #e7effb;
-  --email-dot: #3b6fd4;
-  --contact-fg: #2c7a54;
-  --contact-bg: #e6f2ec;
-  --contact-dot: #1f9d6b;
+  /* type */
+  --text: #221b3a;
+  --text-2: #3a3350;
+  --text-3: #4b4363;
+  --text-4: #6b6483;
+  --muted: #a49fba;
+  --muted-2: #8b85a3;
 
-  /* status palette */
-  --open-fg: #2c7a54;
-  --open-dot: #2c7a54;
-  --progress-fg: #b07d1a;
-  --progress-dot: #d99b2b;
-  --closed-fg: #9a9284;
-  --closed-dot: #b8ac98;
+  /* accent */
+  --accent: #6d4aff;
+  --accent-text: #6d4aff;
+  --accent-strong: #5636e0;
+  --accent-soft: #ede7fe;
+  --accent-chip: #e8e1fd;
+  --accent-line: #e7deff;
+  --accent-grad: linear-gradient(145deg, #8b6bff, #6d4aff);
+  --glow: rgba(109, 74, 255, 0.18);
+  --hero-grad: linear-gradient(140deg, #e9e1ff, #d6ccff);
+  --pro-grad: linear-gradient(150deg, #7c5cff, #5b39d6);
+  --pro-shadow: rgba(70, 40, 180, 0.28);
+
+  /* navigation — the sidebar stays near-black indigo in every light theme */
+  --nav: #1c1830;
+  --nav-deep: #15122a;
+  --nav-active-bg: rgba(124, 92, 255, 0.18);
+  --nav-active-fg: #c7b6ff;
+  --nav-badge-on: rgba(124, 92, 255, 0.32);
+  --nav-badge-fg: #dcd1ff;
+
+  /* elevation */
+  --shadow: rgba(70, 45, 140, 0.1);
+  --shadow-2: rgba(70, 45, 140, 0.14);
+  --shell-shadow: rgba(70, 45, 140, 0.2);
+
+  /* semantic */
+  --ok-fg: #2e9e68;
+  --warn-bg: #fff3e2;
+  --warn-fg: #d08700;
+  --pdf-bg: #ffe9ee;
+  --pdf-fg: #ff5f7e;
+  --star: #ffb627;
+  --star-off: #cfc9e0;
+
+  /* tags */
+  --tag-a-bg: #eaf7ef;
+  --tag-a-fg: #2e9e68;
+  --tag-b-bg: #f1edff;
+  --tag-b-fg: #6d4aff;
+  --tag-c-bg: #fff3e2;
+  --tag-c-fg: #d08700;
+
+  /* legacy aliases — remove with the inline-style migration */
+  --app-bg: var(--surface-2);
+  --sidebar-bg: var(--surface-3);
+  --panel: var(--surface);
+  --ink: var(--text);
+  --ink-2: var(--text-2);
+  --ink-3: var(--text-3);
+  --muted-3: var(--muted-2);
+  --order-fg: var(--tag-c-fg);
+  --order-bg: var(--tag-c-bg);
+  --order-dot: var(--tag-c-fg);
+  --email-fg: var(--tag-b-fg);
+  --email-bg: var(--tag-b-bg);
+  --email-dot: var(--tag-b-fg);
+  --contact-fg: var(--tag-a-fg);
+  --contact-bg: var(--tag-a-bg);
+  --contact-dot: var(--tag-a-fg);
+  --open-fg: var(--ok-fg);
+  --open-dot: var(--ok-fg);
+  --progress-fg: var(--warn-fg);
+  --progress-dot: var(--warn-fg);
+  --closed-fg: var(--muted);
+  --closed-dot: var(--muted);
+}
+
+/*
+  Dark palette. Applied when the workspace picks it explicitly, and when the
+  workspace is on "system" (no data-theme) and the device asks for dark.
+  Both selectors carry the same declarations via a shared custom-property set.
+*/
+:root[data-theme="dark"] {
+  --page-grad: linear-gradient(135deg, #141126 0%, #1c1830 50%, #241d3e 100%);
+  --screen-grad: linear-gradient(180deg, #1b1731 0%, #221c3b 100%);
+  --surface: #241f3c;
+  --surface-2: #1e1a33;
+  --surface-3: rgba(255, 255, 255, 0.05);
+  --sel: #2b2549;
+  --glass: rgba(36, 31, 60, 0.94);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text: #f3f0ff;
+  --text-2: #cfc8e6;
+  --text-3: #bdb6d6;
+  --text-4: #a9a2c4;
+  --muted: #8a84a4;
+  --muted-2: #8e88a8;
+  --accent-text: #b9a6ff;
+  --accent-soft: rgba(124, 92, 255, 0.14);
+  --accent-chip: rgba(124, 92, 255, 0.22);
+  --accent-line: rgba(124, 92, 255, 0.3);
+  --nav: #17142b;
+  --shadow: rgba(0, 0, 0, 0.28);
+  --shadow-2: rgba(0, 0, 0, 0.34);
+  --ok-fg: #63d6a0;
+  --warn-bg: rgba(208, 135, 0, 0.2);
+  --warn-fg: #f0b657;
+  --pdf-bg: rgba(255, 95, 126, 0.18);
+  --pdf-fg: #ff8da3;
+  --tag-a-bg: rgba(46, 158, 104, 0.18);
+  --tag-a-fg: #63d6a0;
+  --tag-b-bg: rgba(124, 92, 255, 0.22);
+  --tag-b-fg: #b9a6ff;
+  --tag-c-bg: rgba(208, 135, 0, 0.2);
+  --tag-c-fg: #f0b657;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --page-grad: linear-gradient(135deg, #141126 0%, #1c1830 50%, #241d3e 100%);
+    --screen-grad: linear-gradient(180deg, #1b1731 0%, #221c3b 100%);
+    --surface: #241f3c;
+    --surface-2: #1e1a33;
+    --surface-3: rgba(255, 255, 255, 0.05);
+    --sel: #2b2549;
+    --glass: rgba(36, 31, 60, 0.94);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-soft: rgba(255, 255, 255, 0.06);
+    --border-strong: rgba(255, 255, 255, 0.18);
+    --text: #f3f0ff;
+    --text-2: #cfc8e6;
+    --text-3: #bdb6d6;
+    --text-4: #a9a2c4;
+    --muted: #8a84a4;
+    --muted-2: #8e88a8;
+    --accent-text: #b9a6ff;
+    --accent-soft: rgba(124, 92, 255, 0.14);
+    --accent-chip: rgba(124, 92, 255, 0.22);
+    --accent-line: rgba(124, 92, 255, 0.3);
+    --nav: #17142b;
+    --shadow: rgba(0, 0, 0, 0.28);
+    --shadow-2: rgba(0, 0, 0, 0.34);
+    --ok-fg: #63d6a0;
+    --warn-bg: rgba(208, 135, 0, 0.2);
+    --warn-fg: #f0b657;
+    --pdf-bg: rgba(255, 95, 126, 0.18);
+    --pdf-fg: #ff8da3;
+    --tag-a-bg: rgba(46, 158, 104, 0.18);
+    --tag-a-fg: #63d6a0;
+    --tag-b-bg: rgba(124, 92, 255, 0.22);
+    --tag-b-fg: #b9a6ff;
+    --tag-c-bg: rgba(208, 135, 0, 0.2);
+    --tag-c-fg: #f0b657;
+  }
+}
+
+/* Forest — deep green, dark ground */
+:root[data-theme="forest"] {
+  --page-grad: linear-gradient(135deg, #0c1712 0%, #10201a 50%, #152a21 100%);
+  --screen-grad: linear-gradient(180deg, #101d18 0%, #16261f 100%);
+  --surface: #17251f;
+  --surface-2: #132019;
+  --surface-3: rgba(255, 255, 255, 0.05);
+  --sel: #1d3028;
+  --glass: rgba(23, 37, 31, 0.94);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text: #ebf6f0;
+  --text-2: #c8e0d4;
+  --text-3: #b6d4c6;
+  --text-4: #9fc2b3;
+  --muted: #7f9c8d;
+  --muted-2: #86a294;
+  --accent: #2fa36b;
+  --accent-text: #7ce0ae;
+  --accent-strong: #238153;
+  --accent-grad: linear-gradient(145deg, #49c98c, #2a9463);
+  --accent-soft: rgba(47, 163, 107, 0.14);
+  --accent-chip: rgba(47, 163, 107, 0.22);
+  --accent-line: rgba(47, 163, 107, 0.3);
+  --glow: rgba(47, 163, 107, 0.18);
+  --nav: #0f1a15;
+  --nav-active-bg: rgba(47, 163, 107, 0.18);
+  --nav-active-fg: #7ce0ae;
+  --nav-badge-on: rgba(47, 163, 107, 0.32);
+  --nav-badge-fg: #b6f0d4;
+  --shadow: rgba(0, 0, 0, 0.28);
+  --shadow-2: rgba(0, 0, 0, 0.34);
+  --ok-fg: #63d6a0;
+  --warn-bg: rgba(208, 135, 0, 0.2);
+  --warn-fg: #f0b657;
+  --pdf-bg: rgba(255, 95, 126, 0.18);
+  --pdf-fg: #ff8da3;
+  --tag-a-bg: rgba(46, 158, 104, 0.18);
+  --tag-a-fg: #63d6a0;
+  --tag-b-bg: rgba(47, 163, 107, 0.22);
+  --tag-b-fg: #7ce0ae;
+  --tag-c-bg: rgba(208, 135, 0, 0.2);
+  --tag-c-fg: #f0b657;
+}
+
+/* Slate — neutral ground, amber accent */
+:root[data-theme="slate"] {
+  --page-grad: linear-gradient(135deg, #121212 0%, #1a1a19 50%, #20201f 100%);
+  --screen-grad: linear-gradient(180deg, #1a1a19 0%, #212120 100%);
+  --surface: #232322;
+  --surface-2: #1c1c1b;
+  --surface-3: rgba(255, 255, 255, 0.05);
+  --sel: #2c2c2a;
+  --glass: rgba(35, 35, 34, 0.94);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text: #f2f0ec;
+  --text-2: #d8d4cc;
+  --text-3: #c8c4bb;
+  --text-4: #b0aca3;
+  --muted: #8f8b83;
+  --muted-2: #96928a;
+  --accent: #c08a4e;
+  --accent-text: #e7b478;
+  --accent-strong: #9a6d3b;
+  --accent-grad: linear-gradient(145deg, #d9a05b, #b07a3f);
+  --accent-soft: rgba(192, 138, 78, 0.14);
+  --accent-chip: rgba(192, 138, 78, 0.22);
+  --accent-line: rgba(192, 138, 78, 0.3);
+  --glow: rgba(192, 138, 78, 0.18);
+  --nav: #141413;
+  --nav-active-bg: rgba(192, 138, 78, 0.18);
+  --nav-active-fg: #e7b478;
+  --nav-badge-on: rgba(192, 138, 78, 0.32);
+  --nav-badge-fg: #f0d3ac;
+  --shadow: rgba(0, 0, 0, 0.28);
+  --shadow-2: rgba(0, 0, 0, 0.34);
+  --ok-fg: #63d6a0;
+  --warn-bg: rgba(208, 135, 0, 0.2);
+  --warn-fg: #f0b657;
+  --pdf-bg: rgba(255, 95, 126, 0.18);
+  --pdf-fg: #ff8da3;
+  --tag-a-bg: rgba(46, 158, 104, 0.18);
+  --tag-a-fg: #63d6a0;
+  --tag-b-bg: rgba(192, 138, 78, 0.22);
+  --tag-b-fg: #e7b478;
+  --tag-c-bg: rgba(208, 135, 0, 0.2);
+  --tag-c-fg: #f0b657;
+}
+
+/* Ocean — midnight blue */
+:root[data-theme="ocean"] {
+  --page-grad: linear-gradient(135deg, #0a1120 0%, #0e1a2c 50%, #132339 100%);
+  --screen-grad: linear-gradient(180deg, #0e1a2c 0%, #142438 100%);
+  --surface: #182741;
+  --surface-2: #121e33;
+  --surface-3: rgba(255, 255, 255, 0.05);
+  --sel: #1f3253;
+  --glass: rgba(24, 39, 65, 0.94);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text: #edf3ff;
+  --text-2: #c9d8f0;
+  --text-3: #b8cae6;
+  --text-4: #a1b5d4;
+  --muted: #7f90ad;
+  --muted-2: #8797b3;
+  --accent: #2e6be6;
+  --accent-text: #9cc4ff;
+  --accent-strong: #2354b8;
+  --accent-grad: linear-gradient(145deg, #5b9bff, #2e6be6);
+  --accent-soft: rgba(46, 107, 230, 0.14);
+  --accent-chip: rgba(46, 107, 230, 0.22);
+  --accent-line: rgba(46, 107, 230, 0.3);
+  --glow: rgba(46, 107, 230, 0.18);
+  --nav: #0d1727;
+  --nav-active-bg: rgba(46, 107, 230, 0.18);
+  --nav-active-fg: #9cc4ff;
+  --nav-badge-on: rgba(46, 107, 230, 0.32);
+  --nav-badge-fg: #c4dcff;
+  --shadow: rgba(0, 0, 0, 0.28);
+  --shadow-2: rgba(0, 0, 0, 0.34);
+  --ok-fg: #63d6a0;
+  --warn-bg: rgba(208, 135, 0, 0.2);
+  --warn-fg: #f0b657;
+  --pdf-bg: rgba(255, 95, 126, 0.18);
+  --pdf-fg: #ff8da3;
+  --tag-a-bg: rgba(46, 158, 104, 0.18);
+  --tag-a-fg: #63d6a0;
+  --tag-b-bg: rgba(46, 107, 230, 0.22);
+  --tag-b-fg: #9cc4ff;
+  --tag-c-bg: rgba(208, 135, 0, 0.2);
+  --tag-c-fg: #f0b657;
 }
 
 @theme inline {
@@ -67,7 +352,7 @@ body {
 body {
   background: var(--app-bg);
   color: var(--ink);
-  font-family: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 

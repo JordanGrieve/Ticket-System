@@ -1,5 +1,4 @@
 import { requireAdmin } from "@/lib/viewer";
-import { accentVars } from "@/lib/theme";
 
 /**
  * Admin-only chrome. requireAdmin() redirects any non-admin (a tenant client)
@@ -15,7 +14,6 @@ export default async function AdminLayout({
   return (
     <div
       style={{
-        ...accentVars("terracotta"),
         minHeight: "100vh",
         background: "var(--app-bg)",
         color: "var(--ink)",

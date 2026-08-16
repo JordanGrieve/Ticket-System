@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { SignOutButton } from "@clerk/nextjs";
 import { resolveViewer } from "@/lib/viewer";
-import { accentVars } from "@/lib/theme";
 import { PostboxLockup } from "@/components/Logo";
 
 /**
@@ -17,7 +16,6 @@ export default async function NoAccessPage() {
   return (
     <div
       style={{
-        ...accentVars("terracotta"),
         minHeight: "100vh",
         display: "flex",
         alignItems: "center",

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import { accentVars } from "@/lib/theme";
 import { PostboxLockup } from "@/components/Logo";
 
 /**
@@ -16,7 +15,6 @@ export default async function LandingPage() {
   return (
     <div
       style={{
-        ...accentVars("terracotta"),
         minHeight: "100vh",
         background: "var(--app-bg)",
         color: "var(--ink)",

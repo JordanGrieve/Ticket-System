@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { accentVars } from "@/lib/theme";
 import { PostboxLockup } from "@/components/Logo";
 
 /** Shared chrome for the public legal pages. */
@@ -11,7 +10,6 @@ export default function LegalLayout({
   return (
     <div
       style={{
-        ...accentVars("terracotta"),
         minHeight: "100vh",
         background: "var(--app-bg)",
         color: "var(--ink)",

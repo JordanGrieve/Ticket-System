@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { json } from "@/lib/http";
 import { activeWorkspace } from "@/lib/viewer";
 import { updateWorkspace } from "@/lib/data";
-import { ACCENT_SCHEMES } from "@/lib/theme";
+import { THEMES } from "@/lib/theme";
 
 /**
  * PATCH /api/workspace  (authed)
@@ -26,8 +26,10 @@ export async function PATCH(req: Request) {
     patch.name = body.name.trim().slice(0, 80);
   }
   if (typeof body.accent === "string") {
-    if (!ACCENT_SCHEMES[body.accent]) {
-      return json({ error: "Unknown accent scheme." }, { status: 400 });
+    // The column is still named `accent`; since the pivot it stores a theme key.
+    // Renaming it needs a migration — tracked with the design-system task.
+    if (!THEMES.some((t) => t.key === body.accent)) {
+      return json({ error: "Unknown theme." }, { status: 400 });
     }
     patch.accent = body.accent;
   }

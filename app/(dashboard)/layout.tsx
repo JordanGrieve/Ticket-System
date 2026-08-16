@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { resolveViewer } from "@/lib/viewer";
 import { countTickets } from "@/lib/data";
-import { accentVars } from "@/lib/theme";
+import { ThemeApplier } from "@/components/ThemeApplier";
 
 export default async function DashboardLayout({
   children,
@@ -22,11 +22,12 @@ export default async function DashboardLayout({
     <div
       className="pb-shell"
       style={{
-        ...accentVars(workspace.accent),
         background: "var(--app-bg)",
         color: "var(--ink)",
       }}
     >
+      {/* The `accent` column stores a theme key since the pivot. */}
+      <ThemeApplier theme={workspace.accent} />
       {/* Renders its own mobile top bar + scrim; on desktop it is just the
           static 222px column it always was. */}
       <Sidebar

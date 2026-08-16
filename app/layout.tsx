@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Hanken_Grotesk, Spline_Sans_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, Spline_Sans_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
-const hanken = Hanken_Grotesk({
-  variable: "--font-hanken",
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
 });
@@ -27,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${hanken.variable} ${splineMono.variable}`}>
+    <html lang="en" className={`${jakarta.variable} ${splineMono.variable}`}>
       <body>
         <ClerkProvider>{children}</ClerkProvider>
       </body>

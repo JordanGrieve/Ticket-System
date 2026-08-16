@@ -3,7 +3,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CopyButton from "./CopyButton";
-import { ACCENT_SCHEMES } from "@/lib/theme";
+import { THEMES } from "@/lib/theme";
+
+/** Swatch previews for the theme picker, mirroring the design's theme cards. */
+const THEME_SWATCH: Record<string, string> = {
+  system: "linear-gradient(135deg,#EFEAFB 0 50%,#241F3C 50% 100%)",
+  light: "linear-gradient(135deg,#DCD3F5,#FFFFFF)",
+  dark: "linear-gradient(135deg,#241F3C,#6D4AFF)",
+  forest: "linear-gradient(135deg,#17251F,#2FA36B)",
+  slate: "linear-gradient(135deg,#232322,#C08A4E)",
+  ocean: "linear-gradient(135deg,#182741,#2E6BE6)",
+};
 
 export default function InstallView({
   apiKey,
@@ -238,12 +248,14 @@ human mailbox).
           <div style={{ height: 24 }} />
           <Label>Accent</Label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 4 }}>
-            {Object.entries(ACCENT_SCHEMES).map(([key, s]) => {
-              const active = accent === key;
+            {THEMES.map((t) => {
+              const active = accent === t.key;
+              const sw = THEME_SWATCH[t.key];
               return (
                 <button
-                  key={key}
-                  onClick={() => pickAccent(key)}
+                  key={t.key}
+                  onClick={() => pickAccent(t.key)}
+                  aria-pressed={active}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -251,13 +263,23 @@ human mailbox).
                     padding: "9px 12px",
                     borderRadius: 11,
                     cursor: "pointer",
-                    background: "#fff",
-                    border: `1.5px solid ${active ? s.accent : "var(--border)"}`,
+                    background: "var(--surface)",
+                    border: `1.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
                   }}
                 >
-                  <span style={{ width: 20, height: 20, borderRadius: 6, background: s.accent }} />
-                  <span style={{ fontSize: 13.5, fontWeight: 600, color: "#3a3530" }}>{s.label}</span>
-                  {active && <span style={{ color: s.accent, fontSize: 14 }}>✓</span>}
+                  <span
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 6,
+                      background: sw,
+                      border: "1px solid var(--border)",
+                    }}
+                  />
+                  <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text-2)" }}>
+                    {t.label}
+                  </span>
+                  {active && <span style={{ color: "var(--accent)", fontSize: 14 }}>✓</span>}
                 </button>
               );
             })}
