@@ -40,6 +40,7 @@
 .pbm-tab:focus-visible,
 .pbm-label-add:focus-visible,
 .pbm-label-create:focus-visible,
+.pbm-confirm-btn:focus-visible,
 .pbm-nav-manage:focus-visible {
   border-radius: 12px;
 }
@@ -1364,6 +1365,60 @@
 /* Push the two icon buttons to the right of whatever is before them. */
 .pbm-label-row .pbm-swatches {
   margin-left: auto;
+}
+
+/* ── delete confirmation, in the row ──
+   Replaces window.confirm. The row it belongs to turns into the question, so
+   the consequence sits on the thing it applies to. Every colour is a token:
+   --pdf-bg/--pdf-fg are the danger pair, defined in all six themes. */
+.pbm-confirm {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 4px 2px;
+}
+.pbm-confirm-q {
+  flex: 1 1 200px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.pbm-confirm-acts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.pbm-confirm-btn {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pbm-confirm-btn:hover {
+  color: var(--accent-text);
+}
+.pbm-confirm-btn--danger {
+  border-color: transparent;
+  background: var(--pdf-bg);
+  color: var(--pdf-fg);
+}
+.pbm-confirm-btn--danger:hover {
+  color: var(--pdf-fg);
+}
+.pbm-confirm-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* ───────────────────────────── stars ───────────────────────────── */

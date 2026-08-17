@@ -1,32 +1,56 @@
 import "../skeleton.css";
 
 /**
- * /inbox — the two-pane mail skeleton, and the fallback for any (dashboard)
- * route that does not ship a closer one.
+ * The (dashboard) fallback, which in practice means one thing: the COLD load
+ * of /tickets/[id].
  *
- * This renders where the page's children render: inside `<main class="pb-main
- * pbm-main">`, which mail.css lays out as a flex ROW. So the skeleton is a
- * fragment of sibling panes, exactly like inbox/page.tsx — a wrapper div would
- * collapse the two panes into one column and shift the whole screen.
+ * Every other route under (dashboard) ships its own closer loading.tsx —
+ * /inbox and each of the three settings tabs — so this file is reached only
+ * when someone opens a ticket URL directly, or refreshes on one.
  *
- * Every box below carries its real class, so the 336px list width, the 18px
- * card radius, the 13px card padding and the 6px row gap all come from
- * mail.css and cannot drift from the real list.
+ * WHY IT IS NOT REACHED ON NAVIGATION
  *
- * The right-hand pane is deliberately EMPTY. On /inbox the real thread pane is
- * a static "No thread open" message, not data — it is centred in the pane, so
- * it costs no layout shift when it appears, and a shimmering fake of it would
- * only be inventing content that was never loading in the first place.
+ * /tickets/[id] deliberately has no loading.tsx of its own; its conversation
+ * pane is a parallel-route slot with its own boundary (see
+ * tickets/[id]/layout.tsx). On a client-side navigation the segment can emit a
+ * shell immediately, so Next never falls back this far — measured on 16.2.10,
+ * both /inbox → /tickets/1 and /tickets/1 → /tickets/2. If you ever see the
+ * whole screen skeleton on a row click again, something has started awaiting
+ * at the top of tickets/[id]/page.tsx and this file is what you are looking at.
+ *
+ * WHY IT MIRRORS THE THREAD ROUTE AND NOT THE INBOX
+ *
+ * On a cold /tickets/5 the boundary that resolves first is this one, and the
+ * thread route is a three-column flex row: 336px list, conversation, 290px
+ * rail. Drawing only two of the three here, or leaving the list visible on a
+ * phone, would mean a jump the moment the real panes land.
+ *
+ *  · the list carries `data-hide-mobile`, exactly as the real route does
+ *    (`<MessageList … hideOnMobile />`) — without it the phone would show the
+ *    list skeleton and then swap to the thread;
+ *  · the rail is `data-rail="auto"`, the same state Thread mounts it in, so it
+ *    is a 290px column above 1180px and absent below it. Hardcoding "open"
+ *    would put a 290px overlay across the thread on a tablet;
+ *  · this renders where the page's children render: inside `<main class=
+ *    "pb-main pbm-main">`, which mail.css lays out as a flex ROW. So it is a
+ *    fragment of sibling panes — a wrapper div would collapse them into one
+ *    column and shift the whole screen.
+ *
+ * The thread and rail markup is duplicated from tickets/[id]/@thread/
+ * loading.tsx rather than shared. A loading.tsx is a route file, not a
+ * component module, and this is markup, not logic — not worth exporting a
+ * component out of a Next file convention for.
+ *
+ * Every box carries its real class, so the 336px list width, the 74px thread
+ * header, the 18px card radius and the 6px row gap all come from mail.css and
+ * cannot drift from the real panes.
  */
 export default function DashboardLoading() {
   return (
     <>
       <MailListSkeleton />
-      <section
-        className="pbm-thread pbm-thread--empty"
-        data-hide-mobile
-        aria-hidden
-      />
+      <ThreadSkeleton />
+      <RailSkeleton />
     </>
   );
 }
@@ -48,6 +72,7 @@ function MailListSkeleton() {
   return (
     <section
       className="pbm-list pbk"
+      data-hide-mobile
       aria-busy="true"
       aria-label="Loading messages"
     >
@@ -120,5 +145,166 @@ function MailListSkeleton() {
         ))}
       </div>
     </section>
+  );
+}
+
+/**
+ * A bubble is a solid block in the real UI too, so it is drawn as one block
+ * rather than as three stacked bars. The newlines are what give it its real
+ * height: .pbm-bubble is `white-space: pre-wrap`, so each one is a genuine
+ * 13.5px/1.55 line box.
+ */
+const NBSP = " ";
+const BUBBLES: { out: boolean; lines: number; width: string }[] = [
+  { out: false, lines: 3, width: "64%" },
+  { out: true, lines: 2, width: "56%" },
+  { out: false, lines: 2, width: "70%" },
+  { out: true, lines: 4, width: "62%" },
+];
+
+function ThreadSkeleton() {
+  return (
+    <section
+      className="pbm-thread pbk"
+      aria-busy="true"
+      aria-label="Loading conversation"
+    >
+      {/* 74px, fixed in mail.css — this header cannot shift. */}
+      <header className="pbm-thread-head" aria-hidden>
+        <div className="pbm-thread-who">
+          <p className="pbm-thread-name pbk-text" style={{ width: 168 }}>
+            &nbsp;
+          </p>
+          <p className="pbm-thread-email pbk-text" style={{ width: 208 }}>
+            &nbsp;
+          </p>
+        </div>
+        <div className="pbm-thread-actions">
+          {[0, 1, 2, 3].map((i) => (
+            <span key={i} className="pbm-icon-btn pbk-fill" />
+          ))}
+        </div>
+      </header>
+
+      <div className="pbm-thread-subject" aria-hidden>
+        <div className="pbm-subject pbk-text" style={{ width: "58%" }}>
+          &nbsp;
+        </div>
+        <div className="pbm-subject-chips">
+          <span className="pbm-chip-static pbk-fill" style={{ width: 88 }}>
+            &nbsp;
+          </span>
+          <span className="pbm-status-btn pbk-fill" style={{ width: 92 }}>
+            &nbsp;
+          </span>
+          <span className="pbm-chip-static pbk-fill" style={{ width: 76 }}>
+            &nbsp;
+          </span>
+        </div>
+        {/* The label row is present even with no labels — it always renders
+            the dashed "add" control, and it carries a 9px top margin. */}
+        <div className="pbm-labels">
+          <span className="pbm-label-add pbk-fill" style={{ width: 64 }}>
+            &nbsp;
+          </span>
+        </div>
+      </div>
+
+      <div className="pbm-transcript" aria-hidden>
+        {BUBBLES.map((b, i) => (
+          <div key={i} className="pbm-bubble-row" data-out={b.out || undefined}>
+            <div className="pbm-bubble-wrap" style={{ width: b.width }}>
+              <div className="pbm-bubble pbk-fill">
+                {Array.from({ length: b.lines }, () => NBSP).join("\n")}
+              </div>
+              <p className="pbm-bubble-foot pbk-text" style={{ width: 104 }}>
+                &nbsp;
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* The composer is real chrome, not data — but it arrives with the rest
+          of the pane, so its box has to be reserved or the transcript would
+          grow by ~90px when it lands. */}
+      <div className="pbm-composer-wrap" aria-hidden>
+        <div className="pbm-composer">
+          <span className="pbm-composer-input pbk-text">&nbsp;</span>
+          <span className="pbm-icon-btn pbk-fill" />
+          <span className="pbm-send pbk-fill" style={{ width: 89 }} />
+        </div>
+        <p className="pbm-composer-foot pbk-text" style={{ width: "62%" }}>
+          &nbsp;
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function RailSkeleton() {
+  return (
+    <aside
+      className="pbm-rail pbk"
+      data-rail="auto"
+      aria-busy="true"
+      aria-label="Loading contact details"
+    >
+      <div className="pbm-rail-head" aria-hidden>
+        <span className="pbm-rail-title pbk-text" style={{ width: 92 }}>
+          &nbsp;
+        </span>
+        <span className="pbm-rail-close pbk-fill" />
+      </div>
+
+      <div className="pbm-rail-card" aria-hidden>
+        <div>
+          <p className="pbm-rail-name pbk-text" style={{ width: "62%" }}>
+            &nbsp;
+          </p>
+          <p className="pbm-rail-void pbk-text" style={{ width: "78%" }}>
+            &nbsp;
+          </p>
+        </div>
+        {/* Email, First contact, Tickets, Status — four label/value pairs, the
+            same four ContactRail renders. */}
+        {["84%", "58%", "70%", "48%"].map((w, i) => (
+          <div key={i}>
+            <p className="pbm-rail-label pbk-text" style={{ width: 54 }}>
+              &nbsp;
+            </p>
+            <p className="pbm-rail-value pbk-text" style={{ width: w }}>
+              &nbsp;
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <span
+        className="pbm-rail-title pbm-rail-title--sub pbk-text"
+        style={{ width: 58 }}
+        aria-hidden
+      >
+        &nbsp;
+      </span>
+      <div className="pbm-rail-card pbm-rail-card--empty" aria-hidden>
+        <p className="pbm-rail-void pbk-text" style={{ width: "88%" }}>
+          &nbsp;
+        </p>
+      </div>
+
+      <div className="pbm-rail-sections" aria-hidden>
+        {[112, 96, 104, 124].map((w, i) => (
+          <span key={i} className="pbm-rail-row">
+            <span className="pbk-text" style={{ width: w }}>
+              &nbsp;
+            </span>
+            <span className="pbm-rail-soon pbk-fill" style={{ width: 44 }}>
+              &nbsp;
+            </span>
+          </span>
+        ))}
+      </div>
+    </aside>
   );
 }

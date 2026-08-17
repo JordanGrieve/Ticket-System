@@ -1,10 +1,25 @@
+/**
+ * Server-side ticket helpers.
+ *
+ * This module imports `lib/config`, which is `server-only`, so importing it
+ * from a client component is now a build error. That is deliberate: it used to
+ * be a silent bundle leak instead (see the header of `lib/ticket-format.ts`).
+ *
+ * The purely presentational helpers — initials, relative time, ticket-ref
+ * formatting, preview text — live in `lib/ticket-format.ts` so client
+ * components can have them without dragging config along. They are re-exported
+ * below so server callers keep their existing `@/lib/tickets` import.
+ */
 import { INBOUND_DOMAIN } from "./config";
+import { formatTicketRef } from "./ticket-format";
 import type { TicketSource } from "@/db/schema";
 
-/** Human-friendly ticket reference, e.g. TKT-4821. */
-export function formatTicketRef(id: number): string {
-  return `TKT-${id}`;
-}
+export {
+  formatTicketRef,
+  initials,
+  relativeTime,
+  previewText,
+} from "./ticket-format";
 
 /**
  * Per-ticket reply address. Customer replies to this thread back into the
@@ -53,31 +68,6 @@ export function classifyInbound(subject: string, body: string): {
 } {
   const orderId = detectOrderId(`${subject}\n${body}`);
   return orderId ? { source: "order", orderId } : { source: "email", orderId: null };
-}
-
-/** Two-letter initials from a display name. */
-export function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  return parts
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join("");
-}
-
-/** Compact relative time like "12m", "3h", "2d", "5w". */
-export function relativeTime(from: Date | string, now: Date = new Date()): string {
-  const then = typeof from === "string" ? new Date(from) : from;
-  const secs = Math.max(0, Math.floor((now.getTime() - then.getTime()) / 1000));
-  if (secs < 60) return "now";
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  const weeks = Math.floor(days / 7);
-  return `${weeks}w`;
 }
 
 /**
@@ -135,10 +125,4 @@ export function stripQuotedReply(text: string): string {
 
   const result = kept.join("\n").trim();
   return result || text.trim();
-}
-
-/** A tidy first-line preview for the inbox list. */
-export function previewText(text: string, max = 120): string {
-  const oneLine = text.replace(/\s+/g, " ").trim();
-  return oneLine.length > max ? oneLine.slice(0, max - 1) + "…" : oneLine;
 }

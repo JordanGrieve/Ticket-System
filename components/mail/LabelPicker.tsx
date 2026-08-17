@@ -37,6 +37,13 @@ export default function LabelPicker({
   const [newColor, setNewColor] = useState<LabelColor>("tag_a");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /**
+   * Screen-reader narration. `aria-checked` on the menu items covers toggling
+   * from inside the open menu, but says nothing about the chips outside it —
+   * and the "x" on a chip removes a label from a control that then disappears,
+   * taking any state announcement with it.
+   */
+  const [announcement, setAnnouncement] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Adopt the server's answer when the page refreshes underneath us.
@@ -83,10 +90,14 @@ export default function LabelPicker({
     if (!res.ok) {
       setCurrent(before);
       setError("Couldn't change that label.");
+      setAnnouncement(`Couldn't change label ${label.name}. Nothing was saved.`);
       return;
     }
     const data = (await res.json()) as { labels?: LabelChipDTO[] };
     if (data.labels) setCurrent(data.labels);
+    setAnnouncement(
+      on ? `Label ${label.name} added.` : `Label ${label.name} removed.`,
+    );
     router.refresh();
   }
 
@@ -113,6 +124,12 @@ export default function LabelPicker({
 
   return (
     <div className="pbm-labels" ref={menuRef}>
+      {/* Mounted always, empty until there is something to say — a live region
+          inserted alongside its own text is frequently not announced. */}
+      <span className="pbm-sr" role="status" aria-live="polite">
+        {announcement}
+      </span>
+
       {current.map((l) => (
         <span key={l.id} className="pbm-label" data-color={l.color}>
           <span className="pbm-label-name">{l.name}</span>

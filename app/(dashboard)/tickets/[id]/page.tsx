@@ -1,34 +1,61 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import MessageList from "@/components/mail/MessageList";
-import Thread from "@/components/mail/Thread";
 import { resolveViewer } from "@/lib/viewer";
-import { getTicket, getMessages, TICKETS_PAGE_SIZE } from "@/lib/data";
-import { listLabels } from "@/lib/labels";
-import { toTicketDTO, toMessageDTO } from "@/lib/serialize";
-import { EMAIL_FROM_ADDRESS } from "@/lib/config";
+import { TICKETS_PAGE_SIZE } from "@/lib/data";
 import {
-  getContactFacts,
   listMailPage,
   mailCounts,
   mailFolderTotal,
   parseFolder,
-  ticketPersonalState,
   toMailRow,
   viewerAgentId,
 } from "../../queries";
 
-export default async function TicketPage({
+/**
+ * The `children` slot of /tickets/[id]: the 336px list pane, nothing else.
+ *
+ * The list lives here rather than in layout.tsx because it needs `folder`,
+ * `page` and `label` from searchParams, and layouts do not receive them — they
+ * are not re-rendered on navigation, so the values would go stale (see
+ * node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/layout.md,
+ * "Query params").
+ *
+ * TWO RULES THIS FILE MUST KEEP, or the list starts flashing again:
+ *
+ *  1. There is no `loading.tsx` in this folder. Adding one would make it the
+ *     list's Suspense fallback, which is precisely the bug that was fixed.
+ *
+ *  2. The default export must NOT be `async` and must not `await` anything.
+ *     The segment has to be able to emit a shell synchronously; the awaits
+ *     happen inside <ListPane>, below, reached through a promise child. If
+ *     this component awaits, the whole segment suspends with nothing to show,
+ *     Next walks up to (dashboard)/loading.tsx, and every pane skeletons —
+ *     measured, not assumed.
+ */
+export default function TicketListPane({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  // The list pane is rendered here too, so the desktop keeps both panes while
-  // you move between threads. It needs to know which page of which folder you
-  // came from — the list rows carry that through in the link.
   searchParams: Promise<{ folder?: string; page?: string; label?: string }>;
 }) {
-  const ticketId = Number((await params).id);
-  if (!Number.isInteger(ticketId)) notFound();
+  // Unwrapped with .then() rather than awaited so ListPane takes a plain
+  // number and this component stays synchronous. See rule 2 above.
+  return <>{params.then((p) => <ListPane idParam={p.id} searchParams={searchParams} />)}</>;
+}
+
+async function ListPane({
+  idParam,
+  searchParams,
+}: {
+  idParam: string;
+  searchParams: Promise<{ folder?: string; page?: string; label?: string }>;
+}) {
+  // A non-integer id is a 404, but that is the thread slot's call to make —
+  // it is the half that actually loads the ticket. Here it just means no row
+  // is highlighted.
+  const ticketId = Number(idParam);
+  const selectedId = Number.isInteger(ticketId) ? ticketId : undefined;
 
   const {
     folder: folderParam,
@@ -42,62 +69,34 @@ export default async function TicketPage({
 
   const viewer = await resolveViewer();
   if (!viewer.workspace) redirect(viewer.isAdmin ? "/admin" : "/no-access");
-  const workspace = viewer.workspace;
+  const workspaceId = viewer.workspace.id;
 
-  const ticket = await getTicket(workspace.id, ticketId);
-  if (!ticket) notFound();
+  const [counts, rows, agentId] = await Promise.all([
+    mailCounts(workspaceId),
+    listMailPage(workspaceId, folder, page, labelId),
+    viewerAgentId(workspaceId),
+  ]);
 
-  const [{ messages, hasMore }, counts, rows, facts, personal, allLabels, agentId] =
-    await Promise.all([
-      getMessages(ticket.id),
-      mailCounts(workspace.id),
-      listMailPage(workspace.id, folder, page, labelId),
-      getContactFacts(workspace.id, ticket.customerEmail),
-      ticketPersonalState(workspace.id, ticket.id),
-      listLabels(workspace.id),
-      viewerAgentId(workspace.id),
-    ]);
-
+  // A per-label view isn't one of the folder counts, so it needs its own
+  // COUNT(*) — otherwise the pager would page against the wrong total.
   const total =
     labelId === undefined
       ? counts[folder]
-      : await mailFolderTotal(workspace.id, folder, labelId);
+      : await mailFolderTotal(workspaceId, folder, labelId);
   const pageCount = Math.max(1, Math.ceil(total / TICKETS_PAGE_SIZE));
   const now = new Date();
-  const labelQuery = labelId === undefined ? "" : `&label=${labelId}`;
-  const backHref = `/inbox?folder=${folder}${labelQuery}&page=${Math.min(page, pageCount)}`;
 
   return (
-    <>
-      <MessageList
-        rows={rows.map((r) => toMailRow(r, now))}
-        folder={folder}
-        page={Math.min(page, pageCount)}
-        pageCount={pageCount}
-        total={total}
-        selectedId={ticket.id}
-        labelId={labelId}
-        canPersonalise={agentId !== null}
-        hideOnMobile
-      />
-      <Thread
-        ticket={toTicketDTO(ticket, now)}
-        messages={messages.map(toMessageDTO)}
-        hasOlderMessages={hasMore}
-        fromAddress={`${workspace.name} <${EMAIL_FROM_ADDRESS}>`}
-        contact={{
-          name: ticket.customerName,
-          email: ticket.customerEmail,
-          firstSeenIso: facts.firstSeenIso,
-          ticketCount: facts.ticketCount,
-        }}
-        backHref={backHref}
-        starred={personal.starred}
-        unread={personal.unread}
-        labels={personal.labels}
-        allLabels={allLabels}
-        canPersonalise={agentId !== null}
-      />
-    </>
+    <MessageList
+      rows={rows.map((r) => toMailRow(r, now))}
+      folder={folder}
+      page={Math.min(page, pageCount)}
+      pageCount={pageCount}
+      total={total}
+      selectedId={selectedId}
+      labelId={labelId}
+      canPersonalise={agentId !== null}
+      hideOnMobile
+    />
   );
 }

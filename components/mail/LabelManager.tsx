@@ -17,6 +17,16 @@ import type { LabelWithCountDTO } from "./types";
  * Colour is picked from three swatches, never a colour wheel — the column
  * stores a token key, and offering a wheel would promise a fidelity the schema
  * cannot keep.
+ *
+ * Deletion confirms IN the modal, on the row being deleted. It used to call
+ * `window.confirm`: unstyleable, unthemeable across the six themes, impossible
+ * to assert on in a test, and — being modal to the whole browser — it stole
+ * focus out of a dialog that is itself modal. Turning the row into its own
+ * question also puts the consequence beside the thing it applies to, which a
+ * system alert with the label's name quoted into a string never managed.
+ *
+ * components/InstallView.tsx still calls window.confirm/window.alert for the
+ * API-key rotation. Same argument applies there; it is owned elsewhere.
  */
 
 const COLOR_ORDER: LabelColor[] = ["tag_a", "tag_b", "tag_c"];
@@ -36,16 +46,31 @@ export default function LabelManager({
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
+  /** Row currently asking "are you sure?". Only ever one at a time. */
+  const [confirmingId, setConfirmingId] = useState<number | null>(null);
+  /** Screen-reader narration for changes that are otherwise silent. */
+  const [announcement, setAnnouncement] = useState("");
   const firstFieldRef = useRef<HTMLInputElement>(null);
 
+  // Focus the new-label field, once, on open.
   useEffect(() => {
     firstFieldRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      // Esc backs out of the delete question first, and only closes the whole
+      // modal once no question is outstanding. Otherwise the key that means
+      // "cancel this" would also discard the editing you came here to do —
+      // which is precisely the trap window.confirm avoided by hijacking the
+      // entire browser, and a worse cure than the disease.
+      if (confirmingId !== null) setConfirmingId(null);
+      else onClose();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, confirmingId]);
 
   async function create() {
     const name = newName.trim();
@@ -70,6 +95,7 @@ export default function LabelManager({
       [...rows, data.label].sort((a, b) => a.name.localeCompare(b.name)),
     );
     setNewName("");
+    setAnnouncement(`Label ${data.label.name} created.`);
     router.refresh();
   }
 
@@ -98,28 +124,44 @@ export default function LabelManager({
         .sort((a, b) => a.name.localeCompare(b.name)),
     );
     setEditingId(null);
+    // Colour has no accessible name of its own — the swatches are "Colour 1/2/3"
+    // — so a recolour is the change most likely to pass a screen-reader user by.
+    setAnnouncement(
+      body.name !== undefined
+        ? `Label renamed to ${label.name}.`
+        : `Colour changed for ${label.name}.`,
+    );
     router.refresh();
   }
 
   async function remove(row: LabelWithCountDTO) {
     if (busy) return;
-    const warning =
-      row.ticketCount > 0
-        ? `Delete “${row.name}”? It will come off ${row.ticketCount} ${
-            row.ticketCount === 1 ? "ticket" : "tickets"
-          }. The tickets themselves are not affected.`
-        : `Delete “${row.name}”?`;
-    if (!window.confirm(warning)) return;
     setBusy(true);
     setError(null);
     const res = await fetch(`/api/labels/${row.id}`, { method: "DELETE" });
     setBusy(false);
     if (!res.ok) {
       setError("Couldn't delete that label.");
+      setAnnouncement(`Couldn't delete ${row.name}. Nothing was changed.`);
       return;
     }
+    setConfirmingId(null);
     setRows(rows.filter((r) => r.id !== row.id));
+    setAnnouncement(`Label ${row.name} deleted.`);
+    // The row the keyboard was standing on has just ceased to exist. Without
+    // this, focus drops to <body> and the next Tab restarts from the top of the
+    // document — outside the modal. The new-label field is the one control in
+    // here that is always present.
+    firstFieldRef.current?.focus();
     router.refresh();
+  }
+
+  /** The sentence the confirm step asks. */
+  function deleteQuestion(row: LabelWithCountDTO): string {
+    if (row.ticketCount === 0) return `Delete “${row.name}”?`;
+    return `Delete “${row.name}”? It comes off ${row.ticketCount} ${
+      row.ticketCount === 1 ? "ticket" : "tickets"
+    } — the tickets themselves are not affected.`;
   }
 
   return (
@@ -151,7 +193,47 @@ export default function LabelManager({
 
           {rows.map((row) => (
             <div key={row.id} className="pbm-label-row">
-              {editingId === row.id ? (
+              {confirmingId === row.id ? (
+                /* The row becomes the question. role="alertdialog" + the
+                   aria-describedby pairing is what a native confirm() gave us
+                   for free and has to be spelled out here. */
+                <div
+                  className="pbm-confirm"
+                  role="alertdialog"
+                  aria-label={`Delete ${row.name}`}
+                  aria-describedby={`pbm-confirm-q-${row.id}`}
+                >
+                  <p className="pbm-confirm-q" id={`pbm-confirm-q-${row.id}`}>
+                    {deleteQuestion(row)}
+                  </p>
+                  <div className="pbm-confirm-acts">
+                    <button
+                      type="button"
+                      className="pbm-confirm-btn"
+                      disabled={busy}
+                      /* Focus lands on CANCEL, not Delete. The trash icon this
+                         replaced is gone from the row, so whatever the keyboard
+                         was on has just unmounted and focus has to go
+                         somewhere — and it must not go somewhere a stray Enter
+                         or Space destroys a label from. A confirm step whose
+                         default action is the destructive one is not a confirm
+                         step. Delete is one Tab away. */
+                      autoFocus
+                      onClick={() => setConfirmingId(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="pbm-confirm-btn pbm-confirm-btn--danger"
+                      disabled={busy}
+                      onClick={() => void remove(row)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ) : editingId === row.id ? (
                 <>
                   <input
                     className="pbm-label-input"
@@ -218,7 +300,11 @@ export default function LabelManager({
                     className="pbm-label-icon pbm-label-icon--danger"
                     aria-label={`Delete ${row.name}`}
                     title="Delete"
-                    onClick={() => void remove(row)}
+                    onClick={() => {
+                      setError(null);
+                      setEditingId(null);
+                      setConfirmingId(row.id);
+                    }}
                   >
                     <Icon name="trash" size={13} strokeWidth={2} />
                   </button>
@@ -277,6 +363,12 @@ export default function LabelManager({
               {error}
             </p>
           )}
+
+          {/* Always mounted, empty until there is something to say: a live
+              region added at the same moment as its text is routinely missed. */}
+          <p className="pbm-sr" role="status" aria-live="polite">
+            {announcement}
+          </p>
         </div>
       </div>
     </>

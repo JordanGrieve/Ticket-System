@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
-  isSelfAddress,
   isRoleOrNoReplyAddress,
   isAutomatedMail,
   extractHeaders,
 } from "../lib/auto-reply";
+// isSelfAddress needs EMAIL_FROM_ADDRESS/INBOUND_DOMAIN, so it lives in the
+// config-dependent half — see the header of lib/auto-reply-guards.ts.
+import { isSelfAddress } from "../lib/auto-reply-guards";
 
 /**
  * Hardening tests for the auto-reply loop guards.

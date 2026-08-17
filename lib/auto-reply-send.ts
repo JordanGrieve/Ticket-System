@@ -13,13 +13,12 @@ import { addMessage } from "./data";
 import { EMAIL_FROM_ADDRESS } from "./config";
 import { buildReplyTo } from "./tickets";
 import { isValidTimeZone } from "./business-hours";
+import { extractHeaders, type AutoReplyConfig } from "./auto-reply";
 import {
   checkAutoReplyRateLimits,
   decideAutoReply,
-  extractHeaders,
-  type AutoReplyConfig,
   type SuppressReason,
-} from "./auto-reply";
+} from "./auto-reply-guards";
 
 /**
  * Auto-acknowledgement engine — the IO half: read/write the config, and

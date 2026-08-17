@@ -22,7 +22,15 @@
  * None of these break the build, and none raise an error at the point of use —
  * they just quietly do the wrong thing to real customers. A refusal at boot is
  * noisy and immediate, which is the whole point.
+ *
+ * SERVER ONLY. This module reads non-NEXT_PUBLIC_ environment variables, which
+ * simply do not exist in a browser. It shipped to the client once already, via
+ * lib/tickets → MailNavShell, and took production down (Sentry POSTBOX-6). The
+ * `server-only` import below makes that a build error rather than a silent leak
+ * — which matters most for whatever gets added to this file next, since a
+ * secret placed here would otherwise go out in a public JS chunk.
  */
+import "server-only";
 
 /**
  * Reports a missing variable loudly WITHOUT throwing.

@@ -13,7 +13,8 @@ import { usePathname } from "next/navigation";
  * these stay ordinary links — middle-clickable, and each tab has its own URL.
  */
 const TABS = [
-  { href: "/settings", label: "Auto-reply" },
+  { href: "/settings", label: "General" },
+  { href: "/settings/auto-reply", label: "Auto-reply" },
   { href: "/settings/contacts", label: "Contacts" },
   { href: "/settings/install", label: "Install" },
 ] as const;

@@ -1,77 +1,76 @@
 import "../../skeleton.css";
 
 /**
- * /settings — the auto-reply tab.
+ * /settings — the General tab.
  *
- * Renders inside the settings layout, so the sticky `.pbs-tabs` strip is
- * already on screen above this and must NOT be redrawn here: it is part of the
- * layout, it never suspends, and painting a second one would double it.
+ * The sticky `.pbs-tabs` strip belongs to the settings layout and never
+ * suspends, so it must NOT be redrawn here; painting a second one would double
+ * it. Everything below reuses the real classes from settings.css, so the frame
+ * (page padding, section gap, the 3-up theme grid and its collapse points, card
+ * radii) is exact and nothing shifts when the real page swaps in.
  *
- * Note where this sits in the box model: `.pbm-page > *` in mail.css forces
- * `height: auto !important; overflow: visible !important; flex: 0 0 auto` onto
- * every direct child of the settings pane, and `.st-wrap` is one. That is
- * harmless for a skeleton — the pane itself is the scroll container — but it
- * does mean this must not try to be its own scroller.
- *
- * Deliberately few, large blocks. The real cards are tall and their heights
- * are content-driven (a three-line help note here, a wrapped day-picker
- * there), so a faithful bar-by-bar imitation would be a dozen small shimmers
- * that still ended up the wrong height. What IS matched exactly is the frame:
- * the 30px/32px page padding, the 18px column gap, the two-column grid and
- * its 1080px collapse, the 18px card radius — all inherited from settings.css.
+ * The theme grid is the one place worth imitating shape-for-shape: six equal
+ * cards with a fixed-height swatch is a genuinely predictable layout, unlike
+ * the rows underneath whose heights depend on how long an email address is.
+ * Those get one block each.
  */
-export default function SettingsLoading() {
+export default function GeneralLoading() {
   return (
-    <div className="st-wrap pbk" aria-busy="true" aria-label="Loading settings">
-      <header className="st-head" aria-hidden>
-        <div className="st-head-text">
-          <h1 className="st-title pbk-text" style={{ width: 168 }}>
-            &nbsp;
-          </h1>
-          <p className="st-sub pbk-text" style={{ width: "82%" }}>
-            &nbsp;
-          </p>
+    <div className="stg-wrap pbk" aria-busy="true" aria-label="Loading settings">
+      <header className="stg-head" aria-hidden>
+        <div className="stg-title pbk-text" style={{ width: 132 }}>
+          &nbsp;
         </div>
-        <div className="st-head-actions">
-          <span className="st-save pbk-fill" style={{ width: 108 }} />
+        <div className="stg-sub pbk-text" style={{ width: "72%" }}>
+          &nbsp;
         </div>
       </header>
 
-      <div className="st-grid" aria-hidden>
-        <div className="st-col">
-          <Card titleWidth={148} subWidth="76%" bodyHeight={64} />
-          <Card titleWidth={116} subWidth="64%" bodyHeight={188} />
-          <Card titleWidth={92} subWidth="88%" bodyHeight={260} />
+      <section className="stg-section" aria-hidden>
+        <div className="stg-section-title pbk-text" style={{ width: 108 }}>
+          &nbsp;
         </div>
-        <div className="st-col">
-          <Card titleWidth={124} subWidth="58%" bodyHeight={300} />
+        <div className="stg-section-sub pbk-text" style={{ width: 260 }}>
+          &nbsp;
         </div>
-      </div>
-    </div>
-  );
-}
+        <div className="stg-theme-grid">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div className="stg-theme-card" key={i}>
+              <div className="stg-theme-swatch pbk-fill" />
+              <div className="stg-theme-foot">
+                <div className="stg-theme-text" style={{ width: "100%" }}>
+                  <div className="stg-theme-label pbk-text" style={{ width: 62 }}>
+                    &nbsp;
+                  </div>
+                  <div className="stg-theme-note pbk-text" style={{ width: 104 }}>
+                    &nbsp;
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
-/** One `.st-card`: real border, radius, padding and 16px inner gap. */
-function Card({
-  titleWidth,
-  subWidth,
-  bodyHeight,
-}: {
-  titleWidth: number;
-  subWidth: string;
-  bodyHeight: number;
-}) {
-  return (
-    <section className="st-card">
-      <div>
-        <h2 className="st-card-title pbk-text" style={{ width: titleWidth }}>
+      <section className="stg-section" aria-hidden>
+        <div className="stg-section-title pbk-text" style={{ width: 64 }}>
           &nbsp;
-        </h2>
-        <p className="st-card-sub pbk-text" style={{ width: subWidth }}>
+        </div>
+        <div className="pbk-fill" style={{ height: 296, borderRadius: 20 }} />
+      </section>
+
+      <section className="stg-section" aria-hidden>
+        <div className="stg-section-title pbk-text" style={{ width: 116 }}>
           &nbsp;
-        </p>
-      </div>
-      <div className="pbk-fill" style={{ height: bodyHeight, borderRadius: 12 }} />
-    </section>
+        </div>
+        <div className="stg-section-sub pbk-text" style={{ width: 288 }}>
+          &nbsp;
+        </div>
+        <div className="stg-int-grid">
+          <div className="pbk-fill" style={{ height: 74, borderRadius: 18 }} />
+          <div className="pbk-fill" style={{ height: 74, borderRadius: 18 }} />
+        </div>
+      </section>
+    </div>
   );
 }

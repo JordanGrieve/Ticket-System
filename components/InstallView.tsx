@@ -3,24 +3,20 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CopyButton from "./CopyButton";
-import { THEMES } from "@/lib/theme";
 
-/** Swatch previews for the theme picker, mirroring the design's theme cards. */
-const THEME_SWATCH: Record<string, string> = {
-  system: "linear-gradient(135deg,#EFEAFB 0 50%,#241F3C 50% 100%)",
-  light: "linear-gradient(135deg,#DCD3F5,#FFFFFF)",
-  dark: "linear-gradient(135deg,#241F3C,#6D4AFF)",
-  forest: "linear-gradient(135deg,#17251F,#2FA36B)",
-  slate: "linear-gradient(135deg,#232322,#C08A4E)",
-  ocean: "linear-gradient(135deg,#182741,#2E6BE6)",
-};
-
+/**
+ * The Install tab.
+ *
+ * The theme picker used to live at the bottom of this file under the label
+ * "Accent". It moved to Settings → General (app/(dashboard)/settings/
+ * ThemePicker.tsx) when that tab was built — it is a workspace preference, not
+ * an installation step. It is NOT duplicated here.
+ */
 export default function InstallView({
   apiKey,
   inboundEmail,
   replyFrom,
   workspaceName,
-  accent,
   appUrl,
 }: {
   apiKey: string;
@@ -28,7 +24,6 @@ export default function InstallView({
   /** The real address replies are sent from, e.g. `"Name" <replies@…>`. */
   replyFrom: string;
   workspaceName: string;
-  accent: string;
   appUrl: string;
 }) {
   const router = useRouter();
@@ -146,15 +141,6 @@ human mailbox).
 
   const snippet = mode === "a" ? snippetA : mode === "ai" ? snippetAI : snippetB;
 
-  async function pickAccent(key: string) {
-    const res = await fetch("/api/workspace", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accent: key }),
-    });
-    if (res.ok) router.refresh();
-  }
-
   return (
     <div style={{ height: "100vh", overflowY: "auto" }}>
       <div style={{ maxWidth: 760, margin: "0 auto", padding: "34px 32px 64px" }}>
@@ -244,46 +230,6 @@ human mailbox).
             name shown as the sender.
           </p>
           <Field value={replyFrom} copyLabel="Copy address" mono />
-
-          <div style={{ height: 24 }} />
-          <Label>Accent</Label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 4 }}>
-            {THEMES.map((t) => {
-              const active = accent === t.key;
-              const sw = THEME_SWATCH[t.key];
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => pickAccent(t.key)}
-                  aria-pressed={active}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 9,
-                    padding: "9px 12px",
-                    borderRadius: 11,
-                    cursor: "pointer",
-                    background: "var(--surface)",
-                    border: `1.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: 6,
-                      background: sw,
-                      border: "1px solid var(--border)",
-                    }}
-                  />
-                  <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text-2)" }}>
-                    {t.label}
-                  </span>
-                  {active && <span style={{ color: "var(--accent)", fontSize: 14 }}>✓</span>}
-                </button>
-              );
-            })}
-          </div>
 
           <div style={{ height: 24 }} />
           <Label>Your data</Label>

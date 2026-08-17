@@ -1,116 +1,31 @@
-import "../../../skeleton.css";
+import "../../../../skeleton.css";
 
 /**
- * /tickets/[id] — list pane + conversation + contact rail.
+ * Fallback for the @thread slot ONLY — the conversation and the contact rail.
  *
- * Mirrors what the route actually renders (MessageList, Thread, and the
- * ContactRail that Thread always mounts), because on desktop all three are
- * columns of the same flex row and leaving one out would move the other two.
+ * This is the file that fixes the reported flicker. It used to be
+ * tickets/[id]/loading.tsx, which sat above the list pane as well and so had
+ * to skeleton all three columns; now it is scoped to the slot, and the list
+ * pane beside it is left alone. See ../layout.tsx for the measurements.
  *
- * Three details that are easy to get wrong here:
+ * Two details that are easy to get wrong here:
  *
- *  · the list pane carries `data-hide-mobile`, exactly as the real page does
- *    (`<MessageList … hideOnMobile />`) — without it the phone would show the
- *    list skeleton and then swap to the thread;
+ *  · there is no list skeleton in this file, and there must not be. The list
+ *    is a sibling slot that is not inside this boundary; drawing one here
+ *    would put a second 336px column next to the real one;
  *  · the rail is `data-rail="auto"`, the same state Thread mounts it in, so it
  *    is a 290px column above 1180px and absent below it. Hardcoding "open"
- *    would put a 290px overlay across the thread on a tablet;
- *  · the list markup is duplicated from (dashboard)/loading.tsx rather than
- *    shared. A loading.tsx is a route file, not a component module, and this
- *    is ~40 lines of markup — not worth exporting a component out of a Next
- *    file convention for.
+ *    would put a 290px overlay across the thread on a tablet.
+ *
+ * The thread pane carries no `data-hide-mobile`: on a phone the thread IS the
+ * screen while a ticket is open, and the list is the pane that hides.
  */
-export default function TicketLoading() {
+export default function ThreadSlotLoading() {
   return (
     <>
-      <MailListSkeleton />
       <ThreadSkeleton />
       <RailSkeleton />
     </>
-  );
-}
-
-const CARDS = [
-  { name: 118, time: 30, subject: "88%", preview: "64%", tags: [62, 48] },
-  { name: 146, time: 38, subject: "72%", preview: "83%", tags: [54] },
-  { name: 96, time: 34, subject: "94%", preview: "58%", tags: [58, 72] },
-  { name: 132, time: 30, subject: "66%", preview: "76%", tags: [66] },
-  { name: 108, time: 42, subject: "85%", preview: "61%", tags: [50, 44] },
-  { name: 152, time: 32, subject: "59%", preview: "80%", tags: [70] },
-];
-
-function MailListSkeleton() {
-  return (
-    <section
-      className="pbm-list pbk"
-      data-hide-mobile
-      aria-busy="true"
-      aria-label="Loading messages"
-    >
-      <div className="pbm-list-head" aria-hidden>
-        <div className="pbm-search">
-          <span
-            className="pbm-search-icon pbk-fill"
-            style={{ width: 16, height: 16, borderRadius: 5 }}
-          />
-          <span
-            className="pbm-search-input pbk-text pbk-text--fixed"
-            style={{ width: 128 }}
-          >
-            &nbsp;
-          </span>
-        </div>
-        <div className="pbm-chips">
-          {[46, 68, 66, 74, 62, 96].map((w, i) => (
-            <span key={i} className="pbm-chip pbk-fill" style={{ width: w }}>
-              &nbsp;
-            </span>
-          ))}
-        </div>
-        <p className="pbm-list-meta pbk-text" style={{ width: 74 }}>
-          &nbsp;
-        </p>
-      </div>
-
-      <div className="pbm-list-scroll">
-        {CARDS.map((c, i) => (
-          <div className="pbm-card-wrap" key={i} aria-hidden>
-            <div className="pbm-card">
-              <div className="pbm-card-top">
-                <span className="pbm-card-who">
-                  <span className="pbm-dot pbk-fill" />
-                  <span
-                    className="pbm-card-name pbk-text pbk-text--fixed"
-                    style={{ width: c.name }}
-                  >
-                    &nbsp;
-                  </span>
-                </span>
-                <span
-                  className="pbm-card-time pbk-text pbk-text--fixed"
-                  style={{ width: c.time }}
-                >
-                  &nbsp;
-                </span>
-              </div>
-              <div className="pbm-card-subject pbk-text" style={{ width: c.subject }}>
-                &nbsp;
-              </div>
-              <div className="pbm-card-preview pbk-text" style={{ width: c.preview }}>
-                &nbsp;
-              </div>
-              <div className="pbm-card-chips">
-                {c.tags.map((w, j) => (
-                  <span key={j} className="pbm-tag pbk-fill" style={{ width: w }}>
-                    &nbsp;
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -120,7 +35,7 @@ function MailListSkeleton() {
  * height: .pbm-bubble is `white-space: pre-wrap`, so each one is a genuine
  * 13.5px/1.55 line box.
  */
-const NBSP = " ";
+const NBSP = " ";
 const BUBBLES: { out: boolean; lines: number; width: string }[] = [
   { out: false, lines: 3, width: "64%" },
   { out: true, lines: 2, width: "56%" },
@@ -246,7 +161,11 @@ function RailSkeleton() {
         ))}
       </div>
 
-      <span className="pbm-rail-title pbm-rail-title--sub pbk-text" style={{ width: 58 }} aria-hidden>
+      <span
+        className="pbm-rail-title pbm-rail-title--sub pbk-text"
+        style={{ width: 58 }}
+        aria-hidden
+      >
         &nbsp;
       </span>
       <div className="pbm-rail-card pbm-rail-card--empty" aria-hidden>

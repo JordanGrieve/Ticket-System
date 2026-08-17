@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { SignOutButton } from "@clerk/nextjs";
+// Not Clerk's <SignOutButton>: it runs only in the browser, so an operator
+// signing out from here left their impersonation row open forever.
+import AuditedSignOutButton from "@/components/AuditedSignOutButton";
 import { resolveViewer } from "@/lib/viewer";
 import { listAgentEmails, listWorkspaceSummaries } from "@/lib/data";
 import { listAdmins } from "@/lib/admin";
@@ -178,11 +180,9 @@ export default async function AdminHomePage({
             <div className="pba-whoami">
               <div className="pba-whoami-label">Signed in as</div>
               <div className="pba-whoami-email">{viewer.email}</div>
-              <SignOutButton>
-                <button type="button" className="pba-signout">
-                  Sign out
-                </button>
-              </SignOutButton>
+              <AuditedSignOutButton className="pba-signout">
+                Sign out
+              </AuditedSignOutButton>
             </div>
           </div>
         </nav>

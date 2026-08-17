@@ -1,5 +1,5 @@
 /*
-  Postbox — /settings (auto-reply).
+  Postbox — /settings (General, Auto-reply, Contacts, Install tabs).
 
   Every colour is a token from globals.css. Nothing here is a literal: six
   themes ride on those custom properties, and one hardcoded hex is one theme
@@ -680,6 +680,478 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pbs-tab {
+    transition: none;
+  }
+}
+
+/* â”€â”€ /settings â€” General â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   Appearance, Inbox and Integrations. Same rule as the rest of this
+   file: every colour is a token, because six themes ride on them. The
+   single exception is the theme swatch gradients, which are inline in
+   ThemePicker.tsx and commented there â€” a swatch has to show the theme
+   it offers, not the one currently applied.                          */
+
+.stg-wrap {
+  flex: 1;
+  min-width: 0;
+  padding: 30px 32px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.stg-head {
+  min-width: 0;
+}
+
+.stg-title {
+  margin: 0 0 6px;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.stg-sub {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--muted-2);
+}
+
+.stg-sub b {
+  color: var(--text-2);
+  font-weight: 700;
+}
+
+.stg-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.stg-section-title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.stg-section-sub {
+  margin: -4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.55;
+  color: var(--muted-2);
+}
+
+.stg-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--pdf-fg);
+  border-radius: 12px;
+  background: var(--pdf-bg);
+  color: var(--pdf-fg);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.stg-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* â”€â”€ appearance: the six theme cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.stg-themes {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Saving. Still readable, just not re-clickable. */
+.stg-themes:disabled {
+  opacity: 0.7;
+}
+
+.stg-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.stg-theme {
+  display: block;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.stg-themes:disabled .stg-theme {
+  cursor: progress;
+}
+
+/* The radio itself is the control â€” hidden visually, never from the
+   accessibility tree, so the group keeps arrow-key navigation and its
+   "3 of 6" announcement. */
+.stg-theme-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  margin: 0;
+  pointer-events: none;
+}
+
+.stg-theme-card {
+  display: block;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 20px;
+  padding: 14px;
+  box-shadow: 0 8px 18px var(--shadow);
+  transition: border-color 0.16s ease;
+}
+
+.stg-theme:hover .stg-theme-card {
+  border-color: var(--border-strong);
+}
+
+.stg-theme-input:checked + .stg-theme-card {
+  border-color: var(--accent);
+}
+
+/* The input carries focus; the ring has to be drawn on what you can see.
+   globals.css puts a default outline on every input, which here would
+   paint a ring around a 1px box in the corner â€” so it is cancelled. */
+.stg-theme-input:focus-visible {
+  outline: none;
+}
+
+.stg-theme-input:focus-visible + .stg-theme-card {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.stg-theme-swatch {
+  display: block;
+  height: 82px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+}
+
+.stg-theme-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.stg-theme-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stg-theme-label {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.stg-theme-note {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted-2);
+}
+
+.stg-theme-check {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 7px;
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: transparent;
+  background: transparent;
+}
+
+.stg-theme-input:checked + .stg-theme-card .stg-theme-check {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--pbm-on-dark, #fff);
+}
+
+/* â”€â”€ inbox: label / value rows â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.stg-rows {
+  margin: 0;
+  padding: 4px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+}
+
+.stg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border-soft);
+  min-width: 0;
+}
+
+.stg-row:last-child {
+  border-bottom: 0;
+}
+
+.stg-row-label {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.stg-row-body {
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  text-align: right;
+}
+
+.stg-row-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+
+.stg-row-value--muted {
+  color: var(--muted);
+}
+
+.stg-row-mono {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+}
+
+.stg-row-link {
+  flex: 0 0 auto;
+  padding: 7px 13px;
+  border-radius: 11px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.stg-row-link:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.stg-row-link:focus-visible {
+  border-radius: 11px;
+}
+
+.stg-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.stg-dot[data-on="true"] {
+  background: var(--ok-fg);
+}
+
+.stg-unbuilt-note {
+  min-width: 0;
+  max-width: 46ch;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* â”€â”€ integrations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.stg-int-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stg-int {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 14px 16px;
+}
+
+/* Not-built cards sit back a step so the row does not read as a row of
+   working connections. */
+.stg-int[data-unbuilt="true"] {
+  background: var(--surface-3);
+  border-style: dashed;
+}
+
+.stg-int-mark {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 13px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.stg-int[data-unbuilt="true"] .stg-int-mark {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.stg-int-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.stg-int-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stg-int-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.stg-int-note {
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--muted-2);
+}
+
+.stg-int-btn {
+  flex: none;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-3);
+  text-decoration: none;
+}
+
+.stg-int-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.stg-int-btn:focus-visible {
+  border-radius: 12px;
+}
+
+.stg-state {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 7px;
+  background: var(--surface-3);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.stg-state[data-on="true"] {
+  background: var(--accent-chip);
+  color: var(--accent-text);
+}
+
+/* â”€â”€ responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+@media (max-width: 1080px) {
+  .stg-theme-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stg-int-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .stg-wrap {
+    padding: 18px 14px 40px;
+  }
+  .stg-theme-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .stg-rows {
+    padding: 4px 14px;
+  }
+  .stg-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .stg-row-body {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stg-theme-card {
     transition: none;
   }
 }

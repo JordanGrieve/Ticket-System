@@ -15,6 +15,12 @@ const eslintConfig = defineConfig([
     // Vendored Clerk skill templates — third-party sample code, not ours to
     // lint or fix. Without this, CI fails on someone else's <head> element.
     ".agents/**",
+    // Scratch directories. A throwaway reproduction left in the repo root once
+    // put 6,653 problems through the lint gate — none of them from source —
+    // which reads as a failure to the next person and hides the real ones.
+    // Nested node_modules and build output are never ours to lint.
+    ".tmp-*/**",
+    "**/node_modules/**",
   ]),
 ]);
 

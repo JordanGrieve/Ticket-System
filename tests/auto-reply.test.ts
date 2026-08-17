@@ -4,17 +4,21 @@ import {
   DEFAULT_CONFIG,
   DEFAULT_SUBJECT,
   buildMergeValues,
-  decideAutoReply,
   extractHeaders,
   firstNameFrom,
   isAutomatedMail,
   isDelaySupported,
   isRoleOrNoReplyAddress,
-  isSelfAddress,
   renderTemplate,
   type AutoReplyConfig,
-  type DecisionInput,
 } from "../lib/auto-reply";
+// The config-dependent half. Split out of lib/auto-reply so that module stays
+// safe to import from the settings client component — see its header.
+import {
+  decideAutoReply,
+  isSelfAddress,
+  type DecisionInput,
+} from "../lib/auto-reply-guards";
 import { EMAIL_FROM_ADDRESS, INBOUND_DOMAIN } from "../lib/config";
 
 const WORKSPACE = {

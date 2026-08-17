@@ -1,5 +1,11 @@
 import { redirect } from "next/navigation";
-import { SignOutButton } from "@clerk/nextjs";
+// A third sign-out, easy to miss. Nobody reaches /no-access mid-impersonation
+// (an operator has an admin row and lands on /admin), so this one closes no
+// audit session in practice — it is routed through the same component anyway
+// so that "sign out" means one thing everywhere, and so the next person to
+// copy this page copies the right button. It still clears any stale
+// pb_admin_ws left in the browser.
+import AuditedSignOutButton from "@/components/AuditedSignOutButton";
 import { resolveViewer } from "@/lib/viewer";
 import { PostboxLockup } from "@/components/Logo";
 
@@ -49,23 +55,21 @@ export default async function NoAccessPage() {
         </p>
 
         <div style={{ marginTop: 26 }}>
-          <SignOutButton>
-            <button
-              style={{
-                height: 40,
-                padding: "0 20px",
-                borderRadius: 10,
-                background: "var(--accent)",
-                color: "#fff",
-                fontSize: 13.5,
-                fontWeight: 600,
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
-              Sign out
-            </button>
-          </SignOutButton>
+          <AuditedSignOutButton
+            style={{
+              height: 40,
+              padding: "0 20px",
+              borderRadius: 10,
+              background: "var(--accent)",
+              color: "#fff",
+              fontSize: 13.5,
+              fontWeight: 600,
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Sign out
+          </AuditedSignOutButton>
         </div>
       </div>
     </div>

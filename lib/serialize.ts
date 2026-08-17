@@ -5,7 +5,10 @@ import type {
   TicketStatus,
   MessageDirection,
 } from "@/db/schema";
-import { relativeTime, formatTicketRef } from "./tickets";
+// "./ticket-format", not "./tickets": this module is reachable from client
+// components (components/mail/Thread.tsx), and lib/tickets imports the
+// server-only lib/config. See the header of lib/ticket-format.ts.
+import { relativeTime, formatTicketRef } from "./ticket-format";
 
 export type TicketDTO = {
   id: number;

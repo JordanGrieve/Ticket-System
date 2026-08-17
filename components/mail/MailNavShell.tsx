@@ -3,10 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { SignOutButton } from "@clerk/nextjs";
-import { initials } from "@/lib/tickets";
+// Not Clerk's <SignOutButton>: an operator signing out from inside a client
+// workspace has an open audit row to close first. See the component's header.
+import AuditedSignOutButton from "@/components/AuditedSignOutButton";
+// Not "@/lib/tickets": that reaches lib/config, which is server-only. See the
+// header of lib/ticket-format.ts.
+import { initials } from "@/lib/ticket-format";
 import { Icon, BrandMark, OverflowIcon, type IconName } from "./icons";
 import LabelManager from "./LabelManager";
+import { subscribeStar } from "./live";
 import type { LabelWithCountDTO, MailCountsDTO } from "./types";
 
 /**
@@ -72,6 +77,30 @@ export default function MailNavShell({
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  /**
+   * Local correction to `counts.starred`, so a star click updates this number
+   * without a `router.refresh()` of the entire route. See ./live.ts.
+   *
+   * The delta is thrown away the instant the server sends a new `counts`
+   * object — every navigation and every periodic list refresh does that — so
+   * this can drift by one at most, and only until the next server word.
+   */
+  const [starredDelta, setStarredDelta] = useState(0);
+  const [lastCounts, setLastCounts] = useState(counts);
+  if (lastCounts !== counts) {
+    setLastCounts(counts);
+    setStarredDelta(0);
+  }
+
+  useEffect(
+    () => subscribeStar(({ starred }) => setStarredDelta((d) => d + (starred ? 1 : -1))),
+    [],
+  );
+
+  // Clamped: a star added on another device, then removed here, would otherwise
+  // show "-1". A count is never negative, whatever the arithmetic says.
+  const starredCount = Math.max(0, counts.starred + starredDelta);
 
   // Esc closes the drawer.
   useEffect(() => {
@@ -141,7 +170,7 @@ export default function MailNavShell({
             key: "starred",
             label: "Starred",
             icon: "star" as IconName,
-            count: counts.starred,
+            count: starredCount,
             href: "/inbox?folder=starred",
           },
         ]
@@ -341,11 +370,12 @@ export default function MailNavShell({
               >
                 Settings
               </Link>
-              <SignOutButton>
-                <button role="menuitem" className="pbm-menu-item pbm-menu-item--danger">
-                  Sign out
-                </button>
-              </SignOutButton>
+              <AuditedSignOutButton
+                role="menuitem"
+                className="pbm-menu-item pbm-menu-item--danger"
+              >
+                Sign out
+              </AuditedSignOutButton>
             </div>
           )}
         </div>

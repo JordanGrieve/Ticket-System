@@ -18,7 +18,6 @@ export default async function InstallPage() {
       inboundEmail={workspace.inboundEmail}
       replyFrom={`"${workspace.name}" <${EMAIL_FROM_ADDRESS}>`}
       workspaceName={workspace.name}
-      accent={workspace.accent}
       appUrl={appUrl}
     />
   );
