@@ -26,10 +26,21 @@ export const TOKEN_COLORS: MarkColors = {
   knockout: "var(--app-bg)",
 };
 
+/**
+ * Hardcoded twins of the token values, for surfaces that render without
+ * globals.css (global-error.tsx replaces the root layout, so the stylesheet
+ * never loads) and for error/loading routes that must paint before anything
+ * else is certain.
+ *
+ * These are the THIRD place the palette is written down, after globals.css and
+ * app/icon.svg, and they were missed in the pivot — the error page shipped in
+ * terracotta against a purple app for a day. Keep them in step with --accent,
+ * --accent-strong and --surface-2 by hand; nothing enforces it.
+ */
 export const LITERAL_COLORS: MarkColors = {
-  rear: "#ab441f",
-  front: "#d6552f",
-  knockout: "#faf8f4",
+  rear: "#5636e0",
+  front: "#6d4aff",
+  knockout: "#1e1a33",
 };
 
 export function PostboxMark({

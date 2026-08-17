@@ -28,10 +28,10 @@ export default function ErrorPage({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "#faf8f4",
-        color: "#26221d",
+        background: "#1e1a33",
+        color: "#f3f0ff",
         padding: 24,
-        fontFamily: "var(--font-hanken), system-ui, sans-serif",
+        fontFamily: "var(--font-jakarta), system-ui, sans-serif",
       }}
     >
       <div style={{ textAlign: "center", maxWidth: 400 }}>
@@ -49,7 +49,7 @@ export default function ErrorPage({
         <h1 style={{ fontSize: 21, fontWeight: 700, marginBottom: 8 }}>
           Something went wrong
         </h1>
-        <p style={{ fontSize: 14.5, lineHeight: 1.65, color: "#7a7264", margin: "0 0 22px" }}>
+        <p style={{ fontSize: 14.5, lineHeight: 1.65, color: "#8a84a4", margin: "0 0 22px" }}>
           Sorry — that didn&rsquo;t work. It&rsquo;s been noted on our side;
           trying again usually fixes it.
         </p>
@@ -60,7 +60,7 @@ export default function ErrorPage({
               height: 40,
               padding: "0 20px",
               borderRadius: 10,
-              background: "#d6552f",
+              background: "#6d4aff",
               color: "#fff",
               fontSize: 13.5,
               fontWeight: 600,

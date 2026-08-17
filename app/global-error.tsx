@@ -28,8 +28,8 @@ export default function GlobalError({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#faf8f4",
-          color: "#26221d",
+          background: "#1e1a33",
+          color: "#f3f0ff",
           fontFamily: "system-ui, sans-serif",
         }}
       >
@@ -39,7 +39,7 @@ export default function GlobalError({
           <div style={{ marginBottom: 8 }}>
             <PostboxLockup colors={LITERAL_COLORS} />
           </div>
-          <p style={{ color: "#7a7264", margin: "0 0 20px" }}>
+          <p style={{ color: "#8a84a4", margin: "0 0 20px" }}>
             Something went wrong. Please try again.
           </p>
           <button
@@ -48,7 +48,7 @@ export default function GlobalError({
               height: 40,
               padding: "0 20px",
               borderRadius: 10,
-              background: "#d6552f",
+              background: "#6d4aff",
               color: "#fff",
               fontWeight: 600,
               border: "none",

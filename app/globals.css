@@ -336,7 +336,7 @@
   --color-ink: var(--ink);
   --color-muted: var(--muted-2);
   --color-accent: var(--accent);
-  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-spline-mono), ui-monospace, monospace;
 }
 
