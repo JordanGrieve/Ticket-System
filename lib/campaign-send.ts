@@ -51,6 +51,28 @@ import {
  * A campaign's `listId` is always read back off the campaign row we already
  * proved belongs to this workspace. It is never taken from the request, so a
  * caller cannot point their campaign at another tenant's list.
+ *
+ * ── SUPPRESSION ──
+ *
+ * "A send must never go to a suppressed address" is enforced in SQL, inside
+ * the statements that mutate, at all three points where a row could otherwise
+ * slip through:
+ *
+ *   1. materialiseAudience — the INSERT LEFT JOINs `suppressions` and takes
+ *      only the misses, so a suppressed address cannot become a recipient row;
+ *   2. sendCampaignBatch — a sweep retires queued rows whose address has been
+ *      suppressed since materialisation;
+ *   3. the claim UPDATE itself — a NOT EXISTS that closes the window between
+ *      (2) and the provider call.
+ *
+ * `selectAudience` also filters, but that is for REPORTING (it is what
+ * produces the per-reason skip counts the composer shows). It is not the
+ * guarantee: application-level filtering is one forgotten caller away from
+ * mailing somebody who hard-bounced or reported us for spam, and on a shared
+ * sending domain that damage lands on every other tenant's support mail.
+ *
+ * `suppressions` outranks `subscribers.status` wherever they disagree — the
+ * rule, and why, is in lib/suppressions.ts and lib/newsletter.ts sendability().
  */
 
 // ── Campaign reads ───────────────────────────────────────────────
@@ -356,6 +378,28 @@ export async function materialiseAudience(
     // per-row data; the joins re-assert that the subscriber and the campaign
     // both belong to this workspace, so a row could not be written into
     // another tenant's campaign even if the ids above were wrong.
+    //
+    // ── SUPPRESSION ENFORCEMENT ──
+    // The LEFT JOIN + `sup.id IS NULL` is where "a send must never go to a
+    // suppressed address" is actually enforced. It is in the statement that
+    // WRITES, not in a check above it, for three reasons:
+    //
+    //  1. `selectAudience` already dropped these addresses using the set read
+    //     a moment ago — but that read and this write are separate round
+    //     trips. Somebody who unsubscribes in between (one-click unsubscribes
+    //     arrive unattended, at any moment) would otherwise be materialised.
+    //  2. A future caller can forget an application-code filter. It cannot
+    //     forget this one: there is no path that creates a recipient row
+    //     except through this statement.
+    //  3. It is the same discipline as the workspace predicate above, for the
+    //     same reason — a check performed first can be invalidated by a
+    //     concurrent request before the write lands.
+    //
+    // Matched on lower(btrim(…)) on BOTH sides: `suppressions` has no
+    // functional index and rows written before lib/suppressions.ts existed
+    // were not necessarily normalised. A suppression that misses on
+    // capitalisation is a send to someone who asked us not to, which is worse
+    // than the sequential scan.
     const res = await db.execute(sql`
       INSERT INTO campaign_recipients (campaign_id, subscriber_id, email, unsubscribe_token)
       SELECT c.id, s.id, v.email, v.token
@@ -364,6 +408,10 @@ export async function materialiseAudience(
         ON s.id = v.subscriber_id AND s.workspace_id = ${workspaceId}
       JOIN campaigns c
         ON c.id = ${campaignId} AND c.workspace_id = ${workspaceId}
+      LEFT JOIN suppressions sup
+        ON sup.workspace_id = ${workspaceId}
+       AND lower(btrim(sup.email)) = lower(btrim(v.email))
+      WHERE sup.id IS NULL
       ON CONFLICT (campaign_id, subscriber_id) DO NOTHING
       RETURNING campaign_recipients.id
     `);
@@ -435,9 +483,57 @@ export type SendBatchResult = {
   claimed: number;
   delivered: number;
   failed: number;
+  /**
+   * Queued rows dropped because the address became suppressed after the
+   * audience was materialised. Reported separately from `failed` because it is
+   * the system working, not the provider refusing.
+   */
+  suppressed: number;
   /** True when there may be more queued rows after this batch. */
   more: boolean;
 };
+
+/**
+ * Retire queued rows whose address has since been suppressed.
+ *
+ * Materialisation already excludes suppressed addresses, but a campaign can sit
+ * queued for hours while it drains, and one-click unsubscribes and bounce
+ * webhooks arrive unattended throughout. Without this sweep those rows sit
+ * queued forever: the claim below refuses them, so every batch re-reads them
+ * and `more` never settles.
+ *
+ * They are moved to `failed` with an explicit error string rather than a
+ * dedicated status, because `RecipientStatus` has no "skipped" member and
+ * inventing one is a schema change. The error text is what makes the campaign
+ * report honest about why the row was not sent — see rule 5: a visible gap
+ * beats a plausible-looking number.
+ *
+ * `campaign_recipients` carries no workspace_id, so the statement joins up to
+ * `campaigns` and filters there, and the suppression is matched inside the
+ * same UPDATE.
+ */
+async function retireSuppressedQueuedRows(
+  workspaceId: number,
+  campaignId: number,
+): Promise<number> {
+  const res = await db.execute(sql`
+    UPDATE campaign_recipients cr
+    SET status = 'failed',
+        error = 'Suppressed: this address is on the workspace suppression list.'
+    FROM campaigns c
+    WHERE cr.campaign_id = c.id
+      AND c.id = ${campaignId}
+      AND c.workspace_id = ${workspaceId}
+      AND cr.status = 'queued'
+      AND EXISTS (
+        SELECT 1 FROM suppressions sup
+        WHERE sup.workspace_id = c.workspace_id
+          AND lower(btrim(sup.email)) = lower(btrim(cr.email))
+      )
+    RETURNING cr.id
+  `);
+  return res.rows.length;
+}
 
 /**
  * PHASE TWO: claim a batch of queued recipients and hand each to `deliver`.
@@ -489,6 +585,13 @@ export async function sendCampaignBatch(input: {
   const campaign = await getCampaign(input.workspaceId, input.campaignId);
   if (!campaign) throw new Error("Campaign not found in this workspace");
 
+  // Before anything is claimed: retire rows whose address was suppressed after
+  // materialisation. Runs first so the batch below cannot even read them.
+  const suppressed = await retireSuppressedQueuedRows(
+    input.workspaceId,
+    input.campaignId,
+  );
+
   // Queued rows for this campaign, joined up to `campaigns` for tenancy.
   const queued = await db
     .select({
@@ -521,24 +624,32 @@ export async function sendCampaignBatch(input: {
   let failed = 0;
 
   for (const row of queued) {
-    const claim = await db
-      .update(campaignRecipients)
-      .set({
-        status: "sent",
-        sentAt: new Date(),
-        attempts: sql`${campaignRecipients.attempts} + 1`,
-      })
-      .where(
-        and(
-          eq(campaignRecipients.id, row.id),
-          eq(campaignRecipients.status, "queued"),
-        ),
-      )
-      .returning({ id: campaignRecipients.id });
+    // The claim carries THREE predicates, all inside the UPDATE: the latch
+    // (`status = 'queued'`), the workspace (via the join up to `campaigns`,
+    // because campaign_recipients carries no workspace_id), and the
+    // suppression check. The last one is a backstop for the window between the
+    // sweep above and this statement — a one-click unsubscribe landing inside
+    // that window must not be beaten by a send that was already in flight.
+    const claim = await db.execute(sql`
+      UPDATE campaign_recipients cr
+      SET status = 'sent', sent_at = now(), attempts = cr.attempts + 1
+      FROM campaigns c
+      WHERE cr.id = ${row.id}
+        AND cr.status = 'queued'
+        AND cr.campaign_id = c.id
+        AND c.workspace_id = ${input.workspaceId}
+        AND NOT EXISTS (
+          SELECT 1 FROM suppressions sup
+          WHERE sup.workspace_id = c.workspace_id
+            AND lower(btrim(sup.email)) = lower(btrim(cr.email))
+        )
+      RETURNING cr.id
+    `);
 
-    // Somebody else got there first. Not an error, and emphatically not a
-    // reason to send anyway.
-    if (claim.length === 0) continue;
+    // Zero rows: somebody else claimed it, or the address was suppressed a
+    // moment ago. Neither is an error, and emphatically neither is a reason to
+    // send anyway.
+    if (claim.rows.length === 0) continue;
     claimed += 1;
 
     const url = unsubscribeUrl(input.appUrl, row.token);
@@ -584,7 +695,13 @@ export async function sendCampaignBatch(input: {
     }
   }
 
-  return { claimed, delivered, failed, more: queued.length >= input.limit };
+  return {
+    claimed,
+    delivered,
+    failed,
+    suppressed,
+    more: queued.length >= input.limit,
+  };
 }
 
 async function subscriberNames(

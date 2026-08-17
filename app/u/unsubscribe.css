@@ -1,0 +1,106 @@
+/*
+  Public unsubscribe pages.
+
+  Every colour resolves through the design tokens in app/globals.css, so these
+  pages follow all six themes rather than pinning themselves to one palette —
+  the same rule the rest of the product follows. The single literal below is
+  the text colour ON the accent, which is white in every theme; app/admin.css
+  (--on-accent) and app/mail.css (--pbm-on-dark) already carry it as a local
+  constant for the same reason. It is scoped here so nothing else inherits it.
+
+  These pages are seen by strangers with no session and therefore no workspace
+  theme, so in practice they render in the default palette (or the dark one, if
+  the device asks for dark) — which is exactly what the tokens already do.
+*/
+.u-shell {
+  --u-on-accent: #ffffff;
+  background: var(--app-bg);
+  color: var(--ink);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.u-header {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 22px 24px 0;
+  width: 100%;
+}
+
+.u-main {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 40px 24px 72px;
+  width: 100%;
+}
+
+.u-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 6px 20px var(--shadow);
+}
+
+.u-card h1 {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.3;
+  margin: 0 0 10px;
+}
+
+.u-card p {
+  color: var(--ink-2);
+  font-size: 14.5px;
+  line-height: 1.65;
+  margin: 0 0 14px;
+}
+
+.u-fine {
+  color: var(--muted-2);
+  font-size: 13px;
+}
+
+.u-button {
+  background: var(--accent-grad);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--u-on-accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  margin-top: 6px;
+  padding: 11px 20px;
+  transition: box-shadow 140ms ease, transform 140ms ease;
+}
+
+.u-button:hover {
+  box-shadow: 0 4px 14px var(--glow);
+}
+
+.u-button:active {
+  transform: translateY(1px);
+}
+
+/* Deliberate: the visible keyboard focus ring is not optional. */
+.u-button:focus-visible,
+.u-shell a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.u-ok {
+  color: var(--ok-fg);
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .u-button {
+    transition: none;
+  }
+  .u-button:active {
+    transform: none;
+  }
+}

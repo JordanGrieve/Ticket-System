@@ -3,77 +3,57 @@ import "../../../skeleton.css";
 /**
  * /settings/contacts.
  *
- * The real page is still built from inline styles (it predates settings.css),
- * so there are no classes to borrow here — the numbers below are copied
- * one-for-one from contacts/page.tsx and are the only place in this feature
- * where geometry is restated. If that page is ever moved onto classes, this
- * should follow it and the duplication should go.
+ * The sticky `.pbs-tabs` strip belongs to the settings layout and never
+ * suspends, so it is not redrawn here.
  *
- *   column   max-width 760, centred, padding 28px 32px 64px
- *   heading  22px, sub-line 13px with a 3px top margin
- *   list     20px below the sub-line
- *   row      13px/16px padding, 12px radius, 7px vertical margin, 14px gap,
- *            34px round avatar — which makes the row 62px tall
- *
- * One thing that is deliberately NOT copied: the real row paints `#fff` on a
- * `#efeadf` border, which is wrong in five of the six themes. The skeleton
- * uses --surface / --border instead, so it is the same box in the right
- * colours. The row will change colour, not size, when the real list arrives.
+ * Everything below reuses the real .stc-* classes from settings.css, so no
+ * geometry is restated: the column width, the page padding, the row's
+ * padding/radius/gap, the 34px avatar and the two text line-boxes are all
+ * declared exactly once, in the stylesheet, and the skeleton cannot drift
+ * from the list it stands in for. The only inline values left are bar
+ * widths, which have no counterpart in the real layout — they exist to make
+ * the placeholder names look like names rather than a column of identical
+ * bars.
  */
 export default function ContactsLoading() {
   return (
-    <div
-      className="pbk"
-      style={{ maxWidth: 760, margin: "0 auto", padding: "28px 32px 64px" }}
-      aria-busy="true"
-      aria-label="Loading contacts"
-    >
-      <div aria-hidden>
-        <div className="pbk-text" style={{ fontSize: 22, width: 148 }}>
-          &nbsp;
-        </div>
-        <div className="pbk-text" style={{ fontSize: 13, marginTop: 3, width: 262 }}>
-          &nbsp;
-        </div>
+    <div className="stc-wrap pbk" aria-busy="true" aria-label="Loading contacts">
+      <div className="stc-col" aria-hidden>
+        <header className="stc-head">
+          <div className="stc-title pbk-text" style={{ width: 148 }}>
+            &nbsp;
+          </div>
+          <div className="stc-sub pbk-text" style={{ width: 262 }}>
+            &nbsp;
+          </div>
+        </header>
 
-        <div style={{ marginTop: 20 }}>
+        <ul className="stc-list">
           {[196, 154, 232, 178, 210, 166, 188, 144].map((w, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 14,
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
-                borderRadius: 12,
-                padding: "13px 16px",
-                margin: "7px 0",
-              }}
-            >
-              <div
-                className="pbk-fill"
-                style={{ width: 34, height: 34, borderRadius: "50%" }}
-              />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="pbk-text" style={{ fontSize: 14.5, width: w }}>
+            <li className="stc-row" key={i}>
+              <span className="stc-avatar pbk-fill" />
+              <span className="stc-person">
+                <span className="stc-name pbk-text" style={{ width: w, maxWidth: "100%" }}>
                   &nbsp;
-                </div>
-                <div
-                  className="pbk-text"
-                  style={{ fontSize: 13, width: w + 46, maxWidth: "100%" }}
+                </span>
+                <span
+                  className="stc-email pbk-text"
+                  style={{ width: w + 46, maxWidth: "100%" }}
                 >
                   &nbsp;
-                </div>
-              </div>
-              <div
-                className="pbk-fill"
-                style={{ width: 62, height: 20, borderRadius: 20 }}
-              />
-              <div className="pbk-fill" style={{ width: 56, height: 12, borderRadius: 6 }} />
-            </div>
+                </span>
+              </span>
+              <span className="stc-meta">
+                <span className="stc-count pbk-fill" style={{ width: 62 }}>
+                  &nbsp;
+                </span>
+                <span className="stc-seen pbk-text" style={{ width: 56 }}>
+                  &nbsp;
+                </span>
+              </span>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     </div>
   );

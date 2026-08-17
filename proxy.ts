@@ -16,6 +16,13 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/(.*)",
+  // Public unsubscribe. Must work with no session: the RFC 8058 one-click POST
+  // arrives unattended from Gmail/Yahoo with no cookies, and the human GET
+  // arrives from a mail client. Without this line clerkMiddleware 307s both to
+  // /sign-in and the opt-out silently does not happen — which is a legal
+  // breach, not a broken page. The token in the path is the whole of the
+  // authorisation; see app/u/[token]/route.ts.
+  "/u/(.*)",
   // Sentry's tunnelRoute — browser error/trace events POST here and are
   // forwarded to Sentry. Must not require a session.
   "/monitoring(.*)",

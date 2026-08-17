@@ -1155,3 +1155,195 @@
     transition: none;
   }
 }
+
+/* ── /settings — Contacts ─────────────────────────────────────────
+   Everyone who has ever written in: avatar, name, email, first seen,
+   ticket count. Same rules as the rest of this file — every colour is a
+   token, and the geometry is declared here exactly once so that
+   contacts/loading.tsx can borrow it instead of restating it.
+
+   Ground is --surface, matching .pbm-page underneath, so a short list
+   (or the empty state) leaves no colour seam where the wrapper stops —
+   .pbm-page > * is forced to flex: 0 0 auto, so this box is only ever as
+   tall as its content. The rows then sit on --surface-2, which is the
+   same card recipe the Auto-reply tab uses next door.                */
+
+.stc-wrap {
+  min-width: 0;
+  padding: 30px 32px 56px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* The reading column. Centred rather than full-bleed: a list of names and
+   email addresses has nothing to put in a second column. */
+.stc-col {
+  max-width: 760px;
+  margin: 0 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.stc-head {
+  min-width: 0;
+}
+
+.stc-title {
+  margin: 0 0 6px;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.stc-sub {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--muted-2);
+}
+
+.stc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stc-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 13px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+.stc-avatar {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-3);
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.stc-person {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Fixed line-heights, not the inherited default: the skeleton stands a
+   non-breaking space in these same elements, so the row's height is the
+   real font's line box and cannot drift from the real list. */
+.stc-name,
+.stc-email {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stc-name {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.stc-email {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--muted-2);
+}
+
+.stc-meta {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stc-count {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 11.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.stc-seen {
+  flex: 0 0 auto;
+  min-width: 56px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.stc-empty {
+  margin: 0;
+  padding: 28px 24px;
+  border: 1px dashed var(--border);
+  border-radius: 18px;
+  background: var(--surface-2);
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted-2);
+}
+
+/* ── responsive ─────────────────────────────────────────────────
+   Inline styles carry no media query, which is why this page had no
+   small-screen behaviour at all. Usable at 390px is the target.      */
+
+@media (max-width: 768px) {
+  .stc-wrap {
+    padding: 18px 14px 40px;
+  }
+  .stc-row {
+    gap: 11px;
+    padding: 12px 13px;
+  }
+}
+
+/* Below this the name, the count and the date cannot share one line
+   without the name collapsing to two characters and an ellipsis. The
+   count and date drop to a second line, indented past the avatar so the
+   row still reads as one person. */
+@media (max-width: 520px) {
+  .stc-row {
+    flex-wrap: wrap;
+  }
+  .stc-meta {
+    flex-basis: 100%;
+    justify-content: flex-start;
+    margin-left: 45px;
+  }
+  .stc-seen {
+    min-width: 0;
+    text-align: left;
+  }
+}

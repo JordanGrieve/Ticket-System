@@ -457,11 +457,21 @@ Things that make this work rather than merely be present:
 unsubscribing anybody, so it must never be derived from an id, an address, or a
 timestamp.
 
-**Not built:** the `/u/[token]` route itself. It needs a `GET` (a human-facing
-confirmation page) and a `POST` (one-click, unauthenticated, immediate), and it
-must set `subscribers.status = 'unsubscribed'` **and** write a `suppressions`
-row — status alone is not enough, because the address can be deleted and
-re-imported.
+**Built** (`app/u/[token]/route.ts`, `lib/suppressions.ts`). `GET` does not
+mutate — it 303s to a confirmation page, because link scanners fetch every URL
+in a message — and `POST` is the unauthenticated, immediate one-click endpoint.
+`unsubscribeByToken()` writes the `suppressions` row **and** moves
+`subscribers.status` in one statement with data-modifying CTEs; status alone is
+not enough, because the address can be deleted and re-imported.
+
+The route is public only because `proxy.ts` lists `"/u/(.*)"` in
+`isPublicRoute`. Remove that entry and the provider's one-click POST is
+redirected to `/sign-in` and the opt-out silently stops happening.
+
+Still open: the suppression reason is recorded as `'manual'` (the
+`SuppressionReason` union has no `unsubscribe` member) with the real provenance
+in the note, and the `lower(btrim(email))` matching has no functional index to
+support it.
 
 ---
 
@@ -536,8 +546,11 @@ seed subscriber unmailable and hide the problem.
   `DATABASE_URL`.
 
 **Deliberately not built:** any send route; any provider integration for bulk;
-the `/u/[token]` unsubscribe route; the bounce/complaint webhook; the scheduler;
-the reconciliation sweep; consent enforcement; any dashboard UI.
+the bounce/complaint webhook; the scheduler; consent enforcement; any dashboard
+UI. (The `/u/[token]` unsubscribe route and the reconciliation sweep —
+`reconcileSuppressedSubscribers()` — are now built; see §5. Nothing can send
+email: `sendCampaignBatch` still takes its deliverer as a parameter with no
+default and is imported nowhere under `app/`.)
 
 **Tenancy.** Every query follows `lib/labels.ts`. `campaigns`, `lists`,
 `subscribers` and `suppressions` carry `workspace_id` and are filtered directly.

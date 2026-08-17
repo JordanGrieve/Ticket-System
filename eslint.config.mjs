@@ -21,6 +21,14 @@ const eslintConfig = defineConfig([
     // Nested node_modules and build output are never ours to lint.
     ".tmp-*/**",
     "**/node_modules/**",
+    // Agent worktrees. These are full checkouts of the repo (git excludes them
+    // via .git/info/exclude), each carrying its own .next build output, which
+    // the ignores above do not reach because they are not at the repo root.
+    // Left unignored they put ~37k problems through the gate — none from
+    // source — which makes `npm run lint` useless as a signal and, worse, makes
+    // the run abort with ENOENT when a concurrent build rewrites a chunk
+    // mid-scan.
+    ".claude/worktrees/**",
   ]),
 ]);
 

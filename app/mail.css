@@ -1809,3 +1809,275 @@
     opacity: 1;
   }
 }
+
+/* ──────────────────────────── search results ───────────────────── */
+
+/*
+  /search renders ONE full-width pane, not the 336px list + thread pair: a
+  result set spans four kinds of thing and carries a snippet per row, and the
+  list column is too narrow to show the matched text in context — which is the
+  only reason a snippet is there.
+
+  Every colour below is a token. The <mark> element in particular MUST be
+  repainted: the browser default is a fixed yellow that is unreadable on the
+  dark surfaces five of the six themes use.
+*/
+
+.pbm-results {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+
+.pbm-results-head {
+  flex: none;
+  padding: 22px 26px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.pbm-results-meta {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted-2);
+}
+
+.pbm-results-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 26px 26px;
+}
+
+/* The search box in its submitting form: same 42px shell, plus a button. */
+.pbm-search--go {
+  max-width: 620px;
+  gap: 8px;
+}
+.pbm-search-go {
+  flex: none;
+  height: 30px;
+  padding: 0 13px;
+  border: none;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--accent-grad);
+  color: var(--pbm-on-dark);
+}
+.pbm-search-go:disabled {
+  cursor: default;
+  background: var(--surface-3);
+  color: var(--muted);
+}
+.pbm-search-go:focus-visible {
+  border-radius: 10px;
+}
+/* The type="search" clear affordance is a UA control that ignores our tokens
+   and shows as a black cross on the dark themes. Esc clears the field instead
+   (SearchField.tsx), which is keyboard-reachable and themed. */
+.pbm-search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.pbm-group {
+  padding-top: 18px;
+}
+.pbm-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding: 0 2px 9px;
+}
+.pbm-group-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+.pbm-group-count {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.pbm-group-more {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--muted-2);
+}
+.pbm-results-aside {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-text);
+}
+.pbm-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pbm-result {
+  display: block;
+  padding: 13px 15px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+.pbm-result:hover {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+}
+.pbm-result:focus-visible {
+  border-radius: 16px;
+}
+
+.pbm-result-top {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.pbm-result-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pbm-result-time {
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.pbm-result-line {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--text-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pbm-result-snippet {
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--text-3);
+}
+.pbm-result-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 9px;
+  flex-wrap: wrap;
+}
+.pbm-tag--ref {
+  background: var(--surface-3);
+  color: var(--text-4);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.pbm-result-where {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted-2);
+}
+
+/* The matched run itself. Overrides the UA yellow — see the note above. */
+.pbm-hit {
+  background: var(--accent-chip);
+  color: var(--accent-text);
+  border-radius: 4px;
+  padding: 0 1px;
+  font-weight: 700;
+}
+
+/* People and label rows are one line, so they lay out as a row not a stack. */
+.pbm-result--person,
+.pbm-result--label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pbm-result-avatar {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.pbm-result-person {
+  flex: 1;
+  min-width: 0;
+}
+.pbm-result-person .pbm-result-title,
+.pbm-result-person .pbm-result-line {
+  display: block;
+}
+.pbm-result-meta {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.pbm-result-count {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-4);
+}
+.pbm-result--label .pbm-result-count {
+  margin-left: auto;
+}
+
+@media (max-width: 767px) {
+  .pbm-results {
+    /* Clears the fixed top bar, exactly as .pbm-list does. */
+    padding-top: 56px;
+    background: var(--surface-2);
+  }
+  .pbm-results-head {
+    padding: 14px 18px 12px;
+    border-bottom: none;
+  }
+  .pbm-search--go {
+    max-width: none;
+  }
+  .pbm-results-scroll {
+    /* 116px clears the floating tab bar, as .pbm-list-scroll does. */
+    padding: 2px 16px 116px;
+  }
+  .pbm-result {
+    border-color: transparent;
+    background: var(--surface);
+    border-radius: 20px;
+    box-shadow: 0 10px 22px var(--shadow-2);
+  }
+  .pbm-result:focus-visible {
+    border-radius: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pbm-result {
+    transition: none;
+  }
+}

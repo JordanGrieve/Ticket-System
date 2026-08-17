@@ -1,4 +1,4 @@
-import type { SubscriberStatus } from "@/db/schema";
+import type { SubscriberStatus, SuppressionReason } from "@/db/schema";
 
 /**
  * Newsletter engine — the PURE half.
@@ -289,6 +289,104 @@ function emptySkips(): Record<AudienceSkipReason, number> {
 }
 
 /**
+ * ── THE SUPPRESSION RULE, IN ONE PLACE ──
+ *
+ * `suppressions` is AUTHORITATIVE. It outranks `subscribers.status` in every
+ * direction, and this function is the only place that decision is expressed:
+ * everything else — the audience preview, materialisation, the send loop, the
+ * status reconciliation sweep — either calls this or mirrors it in SQL.
+ *
+ * Why it has to outrank status rather than merely agree with it: the two are
+ * written by different events and drift. A bounce webhook writes a suppression
+ * row AND sets `status = 'bounced'`; a re-imported CSV overwrites the status
+ * back to 'subscribed' and cannot touch the suppression, because suppressions
+ * are keyed by EMAIL and survive the subscriber row being deleted and
+ * re-created. So whenever the two disagree, the subscriber row is the stale
+ * one, by construction.
+ *
+ * Failing the other way — believing a 'subscribed' row over a suppression —
+ * means mailing an address that hard-bounced or reported us for spam. On a
+ * shared sending domain that is charged to every other tenant's transactional
+ * support mail.
+ *
+ * Pure and total, so the precedence can be proved in tests/suppression*.test.ts
+ * without a database.
+ */
+export type Sendability =
+  | { sendable: true }
+  | { sendable: false; reason: AudienceSkipReason };
+
+export function sendability(
+  status: SubscriberStatus,
+  suppressed: boolean,
+): Sendability {
+  // Checked FIRST, and not as an else-branch of the status test: a suppressed
+  // address is blocked whatever the subscriber row claims about itself.
+  if (suppressed) return { sendable: false, reason: "suppressed" };
+
+  if (status === "subscribed") return { sendable: true };
+
+  // Each non-subscribed status keeps its own reason. They mean different things
+  // to whoever reads the report: `unsubscribed` is the client's own doing,
+  // `bounced`/`complained` is deliverability damage they need to see.
+  switch (status) {
+    case "unsubscribed":
+      return { sendable: false, reason: "unsubscribed" };
+    case "bounced":
+      return { sendable: false, reason: "bounced" };
+    case "complained":
+      return { sendable: false, reason: "complained" };
+    default: {
+      // Exhaustive: adding a SubscriberStatus fails the build here rather than
+      // silently becoming a send.
+      const exhaustive: never = status;
+      throw new Error(`Unhandled subscriber status: ${String(exhaustive)}`);
+    }
+  }
+}
+
+/**
+ * The subscriber status a suppression implies.
+ *
+ * Used by the reconciliation sweep that drags `subscribers.status` back into
+ * line with `suppressions` after the two have disagreed. It only ever moves a
+ * subscriber from 'subscribed' to a blocked status — never the reverse, and
+ * never between two blocked statuses, because a 'complained' row is evidence
+ * and downgrading it to 'unsubscribed' destroys the record of why the address
+ * is blocked.
+ */
+export function statusForSuppressionReason(
+  reason: SuppressionReason,
+): SubscriberStatus {
+  switch (reason) {
+    case "hard_bounce":
+      return "bounced";
+    case "complaint":
+      return "complained";
+    case "manual":
+      return "unsubscribed";
+    default: {
+      const exhaustive: never = reason;
+      throw new Error(`Unhandled suppression reason: ${String(exhaustive)}`);
+    }
+  }
+}
+
+/**
+ * Cheap shape check on an unsubscribe token, before it reaches the database.
+ *
+ * Deliberately LENIENT — the database lookup is the real authority and the
+ * token space (128 bits from generateUnsubscribeToken) is not something a
+ * regex is defending. This exists only to keep obvious junk and path noise out
+ * of a query, and to bound the length of an attacker-supplied string. Making
+ * it strict would risk rejecting a token already sitting in somebody's inbox,
+ * and an unsubscribe that rejects a real token is a legal breach, not a bug.
+ */
+export function looksLikeUnsubscribeToken(token: string): boolean {
+  return /^[A-Za-z0-9_-]{8,128}$/.test(token);
+}
+
+/**
  * Turn raw list membership into the people we may lawfully and safely mail.
  *
  * ── Order of operations, and why ──
@@ -357,30 +455,12 @@ export function selectAudience(
     seenIds.add(c.subscriberId);
     seenEmails.add(email);
 
-    if (suppressed.has(email)) {
-      skipped.suppressed += 1;
-      continue;
-    }
-
-    if (c.status !== "subscribed") {
-      // Every non-subscribed status maps to its own counter. The switch is
-      // exhaustive so adding a SubscriberStatus fails the build here rather
-      // than silently becoming a send.
-      switch (c.status) {
-        case "unsubscribed":
-          skipped.unsubscribed += 1;
-          break;
-        case "bounced":
-          skipped.bounced += 1;
-          break;
-        case "complained":
-          skipped.complained += 1;
-          break;
-        default: {
-          const exhaustive: never = c.status;
-          throw new Error(`Unhandled subscriber status: ${String(exhaustive)}`);
-        }
-      }
+    // Suppression-beats-status is not decided here: `sendability` owns that
+    // rule so the preview, the write path and the send loop cannot drift apart
+    // by each re-implementing it.
+    const verdict = sendability(c.status, suppressed.has(email));
+    if (!verdict.sendable) {
+      skipped[verdict.reason] += 1;
       continue;
     }
 

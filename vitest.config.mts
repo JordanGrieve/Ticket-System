@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 /**
  * The only thing this config exists for is the `server-only` alias below.
@@ -18,6 +18,21 @@ import { defineConfig } from "vitest/config";
  * Next, and `npm run build` still fails if a client component reaches config.
  */
 export default defineConfig({
+  test: {
+    /**
+     * Agent worktrees are full checkouts of this repo, each with its own
+     * `tests/` directory, and they live inside the project root. Without this
+     * exclusion vitest collects them: the suite ran 31 files when the repo has
+     * 11, reporting another branch's copy of every test as if it were ours.
+     *
+     * That is worse than noise. A green run would be partly green about code
+     * that is not on this branch, a suite deleted here still "passes" from a
+     * stale copy, and the single deliberate `it.fails` in
+     * tests/auto-reply-loop-guards.test.ts is counted once per checkout — which
+     * is why the expected-fail total read 3 instead of 1.
+     */
+    exclude: [...configDefaults.exclude, "**/.claude/**"],
+  },
   resolve: {
     alias: {
       // fileURLToPath, not URL.pathname: on Windows the latter yields
