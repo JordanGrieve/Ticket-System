@@ -24,29 +24,45 @@
  * noisy and immediate, which is the whole point.
  */
 
-function required(name: string, value: string | undefined, dev: string): string {
+/**
+ * Reports a missing variable loudly WITHOUT throwing.
+ *
+ * This threw once. It took production down: INBOUND_EMAIL_DOMAIN turned out not
+ * to be set in Vercel, so every authed page 500'd the moment it deployed. The
+ * reasoning that put it there was wrong in a specific and instructive way — the
+ * variable is present in .env.local, and inbound mail demonstrably works in
+ * production, so it was assumed to be configured. Neither fact implies the
+ * other: .env.local is local only, and inbound mail working proves the provider
+ * routes to us, not that the app can name its own inbound domain.
+ *
+ * A missing value here is a real fault and still deserves attention, but taking
+ * the whole app down for the pilot client is a worse outcome than degraded mail
+ * addressing. It logs — which reaches Sentry — and carries on.
+ */
+function orDefault(name: string, value: string | undefined, fallback: string): string {
   if (value) return value;
   if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      `${name} is not set. It has no safe default in production — see lib/config.ts.`,
+    console.error(
+      `[config] ${name} is not set; falling back to ${fallback}. ` +
+        `This is a misconfiguration — set it in the deployment environment.`,
     );
   }
-  return dev;
+  return fallback;
 }
 
 // Public URL of THIS app (the support product), used in generated snippets.
-export const APP_URL = required(
+export const APP_URL = orDefault(
   "NEXT_PUBLIC_APP_URL",
   process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, ""),
-  "http://localhost:8080",
+  "https://postbox.help",
 );
 
 // Domain that inbound customer email is routed to (Resend inbound).
 // Per-ticket reply addresses look like: ticket+TKT-4821@inbound.yourapp.com
-export const INBOUND_DOMAIN = required(
+export const INBOUND_DOMAIN = orDefault(
   "INBOUND_EMAIL_DOMAIN",
   process.env.INBOUND_EMAIL_DOMAIN,
-  "inbound.localhost.test",
+  "postbox.help",
 );
 
 // Address ticket replies are sent FROM. Must be on a domain verified in
