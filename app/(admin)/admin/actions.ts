@@ -41,6 +41,10 @@ const IMP_COOKIE_OPTS = {
   httpOnly: true,
   sameSite: "lax",
   path: "/",
+  // These two cookies gate entry into a client's data. Off in development so
+  // http://localhost still works; on everywhere else, so they are never sent
+  // over plaintext.
+  secure: process.env.NODE_ENV === "production",
 } as const;
 
 /**

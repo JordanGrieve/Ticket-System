@@ -67,32 +67,53 @@ function primaryEmail(
  * What an admin is currently pointed at: the client they picked, plus the
  * audit row covering it.
  *
- * Two cookies, two very different trust levels. ADMIN_WS_COOKIE is the
- * selection. ADMIN_IMP_COOKIE only *names* an audit row — the row itself is
- * the record, so a cookie naming a session that is closed, missing, or belongs
- * to another admin or another workspace is treated as no session at all rather
- * than being believed.
+ * ── ACCESS IS GRANTED BY THE AUDIT ROW, NOT BY THE COOKIE ──
  *
- * This is also where the heartbeat fires. resolveViewer runs on every
- * dashboard render and every authed API route, so an operator cannot touch a
- * client's data without moving `lastSeenAt` — which is what bounds the access
- * window when they never exit cleanly.
+ * This previously returned `{ workspace, impersonation: null }` whenever the
+ * session cookie was missing, closed, or mismatched — which meant a bare
+ * `pb_admin_ws` cookie was sufficient to enter a tenant with nothing written to
+ * impersonation_sessions. An operator could set it by hand in devtools, omit
+ * the session cookie entirely, and read every customer's data unlogged. The
+ * dashboard did render a red "not being recorded" banner, but API routes render
+ * nothing at all, and GET /api/workspace/export is a complete JSON dump of a
+ * tenant's tickets, messages and contacts. That is the exact gap this audit
+ * trail exists to close, so the cookie can no longer stand alone.
+ *
+ * Now: no open, matching session row means no workspace. It fails closed on
+ * RECORDING, never on permission — who is allowed to impersonate is unchanged,
+ * and an admin who lands here simply gets bounced to /admin to re-enter through
+ * the audited path, which writes a row.
+ *
+ * This also closes the log-poisoning variant: hand-editing pb_admin_ws to point
+ * at a different workspace no longer grants access, because the open session
+ * names the workspace it was opened for and the two must agree.
+ *
+ * ADMIN_IMP_COOKIE only *names* a row; the row is the record. A cookie naming a
+ * session that is closed, missing, or belongs to another admin or workspace is
+ * treated as no session at all rather than being believed.
+ *
+ * This is also where the heartbeat fires. resolveViewer runs on every dashboard
+ * render and every authed API route, so an operator cannot touch a client's
+ * data without moving `lastSeenAt` — which is what bounds the access window
+ * when they never exit cleanly.
  */
 async function selectedAdminWorkspace(adminId: number): Promise<{
   workspace: Workspace | null;
   impersonation: ImpersonationSession | null;
 }> {
+  const none = { workspace: null, impersonation: null };
+
   const store = await cookies();
   const raw = store.get(ADMIN_WS_COOKIE)?.value;
   const id = raw ? Number(raw) : NaN;
-  if (!Number.isInteger(id)) return { workspace: null, impersonation: null };
+  if (!Number.isInteger(id)) return none;
 
   const workspace = await getWorkspaceById(id);
-  if (!workspace) return { workspace: null, impersonation: null };
+  if (!workspace) return none;
 
   const rawSession = store.get(ADMIN_IMP_COOKIE)?.value;
   const sessionId = rawSession ? Number(rawSession) : NaN;
-  if (!Number.isInteger(sessionId)) return { workspace, impersonation: null };
+  if (!Number.isInteger(sessionId)) return none;
 
   const session = await getOpenSession(sessionId);
   if (
@@ -100,7 +121,7 @@ async function selectedAdminWorkspace(adminId: number): Promise<{
     session.adminId !== adminId ||
     session.workspaceId !== workspace.id
   ) {
-    return { workspace, impersonation: null };
+    return none;
   }
 
   await touchImpersonation(session.id);
