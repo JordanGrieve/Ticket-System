@@ -45,16 +45,32 @@ export async function POST(req: Request) {
   const sharedSecret = process.env.INBOUND_WEBHOOK_SECRET;
   const sharedEnabled = !!sharedSecret && sharedSecret !== "dev-secret-change-me";
 
-  if (signingSecret || sharedEnabled) {
-    const url = new URL(req.url);
-    const provided =
-      req.headers.get("x-webhook-secret") ?? url.searchParams.get("secret");
-    const sharedOk = sharedEnabled && provided === sharedSecret;
-    const svixOk =
-      !!signingSecret && verifySvixSignature(raw, req.headers, signingSecret);
-    if (!sharedOk && !svixOk) {
-      return json({ error: "Invalid signature" }, { status: 401 });
-    }
+  // FAIL CLOSED. This previously read `if (signingSecret || sharedEnabled)`,
+  // so with neither configured the check was skipped entirely and the webhook
+  // was world-writable — anyone could POST a fabricated inbound email into any
+  // workspace. It failed OPEN, and silently: nothing logged, and the build was
+  // perfectly happy. A missing secret is a deployment fault, not permission to
+  // accept everything.
+  if (!signingSecret && !sharedEnabled) {
+    console.error(
+      "[inbound] No verification configured — set RESEND_WEBHOOK_SIGNING_SECRET " +
+        "or INBOUND_WEBHOOK_SECRET. Refusing all inbound mail until then.",
+    );
+    return json({ error: "Inbound not configured." }, { status: 503 });
+  }
+
+  const url = new URL(req.url);
+  // The query-string form is accepted for the existing Resend route, which was
+  // configured with it. It is the weaker channel — query strings land in access
+  // logs, proxy logs and Referer headers — so prefer the header and retire this
+  // once the provider webhook has been repointed.
+  const provided =
+    req.headers.get("x-webhook-secret") ?? url.searchParams.get("secret");
+  const sharedOk = sharedEnabled && provided === sharedSecret;
+  const svixOk =
+    !!signingSecret && verifySvixSignature(raw, req.headers, signingSecret);
+  if (!sharedOk && !svixOk) {
+    return json({ error: "Invalid signature" }, { status: 401 });
   }
 
   let payload: Record<string, unknown>;

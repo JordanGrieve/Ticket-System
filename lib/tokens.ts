@@ -29,10 +29,22 @@ export function generateFormKey(): string {
 }
 
 /**
- * Per-ticket reply-address secret (8 hex chars). Shorter than the others
- * because it is only ever paired with a ticket id an attacker would also have
- * to guess, and it has to survive being typed into a mail client's To: field.
+ * Per-ticket reply-address secret (32 hex chars).
+ *
+ * This was 8 hex chars — 32 bits — on the reasoning that it is paired with a
+ * ticket id an attacker would also have to guess. That reasoning does not hold:
+ * ticket ids are sequential, so they are not a secret, and this token is the
+ * ONLY thing stopping someone mailing into another tenant's ticket. It guards a
+ * public endpoint that accepts unauthenticated mail, with unlimited attempts
+ * and no lockout, so 32 bits is thin for the job it is actually doing.
+ *
+ * Length is not a real constraint here. Nobody types a reply address by hand —
+ * it is generated into a Reply-To header and the mail client round-trips it.
+ *
+ * EXISTING TICKETS KEEP THEIR SHORT TOKENS. Regenerating them would invalidate
+ * reply-to addresses already sitting in customers' inboxes and silently break
+ * threading on live conversations. The width only grows going forward.
  */
 export function generateReplyToken(): string {
-  return randomHex(4);
+  return randomHex(16);
 }
