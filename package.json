@@ -15,7 +15,8 @@
     "db:bootstrap": "tsx db/bootstrap.ts",
     "db:seed-client": "tsx db/seed-client.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:seed-dev": "tsx db/seed-dev.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.5.13",
