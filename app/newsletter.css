@@ -1,0 +1,734 @@
+/*
+  Postbox — /newsletters (the campaign composer).
+
+  Same rule as settings.css and mail.css: every colour is a custom property
+  from globals.css. Six themes ride on those tokens, so one literal hex is five
+  broken themes.
+
+  THE ONE EXCEPTION is the preview iframe, and it is an exception by omission
+  rather than by hardcoding: the document inside carries the renderer's own
+  inline styles, because mail clients strip stylesheets and inline is the only
+  thing that survives. Nothing below paints inside that frame — no background,
+  no colour — so the email shows the bytes a recipient would receive. Only the
+  frame AROUND it (border, padding, the surface it sits on) is tokenised. See
+  the comment beside the <iframe> in Composer.tsx.
+*/
+
+.nl-wrap {
+  display: grid;
+  grid-template-columns: 288px minmax(0, 1fr);
+  /* Default `stretch`, deliberately: it is what makes the rail's right-hand
+     border run the full height of the composer beside it. */
+  min-width: 0;
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* ── campaign rail ──────────────────────────────────────────── */
+
+.nl-rail {
+  min-width: 0;
+  padding: 26px 16px 40px;
+  border-right: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.nl-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.nl-rail-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.nl-new {
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 7px 13px;
+  cursor: pointer;
+  transition: border-color 0.14s ease, color 0.14s ease;
+}
+
+.nl-new:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.nl-rail-empty {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--muted-2);
+}
+
+.nl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nl-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  background: none;
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+
+.nl-item:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+
+.nl-item[data-current="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+
+.nl-item:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.nl-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.nl-item-name {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nl-item-sub,
+.nl-item-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nl-item-sub {
+  font-size: 12px;
+  color: var(--text-4);
+}
+
+.nl-item-meta {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+/* Status chips. Every campaign in this repo is a draft today; the other four
+   states exist in the schema and are coloured so the rail does not have to be
+   revisited when one first appears. */
+.nl-status {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: var(--surface-3);
+  color: var(--muted-2);
+}
+
+.nl-status[data-status="draft"] {
+  background: var(--tag-b-bg);
+  color: var(--tag-b-fg);
+}
+
+.nl-status[data-status="scheduled"],
+.nl-status[data-status="sending"] {
+  background: var(--tag-c-bg);
+  color: var(--tag-c-fg);
+}
+
+.nl-status[data-status="sent"] {
+  background: var(--tag-a-bg);
+  color: var(--tag-a-fg);
+}
+
+.nl-status[data-status="failed"] {
+  background: var(--pdf-bg);
+  color: var(--pdf-fg);
+}
+
+/* ── composer column ────────────────────────────────────────── */
+
+.nl-main {
+  min-width: 0;
+  padding: 28px 30px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.nl-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.nl-head-text {
+  min-width: 0;
+}
+
+.nl-title {
+  margin: 0 0 6px;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.nl-sub {
+  margin: 0;
+  max-width: 66ch;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--muted-2);
+}
+
+.nl-head-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nl-saved {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ok-fg);
+}
+
+.nl-save,
+.nl-queue {
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent-grad);
+  color: var(--sel);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 16px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px var(--glow);
+  transition: filter 0.14s ease;
+}
+
+.nl-save:hover:not(:disabled),
+.nl-queue:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.nl-save:disabled,
+.nl-queue:disabled {
+  cursor: not-allowed;
+  background: var(--surface-3);
+  color: var(--muted);
+  box-shadow: none;
+}
+
+/*
+  The test-send control. Permanently disabled, and styled as a plainly dead
+  control rather than a greyed-out primary button: there is no route behind it
+  and there is no state of this app in which clicking it would work.
+*/
+.nl-test {
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  background: none;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 10px 14px;
+  cursor: not-allowed;
+}
+
+/* ── two-up grid ────────────────────────────────────────────── */
+
+.nl-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.nl-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.nl-card {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 2px 10px var(--shadow);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nl-card-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.nl-card-sub {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted-2);
+}
+
+/* ── fields ─────────────────────────────────────────────────── */
+
+.nl-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nl-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text-3);
+}
+
+.nl-optional {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.nl-input,
+.nl-select,
+.nl-textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  padding: 10px 12px;
+}
+
+.nl-input,
+.nl-select {
+  height: 40px;
+}
+
+.nl-textarea {
+  line-height: 1.65;
+  resize: vertical;
+  min-height: 200px;
+}
+
+.nl-input:focus-visible,
+.nl-select:focus-visible,
+.nl-textarea:focus-visible {
+  border-color: var(--accent-line);
+  border-radius: 12px;
+}
+
+/* globals.css gives a, button, input and textarea a focus ring but not
+   select — restated here so the two dropdowns are not the only unringed
+   controls on the page. */
+.nl-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.nl-input:disabled,
+.nl-select:disabled,
+.nl-textarea:disabled {
+  background: var(--surface-3);
+  color: var(--muted-2);
+  cursor: not-allowed;
+}
+
+.nl-help {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted-2);
+}
+
+.nl-note {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+.nl-note--warn {
+  border-color: var(--warn-fg);
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+
+.nl-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--pdf-fg);
+  border-radius: 12px;
+  background: var(--pdf-bg);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--pdf-fg);
+}
+
+/* ── merge tags ─────────────────────────────────────────────── */
+
+.nl-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.nl-token {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: border-color 0.14s ease, color 0.14s ease;
+}
+
+.nl-token:hover:not(:disabled) {
+  color: var(--accent-text);
+  border-color: var(--accent-line);
+}
+
+.nl-token:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  background: var(--surface-3);
+}
+
+/* ── preview ────────────────────────────────────────────────── */
+
+.nl-preview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.nl-seg {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.nl-seg-btn {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--text-4);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.14s ease, color 0.14s ease, background 0.14s ease;
+}
+
+.nl-seg-btn:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.nl-seg-btn[data-on="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+
+.nl-envelope {
+  border: 1px solid var(--border-soft);
+  border-radius: 13px;
+  background: var(--surface-2);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nl-env-row {
+  margin: 0;
+  display: flex;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.nl-env-key {
+  flex: 0 0 84px;
+  font-weight: 700;
+  color: var(--muted-2);
+}
+
+.nl-env-val {
+  min-width: 0;
+  color: var(--text-2);
+  word-break: break-word;
+}
+
+.nl-env-empty {
+  color: var(--muted);
+}
+
+/* The frame around the email. Nothing here paints INSIDE the iframe. */
+.nl-frame {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+.nl-iframe {
+  width: 100%;
+  height: 540px;
+  border: 0;
+  border-radius: 8px;
+  /* No background declared, deliberately: the rendered email sets its own on
+     <body>, and overriding it here would show a shell the recipient won't get. */
+}
+
+.nl-frame[data-view="mobile"] .nl-iframe {
+  width: 375px;
+  max-width: 100%;
+}
+
+.nl-details {
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--surface-2);
+  padding: 8px 12px;
+}
+
+.nl-summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.nl-summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.nl-pre {
+  margin: 10px 0 2px;
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+/* ── audience count ─────────────────────────────────────────── */
+
+.nl-count {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: 13px;
+  background: var(--accent-soft);
+}
+
+.nl-count-num {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+
+.nl-count-num b {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--accent-text);
+}
+
+.nl-skips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.nl-skip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  padding: 4px 10px;
+  font-size: 11.5px;
+}
+
+.nl-skip-n {
+  font-weight: 800;
+  color: var(--text);
+}
+
+.nl-skip-l {
+  color: var(--muted-2);
+}
+
+/* ── what queueing does ─────────────────────────────────────── */
+
+.nl-facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nl-fact {
+  position: relative;
+  padding-left: 22px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+.nl-fact::before {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-weight: 800;
+}
+
+.nl-fact--yes::before {
+  content: "✓";
+  color: var(--ok-fg);
+}
+
+.nl-fact--no::before {
+  content: "✕";
+  color: var(--warn-fg);
+}
+
+.nl-queue-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ── responsive ─────────────────────────────────────────────── */
+
+@media (max-width: 1240px) {
+  .nl-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 980px) {
+  .nl-wrap {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .nl-rail {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-soft);
+    padding: 20px 16px 18px;
+  }
+}
+
+@media (max-width: 768px) {
+  .nl-main {
+    padding: 18px 14px 40px;
+  }
+  .nl-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .nl-head-actions {
+    justify-content: flex-end;
+  }
+  .nl-card {
+    padding: 15px;
+  }
+  .nl-frame {
+    padding: 8px;
+  }
+  .nl-iframe {
+    height: 420px;
+  }
+  .nl-env-key {
+    flex-basis: 72px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nl-new,
+  .nl-item,
+  .nl-save,
+  .nl-queue,
+  .nl-token,
+  .nl-seg-btn {
+    transition: none;
+  }
+}

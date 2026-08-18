@@ -8,6 +8,7 @@ import {
   lists,
   subscribers,
   suppressions,
+  workspaces,
   type Campaign,
   type RecipientStatus,
 } from "@/db/schema";
@@ -27,16 +28,26 @@ import {
  * Newsletter engine — the IO half. Database reads and writes, plus the send
  * loop. The pure decision/render logic is in lib/newsletter.ts.
  *
- * ── NOTHING HERE CAN EMAIL A REAL PERSON ──
+ * ── THIS MODULE STILL IMPORTS NO EMAIL PROVIDER ──
  *
- * This module imports no email provider. `sendCampaignBatch` below takes the
- * delivery function as an argument and there is no default, so the only way to
- * mail anybody is for a caller to hand it a live sender — and no route, no
- * Server Action, and no page imports it. That is deliberate: see the
- * "Missing infrastructure" section of docs/NEWSLETTER.md. The loop is written
- * so the claim-before-send protocol can be reviewed and so wiring it up later
- * is a scheduling problem rather than a correctness problem, not because it is
- * ready to run.
+ * `sendCampaignBatch` below takes the delivery function as an argument and
+ * there is NO default, so the only way to mail anybody is for a caller to hand
+ * it a live sender.
+ *
+ * That caller now exists: app/api/cron/campaigns/route.ts, driven by Vercel
+ * Cron. It is not a loosening of the rule — it is the "durable, resumable
+ * worker" docs/NEWSLETTER.md §2 names as prerequisite 1, and it is the only
+ * importer. What it hands in comes from `createCampaignDeliverer()` in
+ * lib/deliver.ts, which returns a LOG-ONLY deliverer unless
+ * `CAMPAIGN_DELIVERY_MODE=ses`, a variable set in no environment. So the wiring
+ * is complete and the send is still inert, which is the state the remaining
+ * items in §2 and §7 — cross-invocation rate limiting, the bounce/complaint
+ * webhook, a verified marketing domain, and consent enforcement — require.
+ *
+ * Do not add a second caller. In particular, no Server Action and no page may
+ * import this: sending is a scheduled activity with a bounded batch, and a
+ * request handler that calls it ties tens of thousands of provider calls to one
+ * HTTP request that will time out halfway through.
  *
  * ── TENANCY ──
  *
@@ -538,13 +549,16 @@ async function retireSuppressedQueuedRows(
 /**
  * PHASE TWO: claim a batch of queued recipients and hand each to `deliver`.
  *
- * ⚠️ UNREACHABLE BY DESIGN. Nothing in app/ imports this. Do not export it
- * from a route handler, a Server Action, or a page until the missing
- * infrastructure in docs/NEWSLETTER.md exists — at minimum a durable queue or
- * cron-driven worker, a per-workspace send rate limiter, and a verified
- * marketing sending domain. Calling it from a request handler would tie tens
- * of thousands of provider calls to one HTTP request that will time out
- * halfway through.
+ * ⚠️ ONE CALLER ONLY: app/api/cron/campaigns/route.ts. Do not export it from a
+ * Server Action or a page. Everything below assumes the caller is a scheduled
+ * worker that is happy to be re-invoked — `limit` is expected to be small
+ * enough that the whole loop fits inside one function invocation, because
+ * there is no resumption point in the middle of it.
+ *
+ * Still missing, and still required before `CAMPAIGN_DELIVERY_MODE=ses` may be
+ * set (docs/NEWSLETTER.md §2, §7): a per-workspace rate limiter that survives
+ * across invocations, the bounce/complaint webhook, a verified marketing
+ * sending domain, and consent enforcement in `selectAudience`.
  *
  * ── The claim protocol ──
  *
@@ -702,6 +716,147 @@ export async function sendCampaignBatch(input: {
     suppressed,
     more: queued.length >= input.limit,
   };
+}
+
+// ── The scheduled sweep's reads and writes ───────────────────────
+
+/**
+ * A campaign the sweep should push on, with everything the batch needs.
+ *
+ * `workspaceId` is read off the campaign row, never supplied by a caller —
+ * same rule as `listId`. Every statement downstream of this is scoped with it.
+ */
+export type DueCampaign = {
+  id: number;
+  workspaceId: number;
+  workspaceName: string;
+};
+
+/**
+ * Promote `scheduled` campaigns whose time has come to `sending`.
+ *
+ * ── Why the EXISTS clause is not optional ──
+ *
+ * A campaign is only promoted if it already has at least one `queued`
+ * recipient row. Without that predicate, a campaign scheduled but never
+ * materialised would be promoted, drain instantly (there is nothing to drain),
+ * and be marked `sent` — a campaign that mailed nobody, reported as a success,
+ * and now un-editable because `sending` is past `isEditableStatus`. Leaving it
+ * sitting at `scheduled` is a visible gap, which is the outcome we want.
+ *
+ * ── Tenancy ──
+ *
+ * This is the one statement in this module that is deliberately NOT scoped to a
+ * workspace: a scheduler that could only see one tenant would not be a
+ * scheduler. It reads no addresses and no content — it moves a status column
+ * and returns ids. Everything after it, including the campaign read and every
+ * recipient statement, is scoped by the workspace_id this returns.
+ *
+ * Concurrency: `status = 'scheduled'` in the WHERE is the latch, so two
+ * overlapping ticks cannot both promote the same row. Even if they could, the
+ * per-recipient claim in sendCampaignBatch is the guard that actually matters.
+ */
+async function promoteDueScheduledCampaigns(): Promise<number> {
+  const res = await db.execute(sql`
+    UPDATE campaigns c
+    SET status = 'sending', updated_at = now()
+    WHERE c.status = 'scheduled'
+      AND c.scheduled_at IS NOT NULL
+      AND c.scheduled_at <= now()
+      AND EXISTS (
+        SELECT 1 FROM campaign_recipients cr
+        WHERE cr.campaign_id = c.id AND cr.status = 'queued'
+      )
+    RETURNING c.id
+  `);
+  return res.rows.length;
+}
+
+/**
+ * Campaigns with work left to do, oldest-touched first.
+ *
+ * ── Ordering is fairness, not cosmetics ──
+ *
+ * `ORDER BY updated_at` is a round robin: `settleCampaign` below stamps
+ * `updated_at` after every batch, so a campaign that was just worked on goes to
+ * the back of the queue. Ordering by id instead would mean the lowest-numbered
+ * campaign is picked every single tick and a second tenant's campaign never
+ * starts until the first has fully drained — hours of one tenant's mail
+ * blocking everyone else's, with nothing in the UI to explain it.
+ *
+ * The EXISTS clause is what makes a drained campaign disappear from the sweep
+ * even in the window before `settleCampaign` has marked it `sent`.
+ */
+export async function claimDueCampaigns(limit: number): Promise<DueCampaign[]> {
+  await promoteDueScheduledCampaigns();
+
+  const rows = await db
+    .select({
+      id: campaigns.id,
+      workspaceId: campaigns.workspaceId,
+      workspaceName: workspaces.name,
+    })
+    .from(campaigns)
+    .innerJoin(workspaces, eq(workspaces.id, campaigns.workspaceId))
+    .where(
+      and(
+        eq(campaigns.status, "sending"),
+        sql`EXISTS (
+          SELECT 1 FROM campaign_recipients cr
+          WHERE cr.campaign_id = ${campaigns.id} AND cr.status = 'queued'
+        )`,
+      ),
+    )
+    .orderBy(campaigns.updatedAt)
+    .limit(limit);
+
+  return rows;
+}
+
+export type SettleResult = { completed: boolean };
+
+/**
+ * Close the loop after a batch: mark the campaign `sent` if it has drained,
+ * and stamp `updated_at` either way.
+ *
+ * One statement, because the two halves must not disagree. The
+ * "has it drained?" question and the write that acts on the answer being
+ * separate round trips is how a campaign gets marked `sent` while a recipient
+ * row inserted a moment ago is still queued — the row then sits queued forever,
+ * because the sweep above only looks at campaigns in `sending`.
+ *
+ * `status = 'sending'` in the WHERE means this cannot resurrect a `failed`
+ * campaign or re-stamp an already-`sent` one, and `sent_at` is only written
+ * when it is null so a re-run does not move the timestamp.
+ *
+ * Note what "drained" means: no `queued` rows left. Rows sitting at `failed` —
+ * including the ones retired by the suppression sweep — count as drained. They
+ * are not lost, they are on the campaign report with their error text, and the
+ * alternative is a campaign that can never finish because one address bounced.
+ */
+export async function settleCampaign(
+  workspaceId: number,
+  campaignId: number,
+): Promise<SettleResult> {
+  const res = await db.execute(sql`
+    UPDATE campaigns c
+    SET status = CASE WHEN NOT EXISTS (
+          SELECT 1 FROM campaign_recipients cr
+          WHERE cr.campaign_id = c.id AND cr.status = 'queued'
+        ) THEN 'sent' ELSE c.status END,
+        sent_at = CASE WHEN c.sent_at IS NULL AND NOT EXISTS (
+          SELECT 1 FROM campaign_recipients cr
+          WHERE cr.campaign_id = c.id AND cr.status = 'queued'
+        ) THEN now() ELSE c.sent_at END,
+        updated_at = now()
+    WHERE c.id = ${campaignId}
+      AND c.workspace_id = ${workspaceId}
+      AND c.status = 'sending'
+    RETURNING c.status
+  `);
+
+  const status = res.rows[0]?.status;
+  return { completed: status === "sent" };
 }
 
 async function subscriberNames(

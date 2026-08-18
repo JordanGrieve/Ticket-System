@@ -48,7 +48,6 @@ type LiveFolder = {
 const UNBUILT_FOLDERS: { label: string; icon: IconName }[] = [
   { label: "Sent", icon: "send" },
   { label: "Trash", icon: "trash" },
-  { label: "Newsletters", icon: "news" },
 ];
 
 export default function MailNavShell({
@@ -327,6 +326,14 @@ export default function MailNavShell({
               about this workspace", so they are one entry here and tabs inside
               /settings. Three separate links made an already long sidebar
               longer and read as unrelated to each other. */}
+          <Link
+            href="/newsletters"
+            className="pbm-folder"
+            data-active={pathname.startsWith("/newsletters")}
+          >
+            <Icon name="news" size={18} />
+            <span className="pbm-folder-label">Newsletters</span>
+          </Link>
           <Link
             href="/settings"
             className="pbm-folder"
