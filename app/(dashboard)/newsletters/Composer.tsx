@@ -16,6 +16,12 @@ import {
   type AudienceSkipReason,
   type TemplateKey,
 } from "@/lib/newsletter";
+import {
+  canCancelSchedule,
+  canDiscardRecipients,
+  canSchedule,
+  describeDrain,
+} from "@/lib/campaign-schedule";
 
 /**
  * The newsletter composer. One page, no wizard.
@@ -36,19 +42,25 @@ import {
  *
  * ── WHAT THIS SCREEN CANNOT DO, AND SAYS SO ──
  *
- * Nothing on this page can email anybody:
- *  - no route calls `sendCampaignBatch`, and it takes its deliverer as an
- *    argument with no default, so there is no configured sender at all;
- *  - nothing wakes up on a timer (no cron, and sub-daily cron needs a paid
- *    plan);
- *  - CAN-SPAM requires a physical postal address in every message and
- *    `workspaces` has no column for one.
+ * Nothing on this page can email anybody — including the Schedule button:
+ *  - no request handler calls `sendCampaignBatch`. Its one caller is the
+ *    scheduled sweep, and it takes its deliverer as an argument with no
+ *    default;
+ *  - that sweep hands every message to the LOG-ONLY deliverer, because
+ *    `CAMPAIGN_DELIVERY_MODE` is set in no environment. It writes a log line
+ *    and transmits nothing;
+ *  - the sweep runs ONCE A DAY (vercel.json `0 3 * * *`; the Hobby plan
+ *    refuses a sub-daily expression), so throughput is ~75 recipients per DAY;
+ *  - consent is still not enforced anywhere, and CAN-SPAM requires a physical
+ *    postal address in every message that `workspaces` has no column for.
  *
- * The primary action is therefore "Queue recipients", which is phase one of the
- * two-phase send — it writes `campaign_recipients` rows and sends nothing — and
- * the panel beside it states the three gaps in plain words. There is no Send
- * button, because a button that looks like it delivers mail and does not is the
- * single most dishonest thing this screen could contain.
+ * So there are three actions, and each is named for exactly what it does.
+ * "Queue recipients" writes `campaign_recipients` rows. "Remove queued
+ * recipients" deletes them again — it exists because queueing used to be a
+ * one-way door. "Schedule" writes a status and a timestamp, which is what
+ * makes the campaign visible to that log-only sweep. There is no Send button,
+ * because a button that looks like it delivers mail and does not is the single
+ * most dishonest thing this screen could contain.
  *
  * ── NO INVENTED NUMBERS ──
  *
@@ -89,6 +101,7 @@ type CampaignJson = {
   listId: number | null;
   status: CampaignStatus;
   recipientCount: number;
+  scheduledAt: string | null;
   updatedAt: string;
   sentAt: string | null;
 };
@@ -111,7 +124,19 @@ type QueueState =
   | { kind: "idle" }
   | { kind: "working" }
   | { kind: "error"; message: string }
-  | { kind: "done"; inserted: number; total: number };
+  | { kind: "done"; inserted: number; total: number }
+  | { kind: "discarded"; deleted: number; total: number };
+
+/** The draft ⇄ scheduled edge, as the screen sees it. */
+type ScheduleState =
+  | { kind: "idle" }
+  | { kind: "working" }
+  | { kind: "error"; message: string }
+  | { kind: "armed"; immediate: boolean }
+  | { kind: "cancelled" };
+
+/** "As soon as the next sweep runs" vs "at a time I pick". One request either way. */
+type WhenMode = "asap" | "at";
 
 // ── Local draft ──────────────────────────────────────────────────
 
@@ -125,6 +150,12 @@ type Draft = {
   body: string;
   listId: number | null;
   status: CampaignStatus;
+  /**
+   * Server-held counts and times. Written only from a server response, never
+   * by `patch()` — they describe what the database holds, not the form.
+   */
+  recipientCount: number;
+  scheduledAtIso: string | null;
 };
 
 function emptyDraft(): Draft {
@@ -137,6 +168,8 @@ function emptyDraft(): Draft {
     body: "",
     listId: null,
     status: "draft",
+    recipientCount: 0,
+    scheduledAtIso: null,
   };
 }
 
@@ -152,6 +185,8 @@ function draftFrom(c: CampaignJson): Draft {
     body: c.body,
     listId: c.listId,
     status: c.status,
+    recipientCount: c.recipientCount,
+    scheduledAtIso: c.scheduledAt,
   };
 }
 
@@ -204,6 +239,7 @@ export default function Composer({
   workspaceName,
   appUrl,
   viewerEmail,
+  recipientsPerSweep,
 }: {
   initialCampaigns: CampaignRowDTO[];
   lists: ListOption[];
@@ -211,6 +247,14 @@ export default function Composer({
   /** From lib/config, on the server. NEVER imported here — see page.tsx. */
   appUrl: string;
   viewerEmail: string;
+  /**
+   * `RECIPIENTS_PER_SWEEP` from lib/campaign-cron.ts, passed down as a number
+   * for the same reason `appUrl` is: that module imports node:crypto and must
+   * not be pulled into the client bundle. Every "how long will this take"
+   * figure on this page is computed from it and from SWEEPS_PER_DAY, so the
+   * screen cannot describe a throughput the deployed cron does not have.
+   */
+  recipientsPerSweep: number;
 }) {
   const [campaigns, setCampaigns] = useState(initialCampaigns);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
@@ -238,6 +282,11 @@ export default function Composer({
     result: { ok: true; data: AudienceJson } | { ok: false; message: string };
   } | null>(null);
   const [queue, setQueue] = useState<QueueState>({ kind: "idle" });
+
+  const [schedule, setSchedule] = useState<ScheduleState>({ kind: "idle" });
+  const [whenMode, setWhenMode] = useState<WhenMode>("asap");
+  /** A `datetime-local` value — local wall clock, converted on submit. */
+  const [whenLocal, setWhenLocal] = useState("");
 
   const [view, setView] = useState<"desktop" | "mobile">("desktop");
 
@@ -313,6 +362,7 @@ export default function Composer({
     setDirty(true);
     setSaved(false);
     setQueue({ kind: "idle" });
+    setSchedule({ kind: "idle" });
   }
 
   /**
@@ -336,6 +386,7 @@ export default function Composer({
     setSaved(false);
     setError(null);
     setQueue({ kind: "idle" });
+    setSchedule({ kind: "idle" });
   }
 
   async function refreshList() {
@@ -387,6 +438,7 @@ export default function Composer({
       setDirty(false);
       setSaved(false);
       setQueue({ kind: "idle" });
+      setSchedule({ kind: "idle" });
     } catch {
       setError("Couldn’t reach the server.");
     } finally {
@@ -469,11 +521,9 @@ export default function Composer({
         });
         return;
       }
-      setQueue({
-        kind: "done",
-        inserted: payload.inserted ?? 0,
-        total: payload.total ?? 0,
-      });
+      const total = payload.total ?? 0;
+      setQueue({ kind: "done", inserted: payload.inserted ?? 0, total });
+      setDraft((d) => ({ ...d, recipientCount: total }));
       setAudienceTick((n) => n + 1);
       await refreshList();
     } catch {
@@ -481,6 +531,138 @@ export default function Composer({
         kind: "error",
         message: "Couldn’t reach the server.",
       });
+    }
+  }
+
+  /**
+   * Throw the queued rows away again — the way back out of "Queue recipients".
+   *
+   * Confirmed, because it is a delete of up to tens of thousands of rows, and
+   * the confirm names the number so it cannot be waved through blind. The
+   * server refuses it for anything other than a `draft` campaign regardless of
+   * what this function believes.
+   */
+  async function discardRecipients() {
+    if (savedId === null || queue.kind === "working") return;
+    const n = draft.recipientCount;
+    const ok = window.confirm(
+      n > 0
+        ? `Remove ${n.toLocaleString()} queued recipient ${
+            n === 1 ? "row" : "rows"
+          } from this campaign? The rows are deleted; you can queue the list again afterwards.`
+        : "Remove this campaign's queued recipients?",
+    );
+    if (!ok) return;
+
+    setQueue({ kind: "working" });
+    try {
+      const res = await fetch(`/api/campaigns/${savedId}/audience`, {
+        method: "DELETE",
+      });
+      const payload = (await res.json()) as {
+        deleted?: number;
+        total?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        setQueue({
+          kind: "error",
+          message: payload.error ?? "Couldn’t remove these recipients.",
+        });
+        return;
+      }
+      const total = payload.total ?? 0;
+      setQueue({ kind: "discarded", deleted: payload.deleted ?? 0, total });
+      setDraft((d) => ({ ...d, recipientCount: total }));
+      setAudienceTick((n2) => n2 + 1);
+      await refreshList();
+    } catch {
+      setQueue({ kind: "error", message: "Couldn’t reach the server." });
+    }
+  }
+
+  /**
+   * Arm the campaign: draft → scheduled.
+   *
+   * ONE request for both modes. "As soon as the next sweep runs" simply omits
+   * `scheduledAt`, and the server resolves that to `now`; a picked time is sent
+   * as an ISO instant so the server is never guessing at a timezone. There is
+   * no second endpoint that sends immediately, and there is nothing here that
+   * reaches an email provider — see the panel this button sits in.
+   */
+  async function armSchedule() {
+    if (savedId === null || schedule.kind === "working") return;
+
+    let scheduledAt: string | null = null;
+    if (whenMode === "at") {
+      if (!whenLocal) {
+        setSchedule({ kind: "error", message: "Pick a date and time first." });
+        return;
+      }
+      const parsed = new Date(whenLocal);
+      if (Number.isNaN(parsed.getTime())) {
+        setSchedule({
+          kind: "error",
+          message: "Couldn’t read that date and time.",
+        });
+        return;
+      }
+      scheduledAt = parsed.toISOString();
+    }
+
+    setSchedule({ kind: "working" });
+    try {
+      const res = await fetch(`/api/campaigns/${savedId}/schedule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scheduledAt }),
+      });
+      const payload = (await res.json()) as {
+        campaign?: CampaignJson;
+        immediate?: boolean;
+        error?: string;
+      };
+      if (!res.ok || !payload.campaign) {
+        setSchedule({
+          kind: "error",
+          message: payload.error ?? "Couldn’t schedule this campaign.",
+        });
+        return;
+      }
+      setDraft(draftFrom(payload.campaign));
+      setSavedListId(payload.campaign.listId);
+      setSchedule({ kind: "armed", immediate: payload.immediate === true });
+      await refreshList();
+    } catch {
+      setSchedule({ kind: "error", message: "Couldn’t reach the server." });
+    }
+  }
+
+  /** Disarm it again: scheduled → draft. The recipient rows are left alone. */
+  async function cancelSchedule() {
+    if (savedId === null || schedule.kind === "working") return;
+    setSchedule({ kind: "working" });
+    try {
+      const res = await fetch(`/api/campaigns/${savedId}/schedule`, {
+        method: "DELETE",
+      });
+      const payload = (await res.json()) as {
+        campaign?: CampaignJson;
+        error?: string;
+      };
+      if (!res.ok || !payload.campaign) {
+        setSchedule({
+          kind: "error",
+          message: payload.error ?? "Couldn’t cancel this schedule.",
+        });
+        return;
+      }
+      setDraft(draftFrom(payload.campaign));
+      setSavedListId(payload.campaign.listId);
+      setSchedule({ kind: "cancelled" });
+      await refreshList();
+    } catch {
+      setSchedule({ kind: "error", message: "Couldn’t reach the server." });
     }
   }
 
@@ -938,9 +1120,14 @@ export default function Composer({
                   nothing.
                 </li>
                 <li className="nl-fact nl-fact--no">
-                  <b>Nothing is scheduled to pick it up.</b> Sending on a timer
-                  needs a paid hosting plan that isn’t active, so queued rows
-                  stay queued.
+                  <b>Queueing alone starts nothing.</b> Rows sit at “queued”
+                  until the campaign is scheduled below. Nothing picks up an
+                  unscheduled campaign.
+                </li>
+                <li className="nl-fact nl-fact--yes">
+                  <b>You can undo it.</b> “Remove queued recipients” deletes the
+                  rows again while the campaign is still a draft, so queueing
+                  the wrong list costs nothing.
                 </li>
                 <li className="nl-fact nl-fact--no">
                   <b>It would not be lawful to send yet.</b> CAN-SPAM requires a
@@ -957,14 +1144,44 @@ export default function Composer({
                   disabled={
                     savedId === null ||
                     savedListId === null ||
-                    !editable ||
+                    draft.status !== "draft" ||
                     dirty ||
                     queue.kind === "working"
                   }
                 >
-                  {queue.kind === "working" ? "Queueing…" : "Queue recipients"}
+                  {queue.kind === "working" ? "Working…" : "Queue recipients"}
                 </button>
 
+                {/*
+                  The other half of the one-way door. Rendered whenever the
+                  campaign holds rows, not tucked behind a menu: the whole
+                  point is that somebody who has just queued the wrong list can
+                  see the way back without going looking for it.
+                */}
+                <button
+                  type="button"
+                  className="nl-unqueue"
+                  onClick={discardRecipients}
+                  disabled={
+                    savedId === null ||
+                    !canDiscardRecipients(draft.status) ||
+                    draft.recipientCount === 0 ||
+                    queue.kind === "working"
+                  }
+                  aria-describedby="nl-unqueue-why"
+                >
+                  Remove queued recipients
+                </button>
+              </div>
+
+              <p className="nl-help" id="nl-unqueue-why">
+                Removing recipients deletes the queued rows only, and only while
+                this is a draft — rows that were already sent, bounced or failed
+                are the campaign’s record of what happened and are never
+                deleted. Cancel the schedule first if the campaign is armed.
+              </p>
+
+              <div className="nl-queue-row">
                 {/*
                   No test-send affordance exists to wire this to: there is no
                   route that sends a campaign anywhere, to the author or to
@@ -1000,6 +1217,12 @@ export default function Composer({
                   not what is on screen.
                 </p>
               )}
+              {savedId !== null && draft.status === "scheduled" && (
+                <p className="nl-help">
+                  This campaign is scheduled. Cancel the schedule below to
+                  change its recipients.
+                </p>
+              )}
 
               {queue.kind === "error" && (
                 <p className="nl-error" role="alert">
@@ -1014,8 +1237,208 @@ export default function Composer({
                         queue.inserted === 1 ? "row" : "rows"
                       } created.`}{" "}
                   {queue.total.toLocaleString()} in total, all sitting at
-                  “queued”. No email has been sent, and none will be until a
-                  sender and a scheduler exist.
+                  “queued”. No email has been sent, and none will be — the
+                  scheduled sweep has no live sender configured.
+                </p>
+              )}
+              {queue.kind === "discarded" && (
+                <p className="nl-note" role="status">
+                  {queue.deleted === 0
+                    ? "Nothing to remove — this campaign had no queued rows."
+                    : `${queue.deleted.toLocaleString()} queued ${
+                        queue.deleted === 1 ? "row" : "rows"
+                      } deleted.`}{" "}
+                  {queue.total.toLocaleString()} recipient{" "}
+                  {queue.total === 1 ? "row" : "rows"} left on this campaign.
+                </p>
+              )}
+            </section>
+
+            {/* ── The draft ⇄ scheduled edge ─────────────────── */}
+            <section className="nl-card">
+              <h3 className="nl-card-title">Schedule this campaign</h3>
+
+              <p className="nl-card-sub">
+                Scheduling marks the campaign as due and nothing more. A
+                background sweep picks up due campaigns{" "}
+                <b>once a day, at 03:00 UTC</b> — that cadence is fixed by the
+                hosting plan and can’t be raised from here.
+              </p>
+
+              <ul className="nl-facts">
+                <li className="nl-fact nl-fact--no">
+                  <b>No email leaves the building.</b> The sweep hands every
+                  message to a log-only deliverer. There is no live sending
+                  provider configured in any environment, so a scheduled
+                  campaign writes log lines, marks its rows “sent”, and reaches
+                  nobody.
+                </li>
+                <li className="nl-fact nl-fact--no">
+                  <b>Consent isn’t enforced yet.</b> Until it is, this cannot be
+                  pointed at real inboxes even if a sender were configured.
+                </li>
+                <li className="nl-fact nl-fact--yes">
+                  <b>It is reversible until the sweep starts.</b> Cancel returns
+                  the campaign to draft and leaves its recipients alone. Once
+                  the sweep has begun, it can’t be pulled back.
+                </li>
+              </ul>
+
+              {draft.recipientCount > 0 && (
+                <p className="nl-note">
+                  {describeDrain(draft.recipientCount, recipientsPerSweep)}
+                </p>
+              )}
+
+              {draft.status === "scheduled" ? (
+                <>
+                  <p className="nl-note nl-note--warn" role="status">
+                    Scheduled for{" "}
+                    <b>
+                      {draft.scheduledAtIso
+                        ? new Date(draft.scheduledAtIso).toLocaleString()
+                        : "the next sweep"}
+                    </b>
+                    . The first sweep at or after that time will start working
+                    through the queued rows — writing log lines, not email.
+                  </p>
+                  {schedule.kind === "armed" && (
+                    <p className="nl-note" role="status">
+                      {schedule.immediate
+                        ? "Scheduled for now, which means the next daily sweep."
+                        : "Scheduled."}{" "}
+                      Nothing has been emailed and nothing will be: the sweep’s
+                      deliverer only writes to the log.
+                    </p>
+                  )}
+                  <div className="nl-queue-row">
+                    <button
+                      type="button"
+                      className="nl-queue"
+                      onClick={cancelSchedule}
+                      disabled={
+                        !canCancelSchedule(draft.status) ||
+                        schedule.kind === "working"
+                      }
+                    >
+                      {schedule.kind === "working"
+                        ? "Cancelling…"
+                        : "Cancel schedule"}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <fieldset className="nl-field">
+                    <legend className="nl-label">When</legend>
+
+                    <label className="nl-radio" htmlFor="nl-when-asap">
+                      <input
+                        id="nl-when-asap"
+                        type="radio"
+                        name="nl-when"
+                        value="asap"
+                        checked={whenMode === "asap"}
+                        disabled={!canSchedule(draft.status)}
+                        onChange={() => {
+                          setWhenMode("asap");
+                          setSchedule({ kind: "idle" });
+                        }}
+                      />{" "}
+                      As soon as the next sweep runs
+                    </label>
+
+                    <label className="nl-radio" htmlFor="nl-when-at">
+                      <input
+                        id="nl-when-at"
+                        type="radio"
+                        name="nl-when"
+                        value="at"
+                        checked={whenMode === "at"}
+                        disabled={!canSchedule(draft.status)}
+                        onChange={() => {
+                          setWhenMode("at");
+                          setSchedule({ kind: "idle" });
+                        }}
+                      />{" "}
+                      At a time I choose
+                    </label>
+
+                    <input
+                      id="nl-when-value"
+                      className="nl-input"
+                      type="datetime-local"
+                      aria-label="Scheduled date and time"
+                      value={whenLocal}
+                      disabled={whenMode !== "at" || !canSchedule(draft.status)}
+                      onChange={(e) => {
+                        setWhenLocal(e.target.value);
+                        setSchedule({ kind: "idle" });
+                      }}
+                    />
+                    <p className="nl-help">
+                      Your local time. Either way the campaign waits for the
+                      daily sweep, so “as soon as possible” means “at the next
+                      03:00 UTC run”, not immediately.
+                    </p>
+                  </fieldset>
+
+                  <div className="nl-queue-row">
+                    <button
+                      type="button"
+                      className="nl-queue"
+                      onClick={armSchedule}
+                      disabled={
+                        savedId === null ||
+                        savedListId === null ||
+                        !canSchedule(draft.status) ||
+                        dirty ||
+                        draft.recipientCount === 0 ||
+                        schedule.kind === "working"
+                      }
+                    >
+                      {schedule.kind === "working"
+                        ? "Scheduling…"
+                        : "Schedule campaign"}
+                    </button>
+                  </div>
+
+                  {savedId === null && (
+                    <p className="nl-help">Create the draft first.</p>
+                  )}
+                  {savedId !== null && savedListId === null && (
+                    <p className="nl-help">
+                      Choose an audience list and save. A campaign with no list
+                      can’t be scheduled.
+                    </p>
+                  )}
+                  {savedId !== null &&
+                    savedListId !== null &&
+                    draft.recipientCount === 0 && (
+                      <p className="nl-help">
+                        Queue the recipients first. A campaign with nobody
+                        queued would be marked sent without reaching anyone, so
+                        scheduling one is refused.
+                      </p>
+                    )}
+                  {savedId !== null && !canSchedule(draft.status) && (
+                    <p className="nl-help">
+                      This campaign is {STATUS_LABELS[draft.status].toLowerCase()}{" "}
+                      and can’t be scheduled again.
+                    </p>
+                  )}
+                </>
+              )}
+
+              {schedule.kind === "error" && (
+                <p className="nl-error" role="alert">
+                  {schedule.message}
+                </p>
+              )}
+              {schedule.kind === "cancelled" && (
+                <p className="nl-note" role="status">
+                  Schedule cancelled. This campaign is a draft again and its
+                  queued recipients are untouched.
                 </p>
               )}
             </section>

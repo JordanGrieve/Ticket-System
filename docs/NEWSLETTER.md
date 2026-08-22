@@ -1,16 +1,110 @@
 # Newsletter / campaigns
 
 How bulk marketing mail is meant to work in Postbox, what is built, and the
-specific reason none of it can send yet.
+specific reasons none of it can send yet.
 
 Read `db/schema.ts` first — the doc comments on `subscribers`, `suppressions`,
 `campaigns` and `campaign_recipients` encode decisions this document only
 elaborates on.
 
-> **Status: nothing here can email a real person.** There is no send route, no
-> worker, no scheduler, and `lib/campaign-send.ts` imports no email provider.
-> That is deliberate and should stay true until the gaps in
-> [Missing infrastructure](#missing-infrastructure) are closed.
+> **Status (22 August 2026): the pipeline is complete and reachable, and still
+> cannot email a real person.** Commit `7900a5c` added the worker
+> (`app/api/cron/campaigns/route.ts`), the schedule (`vercel.json` `crons`) and
+> the delivery abstraction (`lib/deliver.ts`, `lib/deliver-ses.ts`). What holds
+> it shut is now a set of gates and unfinished prerequisites, not an absent
+> caller. They are listed in order in
+> [§0, What actually blocks a send today](#0-what-actually-blocks-a-send-today).
+> Every earlier version of this document said "there is no send route, no
+> worker, no scheduler". That was true until `7900a5c` and is now false.
+
+---
+
+## 0. What actually blocks a send today
+
+Ordered: the first item is the one that stops a campaign before any of the
+others get a chance to. Verified against the code on **22 August 2026**; this is
+the section most likely to drift, so check it before trusting it.
+
+1. ~~**Nothing in the product can move a campaign out of `draft`.**~~ **Closed
+   while this section was being written — read the caveat.** For the whole of
+   `7900a5c` this was the binding constraint and no document mentioned it: the
+   sweep only picks up campaigns in `sending`; the only promotion path,
+   `promoteDueScheduledCampaigns()`, requires `status = 'scheduled'` and a past
+   `scheduled_at`; and nothing wrote either, so the index
+   `campaigns_scheduled_idx` had never matched a row and everything behind it
+   was dead code. `POST|DELETE /api/campaigns/[id]/schedule` plus
+   `lib/campaign-schedule.ts` now supply that transition, with a Schedule
+   control in the composer. "Send now" is the same code path with the timestamp
+   resolved to `now`, deliberately, so there is no second branch that could skip
+   a precondition; and arming a campaign still requires a list and at least one
+   `queued` recipient row.
+   **Caveat: as of 22 August 2026 that work is uncommitted in the working tree,
+   not on `main`.** If you are reading this from a checkout of `main` at
+   `7900a5c` or earlier, the original blocker is still real and this item is the
+   one to act on. Verify with
+   `git log --oneline -- app/api/campaigns/\[id\]/schedule`.
+   Note also what it does *not* do: it writes two columns. The mail is still
+   gated on items 2–4 below, so a campaign armed today marches to `sent` writing
+   log lines and transmitting nothing.
+2. **`CRON_SECRET` gates the route, fails closed, and was undocumented.**
+   `authorizeCronRequest` returns 503 to every caller — Vercel's own scheduler
+   included — while the variable is unset. Until this document was corrected the
+   variable appeared in no deployment doc at all, so a production cron has been
+   firing nightly against a route that refuses it. Whether it is set in Vercel
+   today could not be verified from the repository; check
+   Vercel → Settings → Environment Variables.
+3. **`CAMPAIGN_FROM_ADDRESS` gates it again, one step later.**
+   `envelopeFromEnv` runs before the deliverer is constructed and 503s when it
+   is unset. There is deliberately no fallback to `replies@postbox.help`: that
+   is the transactional sender on the primary domain, and §1.3 is the argument
+   for why marketing must not touch it.
+4. **`CAMPAIGN_DELIVERY_MODE` is not `ses`, so the deliverer is the log
+   deliverer.** Exact-match, case-sensitive, after trimming. It writes a record
+   of what would have gone out, mints a synthetic message id so the
+   claim-before-send loop is exercised honestly, and contacts nothing. This is
+   the last gate, and the only one whose release is irreversible.
+5. **No consent enforcement — the item with legal teeth.** `selectAudience`
+   takes candidates and a suppression set and nothing else; `consentAt` is read
+   nowhere in `lib/` outside a comment. See §7, which explains why the omission
+   is deliberate rather than forgotten. Nothing above this line should be
+   released before it is closed.
+6. **No postal address to put in the footer.** CAN-SPAM requires one in every
+   message. `workspaces` has `name`, `apiKey`, `inboundEmail`, `sendingEmail`,
+   `accent`, `createdAt` — no `legalName`, no `postalAddress`. The renderer
+   cannot emit what the schema cannot store.
+7. **No bounce/complaint webhook.** §6. `campaign_recipients` has the columns
+   and the `provider_message_id` index to receive one, and `lib/suppressions.ts`
+   can write the suppression; the receiving route does not exist, so a hard
+   bounce is re-mailed next campaign.
+8. **No cross-invocation rate limiter.** `lib/rate-limit.ts` is still an
+   in-memory fixed-window Map, correct only within a single instance. Two
+   overlapping sweeps each permit the full rate.
+9. **The schedule is nightly, and the batch arithmetic assumes per-minute.**
+   `vercel.json` sets `0 3 * * *`. `RECIPIENTS_PER_SWEEP` is 75 and the comment
+   deriving it reasons in terms of "75/minute is 4,500/hour". At one tick a day
+   the real ceiling is 75 recipients per campaign per day, so a 1,000-recipient
+   campaign takes a fortnight and a 40,000-recipient one takes over a year, not
+   the nine hours the comment quotes. A daily cron is what the Hobby plan
+   allows; sub-daily needs Pro (`NEWSLETTER-BUILDER-PLAN.md` §5.8). *Being
+   corrected in `lib/campaign-cron.ts` as this was written; if that comment now
+   reasons from a per-day cadence, this item is resolved and only the plan
+   upgrade remains.*
+10. **No verified marketing sending domain in the repo's own record.** A
+    verified SES identity for `news.postbox.help` in `eu-west-1` is reported to
+    exist and `.env.example` corroborates the region and configuration-set name,
+    but nothing in this repository proves it and it could not be checked from
+    here (no AWS credentials). Treat as unconfirmed until someone runs
+    `aws sesv2 get-email-identity --email-identity news.postbox.help`.
+11. **No reconciliation sweep** for rows at `sent` with no
+    `provider_message_id` — the documented residue of claim-before-send (§4).
+
+Items 2–4 are switches. Items 5–11 are work. Item 1 was work and has just been
+done, which is why it reads differently from the rest.
+
+**The load-bearing sentence, if you read nothing else:** items 2, 3 and 4 are
+three independent environment gates, and all three must be opened deliberately
+before a single real message leaves. Items 5 and 6 are the ones that make
+opening them lawful, and neither is built.
 
 ---
 
@@ -211,8 +305,12 @@ newsletter, not for a SaaS reselling newsletter capability. Not recommended.
 4. **Set up `news.postbox.help` regardless of provider** — with its own DKIM, a
    deliberate DMARC `sp=` decision, and a warmup ramp. Understand it as
    *observability plus partial insulation*, not as a firewall.
-5. **If something must ship before a worker exists**, the cheapest honest path
-   is **Resend Broadcasts in a SEPARATE Resend team**, from `news.postbox.help`.
+5. **If something must ship before a worker exists** — *superseded 22 August
+   2026: the worker exists (§2.1), and `lib/deliver-ses.ts` implements
+   recommendation 3 directly. This option is kept because it remains the
+   fallback if SES onboarding stalls, and because the ⚠️ below is an open
+   question about Resend that nobody has answered.* The cheapest honest path
+   was **Resend Broadcasts in a SEPARATE Resend team**, from `news.postbox.help`.
    Resend does the queuing, throttling, scheduling and unsubscribe handling
    server-side — which sidesteps §2's entire problem — and a second team fixes
    the suppression bleed. The price is that Resend's Audience becomes a second
@@ -226,43 +324,62 @@ newsletter, not for a SaaS reselling newsletter capability. Not recommended.
 
 ## 2. Missing infrastructure
 
-**This project has no queue, no worker, and no cron. That is the central
-obstacle, and everything else in this document is downstream of it.**
+**This was the central obstacle and it is now half-closed.** `7900a5c` built the
+queue-and-worker half; the argument below is preserved because the reasoning
+still explains why the worker has the shape it has, but the facts have moved.
 
-Concretely:
+Concretely, as of 22 August 2026:
 
-- `vercel.json` defines regions and a build command. **There are no `crons`.**
-- There is no background job runner, no Redis, no SQS, nothing durable between
-  requests. `lib/rate-limit.ts` is in-memory.
-- Every server entry point is a request handler. A Vercel function has a
-  bounded duration; a 40,000-recipient campaign at any polite send rate does not
-  fit inside one, and a client's browser tab is not a job runner.
-- The same gap already bit the auto-reply feature: `SUPPORTED_DELAYS` in
-  `lib/auto-reply.ts` is `["immediate"]` because `5min` and `1hr` need a
-  scheduler that does not exist. The newsletter needs a strictly larger version
-  of the same thing.
+- `vercel.json` defines regions, a build command, **and one cron**:
+  `/api/cron/campaigns` at `0 3 * * *`. It had none when this section was
+  written.
+- There is still no Redis and no SQS, and none was added. **`campaign_recipients`
+  is the queue** — it already had the claim latch, the unique index, the
+  `attempts` counter and the `error` column, and a second queue beside it would
+  mean two sources of truth about whether a person has been mailed. The
+  `jobs` table proposed in `NEWSLETTER-BUILDER-PLAN.md` §2 Phase 2 was
+  deliberately not built.
+- `lib/rate-limit.ts` is **still in-memory**, and now matters more than it did:
+  a cron can run concurrently with itself.
+- Every server entry point is still a request handler, and the worker respects
+  that rather than fighting it: it processes one bounded batch and returns
+  (`RECIPIENTS_PER_SWEEP = 75`, `SWEEP_DEADLINE_MS = 45_000`,
+  `maxDuration = 60`). A 40,000-recipient campaign is many invocations, not one
+  long one.
+- The auto-reply gap is **unchanged**: `SUPPORTED_DELAYS` in `lib/auto-reply.ts`
+  is still `["immediate"]`. The campaign sweep did not generalise into the
+  scheduler `5min` and `1hr` need, because it claims campaign recipients rather
+  than arbitrary jobs.
 
-What has to exist before phase two is wired up:
+What had to exist before phase two was wired up, and where each stands:
 
-1. **A durable, resumable worker.** Vercel Cron hitting an authenticated route
-   that processes one bounded batch and returns is the cheapest option that
-   works — the claim-before-send protocol (§4) is specifically designed so a
-   handler that dies mid-batch is safe to re-invoke. Requires a paid plan for
-   sub-daily granularity, and a shared-secret check on the route so it is not a
-   public send trigger.
+1. ~~**A durable, resumable worker.**~~ **Done.**
+   `app/api/cron/campaigns/route.ts` — Vercel Cron hitting an authenticated
+   route that processes one bounded batch and returns, exactly as prescribed
+   here. The claim-before-send protocol (§4) is what makes a handler that dies
+   mid-batch safe to re-invoke. The shared-secret check exists
+   (`authorizeCronRequest`) and **fails closed**: no `CRON_SECRET`, no sweep for
+   anybody. The paid-plan caveat was not resolved — the schedule is daily, which
+   is the Hobby ceiling, and §0.9 records what that costs in throughput.
 2. **A per-workspace send rate limiter that survives across invocations.**
-   In-memory won't do. Without it one tenant's campaign consumes the whole
-   provider quota and everyone else's mail stops.
+   Not built. In-memory won't do. Without it one tenant's campaign consumes the
+   whole provider quota and everyone else's mail stops.
 3. **A bounce/complaint webhook endpoint** writing into `suppressions` (§6).
-   Sending bulk without this is how an account gets terminated.
-4. **A public unsubscribe route** at `/u/[token]` accepting **unauthenticated
-   POST** (§5). Not optional, and not a "later" item.
+   Not built. Sending bulk without this is how an account gets terminated.
+4. ~~**A public unsubscribe route** at `/u/[token]` accepting **unauthenticated
+   POST** (§5).~~ **Done** in `14aa430` — see §5, which describes the built
+   route.
 5. **A reconciliation sweep** for rows stuck at `sent` with no
-   `providerMessageId` — the known residue of claim-before-send (§4).
+   `providerMessageId` — the known residue of claim-before-send (§4). Not built.
+   Note that `reconcileSuppressedSubscribers()` is a *different* sweep (it
+   retires recipients suppressed after materialisation) and does not cover this.
 6. **A verified marketing sending domain** with DKIM, DMARC and a warmup ramp.
+   Reported done for `news.postbox.help` in `eu-west-1`; unverifiable from the
+   repository (§0.10).
 7. **Consent enforcement.** `subscribers.consentMethod` / `consentAt` /
    `consentSource` are nullable and nothing currently requires them. A campaign
-   send path must refuse addresses with no provenance — see §7.
+   send path must refuse addresses with no provenance — see §7. Not built, and
+   §7 explains why that is a decision rather than an oversight.
 
 ---
 
@@ -287,16 +404,24 @@ suppressions┘                                             ▼
                                               (5) SUPPRESS the address
 ```
 
-Phases 1 is built. Phase 2 is written but unreachable. Phases 3–5 do not exist.
+Phase 1 is built. **Phase 2 is built and wired** — the cron sweep drives it, and
+phase 3 is behind the delivery-mode switch. Phases 4–5 do not exist.
 
 ### Code map
 
 | File | Role | Can it send? |
 |---|---|---|
 | `lib/newsletter.ts` | Pure: merge tags, rendering, audience selection, validation, unsubscribe URL/header construction. No DB, no network, no `process.env`. | No |
-| `lib/campaign-send.ts` | IO: campaign CRUD, audience materialisation, and the (unwired) send loop. Imports **no** email provider. | No |
-| `app/api/campaigns/**` | Create/read campaigns, preview and materialise audiences. | No |
-| `tests/newsletter*.test.ts` | Pure logic only; runs with no `DATABASE_URL`. | No |
+| `lib/campaign-send.ts` | IO: campaign CRUD, audience materialisation, the send loop, `claimDueCampaigns` and `settleCampaign`. Imports **no** email provider — the deliverer is an argument. | Only with a deliverer handed to it |
+| `lib/campaign-cron.ts` | Pure sweep policy: the fail-closed auth check, the batch arithmetic, the summary fold. No DB, no env, no provider. | No |
+| `lib/deliver.ts` | The factory. Returns the log deliverer unless `CAMPAIGN_DELIVERY_MODE=ses`, and throws rather than degrading if that mode is set with incomplete credentials. | It chooses which can |
+| `lib/deliver-log.ts` | Records what would have been sent, mints a synthetic message id, contacts nothing. | No |
+| `lib/deliver-ses.ts` | Builds the raw MIME message and calls SES. | **Yes** |
+| `app/api/cron/campaigns/route.ts` | The worker: auth, envelope, deliverer, the per-campaign loop. **This is the file that made the pipeline reachable.** | Yes, given the env |
+| `app/api/campaigns/**` | Create/read campaigns, preview and materialise audiences. Cannot change status. | No |
+| `app/(dashboard)/newsletters/**` | The composer. Queues recipients; no Send affordance. | No |
+| `app/u/[token]/**` | Unsubscribe: `GET` confirms, `POST` is the RFC 8058 one-click. | No |
+| `tests/newsletter*.test.ts`, `tests/deliver*.test.ts`, `tests/campaign-cron.test.ts` | Pure logic only; run with no `DATABASE_URL`. | No |
 
 The pure/IO split mirrors `lib/auto-reply.ts` / `lib/auto-reply-send.ts` and
 exists for three reasons: the composer preview must run the same renderer the
@@ -371,12 +496,16 @@ as a route while sending is not.**
 It is refused once a campaign leaves `draft`/`scheduled`: adding unreviewed
 recipients to a send already in flight is not a recoverable mistake.
 
-### Phase two — claim, then send (written, unreachable)
+### Phase two — claim, then send (built and wired)
 
-`sendCampaignBatch()` in `lib/campaign-send.ts`. **Nothing in `app/` imports
-it, and it must stay that way until §2 is closed.** It takes the delivery
-function as a parameter and there is no default, so it is structurally
-incapable of mailing anyone unless a caller hands it a live sender.
+`sendCampaignBatch()` in `lib/campaign-send.ts`, called from
+`app/api/cron/campaigns/route.ts`. It still takes the delivery function as a
+parameter with no default — that has not changed and should not — but the
+"nothing imports it" property that used to be the safety story is **gone**. The
+route imports it, and imports `createCampaignDeliverer()` alongside it. The
+safety now rests entirely on which deliverer that factory returns and on the
+three env gates in §0, which is a weaker guarantee than an absent caller and
+should be read as such.
 
 ```sql
 UPDATE campaign_recipients
@@ -532,6 +661,8 @@ seed subscriber unmailable and hide the problem.
 
 ## 8. What is built, and what it can't do
 
+Accurate as of 22 August 2026.
+
 **Built:**
 
 - `lib/newsletter.ts` — merge tags with the "no `{token}` ever reaches a
@@ -539,18 +670,36 @@ seed subscriber unmailable and hide the problem.
   data-derived content, audience selection (dedup / suppression / status),
   unsubscribe URL and header construction, campaign input validation.
 - `lib/campaign-send.ts` — workspace-scoped campaign reads and writes,
-  per-status recipient breakdown, audience preview, idempotent materialisation.
+  per-status recipient breakdown, audience preview, idempotent materialisation,
+  the claim-before-send batch loop, `claimDueCampaigns` and `settleCampaign`.
+- `lib/campaign-cron.ts` — fail-closed cron authorisation, the batch
+  arithmetic, the sweep summary.
+- `lib/deliver.ts`, `lib/deliver-log.ts`, `lib/deliver-ses.ts` — the deliverer
+  contract, the log implementation, and a real SES implementation.
+- `app/api/cron/campaigns/route.ts` plus the `crons` entry in `vercel.json` —
+  the scheduler and the worker. This pair is what made the pipeline reachable.
+- `app/(dashboard)/newsletters/` — the single-page composer, whose primary
+  action is "Queue recipients". No Send affordance, by design.
+- `app/u/[token]/` and `lib/suppressions.ts` — unsubscribe, plus
+  `reconcileSuppressedSubscribers()`.
 - `GET|POST /api/campaigns`, `GET|PATCH /api/campaigns/[id]`,
   `GET|POST /api/campaigns/[id]/audience`.
-- `tests/newsletter.test.ts`, `tests/newsletter-audience.test.ts` — pure, no
-  `DATABASE_URL`.
+- `tests/newsletter.test.ts`, `tests/newsletter-audience.test.ts`,
+  `tests/campaign-cron.test.ts`, `tests/deliver.test.ts`,
+  `tests/deliver-ses.test.ts`, `tests/suppression.test.ts` — all pure, all run
+  with no `DATABASE_URL`.
 
-**Deliberately not built:** any send route; any provider integration for bulk;
-the bounce/complaint webhook; the scheduler; consent enforcement; any dashboard
-UI. (The `/u/[token]` unsubscribe route and the reconciliation sweep —
-`reconcileSuppressedSubscribers()` — are now built; see §5. Nothing can send
-email: `sendCampaignBatch` still takes its deliverer as a parameter with no
-default and is imported nowhere under `app/`.)
+**Still not built:** the bounce/complaint webhook; consent enforcement; any way
+for a user to move a campaign out of `draft`; the postal-address columns; a
+cross-invocation rate limiter; the `sent`-without-`providerMessageId`
+reconciliation sweep. The ordered list, with evidence for each, is §0.
+
+**The sentence that used to close this section — "nothing can send email,
+because `sendCampaignBatch` is imported nowhere under `app/`" — is false.** The
+cron route imports it, and imports `createCampaignDeliverer()` beside it. The
+guarantee that replaced the absent caller is the `CAMPAIGN_DELIVERY_MODE`
+switch, and it is one environment variable rather than a structural
+impossibility.
 
 **Tenancy.** Every query follows `lib/labels.ts`. `campaigns`, `lists`,
 `subscribers` and `suppressions` carry `workspace_id` and are filtered directly.

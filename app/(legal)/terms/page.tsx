@@ -7,7 +7,7 @@ export default function TermsPage() {
         Terms of Service
       </h1>
       <p style={{ color: "var(--muted)", marginTop: 0 }}>
-        Last updated: 17 August 2026
+        Last updated: 22 August 2026
       </p>
 
       <h2 style={h2}>1. The service</h2>
@@ -26,11 +26,14 @@ export default function TermsPage() {
       </p>
       <div style={notBuilt}>
         <strong>Not available yet.</strong>{" "}
-        Subscriber lists, campaigns and
-        audience selection exist in the product, but there is no send path: no
-        campaign can currently be delivered to anyone, and none ever has been.
-        Nothing in these terms should be read as an offer of a working
-        marketing-email feature today.
+        No campaign has ever been delivered to anyone, and none can be today.
+        Subscriber lists, campaigns, audience selection, unsubscribe handling
+        and a delivery integration are all built, but delivery is switched off:
+        the system is configured to record what a campaign would have sent and
+        to transmit nothing, and turning that off is a deliberate configuration
+        change we have not made. Nothing in these terms should be read as an
+        offer of a working marketing-email feature today, or as a commitment to
+        a date.
       </div>
 
       <h2 style={h2}>2. Accounts</h2>

@@ -1,11 +1,16 @@
 import { auth } from "@clerk/nextjs/server";
 import { json } from "@/lib/http";
 import { activeWorkspace } from "@/lib/viewer";
-import { materialiseAudience, previewAudience } from "@/lib/campaign-send";
+import {
+  discardQueuedRecipients,
+  materialiseAudience,
+  previewAudience,
+} from "@/lib/campaign-send";
 
 /**
- * GET  /api/campaigns/:id/audience  → who WOULD be mailed, writing nothing
- * POST /api/campaigns/:id/audience  → materialise campaign_recipients rows
+ * GET    /api/campaigns/:id/audience  → who WOULD be mailed, writing nothing
+ * POST   /api/campaigns/:id/audience  → materialise campaign_recipients rows
+ * DELETE /api/campaigns/:id/audience  → throw the queued rows away again
  *
  * Neither of these sends anything. POST is phase one of the two-phase send
  * described in db/schema.ts: it creates one `queued` row per recipient with
@@ -13,6 +18,13 @@ import { materialiseAudience, previewAudience } from "@/lib/campaign-send";
  * from a double-clicked button — adds only what was missing and touches
  * nothing already there. It is idempotent, which is precisely why it is safe
  * to expose while phase two is not.
+ *
+ * DELETE is the way back out, and it exists because POST used to be a one-way
+ * door: materialising 40,000 rows against the wrong list left no affordance
+ * anywhere in the product to undo it. It removes `queued` rows from a `draft`
+ * campaign only — never while the campaign is armed or sending, and never a
+ * row that has already reached `sent`, `bounced` or `failed`, because those
+ * are the campaign report and the evidence behind a complaint.
  *
  * Phase two (lib/campaign-send.sendCampaignBatch) has NO route and must not
  * get one until the infrastructure in docs/NEWSLETTER.md exists.
@@ -96,4 +108,41 @@ export async function POST(
     skipped: result.selection.skipped,
     skippedTotal: result.selection.skippedTotal,
   });
+}
+
+export async function DELETE(
+  _req: Request,
+  ctx: RouteContext<"/api/campaigns/[id]/audience">,
+) {
+  const { userId } = await auth();
+  if (!userId) return json({ error: "Unauthorized" }, { status: 401 });
+
+  const campaignId = idFrom((await ctx.params).id);
+  if (campaignId === null) {
+    return json({ error: "Invalid campaign id" }, { status: 400 });
+  }
+
+  const workspace = await activeWorkspace();
+  if (!workspace) {
+    return json({ error: "Select a client workspace first." }, { status: 400 });
+  }
+
+  const result = await discardQueuedRecipients(workspace.id, campaignId);
+  if (result === null) return json({ error: "Not found" }, { status: 404 });
+
+  if ("error" in result) {
+    // `scheduled` is refused as well as `sending`/`sent`: the sweep could
+    // promote an armed campaign between the check and the DELETE, so the
+    // schedule is cancelled first and unqueued second, deliberately as two
+    // separate decisions.
+    return json(
+      {
+        error:
+          "Cancel this campaign’s schedule before removing its recipients. A campaign that has started sending can’t have recipients removed at all.",
+      },
+      { status: 409 },
+    );
+  }
+
+  return json({ ok: true, deleted: result.deleted, total: result.total });
 }

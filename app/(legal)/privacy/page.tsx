@@ -7,7 +7,7 @@ export default function PrivacyPage() {
         Privacy Policy
       </h1>
       <p style={{ color: "var(--muted)", marginTop: 0 }}>
-        Last updated: 17 August 2026
+        Last updated: 22 August 2026
       </p>
 
       <h2 style={h2}>Who is responsible for what</h2>
@@ -74,12 +74,17 @@ export default function PrivacyPage() {
       <h2 style={h2}>Marketing email</h2>
       <div style={notBuilt}>
         <strong>Not live yet.</strong>{" "}
-        The database tables, the audience logic
-        and the unsubscribe token design exist in the product, but there is no
-        send path: no campaign has ever been sent to anyone, and the code
-        cannot reach an email provider. This section describes the rules that
-        will govern the feature when it is switched on, so that they are on
-        record before the first send rather than after it.
+        No campaign has ever been sent to anyone. The send path now exists in
+        the code &mdash; the tables, the audience logic, the unsubscribe
+        endpoint, a scheduled job and an email provider integration are all
+        built &mdash; but it is switched off, and sending requires a
+        configuration change that has not been made. Two of the rules described
+        below are among the reasons it stays off: the consent check noted under
+        &ldquo;Lawful basis&rdquo; is not written, and we have nowhere yet to
+        store the postal address that a campaign footer must carry. This
+        section describes the rules that will govern the feature when it is
+        switched on, so that they are on record before the first send rather
+        than after it.
       </div>
       <p>
         <strong>Lawful basis.</strong>{" "}
@@ -135,9 +140,22 @@ export default function PrivacyPage() {
       <p>
         Postbox runs on vetted infrastructure providers acting as
         sub-processors: Vercel (hosting), Neon (database, EU region), Clerk
-        (authentication), Resend (email delivery and receiving), Cloudflare
-        (DNS), and Sentry (error monitoring). Data is stored in the EU (London
-        region) where the provider offers a choice.
+        (authentication), Resend (email delivery and receiving), Amazon Web
+        Services (marketing email delivery, see below), Cloudflare (DNS), and
+        Sentry (error monitoring). Data is stored in the EU (London region)
+        where the provider offers a choice.
+      </p>
+      <p>
+        <strong>Amazon Simple Email Service</strong> is the provider configured
+        to carry marketing campaigns. When the feature is switched on it will
+        receive, for each message sent, the recipient&rsquo;s email address and
+        the full content of the message &mdash; including any personalised
+        fields and the unsubscribe link unique to that recipient &mdash; and it
+        will return delivery, bounce and complaint information about that
+        address. Processing takes place in the AWS Europe (Ireland) region. It
+        is listed here now, before the first send, rather than after it. It
+        does not carry ticket replies or notifications; those go through
+        Resend.
       </p>
 
       <h2 style={h2}>Error monitoring</h2>

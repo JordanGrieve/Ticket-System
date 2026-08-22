@@ -127,8 +127,11 @@ export function AccountsSection({
 
       <p className="pba-note">
         The design for this table asked for <b>Plan</b>, <b>Subscribers</b> and{" "}
-        <b>MRR</b> columns. None of the three exist: there is no billing, no
-        subscription record and no newsletter audience anywhere in the schema.
+        <b>MRR</b> columns. <b>Plan</b> and <b>MRR</b> have nothing behind them:
+        there is no billing and no subscription record anywhere in the schema.{" "}
+        <b>Subscribers</b> is different &mdash; a per-workspace{" "}
+        <code>subscribers</code> table exists, with lists and campaigns beside
+        it, so the count is computable. It is simply not queried here yet.
         Those columns are replaced above by figures that are actually measured.
       </p>
 
@@ -446,8 +449,8 @@ export function DeliverabilitySection({
   return (
     <div className="pba-stack">
       <NotBuilt
-        title="Nothing about delivery is measured"
-        text="Replies go out through one shared provider and no delivery events are stored — not a bounce, not a complaint, not a single send. The four headline numbers this pane was designed around cannot be computed from anything in the database."
+        title="Nothing about delivery is measured yet"
+        text="The tables exist and almost nothing fills them. campaign_recipients holds a per-send row with status, sent_at, delivered_at, provider_message_id and error, and sending_domains holds per-workspace SPF/DKIM/DMARC state — but the only thing that ever fills those delivery columns is the nightly campaign sweep, which has never run against a live provider; no webhook exists to record a bounce or a complaint; and no row has ever been written to sending_domains at all. Transactional ticket replies are not logged at all: they go out through one shared provider and nothing records the result. So the four headline numbers this pane was designed around are unavailable because nothing populates the schema, not because the schema is missing."
         missing={[
           "Delivered / bounced counts",
           "Spam complaints",

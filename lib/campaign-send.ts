@@ -13,6 +13,7 @@ import {
   type RecipientStatus,
 } from "@/db/schema";
 import { generateUnsubscribeToken } from "./tokens";
+import { canDiscardRecipients, canSchedule } from "./campaign-schedule";
 import {
   isEditableStatus,
   listUnsubscribeHeaders,
@@ -48,6 +49,17 @@ import {
  * import this: sending is a scheduled activity with a bounded batch, and a
  * request handler that calls it ties tens of thousands of provider calls to one
  * HTTP request that will time out halfway through.
+ *
+ * ── SCHEDULING IS NOT SENDING ──
+ *
+ * `scheduleCampaign` / `cancelCampaignSchedule` / `discardQueuedRecipients`
+ * below DO have routes, under app/api/campaigns/[id]/. They write a status
+ * column and a timestamp and delete queued rows; none of them touches a
+ * provider, and none of them is a way to call `sendCampaignBatch` from a
+ * request handler. What arming a campaign does is make it visible to the
+ * scheduled sweep — which then hands each message to the LOG-ONLY deliverer,
+ * because `CAMPAIGN_DELIVERY_MODE` is set in no environment. The rule above is
+ * unchanged: the sweep is still the only caller.
  *
  * ── TENANCY ──
  *
@@ -229,12 +241,24 @@ export async function createCampaign(
 /**
  * Edit a draft. Null when the id isn't this workspace's; `not_editable` once
  * the campaign has started sending — see isEditableStatus.
+ *
+ * ── WHAT THIS DELIBERATELY CANNOT DO ──
+ *
+ * `patch` is `Partial<CampaignDraftInput>` — {name, subject, preheader,
+ * templateKey, body, listId}. It has no `status` and no `scheduledAt`, the
+ * `.set()` below is built key by key rather than spread, and widening either
+ * would make every rule in lib/campaign-schedule.ts advisory: one request body
+ * could then walk a half-sent campaign back to `draft`, or arm a campaign that
+ * has no audience. State transitions are `scheduleCampaign` and
+ * `cancelCampaignSchedule`, each with its own preconditions.
  */
 export async function updateCampaign(
   workspaceId: number,
   campaignId: number,
   patch: Partial<CampaignDraftInput>,
-): Promise<Campaign | null | { error: "not_editable" | "unknown_list" }> {
+): Promise<
+  Campaign | null | { error: "not_editable" | "unknown_list" | "list_locked" }
+> {
   const existing = await getCampaign(workspaceId, campaignId);
   if (!existing) return null;
   if (!isEditableStatus(existing.status)) return { error: "not_editable" };
@@ -244,18 +268,228 @@ export async function updateCampaign(
     if (!owned) return { error: "unknown_list" };
   }
 
+  // Changing the audience of an ARMED campaign is refused. The recipient rows
+  // were materialised from the old list and are what the sweep will mail; the
+  // new list would be reflected in the UI's count and in nothing else, so the
+  // screen would describe an audience that is not the one being sent to. Cancel
+  // the schedule first — that is what the `cancel` edge is for.
+  if (
+    existing.status === "scheduled" &&
+    patch.listId !== undefined &&
+    patch.listId !== existing.listId
+  ) {
+    return { error: "list_locked" };
+  }
+
+  // Built field by field rather than spread. A spread writes whatever keys the
+  // caller happened to include, which is one careless `patch` away from letting
+  // `status` or `scheduledAt` be set from a request body — the exact thing the
+  // state machine in lib/campaign-schedule.ts exists to prevent. Those two
+  // columns are written ONLY by scheduleCampaign / cancelCampaignSchedule
+  // below, by promoteDueScheduledCampaigns, and by settleCampaign.
+  const set: Record<string, unknown> = { updatedAt: new Date() };
+  if (patch.name !== undefined) set.name = patch.name;
+  if (patch.subject !== undefined) set.subject = patch.subject;
+  if (patch.preheader !== undefined) set.preheader = patch.preheader;
+  if (patch.templateKey !== undefined) set.templateKey = patch.templateKey;
+  if (patch.body !== undefined) set.body = patch.body;
+  if (patch.listId !== undefined) set.listId = patch.listId;
+
   const [updated] = await db
     .update(campaigns)
-    .set({ ...patch, updatedAt: new Date() })
+    .set(set)
     // The workspace predicate is part of the UPDATE, not a check performed
     // above it: `existing` was read in a separate statement and could in
-    // principle be stale by now.
+    // principle be stale by now. `status` is in the predicate for the same
+    // reason: `isEditableStatus` was evaluated against a row read earlier, and
+    // a sweep could have promoted the campaign to `sending` since.
     .where(
-      and(eq(campaigns.id, campaignId), eq(campaigns.workspaceId, workspaceId)),
+      and(
+        eq(campaigns.id, campaignId),
+        eq(campaigns.workspaceId, workspaceId),
+        inArray(campaigns.status, ["draft", "scheduled"]),
+      ),
     )
     .returning();
 
   return updated ?? null;
+}
+
+// ── Scheduling: the draft ⇄ scheduled edge ───────────────────────
+//
+// These three functions are the transition the product was missing. Before
+// them NOTHING anywhere wrote `status = 'scheduled'` or `scheduled_at`, so
+// `promoteDueScheduledCampaigns` below matched zero rows on every tick, for
+// ever, and the entire send loop was unreachable.
+//
+// The rules they enforce are stated once, in lib/campaign-schedule.ts, and
+// asserted in tests/campaign-schedule.test.ts. What each function adds here is
+// that the rule is ALSO a predicate inside the mutating statement, so it holds
+// against a concurrent sweep rather than against a row somebody read a moment
+// ago. Every one of them is workspace-scoped in the same statement.
+
+export type ScheduleError =
+  | "not_schedulable"
+  | "no_list"
+  | "no_recipients";
+
+/**
+ * Arm a campaign: `draft | scheduled → scheduled`, with `scheduled_at` set.
+ *
+ * ── THE TWO FOOTGUN GUARDS, AND WHY THEY ARE IN THE STATEMENT ──
+ *
+ *   `list_id IS NOT NULL` — a campaign with no audience.
+ *   `EXISTS (… cr.status = 'queued')` — a campaign whose audience was never
+ *   materialised, or was materialised and then unqueued.
+ *
+ * Either one produces a campaign that would be promoted, drain instantly
+ * because there is nothing to drain, and be marked `sent` — a campaign that
+ * mailed nobody, reported success, and is now past `isEditableStatus` so it
+ * cannot even be fixed. That is the single worst outcome this screen can
+ * produce, and it is worse than any error message.
+ *
+ * `promoteDueScheduledCampaigns` carries the same EXISTS clause. That is not
+ * duplication to be tidied away: this one stops the campaign being armed, that
+ * one stops an already-armed campaign whose rows were deleted underneath it
+ * from being promoted. Removing either leaves a path to a silent empty send.
+ *
+ * `status IN ('draft','scheduled')` is the one-way latch. A campaign the sweep
+ * promoted to `sending` a millisecond ago matches zero rows here, so a stale
+ * browser tab cannot re-arm a send that is already in flight.
+ *
+ * When the UPDATE matches nothing, a second read decides WHICH refusal to
+ * report. That read is diagnostic only — it never gates the write, which has
+ * already happened or already not happened by then.
+ */
+export async function scheduleCampaign(
+  workspaceId: number,
+  campaignId: number,
+  when: Date,
+): Promise<Campaign | null | { error: ScheduleError }> {
+  const [updated] = await db
+    .update(campaigns)
+    .set({ status: "scheduled", scheduledAt: when, updatedAt: new Date() })
+    .where(
+      and(
+        eq(campaigns.id, campaignId),
+        eq(campaigns.workspaceId, workspaceId),
+        inArray(campaigns.status, ["draft", "scheduled"]),
+        sql`${campaigns.listId} IS NOT NULL`,
+        sql`EXISTS (
+          SELECT 1 FROM campaign_recipients cr
+          WHERE cr.campaign_id = ${campaigns.id} AND cr.status = 'queued'
+        )`,
+      ),
+    )
+    .returning();
+
+  if (updated) return updated;
+
+  const existing = await getCampaign(workspaceId, campaignId);
+  if (!existing) return null;
+  if (!canSchedule(existing.status)) return { error: "not_schedulable" };
+  if (existing.listId === null) return { error: "no_list" };
+  return { error: "no_recipients" };
+}
+
+/**
+ * Disarm a campaign: `scheduled → draft`, clearing `scheduled_at`.
+ *
+ * `status = 'scheduled'` in the WHERE is the whole safety argument. A campaign
+ * the sweep has already promoted is `sending`, so it matches nothing and the
+ * caller gets `not_scheduled` — there is no window in which this could drag a
+ * campaign that is mid-flight back to draft and make it editable while its
+ * recipients are being mailed.
+ *
+ * The recipient rows are LEFT ALONE. Cancelling a schedule and throwing away
+ * 40,000 materialised rows are different decisions and are two buttons;
+ * conflating them means one mis-click costs the audience as well as the
+ * schedule. `discardQueuedRecipients` is the other one.
+ */
+export async function cancelCampaignSchedule(
+  workspaceId: number,
+  campaignId: number,
+): Promise<Campaign | null | { error: "not_scheduled" }> {
+  const [updated] = await db
+    .update(campaigns)
+    .set({ status: "draft", scheduledAt: null, updatedAt: new Date() })
+    .where(
+      and(
+        eq(campaigns.id, campaignId),
+        eq(campaigns.workspaceId, workspaceId),
+        eq(campaigns.status, "scheduled"),
+      ),
+    )
+    .returning();
+
+  if (updated) return updated;
+
+  const existing = await getCampaign(workspaceId, campaignId);
+  if (!existing) return null;
+  return { error: "not_scheduled" };
+}
+
+export type DiscardResult = {
+  /** Rows this call deleted. */
+  deleted: number;
+  /** Rows still attached to the campaign afterwards. */
+  total: number;
+};
+
+/**
+ * UNQUEUE: delete a draft campaign's `queued` recipient rows.
+ *
+ * This closes the one-way door the audit flagged. "Queue recipients" wrote
+ * rows and there was no route, button or statement anywhere that could remove
+ * them, so somebody who materialised 40,000 rows against the wrong list had no
+ * way back inside the product.
+ *
+ * ── WHAT IT WILL NOT DELETE ──
+ *
+ *   `c.status = 'draft'` — never while armed (the sweep could promote it
+ *   mid-DELETE) and never while `sending`/`sent`. Cancel the schedule first.
+ *   `cr.status = 'queued'` — rows that reached `sent`, `delivered`, `bounced`,
+ *   `complained` or `failed` are the campaign report and the evidence trail
+ *   behind an unsubscribe or a complaint. They are not deletable from here at
+ *   any status, which is why this is one statement with both predicates rather
+ *   than a `DELETE … WHERE campaign_id = $1`.
+ *
+ * `campaign_recipients` carries no workspace_id, so the DELETE joins up to
+ * `campaigns` and filters the workspace there, in the same statement.
+ */
+export async function discardQueuedRecipients(
+  workspaceId: number,
+  campaignId: number,
+): Promise<DiscardResult | null | { error: "not_discardable" }> {
+  const existing = await getCampaign(workspaceId, campaignId);
+  if (!existing) return null;
+  if (!canDiscardRecipients(existing.status)) {
+    return { error: "not_discardable" };
+  }
+
+  const res = await db.execute(sql`
+    DELETE FROM campaign_recipients cr
+    USING campaigns c
+    WHERE cr.campaign_id = c.id
+      AND c.id = ${campaignId}
+      AND c.workspace_id = ${workspaceId}
+      AND c.status = 'draft'
+      AND cr.status = 'queued'
+    RETURNING cr.id
+  `);
+
+  const total = await countRecipients(workspaceId, campaignId);
+
+  // Same discipline as materialiseAudience: the cached count is refreshed FROM
+  // campaign_recipients, never decremented by the number we think we deleted.
+  await db
+    .update(campaigns)
+    .set({ recipientCount: total, updatedAt: new Date() })
+    .where(
+      and(eq(campaigns.id, campaignId), eq(campaigns.workspaceId, workspaceId)),
+    );
+
+  return { deleted: res.rows.length, total };
 }
 
 async function listBelongsToWorkspace(

@@ -1,7 +1,8 @@
 # Human actions — Postbox
 
-**Date:** 3 August 2026 · Things only Jordan can do. Claude handles everything code-side.
-Ordered by leverage within each group. Tick as you go.
+**Date:** 3 August 2026, revised 22 August 2026 · Things only Jordan can do.
+Claude handles everything code-side. Ordered by leverage within each group.
+Tick as you go.
 
 ## 1 · Do now (quick, high leverage)
 
@@ -49,6 +50,45 @@ Ordered by leverage within each group. Tick as you go.
   `CLERK_SECRET_KEY_PROD` line). Do at a calm moment; brief blips possible.
   **15 min.** (Asana: 🚧 Rotate secrets)
 
+## 1b · Newsletter pipeline — added 22 August 2026
+
+Commit `7900a5c` shipped a worker, a nightly cron and an SES integration. The
+switches below are yours; the code side is mine. **Do not set
+`CAMPAIGN_DELIVERY_MODE` yet** — see the last item.
+
+- [ ] **Set `CRON_SECRET` in Vercel (Production), or accept that the cron does
+  nothing** — `vercel.json` schedules `/api/cron/campaigns` nightly at 03:00,
+  and the route refuses **every** caller, Vercel's own scheduler included, while
+  this is unset. It returns 503 by design: an unauthenticated version of that URL
+  is a public "send everyone's marketing email now" button. So production is
+  currently running a nightly job that 503s. That is harmless today — nothing is
+  queued to send — but it is noise in the log and it will be a confusing
+  first symptom later. Any long random string. **2 min.** (Then redeploy; env
+  edits do nothing until the next deploy.)
+- [ ] **Confirm the SES sending identity actually exists** — I was told
+  `news.postbox.help` is verified in `eu-west-1`, and `.env.example` agrees on
+  the region, but I have no AWS credentials here and could not check. Run
+  `aws sesv2 get-email-identity --email-identity news.postbox.help --region eu-west-1`,
+  or look in the SES console. Also worth confirming: whether the account is
+  still in the SES **sandbox**, which caps you to verified recipients and 200
+  messages/day and is easy to forget about until the first real send.
+- [ ] **Look at the new Schedule control before it ships** — until 22 Aug
+  nothing in the product could move a campaign out of `draft`, which meant the
+  whole send pipeline was unreachable. A `POST|DELETE /api/campaigns/[id]/schedule`
+  route and a Schedule button in the composer closed that during the same
+  session this file was revised; the work is in the working tree, not yet on
+  `main`. It writes a status and a timestamp and sends nothing — delivery is
+  still log-only — but it is the first control in the product whose name implies
+  mail, so it is worth your eyes on the wording and on what happens after you
+  press it.
+- [ ] **Do NOT flip `CAMPAIGN_DELIVERY_MODE=ses` yet** — this is the one switch
+  in the codebase that cannot be undone, because its failure mode is mail that
+  has already left. Blocking on my side, not yours: there is no consent check
+  (`selectAudience` never reads `consentAt`, so an import with no provenance is
+  mailable), no postal address in the schema for the CAN-SPAM footer, and no
+  bounce/complaint webhook, so a hard bounce gets re-mailed every campaign.
+  `docs/NEWSLETTER.md` §0 is the ordered list. I will tell you when it is safe.
+
 ## 2 · Do soon (nothing stuck yet, but needed)
 
 - [ ] **Clerk MFA — deferred on cost (revisit when clients grow)** — TOTP is off
@@ -58,13 +98,20 @@ Ordered by leverage within each group. Tick as you go.
   way in. Revisit when you take paying clients or add non-Google logins — at
   that point client accounts, not just yours, will want a second factor.
   (Asana: 🚧 Enable 2FA)
-- [ ] **Privacy policy: add Sentry as a sub-processor** — Sentry is now a third
-  party that can receive fragments of your clients' data in error reports. The
-  SDK is configured conservatively (no request bodies, headers, user info or
-  local variables — see [sentry.server.config.ts](sentry.server.config.ts)), but
-  stack traces and URLs can still incidentally carry identifiers. `/privacy`
-  lists sub-processors; Sentry should join Neon, Clerk, Resend and Vercel there.
-  Say the word and I'll draft the edit.
+- [x] ~~**Privacy policy: add Sentry as a sub-processor**~~ — **done.** `/privacy`
+  lists Sentry alongside Neon, Clerk, Resend, Vercel and Cloudflare, and carries
+  a dedicated "Error monitoring" section stating what Sentry can receive (stack
+  traces, failing URLs, coarse IP-derived location) and what is switched off
+  (request bodies, headers, user identity, local variables, Session Replay).
+  Nothing outstanding.
+- [ ] **Privacy policy: AWS SES added as a sub-processor 22 Aug — read it** —
+  I have added it, because SES is now the configured marketing-email provider
+  and leaving it off the list while the integration exists would be the wrong
+  way round. The wording says SES receives recipient addresses and full message
+  content for marketing sends, processes in AWS Europe (Ireland), and does not
+  carry ticket replies. **Two things need your eye:** confirm that matches what
+  you actually set up, and note that adding a sub-processor is normally
+  something you notify clients about rather than change silently.
 - [ ] **Set up staging** — 10 minutes of dashboard clicks, documented
   click-by-click in `DEPLOYMENT.md`: Neon branch DB + Vercel Preview-scoped
   `DATABASE_URL` + dev-instance Clerk keys for previews. After this, risky
@@ -72,6 +119,12 @@ Ordered by leverage within each group. Tick as you go.
 - [ ] **Upgrade Vercel to Pro (~$20/mo)** — the Hobby plan's terms prohibit
   commercial use, and Postbox now has a real business client on it. Also lifts
   build/function limits. **How:** Vercel → Settings → Billing → Pro.
+  *Third reason as of 22 Aug: Hobby caps cron at once a day, which is why the
+  campaign sweep runs nightly. At 75 recipients per campaign per tick, a
+  1,000-person newsletter would take a fortnight to go out. Pro allows a
+  per-minute schedule and a 300s function, which is roughly a 400× improvement
+  on that. Not urgent while nothing can send, but it becomes the throughput
+  ceiling the day something can.*
 - [ ] **Check provider limits & domain renewal** — (a) Resend free tier is
   100 emails/day / 3k/month — fine for the pilot, will need the $20/mo tier as
   clients grow (watch usage at resend.com/metrics); (b) postbox.help was $1.99

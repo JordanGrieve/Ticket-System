@@ -148,11 +148,20 @@ export const SWEEP_DEADLINE_MS = 45_000;
  *
  * ── WHAT THIS COSTS IN THROUGHPUT ──
  *
- * 75/minute is 4,500/hour, so a 40,000-recipient campaign takes ~9 hours. That
- * is slow but correct, and correct is the requirement: the alternative is an
- * unbounded loop that the platform kills part-way, which under
- * claim-before-send silently drops mail. Raise `maxDuration` to 300 on Pro and
- * this number can go to ~450 with the same margins.
+ * 75 is per INVOCATION, not per minute. The 60-second budget above sizes ONE
+ * run; vercel.json schedules this sweep at `0 3 * * *` — ONCE A DAY, because
+ * Vercel's Hobby plan fails the deployment on a sub-daily cron expression. So
+ * the deployed throughput is 75 recipients per DAY. A 40,000-recipient
+ * campaign needs ~534 sweeps, i.e. about 534 days: not nine hours, over a year.
+ *
+ * That is not a tuning problem and raising this constant does not fix it — the
+ * ceiling is the 60s function budget, not the number. The cadence is what is
+ * wrong, and it changes only with the plan. On Pro: a sub-daily schedule
+ * becomes legal (every five minutes is 288 sweeps a day → 21,600 recipients/day,
+ * so the same campaign drains in under two days), and `maxDuration` can go to
+ * 300 with Fluid compute, taking this constant to ~450 on the same margins.
+ * Until then, anything in the product that quotes a completion time must
+ * compute it from SWEEPS_PER_DAY in lib/campaign-schedule.ts.
  */
 export const RECIPIENTS_PER_SWEEP = 75;
 

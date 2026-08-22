@@ -8,6 +8,14 @@ Out of scope, owned elsewhere: the send pipeline and the bulk-email provider cho
 Prices and limits below carry the date they were checked and the source. Anything that
 could not be verified is marked **[unverified]**.
 
+> **Progress note, 22 August 2026.** This document was written before commits
+> `14aa430` and `7900a5c`. Phase 0 is mostly done, Phase 1 is done, and Phase 2 was
+> done differently from the plan below — no `jobs` table was built, because
+> `campaign_recipients` already is the queue. Rows marked **[done]**, **[partly done]**
+> or **[built differently]** carry the correction inline. The recommendation in §1 and
+> the cut list in §4 still stand; the *sequencing* has simply been overtaken.
+> `docs/NEWSLETTER.md` §0 is the current ordered list of what blocks a send.
+
 ---
 
 ## 1. Recommendation up front
@@ -16,17 +24,35 @@ could not be verified is marked **[unverified]**.
 
 Build, in this order:
 
-1. **Phase 0 — unblock sending.** The unsubscribe endpoint `/u/[token]` does not exist, so
-   every unsubscribe link and every RFC 8058 one-click POST currently 404s. Add the route,
-   add `legalName` and `postalAddress` to `workspaces`, and add `consentIp` to `subscribers`
-   while that table is empty. About 3 days. Nothing else matters until this is done.
-2. **Phase 1 — a single-page composer on the renderer that already exists.** Name, subject,
+1. **Phase 0 — unblock sending. [partly done]** The unsubscribe endpoint `/u/[token]` does not
+   exist, so every unsubscribe link and every RFC 8058 one-click POST currently 404s. Add the
+   route, add `legalName` and `postalAddress` to `workspaces`, and add `consentIp` to
+   `subscribers` while that table is empty. About 3 days. Nothing else matters until this is
+   done.
+   *22 Aug 2026: the route shipped in `14aa430` — `app/u/[token]/route.ts` plus `confirm/` and
+   `done/` pages, GET 303s to the confirmation page and POST is the unauthenticated one-click.
+   Reported independently verified end to end. The three columns were **not** added:
+   `workspaces` still has only name, apiKey, inboundEmail, sendingEmail, accent, createdAt, and
+   `subscribers` has no `consentIp`. So the CAN-SPAM postal address is still missing and this
+   phase is not finished.*
+2. **Phase 1 — a single-page composer on the renderer that already exists. [done]** Name, subject,
    preheader, a template dropdown with the two keys that exist, one plain-text body field with
    merge-tag insert buttons, live preview in an iframe, one list picker with a live count, and
    "send test to myself". About 8–10 days. This is a genuinely usable newsletter tool.
+   *22 Aug 2026: `app/(dashboard)/newsletters/` shipped in `7900a5c` — one page, no wizard,
+   preview via `srcDoc` fed by `renderCampaign()` exactly as prescribed. The "Deliberately not
+   shipped" line below held: there is no Send button; the primary action is "Queue recipients".*
 3. **Phase 2 — the cron sweep and job table**, which unblocks scheduled sends, delayed
    auto-replies and (later) ticket snooze. About 3–4 days on top of a Vercel Pro upgrade you
-   owe anyway.
+   owe anyway. **[built differently]**
+   *22 Aug 2026: the cron sweep shipped in `7900a5c` at `/api/cron/campaigns`, scheduled daily
+   in `vercel.json`. **No `jobs` table was built** — `campaign_recipients` already has the claim
+   latch, the idempotency index, `attempts` and `error`, and a second queue beside it would mean
+   two sources of truth about whether a person has been mailed. The consequences the plan below
+   attached to the jobs table therefore did not follow: delayed auto-replies are still blocked
+   (`SUPPORTED_DELAYS` is still `["immediate"]`), and so is impersonation cleanup and ticket
+   snooze. The Vercel Pro upgrade also did not happen, which is why the schedule is daily rather
+   than per-minute — see the throughput note in `docs/NEWSLETTER.md` §0.9.*
 4. **Phase 3 — blocks, only if a trigger fires** (section 5). And when it does, evaluate
    `@react-email/editor` (MIT, from Resend, shipped 2026-04-17) before writing a block schema
    yourself.
@@ -35,6 +61,12 @@ The single sentence version: **the composer is not what is stopping you sending 
 the missing unsubscribe route, the missing postal address, the missing bounce handling and the
 missing scheduler are.** Spend the next month on those and on a text composer, and let the pilot
 client's actual behaviour decide whether block eleven ever gets built.
+
+*22 Aug 2026: two of those four are now built (unsubscribe route, scheduler) and the composer
+shipped too. A schedule route closing the `draft → scheduled` gap landed the same day. The
+sentence's claim still holds with a changed list: what stops a send today is the still-missing
+postal address, the missing bounce handling and the missing consent enforcement, behind three
+environment gates. `docs/NEWSLETTER.md` §0 has the ordered version.*
 
 ### Where the strands disagreed, and how I resolved it
 
@@ -89,7 +121,12 @@ They are estimates. The historical failure mode in email work is that cross-clie
 takes two to three times what anyone predicts, so Phase 3's number should be read with more
 suspicion than Phase 0's.
 
-### Phase 0 — Make it legal to send one email (≈3–4 days)
+### Phase 0 — Make it legal to send one email (≈3–4 days) — **partly done**
+
+> **22 Aug 2026.** The route half shipped in `14aa430`; the schema half did not. `workspaces`
+> still has no `legalName` or `postalAddress` and `subscribers` still has no `consentIp`, so
+> "legally sending anything at all" is still not unlocked. The remaining work is the migration
+> and the settings UI, which is what the honesty note below anticipated.
 
 | | |
 |---|---|
@@ -98,7 +135,7 @@ suspicion than Phase 0's.
 | **Depends on** | Nothing. All the hard parts are already written — `lib/newsletter.ts:417` already generates `${appUrl}/u/${token}`, `:439` already emits correct `List-Unsubscribe` and `List-Unsubscribe-Post` headers, and `:497` already force-appends the footer link. Only the receiving end is missing. |
 | **Honesty note** | The 3–4 days assumes the migration and the settings UI for the postal address are trivial. If the settings page needs design work, add a day. |
 
-### Phase 1 — Single-page composer (≈8–10 days)
+### Phase 1 — Single-page composer (≈8–10 days) — **done (`7900a5c`)**
 
 | | |
 |---|---|
@@ -108,7 +145,27 @@ suspicion than Phase 0's.
 | **Honesty note** | Subscriber and list management with a CSV import that captures `consentMethod`/`consentAt`/`consentSource`/`consentIp` is **3–4 of those days** and is the single largest chunk. It is unavoidable on every path. Do not let it be discovered late. |
 | **Deliberately not shipped** | The Send button. There is no worker yet. Ship no Send affordance rather than a disabled or fake one. |
 
-### Phase 2 — Jobs table and cron sweep (≈3–4 days, plus a $20/month plan upgrade)
+### Phase 2 — Jobs table and cron sweep (≈3–4 days, plus a $20/month plan upgrade) — **built differently**
+
+> **22 Aug 2026.** What actually shipped in `7900a5c` diverges from this row in four ways, and
+> the row is kept unedited below so the divergence is visible rather than smoothed over:
+>
+> - **No `jobs` table.** `campaign_recipients` is the queue. Consequence: this phase unblocked
+>   campaign sending *only*. Delayed auto-replies, impersonation cleanup and ticket snooze are
+>   all still blocked, and `SUPPORTED_DELAYS` in `lib/auto-reply.ts:204` is still
+>   `["immediate"]`.
+> - **The route is `/api/cron/campaigns`, not `/api/cron/sweep`**, and `maxDuration` is **60**,
+>   not 300 — 300 needs Pro.
+> - **The schedule is `0 3 * * *`, not `* * * * *`.** Daily is the Hobby ceiling and the upgrade
+>   did not happen. At `RECIPIENTS_PER_SWEEP = 75` that is 75 recipients per campaign per day.
+> - **The `CRON_SECRET` check 503s and 401s rather than 404ing.** `authorizeCronRequest` returns
+>   503 when the secret is unset (a deployment fault, refusing everyone including Vercel) and
+>   401 when a presented credential is wrong. The 404-don't-advertise-yourself suggestion in
+>   §6.7 was not taken; the fail-closed-on-missing-secret property was, and it is the one that
+>   matters.
+>
+> The "Also do here" line was **not** done: `lib/rate-limit.ts` is still an in-memory Map, and
+> its own warning about concurrent instances now applies to a cron that can overlap itself.
 
 | | |
 |---|---|
@@ -225,10 +282,13 @@ Nothing here is optional. **A real newsletter cannot go out until all of these e
 
 ### Legal obligations
 
-1. **A working unsubscribe endpoint.** `/u/[token]`, GET and POST, HTTPS, no cookies, no HTTP
-   auth, no redirect, idempotent (Gmail may POST more than once). Every unsubscribe link the
-   product currently generates 404s. This is one day's work and it is the highest-priority item
-   in the whole project.
+1. ~~**A working unsubscribe endpoint.**~~ **Done (`14aa430`), 22 Aug 2026.** `/u/[token]`,
+   GET and POST, RFC 8058 compliant, reported independently verified working end to end. `GET`
+   deliberately does not mutate — it 303s to a confirmation page, because link scanners fetch
+   every URL in a message — and `POST` is the unauthenticated, immediate one-click endpoint that
+   writes the suppression synchronously. The route is public only because `proxy.ts` lists
+   `"/u/(.*)"` in `isPublicRoute`; remove that entry and the provider's one-click POST redirects
+   to `/sign-in` and the opt-out silently stops happening. See `docs/NEWSLETTER.md` §5.
 2. **A physical postal address in every message.** CAN-SPAM requires it; there is no address
    field anywhere in `workspaces` (which has only name, apiKey, inboundEmail, sendingEmail,
    accent). Render it into the *forced* footer, not as an omittable merge tag, for the same
@@ -259,16 +319,21 @@ Nothing here is optional. **A real newsletter cannot go out until all of these e
 6. **SPF, DKIM and DMARC published for the marketing domain**, with `From:` aligned to the SPF or
    DKIM domain. `p=none` is enough to start. Same records satisfy Gmail, Yahoo and Microsoft.
    Register in Google Postmaster Tools day one.
-7. **A bounce and complaint webhook writing into `suppressions`.** `app/api` contains no provider
-   webhook route and nothing writes to that table, although the schema comment at
+7. **A bounce and complaint webhook writing into `suppressions`.** Still outstanding, 22 Aug
+   2026 — `app/api` contains no provider webhook route. The "nothing writes to that table" half
+   is now wrong: `lib/suppressions.ts` writes it from the unsubscribe path. What is missing is
+   the *provider* end. The schema comment at
    `db/schema.ts:590` says "Every send MUST left-join this table and skip any hit". Without it, a
    hard-bounced or complaining address is re-mailed every campaign, which is precisely how you
    cross Gmail's 0.30% spam ceiling. Attribute the build to the send-pipeline workstream — but
    the builder's Audience count must subtract suppressions regardless, or the number shown to the
    user is a lie.
-8. **Vercel Pro.** Required twice over: Hobby prohibits commercial use, and Hobby cron cannot run
-   more than once a day (±59 minutes), which cannot drive a send worker.
-9. **The cron sweep itself.** Nothing wakes up on a timer today. `vercel.json` has no `crons` key.
+8. **Vercel Pro.** Still outstanding, 22 Aug 2026. Required twice over: Hobby prohibits
+   commercial use, and Hobby cron cannot run more than once a day (±59 minutes). The sweep that
+   shipped works within that limit rather than around it — `0 3 * * *` — so the constraint has
+   become a throughput ceiling rather than a blocker: 75 recipients per campaign per night.
+9. ~~**The cron sweep itself.**~~ **Done (`7900a5c`), 22 Aug 2026.** `vercel.json` now has a
+   `crons` key with one entry, `/api/cron/campaigns` at `0 3 * * *`.
 10. **Honouring unsubscribes within 48 hours** (Gmail) / **2 days** (Yahoo, "any method offered").
     Trivially met by a synchronous DB write in the `/u` route — do it in real time, do not defer
     it to the queue.
@@ -318,6 +383,14 @@ Nothing here is optional. **A real newsletter cannot go out until all of these e
    *Mitigation:* `FOR UPDATE SKIP LOCKED` on the claim is not optional, plus a stale-claim
    reclaim after 10 minutes. `lib/campaign-send.ts` already uses this discipline — the hard part
    is written.
+   **Correction, 2026-08-22: it does not use `FOR UPDATE SKIP LOCKED`, and does not need to.**
+   The claim is `UPDATE campaign_recipients SET status='sent' … WHERE id = $1 AND status =
+   'queued' RETURNING id`, one row at a time, and the provider is called only if a row came back.
+   A concurrent sweep gets zero rows and sends nothing, so the compare-and-set in the `WHERE` is
+   the latch that `SKIP LOCKED` would have provided. There is **no stale-claim reclaim**, and
+   deliberately so: a reclaim is what would turn the documented single-email loss window into a
+   duplicate send. The residue is instead rows at `sent` with no `provider_message_id`, which
+   wants the reconciliation sweep that still does not exist.
 
 7. **The cron route is a send trigger reachable from the open internet.** The last two commits on
    this repo were specifically about hardening internet-reachable paths, and this adds a new one
@@ -428,7 +501,9 @@ Each has a default. If you do nothing, the default applies.
 
 ## Appendix: repo facts this document relies on
 
-All verified by reading the repository on 2026-08-17.
+All verified by reading the repository on 2026-08-17, and **re-checked on 2026-08-22** — the
+corrections carry that date. Line numbers have moved since the original pass; where a fact is
+still true but has shifted, the new number is given.
 
 - `lib/newsletter.ts:49` — `TEMPLATE_KEYS = ["plain", "branded"] as const`. Two templates, a string
   union, no templates table.
@@ -437,23 +512,44 @@ All verified by reading the repository on 2026-08-17.
   preview runs the *same* renderer the send path runs, and stays importable from a client
   component. Line 46 on `templateKey`: a stored blob "freezes a campaign against every future fix
   to the layout".
-- `lib/newsletter.ts:417, :439, :497` — unsubscribe URL generation, `List-Unsubscribe` +
-  `List-Unsubscribe-Post: List-Unsubscribe=One-Click` headers, and the force-appended footer link
-  all exist and are correct. No `app/u` route exists to receive any of it.
-- `lib/newsletter.ts:574, :590` — `plainShell` and `brandedShell` emit no `<head>`.
+- `lib/newsletter.ts:497, :519, :577` (was `:417, :439, :497`) — unsubscribe URL generation,
+  `List-Unsubscribe` + `List-Unsubscribe-Post: List-Unsubscribe=One-Click` headers, and the
+  force-appended footer link all exist and are correct. **Correction, 2026-08-22:**
+  `app/u/[token]/route.ts` now exists and receives all of it.
+- `lib/newsletter.ts:655, :666` (was `:574, :590`) — `plainShell` and `brandedShell` still emit
+  no `<head>`. Re-checked 2026-08-22: both still open `<!doctype html><html><body>`. The
+  highest-value-per-minute fix in this document remains undone.
 - `lib/auto-reply.ts:204` — `SUPPORTED_DELAYS = ["immediate"]` while `DELAY_LABELS` at :210 lists
   `5min` and `1hr`. The UI offers delays the backend cannot honour.
 - `lib/campaign-send.ts` — claim-before-send batch loop, takes the sender as an argument with no
-  default, imported by nothing. Header comment: the loop is written "so that wiring it up later is
-  a scheduling problem rather than a correctness problem".
-- `db/schema.ts:656` — `campaigns_scheduled_idx` on `(status, scheduledAt)`, commented "The
-  scheduler sweeps status = 'scheduled' by due time." The table exists; the scheduler does not.
+  default. Header comment: the loop is written "so that wiring it up later is a scheduling
+  problem rather than a correctness problem". **Correction, 2026-08-22: "imported by nothing" is
+  false.** `app/api/cron/campaigns/route.ts` imports `sendCampaignBatch`, `claimDueCampaigns` and
+  `settleCampaign`, and imports `createCampaignDeliverer` from `lib/deliver.ts` to feed the first
+  of them. The wiring happened.
+- `db/schema.ts:657` (was `:656`) — `campaigns_scheduled_idx` on `(status, scheduledAt)`,
+  commented "The scheduler sweeps status = 'scheduled' by due time." **Correction, 2026-08-22:
+  the scheduler now exists** (`promoteDueScheduledCampaigns()` in `lib/campaign-send.ts`, driven
+  by the cron). Until later the same day nothing *wrote* `status = 'scheduled'` or
+  `scheduled_at`, so the index had never matched a row; `POST /api/campaigns/[id]/schedule`
+  now does. See `docs/NEWSLETTER.md` §0.1, including its caveat about which commit you are on.
 - `db/schema.ts:590` — suppressions: "Every send MUST left-join this table and skip any hit."
-  Nothing writes to it; there is no webhook route under `app/api`.
+  **Correction, 2026-08-22:** `lib/suppressions.ts` writes it from the unsubscribe path, and
+  `selectAudience` does the left-join equivalent in memory. There is still no provider webhook
+  route under `app/api`, so bounces and complaints reach it by no path at all.
 - `db/schema.ts:503` — no FK between `contacts` and `subscribers`, deliberately.
-- `vercel.json` — has `regions` and `buildCommand`, no `crons` key.
+- `vercel.json` — has `regions` and `buildCommand`. **Correction, 2026-08-22: it now also has a
+  `crons` key**, one entry, `/api/cron/campaigns` at `0 3 * * *`.
 - `lib/rate-limit.ts` — in-memory fixed-window limiter, correct only within a single instance, by
-  its own admission.
+  its own admission. Unchanged as of 2026-08-22, and a self-overlapping cron is exactly the case
+  its comment warns about.
+- `db/schema.ts:39-53` — **added 2026-08-22:** `workspaces` still has only `id`, `name`,
+  `apiKey`, `inboundEmail`, `sendingEmail`, `accent`, `createdAt`. No `legalName`, no
+  `postalAddress`. `subscribers` has `consentMethod`, `consentAt`, `consentSource` and still no
+  `consentIp`. Phase 0's schema half is untouched.
+- `lib/newsletter.ts:428` — **added 2026-08-22:** `selectAudience(candidates, suppressedEmails)`
+  takes exactly two arguments and reads `consentAt` nowhere. Consent enforcement is unwritten,
+  and §5.3 above is still fully outstanding.
 - No object storage anywhere: grep for `upload|S3|blob|r2|cloudinary` across `lib/`, `app/` and
   `components/` hits only the word "blob" in a comment.
 - Ticket snooze: zero matches across all `.ts`/`.tsx`/`.md` outside `node_modules`. It does not

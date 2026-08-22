@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { resolveViewer } from "@/lib/viewer";
 import { listCampaigns } from "@/lib/campaign-send";
 import { APP_URL } from "@/lib/config";
+import { RECIPIENTS_PER_SWEEP } from "@/lib/campaign-cron";
 import { workspaceLists } from "./queries";
 import Composer, { type CampaignRowDTO } from "./Composer";
 import "../../newsletter.css";
@@ -28,6 +29,11 @@ export const metadata = { title: "Newsletters · Postbox" };
  *  - the workspace name, which the branded shell renders.
  *  - the viewer's email, shown against the disabled "send a test" control so
  *    the explanation names the address that WOULD have been used.
+ *  - `RECIPIENTS_PER_SWEEP`, from lib/campaign-cron.ts. That module imports
+ *    node:crypto for the cron authorisation check, so the client island cannot
+ *    import it; passing the number keeps the composer's "how long will this
+ *    take" figures derived from the real batch size rather than a copy of it
+ *    that would drift.
  *
  * lib/newsletter.ts is pure and is imported by the client island directly —
  * that is the whole point of it being pure, and it is what makes the preview
@@ -70,6 +76,7 @@ export default async function NewslettersPage() {
         workspaceName={workspace.name}
         appUrl={APP_URL}
         viewerEmail={viewer.email}
+        recipientsPerSweep={RECIPIENTS_PER_SWEEP}
       />
     </div>
   );

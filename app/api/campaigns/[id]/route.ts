@@ -16,6 +16,12 @@ import { parseCampaignInput, type CampaignDraftInput } from "@/lib/newsletter";
  * rows and comes back 404 without touching anything. The recipient counts join
  * campaign_recipients up to campaigns and filter the workspace there —
  * campaign_recipients has no workspace_id of its own.
+ *
+ * PATCH edits CONTENT ONLY. It cannot move a campaign between states: `status`
+ * and `scheduledAt` in the body are a 400, `updateCampaign` writes neither
+ * column, and the UPDATE it runs carries `status IN ('draft','scheduled')` in
+ * its own WHERE so a campaign the sweep promoted a moment ago is not edited
+ * mid-send. Arming and disarming are POST/DELETE on ./schedule.
  */
 
 export async function GET(
@@ -61,6 +67,21 @@ export async function PATCH(
     body = {};
   }
 
+  // Refused LOUDLY rather than ignored. `parseCampaignInput` would drop these
+  // keys silently and the caller would believe the campaign had been armed or
+  // cancelled when nothing of the sort happened. State transitions live at
+  // POST/DELETE /api/campaigns/:id/schedule, each with its own preconditions —
+  // see the state machine in lib/campaign-schedule.ts.
+  if ("status" in body || "scheduledAt" in body) {
+    return json(
+      {
+        error:
+          "A campaign’s status and send time can’t be edited here. Use the schedule endpoint.",
+      },
+      { status: 400 },
+    );
+  }
+
   const workspace = await activeWorkspace();
   if (!workspace) {
     return json({ error: "Select a client workspace first." }, { status: 400 });
@@ -92,6 +113,15 @@ export async function PATCH(
       return json(
         { error: "That audience list doesn't exist." },
         { status: 404 },
+      );
+    }
+    if (result.error === "list_locked") {
+      return json(
+        {
+          error:
+            "This campaign is scheduled. Cancel the schedule before changing its audience list — its recipients were already built from the old one.",
+        },
+        { status: 409 },
       );
     }
     return json(

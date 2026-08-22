@@ -326,6 +326,17 @@ export default function MailNavShell({
               about this workspace", so they are one entry here and tabs inside
               /settings. Three separate links made an already long sidebar
               longer and read as unrelated to each other. */}
+          {/* /search, lib/search.ts and /api/search were all built and
+              tested, and nothing linked here — the feature existed but was
+              reachable only by typing the URL. */}
+          <Link
+            href="/search"
+            className="pbm-folder"
+            data-active={pathname.startsWith("/search")}
+          >
+            <Icon name="search" size={18} />
+            <span className="pbm-folder-label">Search</span>
+          </Link>
           <Link
             href="/newsletters"
             className="pbm-folder"

@@ -274,6 +274,67 @@
   cursor: not-allowed;
 }
 
+/*
+  "Remove queued recipients" — the way back out of queueing.
+
+  A real, live, secondary control, so it must NOT borrow .nl-test above: that
+  one is styled as a plainly dead button because nothing is behind it. This one
+  deletes rows. Bordered rather than filled because it sits beside the primary
+  "Queue recipients" action and destructive work should not be the loudest
+  thing in the row, and it carries a genuine :disabled state because it really
+  is unavailable while the campaign is scheduled or sending.
+*/
+.nl-unqueue {
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: color 0.14s ease, border-color 0.14s ease;
+}
+
+.nl-unqueue:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.nl-unqueue:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  border-color: var(--border-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nl-unqueue {
+    transition: none;
+  }
+}
+
+/* The "when" choice. One row per option so the two never run together. */
+.nl-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted-2);
+  cursor: pointer;
+}
+
+.nl-radio input {
+  accent-color: var(--accent);
+  cursor: inherit;
+}
+
+.nl-radio:has(input:disabled) {
+  cursor: not-allowed;
+  color: var(--muted);
+}
+
 /* ── two-up grid ────────────────────────────────────────────── */
 
 .nl-grid {

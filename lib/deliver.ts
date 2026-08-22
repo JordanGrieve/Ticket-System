@@ -3,26 +3,42 @@
  *
  * `sendCampaignBatch` in lib/campaign-send.ts takes its sender as an argument
  * and has no default. This module is where the implementations behind that
- * argument live. It does NOT wire anything up: nothing under `app/` imports
- * this file, and phase two of the pipeline is still unreachable for the reasons
- * in docs/NEWSLETTER.md §2.
+ * argument live, and as of 7900a5c it IS wired up:
+ * `app/api/cron/campaigns/route.ts` calls `createCampaignDeliverer()` on every
+ * scheduled sweep, and `vercel.json` schedules that route nightly. Phase two of
+ * the pipeline is reachable. Do not read this file as if it were inert.
+ *
+ * What stops it mailing a real person is therefore no longer the absence of a
+ * caller. It is the environment gates below and the unfinished prerequisites in
+ * docs/NEWSLETTER.md §2.
  *
  * ── THE DEFAULT IS THE LOG DELIVERER, AND THAT IS THE POINT ──
  *
  * `createCampaignDeliverer()` returns the log deliverer unless
- * `CAMPAIGN_DELIVERY_MODE` is set to exactly `"ses"`. That variable does not
- * exist in this repo, in .env.local, or in any deployment; a mode string that
- * is absent, empty, misspelled, or set to anything else at all yields the log
- * deliverer. There is no "auto-detect the provider" path, because the failure
- * mode of auto-detection here is mailing forty thousand real people.
+ * `CAMPAIGN_DELIVERY_MODE` is set to exactly `"ses"`. It appears in
+ * .env.example with an empty value and is set in no deployment; a mode string
+ * that is absent, empty, misspelled, or set to anything else at all yields the
+ * log deliverer. There is no "auto-detect the provider" path, because the
+ * failure mode of auto-detection here is mailing forty thousand real people —
+ * which is also why AWS credentials merely being present in the environment is
+ * deliberately not read as consent to use them.
  *
- * The prerequisites that must exist BEFORE that variable is set are listed in
- * docs/NEWSLETTER.md §2 and §7 and none of them are finished: no durable
- * worker, no cross-invocation rate limiter, no bounce/complaint webhook, no
- * verified marketing sending domain, and — the one with legal teeth — no
- * consent enforcement. `selectAudience` does not yet refuse subscribers with a
- * null `consentAt`, so the audience this deliverer would be handed today
- * includes addresses whose provenance we cannot demonstrate.
+ * The cron route carries a second, independent gate that trips BEFORE this
+ * factory is ever called: it returns 503 when `CAMPAIGN_FROM_ADDRESS` is unset,
+ * and that variable has no fallback to the transactional sender. A third gate
+ * sits in front of both — `authorizeCronRequest` refuses every caller, Vercel
+ * included, while `CRON_SECRET` is unset.
+ *
+ * The prerequisites that must exist before the mode is flipped are listed in
+ * docs/NEWSLETTER.md §2 and §7. The durable worker is now one of them that IS
+ * done — the cron route is it. The rest are not, as of 22 August 2026: no
+ * cross-invocation rate limiter (lib/rate-limit.ts is still an in-memory Map,
+ * correct only within one instance), no bounce/complaint webhook, no postal
+ * address column on `workspaces` for the CAN-SPAM footer, and — the one with
+ * legal teeth — no consent enforcement. `selectAudience` still takes exactly
+ * two arguments, candidates and a suppression set; it never reads `consentAt`,
+ * so the audience this deliverer would be handed today includes addresses whose
+ * provenance we cannot demonstrate.
  *
  * ── CONFIG ──
  *
