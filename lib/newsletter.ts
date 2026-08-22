@@ -236,12 +236,26 @@ export function looksLikeEmail(email: string): boolean {
 
 // ── Audience selection ───────────────────────────────────────────
 
-/** One row as it comes out of the list/segment join, before any filtering. */
+/**
+ * One row as it comes out of the list/segment join, before any filtering.
+ *
+ * `consentAt` is REQUIRED here, not optional, even though the column is
+ * nullable. A caller that forgets to select it would otherwise compile, and
+ * `undefined` would be read as "no consent" — which fails safe (nobody is
+ * mailed) but fails silently, and a composer reporting 0 recipients with no
+ * explanation is a bug that takes an afternoon to find. Making the field
+ * mandatory moves that afternoon to a build error.
+ */
 export type AudienceCandidate = {
   subscriberId: number;
   email: string;
   name: string | null;
   status: SubscriberStatus;
+  /**
+   * When marketing consent was captured, or null when we have no record.
+   * Null is not "probably fine" — see hasMarketingConsent below.
+   */
+  consentAt: Date | null;
 };
 
 /** Someone we will actually create a campaign_recipients row for. */
@@ -255,14 +269,17 @@ export type AudienceMember = {
 export type AudienceSkipReason =
   | "invalid_email"
   | "duplicate"
+  | "no_consent"
   | "suppressed"
   | "unsubscribed"
   | "bounced"
   | "complained";
 
+/** Evaluation order, and therefore display order. See selectAudience. */
 export const AUDIENCE_SKIP_REASONS: AudienceSkipReason[] = [
   "invalid_email",
   "duplicate",
+  "no_consent",
   "suppressed",
   "unsubscribed",
   "bounced",
@@ -281,11 +298,43 @@ function emptySkips(): Record<AudienceSkipReason, number> {
   return {
     invalid_email: 0,
     duplicate: 0,
+    no_consent: 0,
     suppressed: 0,
     unsubscribed: 0,
     bounced: 0,
     complained: 0,
   };
+}
+
+/**
+ * ── THE CONSENT RULE, IN ONE PLACE ──
+ *
+ * A subscriber may be mailed only if we hold a consent timestamp. No timestamp,
+ * no send — and emphatically not "no timestamp, but the row says 'subscribed'".
+ *
+ * `status = 'subscribed'` is a statement about our list, not about permission.
+ * It is set by default on every INSERT (see db/schema.ts), so an import that
+ * arrived as a bare column of addresses — a scraped list, a bought list, a
+ * spreadsheet someone found — lands as 'subscribed' with no provenance at all
+ * and is indistinguishable from a double opt-in signup by status alone. The
+ * consent columns are the only thing that tells them apart, which is why the
+ * schema forbids backfilling them.
+ *
+ * Null therefore means "we cannot show a regulator anything", and that is a
+ * refusal, not a default. Under GDPR/PECR the controller must be able to
+ * demonstrate consent; an address we cannot demonstrate consent for is one we
+ * have no lawful basis to mail, and "the client said it was fine" is a defence
+ * only where it was contractually warranted and recorded.
+ *
+ * Deliberately does NOT look at consentMethod or consentSource. Those describe
+ * the consent; this asks whether there is one. A row with a method and no
+ * timestamp is a half-written record, and treating it as consent would let a
+ * partial import through the only gate that exists.
+ */
+export function hasMarketingConsent(
+  consentAt: Date | null | undefined,
+): boolean {
+  return consentAt instanceof Date && !Number.isNaN(consentAt.getTime());
 }
 
 /**
@@ -406,6 +455,31 @@ export function looksLikeUnsubscribeToken(token: string): boolean {
  * legitimate rows pointing at one mailbox. Sending both is a duplicate send to
  * a real person, which is the single most reliable way to earn a complaint.
  *
+ * CONSENT IS CHECKED BEFORE EVERYTHING EXCEPT DEDUP, AND OUTRANKS SUPPRESSION.
+ * Someone can easily be both unconsented and suppressed, and only one reason
+ * gets reported. It is `no_consent`, for a reason that is about backstops
+ * rather than about which sin is graver:
+ *
+ *   Suppression is enforced three more times in SQL after this function runs —
+ *   the materialising INSERT's LEFT JOIN, the retirement sweep, and the claim
+ *   UPDATE's NOT EXISTS (see lib/campaign-send.ts). Mis-attributing a
+ *   suppressed person to another bucket here costs a number on a report and
+ *   changes who is mailed by exactly nobody.
+ *
+ *   Consent has NO backstop anywhere. There is no column on
+ *   campaign_recipients, no predicate in the INSERT, no sweep. This function is
+ *   the only place in the codebase where a missing consent record stops a send,
+ *   so its count is the only signal the operator will ever get.
+ *
+ * Bury an unconsented address inside the `suppressed` tally and the composer
+ * shows `no_consent: 0` — which reads as "this list is fully consented", the
+ * single most dangerous false statement this screen can make. The reverse
+ * mistake merely under-reports deliverability damage that three SQL predicates
+ * are still enforcing.
+ *
+ * It runs AFTER dedup for the same reason everything else does: so the number
+ * is a count of people, not of list memberships.
+ *
  * SUPPRESSION BEATS STATUS. `suppressions` is keyed by email, not subscriber
  * id, precisely so it still bites for an address that was deleted and re-added
  * or that never had a subscribers row at all. A row here is a hard block —
@@ -454,6 +528,15 @@ export function selectAudience(
     }
     seenIds.add(c.subscriberId);
     seenEmails.add(email);
+
+    // Before any question about deliverability: may we lawfully mail this
+    // person at all? Checked ahead of `sendability` because this is the only
+    // consent gate that exists, while suppression has three more in SQL — the
+    // full argument is in the header above.
+    if (!hasMarketingConsent(c.consentAt)) {
+      skipped.no_consent += 1;
+      continue;
+    }
 
     // Suppression-beats-status is not decided here: `sendability` owns that
     // rule so the preview, the write path and the send loop cannot drift apart

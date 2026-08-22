@@ -84,7 +84,18 @@ describe("selectAudience agrees with sendability", () => {
     email: string,
     overrides: Partial<AudienceCandidate> = {},
   ): AudienceCandidate {
-    return { subscriberId: id, email, name: null, status: "subscribed", ...overrides };
+    // Consented by default: this block is about suppression-vs-status, and
+    // `no_consent` is checked ahead of both, so an unset consentAt would make
+    // every assertion below pass for the wrong reason. Consent's own ordering
+    // is asserted in tests/newsletter-audience.test.ts.
+    return {
+      subscriberId: id,
+      email,
+      name: null,
+      status: "subscribed",
+      consentAt: new Date("2026-01-01T00:00:00Z"),
+      ...overrides,
+    };
   }
 
   it("uses the same rule for every status, with and without a suppression", () => {

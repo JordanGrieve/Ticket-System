@@ -21,9 +21,15 @@ import type { SendBatchResult } from "./campaign-send";
 // ── Authorisation ────────────────────────────────────────────────
 
 /**
- * The env var Vercel Cron signs its invocations with. Vercel sends
- * `Authorization: Bearer $CRON_SECRET` on every scheduled invocation of a path
- * listed in vercel.json `crons`.
+ * The shared secret the scheduled sweep authenticates with. The caller sends
+ * `Authorization: Bearer $CRON_SECRET`.
+ *
+ * The value must exist in TWO places, byte-identical:
+ *   • a GitHub Actions repository secret named CRON_SECRET, read by
+ *     .github/workflows/campaign-sweep.yml;
+ *   • a Vercel environment variable named CRON_SECRET on the project.
+ * If they drift, every tick 401s — which is why the workflow fails loudly on
+ * any non-2xx rather than logging a green tick over a rejected request.
  */
 export const CRON_SECRET_ENV = "CRON_SECRET";
 
@@ -149,19 +155,23 @@ export const SWEEP_DEADLINE_MS = 45_000;
  * ── WHAT THIS COSTS IN THROUGHPUT ──
  *
  * 75 is per INVOCATION, not per minute. The 60-second budget above sizes ONE
- * run; vercel.json schedules this sweep at `0 3 * * *` — ONCE A DAY, because
- * Vercel's Hobby plan fails the deployment on a sub-daily cron expression. So
- * the deployed throughput is 75 recipients per DAY. A 40,000-recipient
- * campaign needs ~534 sweeps, i.e. about 534 days: not nine hours, over a year.
+ * run; the CADENCE is what turns it into a throughput, and the cadence no
+ * longer comes from Vercel. Vercel's Hobby plan fails the deployment on a
+ * sub-daily cron expression, which pinned this sweep at `0 3 * * *` — once a
+ * day, i.e. 75 recipients per DAY, i.e. ~534 days for a 40,000-recipient
+ * campaign. It is now driven by .github/workflows/campaign-sweep.yml on a
+ * five-minute step: 288 sweeps a day → 21,600 recipients/day, and the same
+ * campaign drains in about two days.
  *
- * That is not a tuning problem and raising this constant does not fix it — the
- * ceiling is the 60s function budget, not the number. The cadence is what is
- * wrong, and it changes only with the plan. On Pro: a sub-daily schedule
- * becomes legal (every five minutes is 288 sweeps a day → 21,600 recipients/day,
- * so the same campaign drains in under two days), and `maxDuration` can go to
- * 300 with Fluid compute, taking this constant to ~450 on the same margins.
- * Until then, anything in the product that quotes a completion time must
- * compute it from SWEEPS_PER_DAY in lib/campaign-schedule.ts.
+ * Raising THIS constant still does not buy throughput — its ceiling is the 60s
+ * function budget, not the number. On Vercel Pro, `maxDuration` can go to 300
+ * with Fluid compute, which would take it to ~450 on the same margins.
+ *
+ * GitHub's schedule is best effort: ticks are delayed under runner load,
+ * dropped outright with no backfill, and the workflow is auto-disabled after
+ * 60 days without a commit. So 288 is a ceiling. Anything in the product that
+ * quotes a completion time must compute it from SWEEPS_PER_DAY in
+ * lib/campaign-schedule.ts and read as a floor on elapsed time.
  */
 export const RECIPIENTS_PER_SWEEP = 75;
 

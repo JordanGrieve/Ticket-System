@@ -1347,3 +1347,325 @@
     text-align: left;
   }
 }
+
+/* ── /settings — Install ──────────────────────────────────────────
+   The snippet a client pastes into their own website, plus their
+   inbound address and workspace key.
+
+   Same rule as the rest of this file: every colour is a token. This
+   view was the last inline-styled holdout and it shipped literals —
+   #fff cards, #5f594f body text, a #2b2620 code block — which is a
+   cream card on a dark ground in five of the six themes. Geometry is
+   restated in install/loading.tsx (760px column, 34/32/64 padding,
+   16px section radius); keep the two in step.
+
+   The code block is the one place that wants to stay dark in every
+   theme, so it borrows the navigation tokens: --nav is near-black in
+   all six palettes by design, and --nav-badge-fg is its light
+   counterpart. No literal is needed to get a terminal.            */
+
+.sti-wrap {
+  min-width: 0;
+  padding: 34px 32px 64px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.sti-col {
+  max-width: 760px;
+  margin: 0 auto;
+  min-width: 0;
+}
+
+.sti-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+.sti-sub {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted-2);
+}
+
+.sti-sub b,
+.sti-step b {
+  color: var(--text-2);
+  font-weight: 700;
+}
+
+.sti-section {
+  margin-top: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 22px 24px;
+  box-shadow: 0 1px 0 var(--shadow);
+}
+
+.sti-section-title {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.sti-help {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted-2);
+}
+
+.sti-help--tight {
+  font-size: 12.5px;
+  margin: 0 0 8px;
+}
+
+/* A subhead inside a section — "Paste this form" / "Or link to it". */
+.sti-sub-title {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+
+.sti-divider {
+  height: 1px;
+  margin: 20px 0;
+  background: var(--border-soft);
+}
+
+/* ── mode toggles ───────────────────────────────────────────── */
+
+.sti-modes {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.sti-mode {
+  padding: 8px 14px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.14s ease, color 0.14s ease;
+}
+
+.sti-mode:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.sti-mode[data-on="true"] {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.sti-mode:focus-visible {
+  border-radius: 9px;
+}
+
+/* ── code block ─────────────────────────────────────────────── */
+
+.sti-code {
+  position: relative;
+  background: var(--nav);
+  border: 1px solid var(--nav-active-bg);
+  border-radius: 12px;
+}
+
+.sti-code-copy {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+}
+
+.sti-code pre {
+  margin: 0;
+  padding: 16px 18px;
+  overflow-x: auto;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--nav-badge-fg);
+  white-space: pre;
+}
+
+/* ── read-only value + copy button ──────────────────────────── */
+
+.sti-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sti-field-value {
+  display: flex;
+  align-items: center;
+  height: 42px;
+  padding: 0 14px;
+  flex: 1 1 auto;
+  min-width: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13.5px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sti-field-value--mono {
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+/* ── steps ──────────────────────────────────────────────────── */
+
+.sti-steps {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+
+.sti-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-3);
+}
+
+.sti-step-n {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.sti-step-body {
+  min-width: 0;
+  padding-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+/* ── settings block ─────────────────────────────────────────── */
+
+.sti-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  margin-bottom: 8px;
+}
+
+.sti-gap {
+  height: 20px;
+}
+
+.sti-gap--lg {
+  height: 24px;
+}
+
+/* Destructive, so it reads as the one warning colour the themes carry
+   rather than as another link. */
+.sti-danger {
+  margin-top: 8px;
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--pdf-fg);
+  cursor: pointer;
+}
+
+.sti-danger:disabled {
+  cursor: wait;
+  color: var(--muted);
+}
+
+.sti-danger:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.sti-download {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.sti-download:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.sti-download:focus-visible {
+  border-radius: 9px;
+}
+
+.sti-inline-code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  background: var(--tag-c-bg);
+  color: var(--tag-c-fg);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* ── responsive ─────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .sti-wrap {
+    padding: 18px 14px 40px;
+  }
+  .sti-section {
+    padding: 18px 16px;
+  }
+  .sti-field {
+    flex-wrap: wrap;
+  }
+  .sti-field-value {
+    flex-basis: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sti-mode {
+    transition: none;
+  }
+}

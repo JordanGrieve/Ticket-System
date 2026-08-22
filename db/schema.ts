@@ -47,6 +47,34 @@ export const workspaces = pgTable("workspaces", {
   sendingEmail: text("sending_email").notNull(),
   // Accent scheme key (see lib/theme). Cosmetic only.
   accent: text("accent").notNull().default("terracotta"),
+  // ── CAN-SPAM identification. NOT cosmetic, and NOT optional at send time ──
+  //
+  // `name` above is a display label the client picked ("Bakery"); these two are
+  // the legal identification of the sender, and a marketing message that omits
+  // the postal one is unlawful — 15 U.S.C. §7704(a)(5) requires a valid
+  // physical postal address in EVERY commercial message, and the equivalent
+  // identification duty exists under PECR and the GDPR. It is a per-message
+  // requirement, not a "have it on the website somewhere" requirement, which is
+  // why it has to be a column the renderer can read rather than a setting.
+  //
+  // Both are NULLABLE ON PURPOSE, and nullable is the safety property here.
+  // A NOT NULL with a default would hand every existing live workspace a
+  // placeholder that LOOKS filled in — and a fake postal address in a real
+  // marketing email is worse than no send at all: it is an affirmative
+  // falsehood in the one field the statute is about. Null means "no human has
+  // supplied this", which is a state the send path can refuse on. Nothing may
+  // backfill them, and the draft→send gate must treat null-or-blank as a hard
+  // stop rather than rendering an empty line.
+  //
+  // legalName is the registered/trading entity, which is frequently not `name`
+  // ("Ada's Bakery Ltd", not "Bakery"). Separate column because guessing it
+  // from the display name is exactly the kind of plausible-looking invention
+  // that makes the footer a lie.
+  legalName: text("legal_name"),
+  // Free text, multi-line. Deliberately unstructured: postal formats differ by
+  // country and a normalised address model would reject valid addresses, which
+  // in this table means blocking a lawful send.
+  postalAddress: text("postal_address"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -532,6 +560,25 @@ export const subscribers = pgTable(
     // Free-text evidence: the URL of the form, the checkbox wording shown, or
     // the name of the file the addresses were imported from.
     consentSource: text("consent_source"),
+    // The address the consent was submitted from. Part of the same evidence
+    // bundle: "someone ticked a box" is worth far less to a regulator than
+    // "this address, at this timestamp, from this IP, on this form".
+    //
+    // Added now, while the table is empty, because a nullable text column on a
+    // populated `subscribers` would be a lock on the table clients' signup
+    // forms write to. Adding it later costs a maintenance window; adding it
+    // today costs nothing.
+    //
+    // Nullable, and permanently so — not merely "until we backfill". Consent
+    // legitimately arrives through channels that have no IP: a CSV import, a
+    // till, a phone call, a paper form. NOT NULL would force those paths to
+    // write a placeholder, which is inventing evidence.
+    //
+    // `text`, not `inet`: this stores what the proxy actually handed us,
+    // verbatim, as evidence. `inet` would reject a malformed or comma-joined
+    // X-Forwarded-For and throw away the record rather than keep an imperfect
+    // one — and we never query it by range, only ever read it back on one row.
+    consentIp: text("consent_ip"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

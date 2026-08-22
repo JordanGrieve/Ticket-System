@@ -345,6 +345,16 @@ export default function MailNavShell({
             <Icon name="news" size={18} />
             <span className="pbm-folder-label">Newsletters</span>
           </Link>
+          {/* The audience behind the newsletters, so it sits next to them
+              rather than in /settings: who is on the list is not a setting. */}
+          <Link
+            href="/subscribers"
+            className="pbm-folder"
+            data-active={pathname.startsWith("/subscribers")}
+          >
+            <Icon name="people" size={18} />
+            <span className="pbm-folder-label">Subscribers</span>
+          </Link>
           <Link
             href="/settings"
             className="pbm-folder"

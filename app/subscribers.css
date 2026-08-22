@@ -1,0 +1,543 @@
+/*
+  Postbox — /subscribers.
+
+  Owned by app/(dashboard)/subscribers/**, which is the only place that
+  imports it.
+
+  Same three rules as settings.css and skeleton.css next door:
+
+  1. NO COLOUR LITERALS, ANYWHERE. Every colour in this file is a token from
+     globals.css, which defines a full set per theme — there are six. A
+     hardcoded #fff card or an #efeadf border is a cream box on a dark ground
+     in five of them, which has shipped twice in this repo already. The status
+     and consent chips are the tempting place to break the rule; they use the
+     --tag-*, --ok-*, --warn-* and --pdf-* pairs instead, each of which is
+     redefined in all six palettes with its foreground and background moved
+     together.
+
+  2. GEOMETRY IS DECLARED ONCE. The list rows, the head and the filter pills
+     are sized here and nowhere else, so subscribers/loading.tsx can wear the
+     real classes and paint skeleton fills on top of them (skeleton.css) rather
+     than restating a guessed row height that then drifts.
+
+  3. IT HAS TO WORK AT 390px. Inline styles carry no media queries; that is
+     part of why the rendering lives here.
+
+  Ground is --surface, matching .pbm-page underneath, so a short list leaves no
+  colour seam where the wrapper ends — .pbm-page > * is forced to flex: 0 0
+  auto, so this box is only ever as tall as its content. Rows then sit on
+  --surface-2, the same card recipe .stc-row uses in settings.
+*/
+
+.psb-wrap {
+  min-width: 0;
+  padding: 30px 32px 56px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* The reading column. Wider than .stc-col's 760px because a subscriber row
+   carries two more columns (status, source) than a contact row does. */
+.psb-col {
+  max-width: 880px;
+  margin: 0 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.psb-head {
+  min-width: 0;
+}
+
+.psb-title {
+  margin: 0 0 6px;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.psb-sub {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--muted-2);
+}
+
+/* ── status filter ───────────────────────────────────────────────
+   Plain links, not a client-side control: the filter is the URL, so it
+   is shareable, back-button-able and needs no JavaScript.             */
+
+.psb-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.psb-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.psb-filter:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.psb-filter[data-active="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+
+.psb-filter-count {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.psb-filter[data-active="true"] .psb-filter-count {
+  color: var(--accent-text);
+}
+
+/* ── list ────────────────────────────────────────────────────────── */
+
+.psb-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.psb-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 13px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: inherit;
+  text-decoration: none;
+}
+
+a.psb-row:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-3);
+}
+
+.psb-avatar {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-3);
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.psb-person {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Fixed line-heights so the skeleton's &nbsp; produces the real line box. */
+.psb-name,
+.psb-email {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.psb-name {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.psb-email {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--muted-2);
+}
+
+.psb-meta {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.psb-source {
+  flex: 0 0 auto;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted-2);
+}
+
+.psb-when {
+  flex: 0 0 auto;
+  min-width: 56px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ── status + consent chips ──────────────────────────────────────
+   One chip recipe, four colour pairs chosen by data-status. Each pair is
+   defined in all six themes, and both halves move together, so the chip
+   can never end up dark-on-dark.                                      */
+
+.psb-chip {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.psb-chip[data-status="subscribed"] {
+  background: var(--tag-a-bg);
+  color: var(--tag-a-fg);
+}
+
+/* Not an error — a person exercising a right. Neutral, not red. */
+.psb-chip[data-status="unsubscribed"] {
+  background: var(--surface-3);
+  color: var(--text-4);
+}
+
+.psb-chip[data-status="bounced"] {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+
+.psb-chip[data-status="complained"] {
+  background: var(--pdf-bg);
+  color: var(--pdf-fg);
+}
+
+/*
+  Consent. `false` is deliberately loud: the absence of evidence is the thing
+  this screen exists to surface, and an empty cell reads as "not loaded yet"
+  rather than "we cannot lawfully mail this person".
+*/
+.psb-consent {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.psb-consent[data-ok="true"] {
+  background: var(--tag-a-bg);
+  color: var(--tag-a-fg);
+}
+
+.psb-consent[data-ok="false"] {
+  background: var(--pdf-bg);
+  color: var(--pdf-fg);
+}
+
+/* ── empty state ─────────────────────────────────────────────────── */
+
+.psb-empty {
+  margin: 0;
+  padding: 28px 24px;
+  border: 1px dashed var(--border);
+  border-radius: 18px;
+  background: var(--surface-2);
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted-2);
+}
+
+.psb-empty-title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.psb-empty-body {
+  margin: 0 auto;
+  max-width: 46ch;
+}
+
+/*
+  Explicitly --accent-text, not the global `a` colour. globals.css paints links
+  --accent-strong, which is only redefined in four of the six themes — in the
+  other two it stays the light palette's deep purple on a dark card. Every
+  colour on this page has to be a token that all six palettes actually move.
+*/
+.psb-empty a {
+  color: var(--accent-text);
+  text-decoration: underline;
+}
+
+/* ── detail ──────────────────────────────────────────────────────── */
+
+.psb-back {
+  align-self: flex-start;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--accent-text);
+  text-decoration: none;
+}
+
+.psb-back:hover {
+  text-decoration: underline;
+}
+
+.psb-identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.psb-identity .psb-avatar {
+  width: 46px;
+  height: 46px;
+  font-size: 15px;
+}
+
+.psb-identity-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.psb-identity-email {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.psb-identity-name {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted-2);
+}
+
+/*
+  The regulator banner. Two severities, both token-coloured, both with a
+  border so they still read as a distinct block if a future theme lands the
+  soft background close to --surface-2.
+*/
+.psb-banner {
+  margin: 0;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.psb-banner-title {
+  margin: 0 0 4px;
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+.psb-banner-body {
+  margin: 0;
+}
+
+.psb-banner[data-tone="bad"] {
+  background: var(--pdf-bg);
+  border-color: var(--pdf-fg);
+  color: var(--pdf-fg);
+}
+
+.psb-banner[data-tone="warn"] {
+  background: var(--warn-bg);
+  border-color: var(--warn-fg);
+  color: var(--warn-fg);
+}
+
+.psb-banner[data-tone="ok"] {
+  background: var(--tag-a-bg);
+  border-color: var(--tag-a-fg);
+  color: var(--tag-a-fg);
+}
+
+.psb-card {
+  min-width: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-2);
+}
+
+.psb-card-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.psb-card-note {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted-2);
+}
+
+/* A note that is the card's whole body, with no facts list under it. */
+.psb-card-note--last {
+  margin-bottom: 0;
+}
+
+/* Definition list, two columns on desktop and stacked below 560px. */
+.psb-facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 10px 16px;
+  align-items: baseline;
+}
+
+.psb-fact-k {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted-2);
+}
+
+.psb-fact-v {
+  margin: 0;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+/* IP addresses and form URLs are evidence, quoted verbatim. */
+.psb-mono {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+/*
+  A missing evidence field. NOT an em-dash in --muted: on this screen the
+  difference between "blank" and "nothing was ever recorded" is the whole
+  point, so it says so, in the same red as the banner above it.
+*/
+.psb-missing {
+  font-weight: 800;
+  color: var(--pdf-fg);
+}
+
+.psb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.psb-listchip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ── responsive ──────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .psb-wrap {
+    padding: 18px 14px 40px;
+  }
+  .psb-row {
+    gap: 11px;
+    padding: 12px 13px;
+  }
+  .psb-card {
+    padding: 15px 15px;
+  }
+}
+
+/* Below this the name, the chips and the date cannot share one line without
+   the name collapsing to two characters and an ellipsis. The meta column
+   drops to a second line, indented past the avatar so the row still reads as
+   one person. */
+@media (max-width: 620px) {
+  .psb-row {
+    flex-wrap: wrap;
+  }
+  .psb-meta {
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    margin-left: 45px;
+  }
+  .psb-when {
+    min-width: 0;
+    text-align: left;
+  }
+  .psb-source {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .psb-facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px 0;
+  }
+  .psb-fact-v {
+    margin-bottom: 9px;
+  }
+}

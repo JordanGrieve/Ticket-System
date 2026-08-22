@@ -11,6 +11,20 @@ import CopyButton from "./CopyButton";
  * "Accent". It moved to Settings → General (app/(dashboard)/settings/
  * ThemePicker.tsx) when that tab was built — it is a workspace preference, not
  * an installation step. It is NOT duplicated here.
+ *
+ * ── COLOUR ──
+ * Nothing in this file paints a colour. Every rule is a .sti-* class in
+ * app/settings.css reading tokens from globals.css, because six themes ride on
+ * those tokens and this view used to ship literals: #fff cards on #efeadf
+ * borders with #5f594f text, i.e. a cream card on a dark ground in five of the
+ * six themes.
+ *
+ * ── WHY THE NEWSLETTER URLS ARE PROPS ──
+ * The endpoint, the hosted link and the honeypot field names all come from
+ * lib/subscribe.ts, which imports node:crypto. This is a Client Component, so
+ * importing that module here would drag node:crypto into the browser bundle.
+ * The page resolves them on the server and passes them down; see
+ * app/(dashboard)/settings/install/page.tsx.
  */
 export default function InstallView({
   apiKey,
@@ -18,6 +32,9 @@ export default function InstallView({
   replyFrom,
   workspaceName,
   appUrl,
+  subscribeEndpoint,
+  hostedSignupUrl,
+  honeypotFields,
 }: {
   apiKey: string;
   inboundEmail: string;
@@ -25,6 +42,12 @@ export default function InstallView({
   replyFrom: string;
   workspaceName: string;
   appUrl: string;
+  /** `POST {appUrl}/api/subscribe/{apiKey}` — built by the page from the key. */
+  subscribeEndpoint: string;
+  /** hostedSignupUrl() from lib/subscribe.ts, resolved on the server. */
+  hostedSignupUrl: string;
+  /** HONEYPOT_FIELDS from lib/subscribe.ts. Never hardcoded here. */
+  honeypotFields: readonly string[];
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<"a" | "b" | "ai">("b");
@@ -141,20 +164,24 @@ human mailbox).
 
   const snippet = mode === "a" ? snippetA : mode === "ai" ? snippetAI : snippetB;
 
+  const newsletterSnippet = buildNewsletterSnippet(
+    subscribeEndpoint,
+    honeypotFields,
+  );
+
   return (
-    <div style={{ height: "100vh", overflowY: "auto" }}>
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "34px 32px 64px" }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.015em", color: "var(--ink)" }}>
-          Install &amp; settings
-        </h1>
-        <p style={{ fontSize: 14, color: "var(--muted-2)", marginTop: 6, lineHeight: 1.6 }}>
-          Connect <b style={{ color: "#5f594f", fontWeight: 600 }}>{workspaceName}</b> to your
-          website. Form submissions and forwarded email flow straight into this inbox.
+    // The pane wrapper lives in the settings layout, shared with the other tabs.
+    <div className="sti-wrap">
+      <div className="sti-col">
+        <h1 className="sti-title">Install &amp; settings</h1>
+        <p className="sti-sub">
+          Connect <b>{workspaceName}</b> to your website. Form submissions and
+          forwarded email flow straight into this inbox.
         </p>
 
         {/* ── Connect your form ── */}
         <Section title="1 · Connect your contact form">
-          <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+          <div className="sti-modes">
             <Toggle active={mode === "b"} onClick={() => setMode("b")}>
               JavaScript (recommended)
             </Toggle>
@@ -165,7 +192,7 @@ human mailbox).
               ✨ AI prompt
             </Toggle>
           </div>
-          <p style={{ fontSize: 13, color: "var(--muted-2)", lineHeight: 1.6, marginBottom: 12 }}>
+          <p className="sti-help">
             {mode === "b"
               ? "Drop this before </body>. It intercepts your form so visitors stay on the page and see a success message — no redirect."
               : mode === "a"
@@ -175,29 +202,62 @@ human mailbox).
           <CodeBlock code={snippet} />
         </Section>
 
+        {/* ── Newsletter signup ──
+            Kept apart from the contact form above on purpose: one opens a
+            ticket, the other asks a stranger for permission to email them
+            later. They share the workspace key and nothing else. */}
+        <Section title="2 · Add a newsletter signup">
+          <p className="sti-help">
+            Collect subscribers for your newsletter. Every signup is confirmed by
+            email before it is added — nobody joins the list until they click the
+            link, so the addresses you collect are real and the consent is
+            evidenced.
+          </p>
+
+          <h3 className="sti-sub-title">Paste this form on your site</h3>
+          <p className="sti-help sti-help--tight">
+            Plain HTML, no JavaScript needed. Style it however you like, but keep
+            the field names — and the two anti-spam fields — exactly as they are.
+            After submitting, the visitor is shown a hosted &ldquo;check your
+            email&rdquo; page.
+          </p>
+          <CodeBlock code={newsletterSnippet} />
+
+          <div className="sti-divider" />
+
+          <h3 className="sti-sub-title">Or just link to the hosted page</h3>
+          <p className="sti-help sti-help--tight">
+            No code at all: point a button, a link in your footer or a social bio
+            at this address and we host the signup form for you.
+          </p>
+          <Field value={hostedSignupUrl} copyLabel="Copy link" mono />
+        </Section>
+
         {/* ── Inbound email ── */}
-        <Section title="2 · Forward your email here">
-          <p style={{ fontSize: 13, color: "var(--muted-2)", lineHeight: 1.6, marginBottom: 12 }}>
-            Set up forwarding from your support inbox to the address below. Emails become
-            tickets automatically; anything mentioning an order id (like{" "}
-            <code style={inlineCode}>ORD-1234</code> or <code style={inlineCode}>#4821</code>) is
-            flagged as a higher-priority order.
+        <Section title="3 · Forward your email here">
+          <p className="sti-help">
+            Set up forwarding from your support inbox to the address below.
+            Emails become tickets automatically; anything mentioning an order id
+            (like <code className="sti-inline-code">ORD-1234</code> or{" "}
+            <code className="sti-inline-code">#4821</code>) is flagged as a
+            higher-priority order.
           </p>
           <Field value={inboundEmail} copyLabel="Copy address" mono />
         </Section>
 
         {/* ── Steps ── */}
-        <Section title="3 · You're done">
-          <ol style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 12 }}>
-            <Step n={1}>Paste the snippet above onto your site (or point your form at the URL).</Step>
+        <Section title="4 · You're done">
+          <ol className="sti-steps">
+            <Step n={1}>
+              Paste the snippet above onto your site (or point your form at the
+              URL).
+            </Step>
             <Step n={2}>
-              Add email forwarding from your inbox to{" "}
-              <b style={{ color: "#5f594f" }}>{inboundEmail}</b>.
+              Add email forwarding from your inbox to <b>{inboundEmail}</b>.
             </Step>
             <Step n={3}>
               Reply to tickets from here — your replies send as real email from{" "}
-              <b style={{ color: "#5f594f" }}>{replyFrom}</b>, and customer responses thread
-              right back.
+              <b>{replyFrom}</b>, and customer responses thread right back.
             </Step>
           </ol>
         </Section>
@@ -206,54 +266,26 @@ human mailbox).
         <Section title="Settings">
           <Label>Workspace API key</Label>
           <Field value={apiKey} copyLabel="Copy key" mono />
-          <button
-            onClick={rotateKey}
-            disabled={rotating}
-            style={{
-              marginTop: 8,
-              background: "transparent",
-              border: "none",
-              padding: 0,
-              fontSize: 12.5,
-              fontWeight: 600,
-              color: "#9a5a4a",
-              cursor: rotating ? "wait" : "pointer",
-            }}
-          >
+          <button className="sti-danger" onClick={rotateKey} disabled={rotating}>
             {rotating ? "Rotating…" : "Rotate key… (old snippets stop working)"}
           </button>
 
-          <div style={{ height: 20 }} />
+          <div className="sti-gap" />
           <Label>Replies send from</Label>
-          <p style={{ fontSize: 12.5, color: "var(--muted-2)", lineHeight: 1.6, margin: "0 0 8px" }}>
-            Your replies are delivered from this address, with your business
-            name shown as the sender.
+          <p className="sti-help sti-help--tight">
+            Your replies are delivered from this address, with your business name
+            shown as the sender.
           </p>
           <Field value={replyFrom} copyLabel="Copy address" mono />
 
-          <div style={{ height: 24 }} />
+          <div className="sti-gap--lg" />
           <Label>Your data</Label>
-          <p style={{ fontSize: 12.5, color: "var(--muted-2)", lineHeight: 1.6, margin: "0 0 10px" }}>
+          <p className="sti-help sti-help--tight">
             Download every ticket, message and contact in this workspace as a
             JSON file. It contains your customers&rsquo; personal data, so keep
             it somewhere safe.
           </p>
-          <a
-            href="/api/workspace/export"
-            download
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              height: 36,
-              padding: "0 14px",
-              borderRadius: 9,
-              background: "#fff",
-              border: "1px solid var(--border)",
-              fontSize: 13,
-              fontWeight: 600,
-              color: "#5f594f",
-            }}
-          >
+          <a className="sti-download" href="/api/workspace/export" download>
             Download my data
           </a>
         </Section>
@@ -262,19 +294,61 @@ human mailbox).
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+/**
+ * The hosted-signup form a client pastes into their own page.
+ *
+ * `fields` is HONEYPOT_FIELDS, threaded down from lib/subscribe.ts rather than
+ * written out here: the endpoint discards a submission whose trap fields arrive
+ * non-empty, so a snippet naming the wrong fields is a form that silently stops
+ * working the day the list changes.
+ *
+ * The traps are NOT `type="hidden"`. A form-filling bot populates a hidden
+ * input exactly as happily as a visible one, and a real person never sees
+ * either — so `hidden` costs the same and catches nothing. Off-screen plus
+ * `tabindex="-1"` plus `aria-hidden` is invisible to eyes, to the keyboard and
+ * to screen readers, while still looking like an ordinary text input to
+ * anything parsing the markup.
+ */
+function buildNewsletterSnippet(
+  endpoint: string,
+  fields: readonly string[],
+): string {
+  const traps = fields
+    .map(
+      (name) =>
+        `    <input name="${name}" type="text" tabindex="-1" autocomplete="off"\n` +
+        `           style="position:absolute;left:-9999px" />`,
+    )
+    .join("\n");
+
+  return `<form action="${endpoint}" method="POST">
+  <label for="pb-signup-email">Email</label>
+  <input id="pb-signup-email" name="email" type="email"
+         placeholder="you@example.com" autocomplete="email" required />
+
+  <label for="pb-signup-name">Name (optional)</label>
+  <input id="pb-signup-name" name="name" type="text" autocomplete="name" />
+
+  <button type="submit">Subscribe</button>
+
+  <!-- Spam trap. Leave these empty and leave them exactly as they are:
+       nobody sees them, and a bot that fills them in is discarded. -->
+  <div aria-hidden="true">
+${traps}
+  </div>
+</form>`;
+}
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section
-      style={{
-        marginTop: 24,
-        background: "#fff",
-        border: "1px solid var(--border)",
-        borderRadius: 16,
-        padding: "22px 24px",
-        boxShadow: "0 1px 0 rgba(60,50,35,.03)",
-      }}
-    >
-      <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)", marginBottom: 14 }}>{title}</h2>
+    <section className="sti-section">
+      <h2 className="sti-section-title">{title}</h2>
       {children}
     </section>
   );
@@ -282,62 +356,35 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function CodeBlock({ code }: { code: string }) {
   return (
-    <div
-      style={{
-        position: "relative",
-        background: "#2b2620",
-        borderRadius: 12,
-        border: "1px solid #3a342c",
-      }}
-    >
-      <div style={{ position: "absolute", top: 10, right: 10, zIndex: 1 }}>
+    <div className="sti-code">
+      <div className="sti-code-copy">
         <CopyButton value={code} label="Copy snippet" compact />
       </div>
-      <pre
-        style={{
-          margin: 0,
-          padding: "16px 18px",
-          overflowX: "auto",
-          fontFamily: "var(--font-mono)",
-          fontSize: 12.5,
-          lineHeight: 1.7,
-          color: "#e9e2d5",
-          whiteSpace: "pre",
-        }}
-      >
+      <pre>
         <code>{code}</code>
       </pre>
     </div>
   );
 }
 
-function Field({ value, copyLabel, mono }: { value: string; copyLabel: string; mono?: boolean }) {
+function Field({
+  value,
+  copyLabel,
+  mono,
+}: {
+  value: string;
+  copyLabel: string;
+  mono?: boolean;
+}) {
   return (
-    <div style={{ display: "flex", gap: 8 }}>
+    <div className="sti-field">
       <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          height: 42,
-          padding: "0 14px",
-          background: "var(--app-bg)",
-          border: "1px solid var(--border)",
-          borderRadius: 10,
-          flex: 1,
-          minWidth: 0,
-          fontFamily: mono ? "var(--font-mono)" : undefined,
-          fontSize: 13.5,
-          color: "var(--ink)",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
+        className={`sti-field-value${mono ? " sti-field-value--mono" : ""}`}
+        title={value}
       >
         {value}
       </div>
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <CopyButton value={value} label={copyLabel} />
-      </div>
+      <CopyButton value={value} label={copyLabel} />
     </div>
   );
 }
@@ -353,17 +400,10 @@ function Toggle({
 }) {
   return (
     <button
+      className="sti-mode"
+      data-on={active}
+      aria-pressed={active}
       onClick={onClick}
-      style={{
-        padding: "8px 14px",
-        borderRadius: 9,
-        fontSize: 13,
-        fontWeight: 600,
-        cursor: "pointer",
-        background: active ? "#26221d" : "#fff",
-        color: active ? "#fff" : "#6b6255",
-        border: `1px solid ${active ? "#26221d" : "var(--border)"}`,
-      }}
     >
       {children}
     </button>
@@ -372,53 +412,15 @@ function Toggle({
 
 function Step({ n, children }: { n: number; children: React.ReactNode }) {
   return (
-    <li style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-      <span
-        style={{
-          flex: "0 0 auto",
-          width: 24,
-          height: 24,
-          borderRadius: "50%",
-          background: "var(--accent-soft)",
-          color: "var(--accent-strong)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 12.5,
-          fontWeight: 700,
-        }}
-      >
+    <li className="sti-step">
+      <span className="sti-step-n" aria-hidden>
         {n}
       </span>
-      <span style={{ fontSize: 13.5, color: "#4a453d", lineHeight: 1.55, paddingTop: 2 }}>
-        {children}
-      </span>
+      <span className="sti-step-body">{children}</span>
     </li>
   );
 }
 
 function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        fontSize: 12,
-        fontWeight: 700,
-        color: "var(--muted-3)",
-        letterSpacing: ".06em",
-        textTransform: "uppercase",
-        marginBottom: 8,
-      }}
-    >
-      {children}
-    </div>
-  );
+  return <div className="sti-label">{children}</div>;
 }
-
-const inlineCode: React.CSSProperties = {
-  fontFamily: "var(--font-mono)",
-  fontSize: 12,
-  background: "var(--order-bg)",
-  color: "var(--order-fg)",
-  padding: "1px 5px",
-  borderRadius: 4,
-};

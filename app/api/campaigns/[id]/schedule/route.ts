@@ -16,7 +16,8 @@ import { parseScheduleTime } from "@/lib/campaign-schedule";
  * ── THIS ROUTE DOES NOT SEND EMAIL, INCLUDING ON "SEND NOW" ──
  *
  * It writes two columns. What that buys is visibility to the scheduled sweep
- * (app/api/cron/campaigns/route.ts), which runs once a day and hands each
+ * (app/api/cron/campaigns/route.ts), which runs about every five minutes on a
+ * best-effort GitHub Actions schedule and hands each
  * message to the deliverer returned by `createCampaignDeliverer()` — the
  * LOG-ONLY one, unless `CAMPAIGN_DELIVERY_MODE=ses`, which is set in no
  * environment. So a campaign scheduled through here will, at the next sweep,

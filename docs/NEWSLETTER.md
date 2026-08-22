@@ -85,10 +85,15 @@ the section most likely to drift, so check it before trusting it.
    the real ceiling is 75 recipients per campaign per day, so a 1,000-recipient
    campaign takes a fortnight and a 40,000-recipient one takes over a year, not
    the nine hours the comment quotes. A daily cron is what the Hobby plan
-   allows; sub-daily needs Pro (`NEWSLETTER-BUILDER-PLAN.md` §5.8). *Being
-   corrected in `lib/campaign-cron.ts` as this was written; if that comment now
-   reasons from a per-day cadence, this item is resolved and only the plan
-   upgrade remains.*
+   allows; sub-daily needs Pro (`NEWSLETTER-BUILDER-PLAN.md` §5.8). **RESOLVED,
+   and not by upgrading the plan.** The sweep was moved off Vercel Cron onto
+   `.github/workflows/campaign-sweep.yml`, which GitHub schedules every five
+   minutes for free; the `crons` entry was removed from `vercel.json` so only
+   one thing drives it. `SWEEPS_PER_DAY` is now 288 and every on-screen
+   estimate divides by it. The remaining caveat is honesty about the cadence,
+   not the cadence itself: Actions schedules are best effort — delayed under
+   runner load, dropped with no backfill, and auto-disabled after 60 days
+   without a commit — so 288 is a ceiling and the estimates read as floors.
 10. **No verified marketing sending domain in the repo's own record.** A
     verified SES identity for `news.postbox.help` in `eu-west-1` is reported to
     exist and `.env.example` corroborates the region and configuration-set name,
@@ -330,9 +335,11 @@ still explains why the worker has the shape it has, but the facts have moved.
 
 Concretely, as of 22 August 2026:
 
-- `vercel.json` defines regions, a build command, **and one cron**:
-  `/api/cron/campaigns` at `0 3 * * *`. It had none when this section was
-  written.
+- `vercel.json` defines regions and a build command. It briefly also defined a
+  cron (`/api/cron/campaigns` at `0 3 * * *`, added in `7900a5c`); that entry
+  has since been removed and the sweep is scheduled by
+  `.github/workflows/campaign-sweep.yml` every five minutes instead, because
+  the Hobby plan rejects sub-daily expressions.
 - There is still no Redis and no SQS, and none was added. **`campaign_recipients`
   is the queue** — it already had the claim latch, the unique index, the
   `attempts` counter and the `error` column, and a second queue beside it would

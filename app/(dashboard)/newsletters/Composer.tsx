@@ -208,6 +208,12 @@ const STATUS_LABELS: Record<CampaignStatus, string> = {
 const SKIP_LABELS: Record<AudienceSkipReason, string> = {
   invalid_email: "Address isn’t usable",
   duplicate: "Same person twice",
+  // Ordered above suppression deliberately: suppression is enforced three
+  // more times in SQL after selectAudience returns, so mis-attributing it
+  // costs a number on a report. Consent has no backstop anywhere — this
+  // count is the only signal an operator ever gets that a list is not
+  // provably opted in. See hasMarketingConsent in lib/newsletter.ts.
+  no_consent: "No consent on record",
   suppressed: "Suppressed",
   unsubscribed: "Unsubscribed",
   bounced: "Hard bounced",
@@ -1261,8 +1267,8 @@ export default function Composer({
               <p className="nl-card-sub">
                 Scheduling marks the campaign as due and nothing more. A
                 background sweep picks up due campaigns{" "}
-                <b>once a day, at 03:00 UTC</b> — that cadence is fixed by the
-                hosting plan and can’t be raised from here.
+                <b>roughly every five minutes</b> — that cadence is best effort,
+                so an individual run can arrive late or be skipped altogether.
               </p>
 
               <ul className="nl-facts">

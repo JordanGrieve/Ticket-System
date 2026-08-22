@@ -42,8 +42,14 @@ import {
  * lib/deliver.ts, which returns a LOG-ONLY deliverer unless
  * `CAMPAIGN_DELIVERY_MODE=ses`, a variable set in no environment. So the wiring
  * is complete and the send is still inert, which is the state the remaining
- * items in §2 and §7 — cross-invocation rate limiting, the bounce/complaint
- * webhook, a verified marketing domain, and consent enforcement — require.
+ * items in §2 — cross-invocation rate limiting, the bounce/complaint webhook,
+ * and a verified marketing domain — require.
+ *
+ * §7's consent enforcement is now CLOSED in `selectAudience`: a candidate with
+ * no `consent_at` is skipped as `no_consent` and never becomes a recipient row.
+ * `listMembers` selects the column for that purpose. What is still missing is
+ * the other half of §7 — a UI that CAPTURES consent — so on today's data that
+ * filter removes almost everybody, which is the correct and visible failure.
  *
  * Do not add a second caller. In particular, no Server Action and no page may
  * import this: sending is a scheduled activity with a bounded batch, and a
@@ -513,6 +519,11 @@ async function listBelongsToWorkspace(
  * here — the list must be this workspace's AND so must the subscriber — which
  * is belt and braces, but it means a mis-set membership row could not leak a
  * subscriber into another tenant's campaign even if one were somehow written.
+ *
+ * `consentAt` is selected because `selectAudience` refuses candidates without
+ * it. Dropping this column from the projection would not be a compile error in
+ * some future refactor were the field optional — it is mandatory on
+ * `AudienceCandidate` precisely so that it would be.
  */
 async function listMembers(
   workspaceId: number,
@@ -524,6 +535,7 @@ async function listMembers(
       email: subscribers.email,
       name: subscribers.name,
       status: subscribers.status,
+      consentAt: subscribers.consentAt,
     })
     .from(listSubscribers)
     .innerJoin(lists, eq(lists.id, listSubscribers.listId))
@@ -790,9 +802,11 @@ async function retireSuppressedQueuedRows(
  * there is no resumption point in the middle of it.
  *
  * Still missing, and still required before `CAMPAIGN_DELIVERY_MODE=ses` may be
- * set (docs/NEWSLETTER.md §2, §7): a per-workspace rate limiter that survives
+ * set (docs/NEWSLETTER.md §2): a per-workspace rate limiter that survives
  * across invocations, the bounce/complaint webhook, a verified marketing
- * sending domain, and consent enforcement in `selectAudience`.
+ * sending domain, and a populated `workspaces.postal_address` — CAN-SPAM
+ * requires a physical address in every message and the column is nullable, so
+ * the footer cannot yet emit one. Consent enforcement is done (selectAudience).
  *
  * ── The claim protocol ──
  *

@@ -131,16 +131,21 @@ Elsewhere:
 
 Human/dashboard actions, not code. Full detail in `HUMAN_ACTIONS.md`.
 
-1. **`CRON_SECRET` is undocumented and probably unset** — the nightly campaign
-   cron fails closed with 503 until it is set. Harmless while nothing can send;
-   confusing later. Two minutes to fix.
+1. **`CRON_SECRET` is probably unset, and now needs setting twice** — the
+   campaign sweep fails closed with 503 until it is. It is documented in
+   `.env.example` now, and the same value must go in both Vercel's env vars and
+   the GitHub Actions repository secrets, since Actions drives the sweep. A
+   `APP_URL` repository variable is needed alongside it. Three minutes to fix.
 2. **Admin account 2FA** — the super-admin can read every client's data. Google
    2FA on the sign-in path is the free stand-in; Clerk MFA is a paid add-on and
    was deliberately deferred.
 3. **Secret rotation pending** — Clerk `sk_live`, Neon DB password, and Resend
    API key were exposed in an AI chat transcript during setup.
-4. **Vercel Pro** — Hobby prohibits commercial use, and caps cron at once a day,
-   which is the newsletter's throughput ceiling.
+4. **Vercel Pro** — Hobby prohibits commercial use. It also caps cron at once a
+   day, but that is no longer the newsletter's throughput ceiling: the sweep is
+   scheduled by GitHub Actions every five minutes instead (288 sweeps/day, best
+   effort). Pro would still raise `maxDuration` from 60s to 300s with Fluid
+   compute, which is what `RECIPIENTS_PER_SWEEP` is really bounded by.
 5. **SES identity unverified from here** — `news.postbox.help` in `eu-west-1` is
    reported verified but no AWS credentials are available in the dev environment
    to confirm it, and sandbox status is unknown.

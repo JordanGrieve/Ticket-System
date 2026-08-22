@@ -3,26 +3,29 @@ import "../../../skeleton.css";
 /**
  * /settings/install.
  *
- * Like Contacts, InstallView is still inline-styled, so the frame is restated
- * here from components/InstallView.tsx:
+ * InstallView is now class-based (.sti-* in app/settings.css), but the frame
+ * is still restated here so the skeleton needs no markup of its own:
  *
- *   column   max-width 760, centred, padding 34px 32px 64px
+ *   column   max-width 760, centred, padding 34px 32px 64px   (.sti-col)
  *   heading  24px, sub-line 14px/1.6 with a 6px top margin
  *   section  24px top margin, 16px radius, 22px/24px padding, 15px title
- *            with 14px beneath it
+ *            with 14px beneath it                             (.sti-section)
  *
- * Four big blocks rather than forty small ones. This page is a stack of
- * prose, a ~30-line code block and a theme picker: the heights are wildly
+ * Five big blocks rather than fifty small ones — contact form, newsletter
+ * signup, inbound email, the checklist and Settings. This page is a stack of
+ * prose, two code blocks and some copyable fields: the heights are wildly
  * uneven and nothing about the real content is inferable from a bar chart of
  * grey lines. Fewer, larger shapes say "a stack of cards is coming" honestly
  * and stop the shimmer reading as a progress bar that never finishes.
  *
- * `.pbm-page > *` (mail.css) forces `height: auto !important` on this root,
- * which is exactly why InstallView's own `height: 100vh` is neutralised too —
- * so the skeleton must not set a height of its own either.
+ * `.pbm-page > *` (mail.css) forces `height: auto !important` on this root, so
+ * the skeleton must not set a height of its own. InstallView used to declare
+ * `height: 100vh` here and have it neutralised by that same rule; .sti-wrap no
+ * longer asks for one at all.
  */
 const SECTIONS = [
   { title: 208, body: 320 },
+  { title: 196, body: 336 },
   { title: 176, body: 132 },
   { title: 96, body: 148 },
   { title: 74, body: 268 },

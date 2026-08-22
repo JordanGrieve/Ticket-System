@@ -1,0 +1,128 @@
+name: Campaign sweep
+
+# Drives GET /api/cron/campaigns — the durable, resumable newsletter send
+# sweep (lib/campaign-cron.ts). One invocation claims and delivers at most
+# RECIPIENTS_PER_SWEEP (75) recipient rows and returns; the next run continues
+# where it stopped.
+#
+# ── WHY THIS IS NOT VERCEL CRON ──
+#
+# This project is on Vercel's Hobby plan, which accepts only once-per-day cron
+# expressions — a sub-daily schedule fails the deployment. 75 rows a day is a
+# 40,000-recipient campaign taking ~534 days. GitHub Actions cron is free,
+# accepts a 5-minute step, and is therefore the mechanism. The `crons` entry
+# was removed from vercel.json so the sweep is not driven from two places.
+#
+# ── WHAT `*/5` ACTUALLY MEANS HERE — READ THIS BEFORE TRUSTING A DEADLINE ──
+#
+# GitHub Actions scheduled workflows are BEST EFFORT, not guaranteed:
+#
+#   • Runs are frequently DELAYED when the Actions runner pool is busy, and
+#     delays are worst at the top of the hour, which every naive schedule
+#     crowds into. A run can arrive many minutes late.
+#   • Runs can be DROPPED ENTIRELY under sustained load. There is no retry and
+#     no backfill — a skipped tick is simply a tick that never happened.
+#   • Scheduled workflows are DISABLED AUTOMATICALLY after 60 days with no
+#     commit activity in the repository. GitHub emails the last committer; if
+#     that mail is missed, the sweep silently stops and stays stopped until
+#     somebody re-enables it in the Actions tab.
+#
+# So treat 288 sweeps/day as a CEILING, never a promise. Any completion
+# estimate shown in the product is derived from SWEEPS_PER_DAY in
+# lib/campaign-schedule.ts and inherits the same caveat.
+#
+# The sweep is safe to run late, early, or twice — claim-before-send in
+# lib/campaign-send.ts latches each recipient row `queued → sent` inside the
+# UPDATE, so a duplicated tick cannot double-mail anyone.
+
+on:
+  schedule:
+    # Every five minutes. See the caveats above: this is a request, not a
+    # guarantee.
+    - cron: '*/5 * * * *'
+  # So a human can force a sweep from the Actions tab without waiting for the
+  # next tick — the only way to drain a campaign on demand now that there is
+  # no "Run" button in the Vercel cron UI.
+  workflow_dispatch:
+
+# Two sweeps must never overlap. The claim latch tolerates it, but both runs
+# would be spending the SAME per-sweep row budget against the same campaigns,
+# so the second adds contention and no throughput.
+#
+# cancel-in-progress is FALSE deliberately: killing a running sweep mid-flight
+# can land between a row's claim UPDATE and its provider call, which loses that
+# one email. A queued run waiting behind it costs nothing.
+concurrency:
+  group: campaign-sweep
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    # Comfortably above the route's own maxDuration of 60s, so a hung job dies
+    # long before it can collide with the next scheduled tick.
+    timeout-minutes: 5
+    steps:
+      - name: Call the sweep endpoint
+        env:
+          # Repository VARIABLE (Settings → Secrets and variables → Actions →
+          # Variables), not a secret — the origin is public. e.g.
+          # https://postbox.help
+          APP_URL: ${{ vars.APP_URL }}
+          # Repository SECRET. Must be byte-identical to the CRON_SECRET
+          # environment variable set on the Vercel project, or the route 401s.
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        # Explicit, because the default `run` shell on ubuntu is `bash -e {0}`
+        # and `set -e` would kill this step the instant curl returns non-zero —
+        # before the status and body are echoed, which is the whole point.
+        shell: bash
+        run: |
+          set -uo pipefail
+          set +e
+
+          if [ -z "${APP_URL}" ]; then
+            echo "::error::Repository variable APP_URL is not set. Set it to the deployed origin, e.g. https://postbox.help"
+            exit 1
+          fi
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "::error::Repository secret CRON_SECRET is not set. The sweep route refuses every caller without it and would 401 forever, silently."
+            exit 1
+          fi
+
+          URL="${APP_URL%/}/api/cron/campaigns"
+          echo "Sweeping ${URL}"
+
+          # --fail-with-body: non-2xx sets a non-zero exit code AND still
+          # prints the response body, so a 401 or 503 is diagnosable from the
+          # log without re-running by hand. -sS keeps the progress meter out of
+          # the log but keeps transport errors in it.
+          #
+          # The status code is appended on its own trailing line by -w and then
+          # split back off, so both halves reach the log even on failure. This
+          # endpoint returns counts only, never subscriber addresses.
+          RAW=$(curl --fail-with-body -sS \
+                     --max-time 120 \
+                     -H "Authorization: Bearer ${CRON_SECRET}" \
+                     -w $'\n%{http_code}' \
+                     "${URL}")
+          CURL_EXIT=$?
+
+          STATUS=$(printf '%s' "${RAW}" | tail -n 1)
+          BODY=$(printf '%s' "${RAW}" | sed '$d')
+
+          echo "HTTP status: ${STATUS:-<none>}"
+          echo "Response body:"
+          echo "${BODY:-<empty>}"
+
+          if [ "${CURL_EXIT}" -ne 0 ]; then
+            # Loud and failing, on purpose. A cron that quietly 401s for weeks
+            # is exactly how this project lost five weeks on another endpoint;
+            # a red run in the Actions tab is the cheapest possible alarm.
+            echo "::error::Campaign sweep failed (curl exit ${CURL_EXIT}, HTTP ${STATUS:-unknown}). No recipients were sent this tick."
+            exit 1
+          fi
+
+          echo "Sweep completed."

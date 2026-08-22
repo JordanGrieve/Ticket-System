@@ -139,39 +139,52 @@ describe("parseScheduleTime", () => {
 });
 
 describe("throughput arithmetic agrees with the deployed cron", () => {
-  it("SWEEPS_PER_DAY matches the schedule in vercel.json", () => {
+  it("SWEEPS_PER_DAY matches the GitHub Actions schedule", () => {
     // The mismatch this pins: lib/campaign-cron.ts derives 75 recipients from a
-    // SIXTY-SECOND function budget, which reads like 75/minute. vercel.json
-    // runs the sweep once a DAY, so it is 75/day. If somebody changes the cron
-    // expression, this fails rather than the composer quietly overstating
-    // throughput by three orders of magnitude.
+    // SIXTY-SECOND function budget, which reads like 75/minute. The workflow
+    // decides how often that minute happens. If somebody changes the cron step,
+    // this fails rather than the composer quietly misstating throughput.
+    const workflow = readFileSync(
+      join(process.cwd(), ".github/workflows/campaign-sweep.yml"),
+      "utf8",
+    );
+
+    const cron = /^\s*-\s*cron:\s*['"]([^'"]+)['"]/m.exec(workflow);
+    expect(cron).not.toBeNull();
+
+    const [minute, hour] = (cron?.[1] ?? "").split(" ");
+    // A `*/N` minute step over every hour is 1440/N runs a day.
+    const step = /^\*\/(\d+)$/.exec(minute ?? "");
+    expect(step).not.toBeNull();
+    expect(hour).toBe("*");
+    expect(SWEEPS_PER_DAY).toBe(1440 / Number(step?.[1]));
+  });
+
+  it("is not also scheduled by Vercel — one scheduler, not two", () => {
+    // Both drivers running would double the tick rate the composer's estimates
+    // are computed from, and would spend two invocations' budget on the same
+    // rows. The Vercel `crons` entry was removed when the workflow landed.
     const config = JSON.parse(
       readFileSync(join(process.cwd(), "vercel.json"), "utf8"),
-    ) as { crons: { path: string; schedule: string }[] };
-
-    const sweep = config.crons.find((c) => c.path === "/api/cron/campaigns");
-    expect(sweep).toBeDefined();
-
-    const [minute, hour] = (sweep?.schedule ?? "").split(" ");
-    // A fixed minute and a fixed hour — no `*`, no step, no list — is exactly
-    // once a day.
-    expect(minute).toMatch(/^\d+$/);
-    expect(hour).toMatch(/^\d+$/);
-    expect(SWEEPS_PER_DAY).toBe(1);
+    ) as { crons?: unknown[] };
+    expect(config.crons).toBeUndefined();
   });
 
-  it("puts a 40,000-recipient campaign at well over a year", () => {
+  it("puts a 40,000-recipient campaign at a couple of days, not an hour", () => {
     expect(sweepsToDrain(40_000, 75)).toBe(534);
-    expect(daysToDrain(40_000, 75)).toBe(534);
+    expect(daysToDrain(40_000, 75)).toBe(2);
     // And with the real constant, so a change to it shows up here.
-    expect(daysToDrain(40_000, RECIPIENTS_PER_SWEEP)).toBeGreaterThan(365);
+    expect(daysToDrain(40_000, RECIPIENTS_PER_SWEEP)).toBeGreaterThan(1);
   });
 
-  it("says 'days' out loud rather than implying an hourly rate", () => {
+  it("says 'days' out loud rather than implying it finishes in minutes", () => {
     const text = describeDrain(40_000, 75);
     expect(text).toContain("534");
     expect(text).toContain("days");
-    expect(text).toContain("once a day");
+    expect(text).toContain("every five minutes");
+    // A ceiling, stated as a floor on elapsed time — the schedule is best
+    // effort and a dropped tick only ever makes this longer.
+    expect(text).toContain("at least");
   });
 
   it("handles the small and empty cases without inventing a number", () => {

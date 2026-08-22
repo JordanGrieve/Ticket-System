@@ -56,15 +56,28 @@ Commit `7900a5c` shipped a worker, a nightly cron and an SES integration. The
 switches below are yours; the code side is mine. **Do not set
 `CAMPAIGN_DELIVERY_MODE` yet** — see the last item.
 
-- [ ] **Set `CRON_SECRET` in Vercel (Production), or accept that the cron does
-  nothing** — `vercel.json` schedules `/api/cron/campaigns` nightly at 03:00,
-  and the route refuses **every** caller, Vercel's own scheduler included, while
-  this is unset. It returns 503 by design: an unauthenticated version of that URL
-  is a public "send everyone's marketing email now" button. So production is
-  currently running a nightly job that 503s. That is harmless today — nothing is
-  queued to send — but it is noise in the log and it will be a confusing
-  first symptom later. Any long random string. **2 min.** (Then redeploy; env
-  edits do nothing until the next deploy.)
+- [ ] **Set `CRON_SECRET` in TWO places, or the sweep does nothing** — the
+  sweep is now driven by GitHub Actions, not Vercel Cron
+  (`.github/workflows/campaign-sweep.yml`, every ~5 min). Generate one value —
+  `openssl rand -hex 32` — and set it as:
+  1. a **Vercel** environment variable `CRON_SECRET` (Production), then
+     redeploy; env edits do nothing until the next deploy;
+  2. a **GitHub Actions repository secret** `CRON_SECRET` (repo Settings →
+     Secrets and variables → Actions → Secrets).
+
+  The route refuses **every** caller while it is unset, returning 503 by design:
+  an unauthenticated version of that URL is a public "send everyone's marketing
+  email now" button. Unlike the old Vercel cron, a rejected tick is now a **red
+  run in the Actions tab** rather than a silent line in a log nobody reads.
+  **3 min.**
+- [ ] **Set the `APP_URL` repository variable** — same page as the secret, but
+  the **Variables** tab (it is not secret): the deployed origin the workflow
+  curls, e.g. `https://postbox.help`. The workflow fails with an explicit error
+  if it is missing. **1 min.**
+- [ ] **Know that the schedule can stop on its own** — GitHub disables
+  scheduled workflows after **60 days with no commits to the repository**, and
+  drops or delays individual runs under load. If campaigns stop draining, check
+  the Actions tab before suspecting the code. **Awareness only.**
 - [ ] **Confirm the SES sending identity actually exists** — I was told
   `news.postbox.help` is verified in `eu-west-1`, and `.env.example` agrees on
   the region, but I have no AWS credentials here and could not check. Run

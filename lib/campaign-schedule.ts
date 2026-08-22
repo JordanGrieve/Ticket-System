@@ -176,25 +176,32 @@ export function parseScheduleTime(
 /**
  * How many times a day the sweep runs.
  *
- * ── THIS NUMBER IS ONE, AND IT IS THE WHOLE THROUGHPUT STORY ──
+ * ── THIS NUMBER IS A CEILING, NOT A PROMISE ──
  *
- * vercel.json schedules `/api/cron/campaigns` at `0 3 * * *` — once a day, at
- * 03:00. That is not a preference. Vercel's Hobby plan accepts only
- * once-per-day cron expressions; a sub-daily schedule FAILS THE DEPLOYMENT, so
- * the cadence cannot be raised from this repo. It changes when the account
- * changes, and not before.
+ * The sweep is no longer driven by Vercel Cron. Vercel's Hobby plan accepts
+ * only once-per-day cron expressions — a sub-daily schedule fails the
+ * deployment — which pinned this constant at 1 and made a 40,000-recipient
+ * campaign a ~534-DAY proposition. `.github/workflows/campaign-sweep.yml` now
+ * drives it on a five-minute cron step, and `crons` is gone from vercel.json
+ * so nothing schedules it twice.
  *
- * The consequence is severe and is easy to state wrongly. `RECIPIENTS_PER_SWEEP`
- * in lib/campaign-cron.ts is 75, derived from a 60-second function budget —
- * i.e. 75 recipients per INVOCATION. With one invocation a day that is 75
- * recipients per DAY, not 75 per minute. A 40,000-recipient campaign needs
- * ~534 sweeps, which at this cadence is about 534 days.
+ * 24 × 60 ÷ 5 = 288. `RECIPIENTS_PER_SWEEP` in lib/campaign-cron.ts is 75 per
+ * INVOCATION, so the ceiling is 288 × 75 = 21,600 recipients a day and the
+ * same 40,000-recipient campaign drains in about two days.
+ *
+ * Why a ceiling: GitHub Actions scheduled workflows are best effort. Ticks are
+ * delayed when the runner pool is busy, are dropped outright under sustained
+ * load with no retry and no backfill, and the whole workflow is disabled
+ * automatically after 60 days without a commit to the repository. The real
+ * figure is therefore 288 or fewer — never more. Estimates derived from this
+ * constant are floors on elapsed time, which is the safe direction to be
+ * wrong in: the product may take longer than it says, never less.
  *
  * Every figure the composer shows about how long a campaign takes is computed
  * from this constant, so it cannot quietly describe a throughput the deployed
- * cron does not have.
+ * schedule does not have.
  */
-export const SWEEPS_PER_DAY = 1;
+export const SWEEPS_PER_DAY = 288;
 
 /** Sweeps needed to drain `recipients` at `perSweep` rows per sweep. */
 export function sweepsToDrain(recipients: number, perSweep: number): number {
@@ -210,9 +217,11 @@ export function daysToDrain(recipients: number, perSweep: number): number {
 /**
  * The drain estimate in a sentence, for the composer.
  *
- * Deliberately blunt and deliberately not rounded down. A client who queues
- * 40,000 people is entitled to read "about 534 days" on the screen where they
- * arm it, rather than discover it from a progress bar that has not moved.
+ * Deliberately blunt and deliberately not rounded down, and it says "at least"
+ * rather than "about": SWEEPS_PER_DAY is a ceiling on a best-effort schedule
+ * (see the comment on it), so the honest claim is a floor on elapsed time. A
+ * client who queues 40,000 people is entitled to read that on the screen where
+ * they arm it, rather than discover it from a progress bar that has not moved.
  */
 export function describeDrain(recipients: number, perSweep: number): string {
   if (recipients <= 0) return "There are no queued recipients to work through.";
@@ -222,9 +231,10 @@ export function describeDrain(recipients: number, perSweep: number): string {
   const rows = recipients.toLocaleString();
 
   if (sweeps <= 1) {
-    return `${rows} queued — one sweep’s worth. The sweep runs once a day, so the first run after the scheduled time would work through all of them.`;
+    return `${rows} queued — one sweep’s worth. The sweep runs about every five minutes, so the first run after the scheduled time would work through all of them.`;
   }
 
   const per = perSweep.toLocaleString();
-  return `${rows} queued, and a sweep works through at most ${per}. That is ${sweeps.toLocaleString()} sweeps, and the sweep runs once a day — roughly ${days.toLocaleString()} days from the scheduled time before the last person is reached.`;
+  const dayWord = days === 1 ? "day" : "days";
+  return `${rows} queued, and a sweep works through at most ${per}. That is ${sweeps.toLocaleString()} sweeps, and the sweep runs about every five minutes — at least ${days.toLocaleString()} ${dayWord} from the scheduled time before the last person is reached, and longer whenever a scheduled run is delayed or skipped.`;
 }

@@ -250,6 +250,195 @@ export async function suppressAddress(input: {
   };
 }
 
+export type ProviderFeedbackOutcome = {
+  /** Did the provider message id map to a campaign_recipients row? */
+  matched: boolean;
+  /** The address we had on file for that row — for mismatch logging only. */
+  recipientEmail: string | null;
+  /** Did this call create the suppression (false when it already existed)? */
+  suppressionCreated: boolean;
+  subscribersUpdated: number;
+  recipientsUpdated: number;
+};
+
+/**
+ * Apply a hard bounce or a complaint reported by the provider, resolving the
+ * workspace from the message id.
+ *
+ * ── HOW A GLOBAL WEBHOOK FINDS A TENANT ──
+ *
+ * The SES/SNS endpoint is one URL for the whole product; `suppressions` is
+ * workspace-scoped. `campaign_recipients.provider_message_id` is the bridge —
+ * it is written with the provider's MessageId right after each send
+ * (lib/campaign-send.ts) and has an index for exactly this lookup — and the
+ * workspace is then read off the owning campaign, INSIDE the same statement
+ * that writes. The workspace is never taken from the request. There is no
+ * fallback: a message id we do not recognise returns `matched: false` and
+ * writes nothing, because the only alternatives are guessing a tenant or
+ * suppressing globally, and suppressing globally would let one tenant's bounce
+ * silence an address for every other tenant.
+ *
+ * ── ONE STATEMENT ──
+ *
+ * neon-http has no interactive transactions (`db.transaction` throws), so this
+ * is one statement with data-modifying CTEs — the `confirmSubscription` /
+ * `unsubscribeByToken` shape. All four CTEs run in one snapshot and one
+ * implicit transaction: either the block, the recipient row and the subscriber
+ * row all move, or none of them do.
+ *
+ * ── IDEMPOTENT, BECAUSE SNS DELIVERS AT LEAST ONCE ──
+ *
+ * SNS retries aggressively and re-delivers messages it already delivered. Every
+ * write here is therefore conditional: the insert is `ON CONFLICT DO NOTHING`,
+ * the recipient update is filtered to rows not already at the target status,
+ * and the subscriber update only ever moves a row out of 'subscribed'. A second
+ * delivery of the same notification reports `matched: true` and zero writes.
+ * The counters are for logging; the route MUST NOT vary its HTTP status on them.
+ *
+ * ── WHICH ADDRESS GETS BLOCKED ──
+ *
+ * The one the PROVIDER named, not the one on the recipient row. They are
+ * normally the same, but when they differ the provider is reporting the mailbox
+ * that actually rejected the mail, and that is the mailbox that must stop being
+ * mailed. The recipient row's address is returned so a mismatch can be logged.
+ *
+ * ── WHAT MUST NOT REACH THIS FUNCTION ──
+ *
+ * Transient bounces. A full mailbox is temporary and a permanent block on it
+ * deletes a legitimate subscriber; the Permanent/Transient split is decided in
+ * `classifySesNotification` (lib/ses-events.ts) and asserted in
+ * tests/ses-webhook.test.ts.
+ */
+export async function applyProviderFeedback(input: {
+  providerMessageId: string;
+  email: string;
+  reason: SuppressionReason;
+  recipientStatus: "bounced" | "complained";
+  note?: string | null;
+}): Promise<ProviderFeedbackOutcome> {
+  const email = normaliseEmail(input.email);
+  const messageId = input.providerMessageId.trim();
+  if (!email || !messageId) {
+    return {
+      matched: false,
+      recipientEmail: null,
+      suppressionCreated: false,
+      subscribersUpdated: 0,
+      recipientsUpdated: 0,
+    };
+  }
+
+  const status = statusForSuppressionReason(input.reason);
+  const diagnostic = note(input.note);
+
+  const res = await db.execute(sql`
+    WITH target AS (
+      SELECT
+        c.workspace_id         AS workspace_id,
+        cr.id                  AS recipient_id,
+        lower(btrim(cr.email)) AS recipient_email
+      FROM campaign_recipients cr
+      -- campaign_recipients carries no workspace_id; tenancy is inherited from
+      -- the campaign, so it is derived here rather than trusted.
+      JOIN campaigns c ON c.id = cr.campaign_id
+      WHERE cr.provider_message_id = ${messageId}
+      -- One recipient per SES call by construction (buildSesSendRequest sends
+      -- to exactly one address), so at most one row is expected. LIMIT 1 keeps
+      -- the statement deterministic if that ever stops being true, rather than
+      -- fanning a single bounce out across several campaigns.
+      LIMIT 1
+    ),
+    blocked AS (
+      INSERT INTO suppressions (workspace_id, email, reason, note)
+      SELECT t.workspace_id, ${email}::text, ${input.reason}::text, ${diagnostic}::text
+      FROM target t
+      -- Already blocked: keep the ORIGINAL row. The reason is deliverability
+      -- evidence and the block is already in force, so re-writing it buys
+      -- nothing and loses the first signal's provenance.
+      ON CONFLICT (workspace_id, email) DO NOTHING
+      RETURNING id
+    ),
+    recipient AS (
+      UPDATE campaign_recipients cr
+      SET status = ${input.recipientStatus}::text,
+          error  = COALESCE(${diagnostic}::text, cr.error)
+      FROM target t
+      WHERE cr.id = t.recipient_id
+        -- Idempotency latch: a redelivered notification finds the row already
+        -- at this status and updates nothing.
+        AND cr.status <> ${input.recipientStatus}::text
+      RETURNING cr.id
+    ),
+    marked AS (
+      UPDATE subscribers s
+      SET status = ${status}::text
+      FROM target t
+      -- Both halves scoped to the workspace the campaign belongs to.
+      WHERE s.workspace_id = t.workspace_id
+        -- Matched on the ADDRESS: subscriber_id goes null when a subscriber is
+        -- deleted, and (workspace_id, email) is case-sensitive, so one mailbox
+        -- can be two rows. Both must stop.
+        AND lower(btrim(s.email)) = ${email}
+        -- Only ever 'subscribed' → blocked. A row already at 'unsubscribed',
+        -- 'bounced' or 'complained' keeps its status: each records something
+        -- different the client needs to see, and all are already blocked.
+        AND s.status = 'subscribed'
+      RETURNING s.id
+    )
+    SELECT
+      (SELECT count(*) FROM target)::int        AS matched,
+      (SELECT recipient_email FROM target)      AS recipient_email,
+      (SELECT count(*) FROM blocked)::int       AS created,
+      (SELECT count(*) FROM recipient)::int     AS recipients,
+      (SELECT count(*) FROM marked)::int        AS marked
+  `);
+
+  const row = res.rows[0] as
+    | {
+        matched: number;
+        recipient_email: string | null;
+        created: number;
+        recipients: number;
+        marked: number;
+      }
+    | undefined;
+
+  return {
+    matched: (row?.matched ?? 0) > 0,
+    recipientEmail: row?.recipient_email ?? null,
+    suppressionCreated: (row?.created ?? 0) > 0,
+    subscribersUpdated: row?.marked ?? 0,
+    recipientsUpdated: row?.recipients ?? 0,
+  };
+}
+
+/**
+ * Record a provider diagnostic against a send WITHOUT blocking anything.
+ *
+ * This is where a Transient bounce ends up. The campaign report should still
+ * be able to show that a delivery had trouble — that is what
+ * `campaign_recipients.error` is for — but the row's `status` is left alone
+ * and no suppression is written, because a temporary failure is not evidence
+ * the address is bad. Writing the same text twice is a no-op, so redelivery is
+ * harmless.
+ */
+export async function noteProviderFeedback(input: {
+  providerMessageId: string;
+  note: string;
+}): Promise<{ matched: boolean }> {
+  const messageId = input.providerMessageId.trim();
+  const diagnostic = note(input.note);
+  if (!messageId || !diagnostic) return { matched: false };
+
+  const res = await db.execute(sql`
+    UPDATE campaign_recipients
+    SET error = ${diagnostic}::text
+    WHERE provider_message_id = ${messageId}
+    RETURNING id
+  `);
+  return { matched: res.rows.length > 0 };
+}
+
 /**
  * Is this address blocked in this workspace?
  *

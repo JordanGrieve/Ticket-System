@@ -35,11 +35,18 @@ import {
  *
  * ── AUTHENTICATION ──
  *
- * Vercel Cron sends `Authorization: Bearer $CRON_SECRET`. `authorizeCronRequest`
- * verifies it and FAILS CLOSED when `CRON_SECRET` is unset — see the long
- * comment there. proxy.ts lists `/api/(.*)` as public, so Clerk does not guard
- * this path and nothing else would: without that check this URL is a public
- * "send everyone's marketing email now" button.
+ * The caller sends `Authorization: Bearer $CRON_SECRET`. `authorizeCronRequest`
+ * verifies it with a timing-safe digest comparison and FAILS CLOSED when
+ * `CRON_SECRET` is unset — see the long comment there. proxy.ts lists
+ * `/api/(.*)` as public, so Clerk does not guard this path and nothing else
+ * would: without that check this URL is a public "send everyone's marketing
+ * email now" button.
+ *
+ * The caller is .github/workflows/campaign-sweep.yml, NOT Vercel Cron: the
+ * Hobby plan rejects sub-daily cron expressions, and once a day makes this
+ * sweep useless. The check is on the bearer token alone and deliberately not
+ * on any Vercel-specific header, so the driver can be swapped again without
+ * touching auth.
  *
  * ── WHY THIS STILL CANNOT MAIL A REAL PERSON ──
  *
