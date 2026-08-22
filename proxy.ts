@@ -23,6 +23,14 @@ const isPublicRoute = createRouteMatcher([
   // breach, not a broken page. The token in the path is the whole of the
   // authorisation; see app/u/[token]/route.ts.
   "/u/(.*)",
+  // Public newsletter signup: the hosted form, and the pages the double
+  // opt-in link lands on. Exactly the same requirement as /u/ above, and it
+  // was missed in the same way — the endpoints under /api/ were reachable
+  // (they match "/api/(.*)"), so every unit test passed and the feature was
+  // still completely unreachable in production. A stranger clicking a
+  // confirmation link in their email has no Clerk session and never will;
+  // without this line they get a 404 and their consent is never recorded.
+  "/s/(.*)",
   // Sentry's tunnelRoute — browser error/trace events POST here and are
   // forwarded to Sentry. Must not require a session.
   "/monitoring(.*)",
