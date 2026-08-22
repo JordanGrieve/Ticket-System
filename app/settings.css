@@ -1669,3 +1669,133 @@
     transition: none;
   }
 }
+
+/* ── Sender identity (CAN-SPAM legal name + postal address) ───────────────
+   Token-only, like the rest of this file. The warning uses --warn-bg/--warn-fg
+   rather than a red literal because both halves are redefined together in all
+   six themes; a hardcoded pair is how this screen shipped cream-on-dark twice.
+*/
+.stg-identity {
+  display: block;
+}
+
+.stg-identity-warn {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-fg);
+  border-radius: 10px;
+  color: var(--warn-fg);
+  font-size: 13.5px;
+  line-height: 1.6;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+}
+
+.stg-field {
+  display: block;
+  margin: 0 0 16px;
+  max-width: 460px;
+}
+
+.stg-field-label {
+  color: var(--text-2);
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.stg-input {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  display: block;
+  font: inherit;
+  font-size: 14.5px;
+  padding: 10px 12px;
+  width: 100%;
+  /* Border and padding otherwise push the field past its container on a
+     phone, which is where half of these get filled in. */
+  box-sizing: border-box;
+}
+
+.stg-input::placeholder {
+  color: var(--text-4);
+}
+
+.stg-input:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.stg-input:disabled {
+  opacity: 0.6;
+}
+
+.stg-textarea {
+  line-height: 1.55;
+  resize: vertical;
+  /* The address is authored as lines; a monospace-ish wrap would be wrong,
+     but the browser default of nowrap for textarea is worse. */
+  white-space: pre-wrap;
+}
+
+.stg-field-hint {
+  color: var(--muted-2);
+  display: block;
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin: 6px 0 0;
+}
+
+.stg-identity-actions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.stg-button {
+  background: var(--accent-grad);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--accent-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 18px;
+  transition: box-shadow 140ms ease;
+}
+
+.stg-button:hover:not(:disabled) {
+  box-shadow: 0 4px 14px var(--glow);
+}
+
+.stg-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.stg-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.stg-identity-ok {
+  color: var(--ok-fg);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.stg-identity-error {
+  color: var(--warn-fg);
+  font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stg-button {
+    transition: none;
+  }
+}

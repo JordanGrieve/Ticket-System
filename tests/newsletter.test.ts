@@ -5,6 +5,7 @@ import {
   fullNameFrom,
   isTemplateKey,
   listUnsubscribeHeaders,
+  mailableSender,
   normaliseEmail,
   parseCampaignInput,
   renderCampaign,
@@ -120,6 +121,18 @@ describe("merge-tag substitution", () => {
 
 // ── Rendering ────────────────────────────────────────────────────
 
+/**
+ * A workspace that is lawfully able to send. renderCampaign THROWS without a
+ * postal address, so every render below has to carry one — which is the point:
+ * the type system and the renderer between them make it impossible to build a
+ * commercial message that omits the CAN-SPAM identification block.
+ */
+const SENDER = {
+  workspaceName: "Bramble Bakery",
+  legalName: "Bramble Bakery Ltd",
+  postalAddress: ["12 High Street", "Harrogate", "HG1 1AA"].join("\n"),
+};
+
 const CAMPAIGN = {
   subject: "News from {company}",
   preheader: "This month at the bakery",
@@ -133,6 +146,7 @@ describe("campaign rendering", () => {
     recipient: { email: "alex@example.com", name: "Alex Fenton" },
     workspaceName: "Bramble Bakery",
     unsubscribeUrl: "https://postbox.help/u/tok123",
+    sender: SENDER,
   });
 
   it("merges the subject as well as the body", () => {
@@ -154,6 +168,7 @@ describe("campaign rendering", () => {
       recipient: { email: "a@b.co", name: null },
       workspaceName: "W",
       unsubscribeUrl: "https://postbox.help/u/zzz",
+      sender: SENDER,
     });
     expect(bare.text).toContain("https://postbox.help/u/zzz");
     expect(bare.html).toContain("https://postbox.help/u/zzz");
@@ -173,6 +188,7 @@ describe("campaign rendering", () => {
       },
       workspaceName: "<b>Bakery</b>",
       unsubscribeUrl: "https://postbox.help/u/x",
+      sender: SENDER,
     });
     expect(nasty.html).not.toContain("<script>");
     expect(nasty.html).toContain("&lt;script&gt;");
@@ -185,6 +201,7 @@ describe("campaign rendering", () => {
       recipient: { email: "alex@example.com", name: "Alex Fenton" },
       workspaceName: "Bramble Bakery",
       unsubscribeUrl: "https://postbox.help/u/tok123",
+      sender: SENDER,
     });
     expect(again).toEqual(rendered);
   });
@@ -289,5 +306,99 @@ describe("email normalisation", () => {
     expect(normaliseEmail("bob.smith@example.com")).toBe(
       "bob.smith@example.com",
     );
+  });
+});
+
+// ── CAN-SPAM identification block ────────────────────────────────
+
+/**
+ * The postal address is the one field in a marketing email that a statute
+ * names directly. The schema keeps it nullable rather than defaulting it,
+ * because a fake address is an affirmative falsehood where a missing one is
+ * merely an omission — so the whole design is "refuse to send", not "send
+ * something".
+ *
+ * These tests exist to stop that being softened later by someone who reads the
+ * throw as an inconvenience.
+ */
+describe("sender identity", () => {
+  const render = (sender: {
+    workspaceName: string;
+    legalName: string | null;
+    postalAddress: string | null;
+  }) =>
+    renderCampaign({
+      campaign: CAMPAIGN,
+      recipient: { email: "a@b.co", name: "Alex" },
+      workspaceName: sender.workspaceName,
+      unsubscribeUrl: "https://postbox.help/u/t",
+      sender,
+    });
+
+  it("puts the address in BOTH parts, beside the unsubscribe link", () => {
+    const out = render(SENDER);
+    expect(out.text).toContain("12 High Street");
+    expect(out.text).toContain("HG1 1AA");
+    expect(out.html).toContain("12 High Street");
+    expect(out.html).toContain("HG1 1AA");
+  });
+
+  it("normalises a multi-line address onto one line", () => {
+    // Clients paste addresses as they would write them on an envelope. Left
+    // alone, that reads as body copy at the foot of the email rather than as
+    // an address.
+    expect(render(SENDER).text).toContain(
+      "Bramble Bakery Ltd, 12 High Street, Harrogate, HG1 1AA",
+    );
+  });
+
+  it("falls back to the workspace name when no legal name is recorded", () => {
+    // A presentation fallback, not an invention: the workspace name is what
+    // the client typed for themselves and is already the From name.
+    const out = render({ ...SENDER, legalName: null });
+    expect(out.text).toContain("Bramble Bakery, 12 High Street");
+  });
+
+  it("REFUSES to render without a postal address", () => {
+    // Not a warning, not a placeholder, not an empty line. If this ever
+    // becomes a soft failure, every campaign from a workspace that skipped the
+    // settings screen goes out unlawfully and nothing says so.
+    expect(() => render({ ...SENDER, postalAddress: null })).toThrow(
+      /postal address/i,
+    );
+    expect(() => render({ ...SENDER, postalAddress: "   " })).toThrow(
+      /postal address/i,
+    );
+  });
+
+  it("escapes the address before it reaches HTML", () => {
+    const out = render({
+      ...SENDER,
+      legalName: "<script>alert(1)</script>",
+      postalAddress: "1 <b>Evil</b> Road",
+    });
+    expect(out.html).not.toContain("<script>");
+    expect(out.html).toContain("&lt;script&gt;");
+    expect(out.html).not.toContain("<b>Evil</b>");
+  });
+
+  describe("mailableSender — the gate", () => {
+    it("passes a workspace with an address", () => {
+      expect(mailableSender(SENDER)).not.toBeNull();
+    });
+
+    it.each([
+      ["null", null],
+      ["empty", ""],
+      ["whitespace", "   \n  "],
+    ])("blocks a %s address", (_label, postalAddress) => {
+      expect(mailableSender({ ...SENDER, postalAddress })).toBeNull();
+    });
+
+    it("does not care about the legal name", () => {
+      // Only the address is statutory. Requiring both would block a workspace
+      // that is perfectly able to send lawfully.
+      expect(mailableSender({ ...SENDER, legalName: null })).not.toBeNull();
+    });
   });
 });

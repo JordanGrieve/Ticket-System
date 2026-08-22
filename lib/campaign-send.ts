@@ -17,12 +17,14 @@ import { canDiscardRecipients, canSchedule } from "./campaign-schedule";
 import {
   isEditableStatus,
   listUnsubscribeHeaders,
+  mailableSender,
   renderCampaign,
   selectAudience,
   unsubscribeUrl,
   type AudienceCandidate,
   type AudienceSelection,
   type CampaignDraftInput,
+  type SenderIdentity,
 } from "./newsletter";
 
 /**
@@ -843,9 +845,39 @@ export async function sendCampaignBatch(input: {
   appUrl: string;
   /** Monitored mailto for List-Unsubscribe, or null to omit it. */
   unsubscribeMailto: string | null;
+  /**
+   * Legal name and postal address for the CAN-SPAM footer. Refused below when
+   * the address is absent.
+   */
+  sender: SenderIdentity;
 }): Promise<SendBatchResult> {
   const campaign = await getCampaign(input.workspaceId, input.campaignId);
   if (!campaign) throw new Error("Campaign not found in this workspace");
+
+  // BEFORE anything is claimed. A commercial message must carry a physical
+  // postal address, and the column is nullable because inventing one is worse
+  // than not sending — so an unset address stops the batch here rather than
+  // producing a footer that quietly omits it.
+  //
+  // The order matters more than it looks. Claim-before-send means a row that
+  // is claimed and then abandoned is an email nobody receives and nobody
+  // retries; throwing inside the loop would burn one recipient per call,
+  // forever, for a workspace whose only problem is an empty settings field.
+  // Refusing the whole batch costs nothing and loses no one.
+  const sender = mailableSender({
+    ...input.sender,
+    workspaceName: input.workspaceName,
+  });
+  if (!sender) {
+    console.warn(
+      "[campaign] refusing to send: workspace %d has no postal address",
+      input.workspaceId,
+    );
+    // `more: true` — the rows are untouched and still queued. Reporting false
+    // would tell the sweep this campaign is finished and let it be marked
+    // sent, which is the one outcome worse than not sending.
+    return { claimed: 0, delivered: 0, failed: 0, suppressed: 0, more: true };
+  }
 
   // Before anything is claimed: retire rows whose address was suppressed after
   // materialisation. Runs first so the batch below cannot even read them.
@@ -923,6 +955,7 @@ export async function sendCampaignBatch(input: {
       },
       workspaceName: input.workspaceName,
       unsubscribeUrl: url,
+      sender,
     });
 
     try {
@@ -978,6 +1011,9 @@ export type DueCampaign = {
   id: number;
   workspaceId: number;
   workspaceName: string;
+  /** CAN-SPAM identity, carried from the owning workspace. Both nullable. */
+  legalName: string | null;
+  postalAddress: string | null;
 };
 
 /**
@@ -1043,6 +1079,11 @@ export async function claimDueCampaigns(limit: number): Promise<DueCampaign[]> {
       id: campaigns.id,
       workspaceId: campaigns.workspaceId,
       workspaceName: workspaces.name,
+      // Read here rather than in the sweep so the identity travels with the
+      // campaign it belongs to. Both nullable; sendCampaignBatch refuses the
+      // batch when the address is absent.
+      legalName: workspaces.legalName,
+      postalAddress: workspaces.postalAddress,
     })
     .from(campaigns)
     .innerJoin(workspaces, eq(workspaces.id, campaigns.workspaceId))

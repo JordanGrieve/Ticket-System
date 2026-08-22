@@ -5,6 +5,7 @@ import { listAgentEmails } from "@/lib/data";
 import { getAutoReplyConfig } from "@/lib/auto-reply-send";
 import { EMAIL_FROM_ADDRESS } from "@/lib/config";
 import ThemePicker from "./ThemePicker";
+import SenderIdentityForm from "./SenderIdentityForm";
 
 export const metadata = { title: "General · Settings · Postbox" };
 
@@ -47,6 +48,16 @@ export default async function GeneralSettingsPage() {
       <section className="stg-section">
         <h2 className="stg-section-title">Appearance</h2>
         <ThemePicker value={workspace.accent} />
+      </section>
+
+      {/* ── Sender identity ────────────────────────────────────── */}
+      <section className="stg-section">
+        <h2 className="stg-section-title">Sender identity</h2>
+        <SenderIdentityForm
+          legalName={workspace.legalName}
+          postalAddress={workspace.postalAddress}
+          workspaceName={workspace.name}
+        />
       </section>
 
       {/* ── Inbox ──────────────────────────────────────────────── */}

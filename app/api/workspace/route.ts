@@ -13,17 +13,42 @@ export async function PATCH(req: Request) {
   const { userId } = await auth();
   if (!userId) return json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { name?: string; accent?: string };
+  let body: {
+    name?: string;
+    accent?: string;
+    legalName?: string;
+    postalAddress?: string;
+  };
   try {
     body = await req.json();
   } catch {
     body = {};
   }
 
-  const patch: { name?: string; accent?: string } = {};
+  const patch: {
+    name?: string;
+    accent?: string;
+    legalName?: string | null;
+    postalAddress?: string | null;
+  } = {};
 
   if (typeof body.name === "string" && body.name.trim()) {
     patch.name = body.name.trim().slice(0, 80);
+  }
+
+  // The CAN-SPAM identity. Both accept "" as an explicit CLEAR, which is why
+  // they are not guarded by a truthiness check the way `name` is above: a
+  // client who realises they typed the wrong address must be able to remove it,
+  // and an address that cannot be removed is one that keeps going out.
+  // Clearing the postal address stops that workspace sending — which is the
+  // correct consequence, not a side effect to design around.
+  if (typeof body.legalName === "string") {
+    const trimmed = body.legalName.trim().slice(0, 200);
+    patch.legalName = trimmed || null;
+  }
+  if (typeof body.postalAddress === "string") {
+    const trimmed = body.postalAddress.trim().slice(0, 500);
+    patch.postalAddress = trimmed || null;
   }
   if (typeof body.accent === "string") {
     // The column is still named `accent`; since the pivot it stores a theme key.

@@ -74,6 +74,8 @@ export default async function NewslettersPage() {
         initialCampaigns={rows}
         lists={lists}
         workspaceName={workspace.name}
+        legalName={workspace.legalName}
+        postalAddress={workspace.postalAddress}
         appUrl={APP_URL}
         viewerEmail={viewer.email}
         recipientsPerSweep={RECIPIENTS_PER_SWEEP}

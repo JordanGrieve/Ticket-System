@@ -131,6 +131,11 @@ export async function GET(req: Request) {
         // module must stay safe to reach from a client component.
         appUrl: APP_URL,
         unsubscribeMailto: envelope.envelope.unsubscribeMailto,
+        sender: {
+          workspaceName: campaign.workspaceName,
+          legalName: campaign.legalName,
+          postalAddress: campaign.postalAddress,
+        },
       });
       const settled = await settleCampaign(campaign.workspaceId, campaign.id);
       outcomes.push({

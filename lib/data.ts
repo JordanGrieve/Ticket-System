@@ -29,7 +29,12 @@ export async function getWorkspaceByApiKey(apiKey: string) {
 
 export async function updateWorkspace(
   workspaceId: number,
-  patch: Partial<Pick<typeof workspaces.$inferInsert, "name" | "sendingEmail" | "accent">>,
+  patch: Partial<
+    Pick<
+      typeof workspaces.$inferInsert,
+      "name" | "sendingEmail" | "accent" | "legalName" | "postalAddress"
+    >
+  >,
 ) {
   const [updated] = await db
     .update(workspaces)

@@ -643,6 +643,37 @@ export type RenderedEmail = {
 };
 
 /**
+ * Who the law says this message is from.
+ *
+ * `workspaceName` is always known. The other two come from the `workspaces`
+ * row and are nullable on purpose (db/schema.ts): a fake postal address in a
+ * real marketing email is worse than not sending at all, because it is an
+ * affirmative falsehood in the one field the statute is about. So the schema
+ * refuses to guess, and the send refuses to proceed.
+ */
+export type SenderIdentity = {
+  workspaceName: string;
+  /** Registered or trading name. Falls back to workspaceName for display. */
+  legalName: string | null;
+  /** Physical postal address. Null means this workspace cannot send. */
+  postalAddress: string | null;
+};
+
+/**
+ * The gate. Returns the identity when it is lawful to send, or null.
+ *
+ * Callers must check this BEFORE claiming recipient rows — claim-before-send
+ * means a row claimed and then abandoned is an email nobody receives and
+ * nobody retries. Refusing the whole batch up front costs nothing and loses
+ * no one.
+ */
+export function mailableSender(
+  sender: SenderIdentity,
+): SenderIdentity | null {
+  return (sender.postalAddress ?? "").trim() ? sender : null;
+}
+
+/**
  * Footer appended to EVERY campaign, in both parts, regardless of what the
  * author wrote.
  *
@@ -657,13 +688,50 @@ export type RenderedEmail = {
  * That is the correct trade: a duplicated link is untidy, a missing one is
  * unlawful.
  */
-function unsubscribeFooterText(url: string): string {
-  return `\n\n—\nDon't want these emails? Unsubscribe: ${url}`;
+function unsubscribeFooterText(url: string, sender: SenderIdentity): string {
+  return `\n\n—\nDon't want these emails? Unsubscribe: ${url}\n\n${senderBlockText(
+    sender,
+  )}`;
 }
 
-function unsubscribeFooterHtml(url: string): string {
+function unsubscribeFooterHtml(url: string, sender: SenderIdentity): string {
   const safe = escapeHtml(url);
-  return `<p style="margin:28px 0 0;font:400 12px/1.6 Arial,sans-serif;color:#a49a89;">Don&rsquo;t want these emails? <a href="${safe}" style="color:#a49a89;">Unsubscribe</a>.</p>`;
+  const identity = escapeHtml(senderBlockText(sender)).replace(/\n/g, "<br />");
+  return `<p style="margin:28px 0 0;font:400 12px/1.6 Arial,sans-serif;color:#a49a89;">Don&rsquo;t want these emails? <a href="${safe}" style="color:#a49a89;">Unsubscribe</a>.</p>
+<p style="margin:10px 0 0;font:400 12px/1.6 Arial,sans-serif;color:#a49a89;">${identity}</p>`;
+}
+
+/**
+ * Who sent this, and from where — the CAN-SPAM identification block.
+ *
+ * The statute wants a valid PHYSICAL postal address in every commercial
+ * message. `mailableSender()` is what guarantees there is one; this function
+ * only formats it, and throws rather than emitting a footer without one,
+ * because a footer that silently omits the address is the exact failure the
+ * gate exists to prevent.
+ *
+ * The name falls back to the workspace name when no legal name is recorded.
+ * That is a presentation fallback, not an invention: the workspace name is
+ * what the client typed for themselves, and it is already the From name on
+ * this message.
+ */
+function senderBlockText(sender: SenderIdentity): string {
+  const address = (sender.postalAddress ?? "").trim();
+  if (!address) {
+    throw new Error(
+      "renderCampaign: no postal address. A commercial message may not be " +
+        "built without one — gate the send with mailableSender() first.",
+    );
+  }
+  const name = (sender.legalName ?? "").trim() || sender.workspaceName.trim();
+  // Single-line: a multi-line address pasted by the client is normalised to
+  // comma separation so it reads as an address rather than as body copy.
+  const oneLine = address
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(", ");
+  return name ? `${name}, ${oneLine}` : oneLine;
 }
 
 /**
@@ -705,6 +773,11 @@ export function renderCampaign(input: {
   recipient: { email: string; name: string | null };
   workspaceName: string;
   unsubscribeUrl: string;
+  /**
+   * Required. Throws when it carries no postal address — see senderBlockText.
+   * Callers gate with mailableSender() before claiming any recipient row.
+   */
+  sender: SenderIdentity;
 }): RenderedEmail {
   const values = buildCampaignMergeValues({
     name: input.recipient.name,
@@ -719,13 +792,19 @@ export function renderCampaign(input: {
     ? renderTemplate(input.campaign.preheader, values)
     : "";
 
-  const text = bodyText + unsubscribeFooterText(input.unsubscribeUrl);
+  const sender: SenderIdentity = {
+    ...input.sender,
+    workspaceName: input.workspaceName,
+  };
+
+  const text = bodyText + unsubscribeFooterText(input.unsubscribeUrl, sender);
 
   const hiddenPreheader = preheader
     ? `<div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(preheader)}</div>\n`
     : "";
   const inner =
-    textToHtmlParagraphs(bodyText) + unsubscribeFooterHtml(input.unsubscribeUrl);
+    textToHtmlParagraphs(bodyText) +
+    unsubscribeFooterHtml(input.unsubscribeUrl, sender);
 
   const html =
     input.campaign.templateKey === "branded"

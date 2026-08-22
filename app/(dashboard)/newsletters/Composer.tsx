@@ -232,6 +232,18 @@ const SAMPLE_RECIPIENT = { email: "sample@example.com", name: "Sample Person" };
 /** Shaped like a real token so the footer link looks like what is sent. */
 const SAMPLE_TOKEN = "sample-unsubscribe-token";
 
+/**
+ * Stands in for a missing postal address IN THE PREVIEW ONLY.
+ *
+ * It can never reach a recipient: sendCampaignBatch refuses the whole batch
+ * before claiming a row when the address is unset, so a workspace in this
+ * state sends nothing at all. This exists so the composer still renders, and
+ * so the gap is visible in the place it will appear rather than only in a
+ * settings screen the client is not currently looking at.
+ */
+const PREVIEW_ADDRESS_PLACEHOLDER =
+  "[Add your postal address in Settings — required before you can send]";
+
 /** Where clients start truncating the subject in the inbox list. */
 const SUBJECT_DISPLAY_LIMIT = 70;
 
@@ -243,6 +255,8 @@ export default function Composer({
   initialCampaigns,
   lists,
   workspaceName,
+  legalName,
+  postalAddress,
   appUrl,
   viewerEmail,
   recipientsPerSweep,
@@ -250,6 +264,13 @@ export default function Composer({
   initialCampaigns: CampaignRowDTO[];
   lists: ListOption[];
   workspaceName: string;
+  /**
+   * The CAN-SPAM identity, straight off the workspace row. Both nullable, and
+   * a null postalAddress is the reason a send is refused — so the preview has
+   * to show that state rather than hide it. See PREVIEW_ADDRESS_PLACEHOLDER.
+   */
+  legalName: string | null;
+  postalAddress: string | null;
   /** From lib/config, on the server. NEVER imported here — see page.tsx. */
   appUrl: string;
   viewerEmail: string;
@@ -714,6 +735,19 @@ export default function Composer({
         recipient: SAMPLE_RECIPIENT,
         workspaceName,
         unsubscribeUrl: unsubscribeUrl(appUrl, SAMPLE_TOKEN),
+        sender: {
+          workspaceName,
+          legalName,
+          // renderCampaign THROWS on an absent address — deliberately, so no
+          // commercial message can be built without one. The preview is the
+          // one place that must still render, so it substitutes a placeholder
+          // that names the gap. It reads as an instruction rather than as an
+          // address, which is the point: the client sees exactly where their
+          // address will sit and that it is not there yet.
+          postalAddress: postalAddress?.trim()
+            ? postalAddress
+            : PREVIEW_ADDRESS_PLACEHOLDER,
+        },
       }),
     [
       draft.subject,
@@ -721,6 +755,8 @@ export default function Composer({
       draft.templateKey,
       draft.body,
       workspaceName,
+      legalName,
+      postalAddress,
       appUrl,
     ],
   );

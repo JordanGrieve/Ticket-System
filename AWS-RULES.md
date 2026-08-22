@@ -43,6 +43,7 @@ This user has signed up for the new AWS experience. This experience lets you sig
 
 ### Help level
 
+- help_level: **MEDIUM** — set by Jordan on 2026-08-22. Do not ask again.
 - help_level (required): LOW, MEDIUM, or HIGH. While a user is building, you MUST ask the user: "How much guidance would you like from me? Low (I only flag security risks), medium (I ask a couple of clarifying questions if something seems off), or high (I explain what I'm doing, suggest alternatives, and flag best practices)."
 
 You CAN update this rule file to save a user's help_level.
