@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { checkDatabaseSafety, type GuardEnv } from "../db/guard";
+import {
+  checkDatabaseSafety,
+  commandTouchesDatabase,
+  assertDatabaseIsSafeForCommand,
+  type GuardEnv,
+} from "../db/guard";
 
 /**
  * A guard nobody can test is a guard nobody can trust — and this one's whole
@@ -120,5 +125,52 @@ describe("the refusal message", () => {
     const r = checkDatabaseSafety({ databaseUrl: "not a url at all" });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.message).toContain("unparseable");
+  });
+});
+
+describe("which drizzle-kit commands are guarded", () => {
+  // A false positive here is worse than no guard: it teaches you to type
+  // ALLOW_PRODUCTION_DB=1 for harmless commands until it stops meaning
+  // anything, and then you type it for db:push.
+  it.each(["generate", "check", "up"])(
+    "does NOT guard %s — it never opens a connection",
+    (cmd) => {
+      expect(commandTouchesDatabase(["node", "drizzle-kit", cmd])).toBe(false);
+    },
+  );
+
+  it.each(["migrate", "push", "studio", "pull", "introspect"])(
+    "guards %s",
+    (cmd) => {
+      expect(commandTouchesDatabase(["node", "drizzle-kit", cmd])).toBe(true);
+    },
+  );
+
+  it("guards an unrecognised subcommand", () => {
+    // Default GUARDED, so a subcommand added by a future drizzle-kit version
+    // is protected until somebody deliberately decides otherwise.
+    expect(commandTouchesDatabase(["node", "drizzle-kit", "teleport"])).toBe(true);
+  });
+
+  it("guards a bare invocation with no subcommand", () => {
+    expect(commandTouchesDatabase(["node", "drizzle-kit"])).toBe(true);
+  });
+
+  it("skips the guard for the offline command via the wrapper", () => {
+    // The whole point, end to end: production URL, nothing declared, and it
+    // still does not throw for `generate`.
+    expect(() =>
+      assertDatabaseIsSafeForCommand(
+        { databaseUrl: "postgresql://u:p@prod.neon.tech/db" },
+        ["node", "drizzle-kit", "generate"],
+      ),
+    ).not.toThrow();
+
+    expect(() =>
+      assertDatabaseIsSafeForCommand(
+        { databaseUrl: "postgresql://u:p@prod.neon.tech/db" },
+        ["node", "drizzle-kit", "push"],
+      ),
+    ).toThrow(/Refusing to connect/);
   });
 });

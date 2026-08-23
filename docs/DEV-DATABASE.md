@@ -15,14 +15,23 @@ declared. This page is how you declare one.
 
 ## Set it up once (about two minutes)
 
-Neon branches are copy-on-write clones of your main database: instant, no data
-copy, included on the free plan. You get the real schema and the real shape of
-the data without touching the real rows.
+Neon branches are copy-on-write clones: instant, and included on the free plan.
+A schema-only branch gives you the real schema with none of the real rows.
 
 1. **Neon console → your project → Branches → New branch.**
-   - Branch from: `main` (or `production`, whatever yours is called)
    - Name: `dev`
-   - Include data: yes — this is what makes it useful
+   - Parent branch: `production`
+   - **Auto-delete: Never.** It defaults to *After 1 day*, which would silently
+     destroy your dev branch tomorrow and start failing local dev for no
+     visible reason.
+   - **Branch schema only** — NOT “Branch data and schema”.
+
+   Schema-only is the important one, and it is the opposite of what the first
+   version of this page recommended. A branch *with data* is a copy of real
+   customer names, addresses and support conversations sitting on a laptop.
+   Schema-only gives you the real schema and no personal data at all, and
+   `db:seed-dev` fills it with believable fakes — so you lose nothing except
+   the risk.
 2. Open the new branch → **Connection string** → copy it.
 3. In `.env.local`, replace the connection string and add the declaration:
 
@@ -37,6 +46,10 @@ the data without touching the real rows.
    npm run db:migrate
    npm run db:seed-dev
    ```
+
+   `db:migrate` should be a no-op — a schema-only branch copies the schema as
+   it stands. Run it anyway: it proves the branch and your migration history
+   agree, which is worth finding out now rather than mid-task.
 
 That's it. `npm run dev` and every script now work exactly as before, against a
 database you are free to break.
@@ -67,6 +80,7 @@ into a default and puts you back exactly where this started.
 | `next dev`, any app query | ✅ | `db/index.ts` — the single chokepoint every query passes through |
 | `npm run db:seed`, `db:seed-dev`, `db:bootstrap` | ✅ | They import `db/index.ts` |
 | `npm run db:migrate`, `db:push`, `db:studio` | ✅ | `drizzle.config.ts` repeats the check — drizzle-kit doesn't import `db/index.ts` and connects on its own |
+| `npm run db:generate` | — not guarded | It diffs schema files and writes SQL without ever opening a connection. Guarding it would be a false positive, and a false positive teaches you to type the production override for harmless commands until it stops meaning anything |
 | Production on Vercel | ✅ allowed | `VERCEL=1` or `VERCEL_ENV` is set; production is the correct database there |
 | `psql`, the Neon SQL editor, a GUI client | ❌ | Nothing in this repo can guard a tool that doesn't run this code |
 
@@ -91,11 +105,9 @@ costs one line, once.
 
 ## Two things this does not solve
 
-**The seed data is a copy of real customer records.** A Neon branch with data
-included means real names and messages on your laptop. That is far better than
-*writing* to production, but it is still personal data at rest on a developer
-machine — worth deleting the branch when you're done with it, and worth
-thinking about before adding a second developer.
+**Nothing guards a tool that doesn't run this code.** `psql`, the Neon SQL
+editor and any GUI client connect with whatever string you paste into them. The
+guard protects the repo, not your hands.
 
 **There is still no staging.** A dev branch protects the database; it does not
 give you a place to test a deploy before production sees it. That is a separate

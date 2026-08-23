@@ -116,3 +116,31 @@ export function assertDatabaseIsSafe(env: GuardEnv): void {
   const result = checkDatabaseSafety(env);
   if (!result.ok) throw new Error(result.message);
 }
+
+/**
+ * drizzle-kit subcommands that never open a connection.
+ *
+ * `generate` diffs schema.ts against the existing migration files and writes
+ * SQL; `check` and `up` only read and rewrite migration metadata. None of them
+ * touch a database, so guarding them is a false positive — and a false
+ * positive here is worse than none at all, because it teaches you to type
+ * ALLOW_PRODUCTION_DB=1 for harmless commands until it stops meaning anything.
+ *
+ * Everything not listed connects: migrate, push, studio, pull/introspect. The
+ * default is therefore GUARDED, so a subcommand added by a future drizzle-kit
+ * version is protected until somebody deliberately decides otherwise.
+ */
+const OFFLINE_DRIZZLE_COMMANDS = ["generate", "check", "up"];
+
+export function commandTouchesDatabase(argv: readonly string[]): boolean {
+  return !argv.some((arg) => OFFLINE_DRIZZLE_COMMANDS.includes(arg));
+}
+
+/** Guard, unless this invocation is a drizzle-kit command that stays offline. */
+export function assertDatabaseIsSafeForCommand(
+  env: GuardEnv,
+  argv: readonly string[],
+): void {
+  if (!commandTouchesDatabase(argv)) return;
+  assertDatabaseIsSafe(env);
+}
