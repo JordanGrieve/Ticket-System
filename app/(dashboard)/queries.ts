@@ -6,6 +6,7 @@ import { db } from "@/db";
 import {
   tickets,
   contacts,
+  contactNotes,
   type TicketSource,
   type TicketStatus,
 } from "@/db/schema";
@@ -513,4 +514,54 @@ export async function getContactFacts(
       ),
     );
   return { firstSeenIso: null, ticketCount: fallback?.n ?? 0 };
+}
+
+export type ContactNoteDTO = {
+  id: number;
+  body: string;
+  authorLabel: string;
+  createdAtIso: string;
+};
+
+/**
+ * Internal notes about a contact, newest first.
+ *
+ * Keyed by email, not contact id: a ticket can exist with no `contacts` row at
+ * all, and those are the oldest customers — the ones there is most to say
+ * about. See the note on the table in db/schema.ts.
+ *
+ * The workspace is a parameter and the caller must resolve it from the
+ * session. This file is not a "use server" module, so this is not reachable as
+ * a POST endpoint; it is imported by Server Components only.
+ */
+export async function listContactNotes(
+  workspaceId: number,
+  email: string,
+): Promise<ContactNoteDTO[]> {
+  const address = email.trim().toLowerCase();
+  const rows = await db
+    .select({
+      id: contactNotes.id,
+      body: contactNotes.body,
+      authorLabel: contactNotes.authorLabel,
+      createdAt: contactNotes.createdAt,
+    })
+    .from(contactNotes)
+    .where(
+      and(
+        eq(contactNotes.workspaceId, workspaceId),
+        eq(contactNotes.contactEmail, address),
+      ),
+    )
+    .orderBy(desc(contactNotes.createdAt))
+    // A contact with two hundred notes is a different feature (paging), and
+    // this rail is 290px wide. Cap it rather than render a wall.
+    .limit(50);
+
+  return rows.map((r) => ({
+    id: r.id,
+    body: r.body,
+    authorLabel: r.authorLabel,
+    createdAtIso: new Date(r.createdAt).toISOString(),
+  }));
 }

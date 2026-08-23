@@ -369,6 +369,7 @@ const TENANT_TABLES = [
   "tickets",
   "ticket_messages",
   "contacts",
+  "contact_notes",
   "agents",
   "labels",
   "ticket_labels",
@@ -377,6 +378,11 @@ const TENANT_TABLES = [
   "attachments",
   "forms",
   "auto_replies",
+  // Added 23 Aug 2026 by the classification test below, which found it
+  // unlisted. It carries its own workspace_id and has done since the
+  // out-of-hours deferral work landed that morning — so every statement
+  // touching it had gone unpoliced by this sweep for the whole day.
+  "auto_reply_queue",
   "subscribers",
   "lists",
   "list_subscribers",
@@ -475,6 +481,19 @@ const EXEMPT: Exemption[] = [
       "Platform-wide by design â€” spotting one tenant's stalled send is the " +
       "whole job â€” and it returns a queued COUNT per campaign, no addresses " +
       "and no content.",
+  },
+  {
+    file: "lib/auto-reply-send.ts",
+    match: /UPDATE auto_reply_queue SET\s+status = 'sending'/,
+    why:
+      "claimDueAutoReplies: the deferred auto-reply sweep, and platform-wide " +
+      "for the same reason as the campaign scheduler above â€” it drains held " +
+      "acknowledgements for every workspace and there is no caller-supplied " +
+      "workspace to filter by. It reads no addresses and no content: it " +
+      "latches a status column and RETURNS workspace_id, so the tenancy " +
+      "travels with each claimed row rather than being assumed by whatever " +
+      "sends it. Every guard is then re-derived from that workspace at send " +
+      "time, which is what stops a held reply becoming a mail loop.",
   },
   {
     file: "lib/suppressions.ts",
@@ -829,5 +848,50 @@ describe("search stays inside one workspace on all four legs", () => {
       expect(src).toMatch(new RegExp(`sql\\.raw\\('"${name}"\\.`));
     }
     expect(src).not.toMatch(/ILIKE[\s\S]{0,40}\$\{(tickets|contacts|labels)\./);
+  });
+});
+
+describe("the table lists cannot go stale", () => {
+  /*
+   * TENANT_TABLES and NON_TENANT_TABLES are hand-written, and the whole sweep
+   * below only inspects statements that touch a table named in the first list.
+   * So a table missing from BOTH lists is not a gap the sweep reports — it is a
+   * table the sweep cannot see, and every unscoped statement against it passes
+   * silently.
+   *
+   * That is not hypothetical. `contact_notes` was added earlier today and
+   * appeared in neither list; the suite stayed green while a new tenant table
+   * went entirely unchecked. It is the same shape as the bug this file was
+   * written for, where the guard was green because it could not see.
+   *
+   * This test makes adding a table to db/schema.ts a decision somebody has to
+   * record, rather than something that quietly widens the blind spot.
+   */
+  it("every table in db/schema.ts is classified as tenant or non-tenant", () => {
+    const schema = read("db/schema.ts");
+
+    // pgTable("name", ...) — the first string argument is the SQL table name.
+    const declared = [...schema.matchAll(/pgTable\(\s*["'`]([a-z_]+)["'`]/g)].map(
+      (m) => m[1],
+    );
+
+    expect(declared.length).toBeGreaterThan(10);
+
+    const classified = new Set([...TENANT_TABLES, ...NON_TENANT_TABLES]);
+    const unclassified = declared.filter((t) => !classified.has(t));
+
+    expect(
+      unclassified,
+      `Table(s) in db/schema.ts missing from both TENANT_TABLES and ` +
+        `NON_TENANT_TABLES: ${unclassified.join(", ")}. Add each one to ` +
+        `TENANT_TABLES if rows belong to a workspace (the sweep will then ` +
+        `require every statement touching it to be scoped or exempted), or ` +
+        `to NON_TENANT_TABLES if they genuinely do not.`,
+    ).toEqual([]);
+  });
+
+  it("no table is in both lists", () => {
+    const both = TENANT_TABLES.filter((t) => NON_TENANT_TABLES.includes(t));
+    expect(both).toEqual([]);
   });
 });

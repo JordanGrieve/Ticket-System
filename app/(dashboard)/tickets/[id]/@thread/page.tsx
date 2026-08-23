@@ -7,12 +7,17 @@ import { toTicketDTO, toMessageDTO } from "@/lib/serialize";
 import { EMAIL_FROM_ADDRESS } from "@/lib/config";
 import {
   getContactFacts,
+  listContactNotes,
   mailCounts,
   mailFolderTotal,
   parseFolder,
   ticketPersonalState,
   viewerAgentId,
 } from "../../../queries";
+import {
+  addContactNoteAction,
+  deleteContactNoteAction,
+} from "../note-actions";
 
 /**
  * The `@thread` slot: the conversation, plus the contact rail that <Thread>
@@ -58,15 +63,26 @@ export default async function TicketThreadSlot({
   const ticket = await getTicket(workspace.id, ticketId);
   if (!ticket) notFound();
 
-  const [{ messages, hasMore }, counts, facts, personal, allLabels, agentId] =
-    await Promise.all([
-      getMessages(ticket.id),
-      mailCounts(workspace.id),
-      getContactFacts(workspace.id, ticket.customerEmail),
-      ticketPersonalState(workspace.id, ticket.id),
-      listLabels(workspace.id),
-      viewerAgentId(workspace.id),
-    ]);
+  const [
+    { messages, hasMore },
+    counts,
+    facts,
+    personal,
+    allLabels,
+    agentId,
+    notes,
+  ] = await Promise.all([
+    getMessages(ticket.id),
+    mailCounts(workspace.id),
+    getContactFacts(workspace.id, ticket.customerEmail),
+    ticketPersonalState(workspace.id, ticket.id),
+    listLabels(workspace.id),
+    viewerAgentId(workspace.id),
+    // In the Promise.all, not after it: neon-http gives every statement its own
+    // HTTP request, so awaiting this separately would add a round trip to
+    // opening any thread.
+    listContactNotes(workspace.id, ticket.customerEmail),
+  ]);
 
   const total =
     labelId === undefined
@@ -89,6 +105,11 @@ export default async function TicketThreadSlot({
         firstSeenIso: facts.firstSeenIso,
         ticketCount: facts.ticketCount,
       }}
+      notes={notes}
+      // Server actions handed down as props: Thread is a client component and
+      // must not import the "use server" module itself.
+      addNote={addContactNoteAction}
+      deleteNote={deleteContactNoteAction}
       backHref={backHref}
       starred={personal.starred}
       unread={personal.unread}

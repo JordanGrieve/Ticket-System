@@ -2,13 +2,15 @@
 
 import { Icon } from "./icons";
 import type { ContactCard } from "./types";
+import ContactNotes from "./ContactNotes";
+import type { ContactNoteDTO } from "@/app/(dashboard)/queries";
 
 /**
  * The 290px contact rail — a bottom sheet below 768px.
  *
- * Be warned reading this: most of the design's rail has no data behind it.
- * Name, email, first contact and ticket count are real. Phone number,
- * lifecycle status, notes and the four disclosure sections are not stored
+ * Be warned reading this: much of the design's rail still has no data behind
+ * it. Name, email, first contact, ticket count and NOTES are real. Phone
+ * number, lifecycle status and the four disclosure sections are not stored
  * anywhere, so they render as explicit "not recorded" / "not built" states
  * rather than plausible-looking filler.
  */
@@ -35,11 +37,22 @@ export default function ContactRail({
   contact,
   state,
   onClose,
+  notes,
+  addNote,
+  deleteNote,
 }: {
   contact: ContactCard;
   /** "auto" = column on a wide screen, hidden below 1180px. See Thread.tsx. */
   state: "auto" | "open" | "closed";
   onClose: () => void;
+  /**
+   * Omitted by the loading skeletons, which render this rail with no server
+   * actions to hand. Notes show a loading line there rather than an empty box
+   * somebody might type into and lose.
+   */
+  notes?: ContactNoteDTO[];
+  addNote?: (formData: FormData) => void;
+  deleteNote?: (formData: FormData) => void;
 }) {
   const firstSeen = formatFirstSeen(contact.firstSeenIso);
 
@@ -87,13 +100,26 @@ export default function ContactRail({
           </div>
         </div>
 
-        <h3 className="pbm-rail-title pbm-rail-title--sub">Notes</h3>
-        <div className="pbm-rail-card pbm-rail-card--empty">
-          <p className="pbm-rail-void">
-            Notes aren&rsquo;t built yet. There is nowhere to save one, so this
-            list stays empty.
-          </p>
-        </div>
+        {notes && addNote && deleteNote ? (
+          <ContactNotes
+            contactEmail={contact.email}
+            notes={notes}
+            onAdd={addNote}
+            onDelete={deleteNote}
+          />
+        ) : (
+          <>
+            {/*
+              The rail is also rendered by the loading skeletons, which have no
+              server actions to hand. Notes are omitted there rather than shown
+              as an empty list somebody might type into.
+            */}
+            <h3 className="pbm-rail-title pbm-rail-title--sub">Notes</h3>
+            <div className="pbm-rail-card pbm-rail-card--empty">
+              <p className="pbm-rail-void">Loading notes…</p>
+            </div>
+          </>
+        )}
 
         <div className="pbm-rail-sections">
           {UNBUILT_SECTIONS.map((s) => (

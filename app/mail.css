@@ -2108,3 +2108,110 @@
   padding-left: 0;
   padding-right: 0;
 }
+
+/* ── Contact rail: internal notes ────────────────────────────────
+   Plain form posts to server actions. No fetch, no client-side copy of the
+   list — the action revalidates and the server sends the new one. */
+
+.pbn-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.pbn-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 56px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.8px;
+  line-height: 1.5;
+}
+
+.pbn-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.pbn-add {
+  align-self: flex-start;
+  padding: 6px 13px;
+  border: none;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pbn-add:hover {
+  background: var(--accent-strong);
+}
+
+.pbn-list {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pbn-item {
+  padding: 10px 11px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.pbn-body {
+  margin: 0 0 6px;
+  font-size: 12.8px;
+  line-height: 1.55;
+  color: var(--text-2);
+  /* Staff type free text with their own line breaks; honour them. Also wraps
+     an unbroken string rather than letting it widen the 290px rail. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.pbn-meta {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--muted-2);
+}
+
+.pbn-del-form {
+  margin-left: auto;
+}
+
+/* Quiet until hovered. Deleting is available but should not be the most
+   eye-catching thing on a note somebody just wrote. */
+.pbn-del {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--muted-2);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.pbn-del:hover {
+  color: var(--warn-fg);
+}

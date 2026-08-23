@@ -9,6 +9,7 @@ import type { TicketStatus } from "@/db/schema";
 import { SOURCE_META, STATUS_META, STATUS_ORDER } from "@/lib/theme";
 import { Icon, OverflowIcon } from "./icons";
 import ContactRail from "./ContactRail";
+import type { ContactNoteDTO } from "@/app/(dashboard)/queries";
 import LabelPicker from "./LabelPicker";
 import StarButton from "./StarButton";
 import type { ContactCard, LabelChipDTO } from "./types";
@@ -27,6 +28,9 @@ export default function Thread({
   hasOlderMessages = false,
   fromAddress,
   contact,
+  notes,
+  addNote,
+  deleteNote,
   backHref,
   starred,
   unread,
@@ -39,6 +43,16 @@ export default function Thread({
   hasOlderMessages?: boolean;
   fromAddress: string;
   contact: ContactCard;
+  /** Internal notes about this contact, newest first. */
+  notes: ContactNoteDTO[];
+  /**
+   * The note server actions, passed down rather than imported. This is a
+   * client file: importing a "use server" module here would bundle a reference
+   * to every export in it, and the rule in this codebase is that those modules
+   * are reached from Server Components only.
+   */
+  addNote: (formData: FormData) => void;
+  deleteNote: (formData: FormData) => void;
   backHref: string;
   /** Per-agent state. Both false when the viewer has no agent row here. */
   starred: boolean;
@@ -413,6 +427,9 @@ export default function Thread({
         contact={contact}
         state={rail}
         onClose={() => setRail("closed")}
+        notes={notes}
+        addNote={addNote}
+        deleteNote={deleteNote}
       />
     </>
   );
