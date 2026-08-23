@@ -34,9 +34,23 @@ const COLOR_ORDER: LabelColor[] = ["tag_a", "tag_b", "tag_c"];
 export default function LabelManager({
   labels,
   onClose,
+  inline = false,
 }: {
   labels: LabelWithCountDTO[];
-  onClose: () => void;
+  /** Required in modal mode. Omitted when `inline`, which has nothing to close. */
+  onClose?: () => void;
+  /**
+   * Render as a plain panel instead of a modal: no scrim, no dialog role, no
+   * Escape handler, no close button.
+   *
+   * Settings needs the same create / rename / delete behaviour as the nav
+   * modal, and a second implementation would mean two sets of validation
+   * rules, two confirm-before-delete patterns and two live regions to keep in
+   * step — which drift the first time only one of them is fixed. The only
+   * thing that genuinely differs between the two placements is the chrome, so
+   * only the chrome is conditional.
+   */
+  inline?: boolean;
 }) {
   const router = useRouter();
   const [rows, setRows] = useState<LabelWithCountDTO[]>(labels);
@@ -66,11 +80,14 @@ export default function LabelManager({
       // which is precisely the trap window.confirm avoided by hijacking the
       // entire browser, and a worse cure than the disease.
       if (confirmingId !== null) setConfirmingId(null);
-      else onClose();
+      // Inline has nothing to close, and Escape on a Settings page must not
+      // swallow the key — a browser's own Escape behaviour (stopping a load,
+      // leaving a native picker) belongs to the page it is on.
+      else if (!inline) onClose?.();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose, confirmingId]);
+  }, [onClose, confirmingId, inline]);
 
   async function create() {
     const name = newName.trim();

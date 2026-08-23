@@ -2081,3 +2081,30 @@
     transition: none;
   }
 }
+
+/* ── Label manager, inline (Settings → Labels) ───────────────────
+   The same component as the nav modal with its chrome off. Only the
+   positioning differs: a modal is fixed and centred over a scrim, a settings
+   panel is in the flow. Everything inside — rows, swatches, the create form,
+   the confirm-in-row delete — is shared, so the two placements cannot drift.
+*/
+.pbm-modal--inline {
+  position: static;
+  transform: none;
+  max-width: 100%;
+  width: 100%;
+  box-shadow: none;
+  /* The modal's own max-height exists to keep it inside the viewport; in the
+     flow it would clip the list against nothing. */
+  max-height: none;
+}
+
+.pbm-modal--inline .pbm-modal-body {
+  /* pb-scroll on the body is for a fixed-height dialog. Inline, the page
+     scrolls instead — a nested scroller inside a short list is a trap that
+     hides rows with no visible cue. */
+  overflow: visible;
+  max-height: none;
+  padding-left: 0;
+  padding-right: 0;
+}

@@ -265,48 +265,50 @@ export default function MailNavShell({
         <div className="pbm-nav-divider" />
 
         {/*
-          The heading row stays even with no labels, because "Manage" is the
-          ONLY way to create the first one — hiding the whole block when the
-          list is empty would make the feature unreachable for exactly the
-          workspaces that have never used it.
+          Hidden entirely when the workspace has no labels. It used to render a
+          heading, a Manage button and a two-line note explaining a feature the
+          reader was not using — permanent furniture for an empty list.
 
-          What does go is the explanatory sentence. A permanent two-line note
-          in the nav telling you about a feature you are not using is the kind
-          of clutter you stop seeing, and the button next to it already says
-          what to press.
+          This could only become conditional once /settings/labels existed:
+          "Manage" was the sole way to create a first label, so hiding the block
+          before there was another route to it would have removed the feature
+          for exactly the workspaces that had never used it.
         */}
-        <div className="pbm-nav-heading-row">
-          <p className="pbm-nav-heading">Labels</p>
-          <button
-            type="button"
-            className="pbm-nav-manage"
-            onClick={() => setLabelsOpen(true)}
-            aria-label="Manage labels"
-          >
-            Manage
-          </button>
-        </div>
-        <div className="pbm-folders">
-          {labels.length > 0 &&
-            labels.map((l) => {
-              const active = activeLabel === String(l.id);
-              return (
-                <Link
-                  key={l.id}
-                  href={`/inbox?folder=labeled&label=${l.id}`}
-                  className="pbm-folder"
-                  data-active={active}
-                  aria-current={active ? "page" : undefined}
-                >
-                  <span className="pbm-label-swatch" data-color={l.color} aria-hidden />
-                  <span className="pbm-folder-label">{l.name}</span>
-                  <span className="pbm-folder-count">{l.ticketCount}</span>
-                </Link>
-              );
-            })}
-        </div>
+        {labels.length > 0 && (
+          <>
+            <div className="pbm-nav-heading-row">
+              <p className="pbm-nav-heading">Labels</p>
+              <button
+                type="button"
+                className="pbm-nav-manage"
+                onClick={() => setLabelsOpen(true)}
+                aria-label="Manage labels"
+              >
+                Manage
+              </button>
+            </div>
+            <div className="pbm-folders">
+              {labels.map((l) => {
+                const active = activeLabel === String(l.id);
+                return (
+                  <Link
+                    key={l.id}
+                    href={`/inbox?folder=labeled&label=${l.id}`}
+                    className="pbm-folder"
+                    data-active={active}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    <span className="pbm-label-swatch" data-color={l.color} aria-hidden />
+                    <span className="pbm-folder-label">{l.name}</span>
+                    <span className="pbm-folder-count">{l.ticketCount}</span>
+                  </Link>
+                );
+              })}
+            </div>
 
-        <div className="pbm-nav-divider" />
+            <div className="pbm-nav-divider" />
+          </>
+        )}
 
         <p className="pbm-nav-heading">Not built yet</p>
         <div className="pbm-folders">
