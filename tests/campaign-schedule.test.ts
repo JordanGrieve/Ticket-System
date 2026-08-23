@@ -16,6 +16,7 @@ import {
   SCHEDULE_MAX_AHEAD_MS,
   SCHEDULE_PAST_TOLERANCE_MS,
   SWEEPS_PER_DAY,
+  SWEEP_CADENCE,
 } from "../lib/campaign-schedule";
 import { RECIPIENTS_PER_SWEEP } from "../lib/campaign-cron";
 
@@ -274,11 +275,19 @@ describe("throughput arithmetic agrees with the deployed cron", () => {
     expect(cron).not.toBeNull();
 
     const [minute, hour] = (cron?.[1] ?? "").split(" ");
-    // A `*/N` minute step over every hour is 1440/N runs a day.
-    const step = /^\*\/(\d+)$/.exec(minute ?? "");
-    expect(step).not.toBeNull();
     expect(hour).toBe("*");
-    expect(SWEEPS_PER_DAY).toBe(1440 / Number(step?.[1]));
+
+    // Two shapes are legitimate here, and the test has to understand both or
+    // it fails for the wrong reason the next time the cadence is retuned:
+    //   `*/N * * * *` — an N-minute step, so 1440/N runs a day
+    //   `M * * * *`   — once an hour at minute M, so 24 runs a day
+    const minuteField = minute ?? "";
+    const step = /^\*\/(\d+)$/.exec(minuteField);
+    const hourly = /^\d+$/.exec(minuteField);
+    expect(step ?? hourly).not.toBeNull();
+
+    const runsPerDay = step ? 1440 / Number(step[1]) : 24;
+    expect(SWEEPS_PER_DAY).toBe(runsPerDay);
   });
 
   it("is not also scheduled by Vercel — one scheduler, not two", () => {
@@ -291,9 +300,14 @@ describe("throughput arithmetic agrees with the deployed cron", () => {
     expect(config.crons).toBeUndefined();
   });
 
-  it("puts a 40,000-recipient campaign at a couple of days, not an hour", () => {
+  it("puts a 40,000-recipient campaign in days, never an hour", () => {
     expect(sweepsToDrain(40_000, 75)).toBe(534);
-    expect(daysToDrain(40_000, 75)).toBe(2);
+    // 534 sweeps at the DEPLOYED cadence. This was 2 days when the sweep ran
+    // every five minutes; it is 23 at the hourly development cadence. The
+    // number is expected to move when the cron is retuned — what must never
+    // happen is it collapsing to under a day and implying a big send is quick.
+    expect(daysToDrain(40_000, 75)).toBe(Math.ceil(534 / SWEEPS_PER_DAY));
+    expect(daysToDrain(40_000, 75)).toBeGreaterThan(1);
     // And with the real constant, so a change to it shows up here.
     expect(daysToDrain(40_000, RECIPIENTS_PER_SWEEP)).toBeGreaterThan(1);
   });
@@ -302,7 +316,13 @@ describe("throughput arithmetic agrees with the deployed cron", () => {
     const text = describeDrain(40_000, 75);
     expect(text).toContain("534");
     expect(text).toContain("days");
-    expect(text).toContain("every five minutes");
+    // The cadence phrase is DERIVED from SWEEPS_PER_DAY, so this asserts the
+    // sentence and the constant agree rather than pinning a literal that a
+    // schedule change would silently falsify — which is what happened when
+    // both copies of it still said "every five minutes" after the sweep had
+    // been slowed to hourly.
+    expect(text).toContain(SWEEP_CADENCE);
+    expect(SWEEP_CADENCE).toBe("about once an hour");
     // A ceiling, stated as a floor on elapsed time — the schedule is best
     // effort and a dropped tick only ever makes this longer.
     expect(text).toContain("at least");

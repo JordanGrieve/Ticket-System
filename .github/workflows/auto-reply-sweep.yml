@@ -40,8 +40,16 @@ name: Auto-reply sweep
 
 on:
   schedule:
-    # Every five minutes. See the caveats above: a request, not a guarantee.
-    - cron: '*/5 * * * *'
+    # Every fifteen minutes, not every five -- see the Neon compute note in
+    # campaign-sweep.yml. This job still matters while sending is blocked,
+    # because it is what releases acknowledgements held overnight, so it is
+    # slowed rather than stopped. The price is that an enquiry held out of
+    # hours is acknowledged up to fifteen minutes after opening instead of
+    # five, which nobody will notice -- and GitHub already delivers this
+    # workflow nearer twenty minutes late anyway, as noted above.
+    #
+    # See the caveats above: a request, not a guarantee.
+    - cron: '*/15 * * * *'
   # So a human can force a drain from the Actions tab.
   workflow_dispatch:
 

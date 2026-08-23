@@ -17,7 +17,10 @@ elaborates on.
 > places further down — trust this block over the sections below:**
 >
 > - The schedule is **not** `vercel.json` `crons`. It is
->   `.github/workflows/campaign-sweep.yml`, every 5 minutes, best-effort.
+>   `.github/workflows/campaign-sweep.yml` — HOURLY since 23 Aug 2026 (it was
+>   every 5 minutes) to stay inside the Neon Free compute allowance while SES
+>   production access is denied, best-effort either way. The cadence in words
+>   comes from `SWEEP_CADENCE`, derived from `SWEEPS_PER_DAY`.
 >   `vercel.json` has no `crons` key. Any arithmetic in this document based on
 >   "one sweep a day" or "75 recipients per night" describes deleted
 >   infrastructure.

@@ -37,9 +37,22 @@ name: Campaign sweep
 
 on:
   schedule:
-    # Every five minutes. See the caveats above: this is a request, not a
-    # guarantee.
-    - cron: '*/5 * * * *'
+    # HOURLY during development, not every five minutes.
+    #
+    # Nothing can send right now: SES production access was DENIED (case
+    # 178747420600793) and the account is still sandboxed, so every tick finds
+    # nothing to do. The cost of an idle tick is not Actions minutes -- this
+    # repo is public, so those are free -- it is Neon compute. Each tick wakes
+    # the compute, which then idles for the autosuspend window before going
+    # back to sleep. Two five-minute workflows keep it awake more or less
+    # permanently, which on the Neon Free plan is roughly 180 CU-hours against
+    # a 100-hour allowance. Neon Free does not bill the overage; it SUSPENDS
+    # the compute. So the failure mode of leaving this at every five minutes
+    # is the whole app going down, not a surprise invoice.
+    #
+    # Put this back to '*/5 * * * *' the day production access is granted.
+    # See the caveats above: a request, not a guarantee.
+    - cron: '0 * * * *'
   # So a human can force a sweep from the Actions tab without waiting for the
   # next tick — the only way to drain a campaign on demand now that there is
   # no "Run" button in the Vercel cron UI.

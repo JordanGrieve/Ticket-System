@@ -23,6 +23,7 @@ import {
   canSchedule,
   describeAbort,
   describeDrain,
+  SWEEP_CADENCE,
 } from "@/lib/campaign-schedule";
 import type { CampaignHealth } from "@/lib/campaign-health";
 import type { RecipientStatus } from "@/db/schema";
@@ -53,7 +54,8 @@ import type { RecipientStatus } from "@/db/schema";
  *  - that sweep hands every message to the LOG-ONLY deliverer, because
  *    `CAMPAIGN_DELIVERY_MODE` is set in no environment. It writes a log line
  *    and transmits nothing;
- *  - the sweep runs about every five minutes
+ *  - the sweep runs at the cadence in SWEEP_CADENCE (hourly during
+ *    development, see SWEEPS_PER_DAY)
  *    (.github/workflows/campaign-sweep.yml), best-effort: GitHub delays or
  *    drops scheduled runs under load, and disables the workflow entirely after
  *    60 days with no commits.
@@ -1473,7 +1475,7 @@ export default function Composer({
               <p className="nl-card-sub">
                 Scheduling marks the campaign as due and nothing more. A
                 background sweep picks up due campaigns{" "}
-                <b>roughly every five minutes</b> — that cadence is best effort,
+                <b>{SWEEP_CADENCE}</b> — that cadence is best effort,
                 so an individual run can arrive late or be skipped altogether.
               </p>
 
@@ -1575,7 +1577,7 @@ export default function Composer({
                   {schedule.kind === "armed" && (
                     <p className="nl-note" role="status">
                       {schedule.immediate
-                        ? "Scheduled for now, which means the next sweep — they run about every five minutes."
+                        ? `Scheduled for now, which means the next sweep — they run ${SWEEP_CADENCE}.`
                         : "Scheduled."}{" "}
                       Nothing has been emailed and nothing will be: the sweep’s
                       deliverer only writes to the log.

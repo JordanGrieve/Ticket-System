@@ -302,15 +302,23 @@ export function parseScheduleTime(
  * delayed when the runner pool is busy, are dropped outright under sustained
  * load with no retry and no backfill, and the whole workflow is disabled
  * automatically after 60 days without a commit to the repository. The real
- * figure is therefore 288 or fewer — never more. Estimates derived from this
+ * figure is therefore 24 or fewer — never more. Estimates derived from this
  * constant are floors on elapsed time, which is the safe direction to be
  * wrong in: the product may take longer than it says, never less.
  *
  * Every figure the composer shows about how long a campaign takes is computed
  * from this constant, so it cannot quietly describe a throughput the deployed
  * schedule does not have.
+ *
+ * 24, not 288, since 23 August 2026: the sweep was slowed from every five
+ * minutes to hourly to stay inside the Neon Free compute allowance while SES
+ * production access is denied and nothing can send anyway. This is a REAL
+ * twelvefold reduction in throughput, not a bookkeeping change — a campaign
+ * the composer used to quote in hours now honestly takes days. Both numbers
+ * move back together when access is granted; the test below is what stops
+ * them drifting apart.
  */
-export const SWEEPS_PER_DAY = 288;
+export const SWEEPS_PER_DAY = 24;
 
 /** Sweeps needed to drain `recipients` at `perSweep` rows per sweep. */
 export function sweepsToDrain(recipients: number, perSweep: number): number {
@@ -324,14 +332,22 @@ export function daysToDrain(recipients: number, perSweep: number): number {
 }
 
 /**
- * The drain estimate in a sentence, for the composer.
+ * How often the sweep runs, in words, derived from SWEEPS_PER_DAY.
  *
- * Deliberately blunt and deliberately not rounded down, and it says "at least"
- * rather than "about": SWEEPS_PER_DAY is a ceiling on a best-effort schedule
- * (see the comment on it), so the honest claim is a floor on elapsed time. A
- * client who queues 40,000 people is entitled to read that on the screen where
- * they arm it, rather than discover it from a progress bar that has not moved.
+ * Derived rather than written down, because it was written down twice inside
+ * describeDrain and both copies said "every five minutes" after the schedule
+ * had been slowed to hourly. A client reading a sentence that promises a
+ * cadence the deployed cron does not have is exactly the quiet misstatement
+ * SWEEPS_PER_DAY exists to prevent, so the sentence now cannot disagree with
+ * the constant it is derived from.
  */
+export const SWEEP_CADENCE: string = (() => {
+  const minutes = Math.round(1440 / SWEEPS_PER_DAY);
+  if (minutes === 60) return "about once an hour";
+  if (minutes % 60 === 0) return `about every ${minutes / 60} hours`;
+  return `about every ${minutes} minutes`;
+})();
+
 export function describeDrain(recipients: number, perSweep: number): string {
   if (recipients <= 0) return "There are no queued recipients to work through.";
 
@@ -340,10 +356,10 @@ export function describeDrain(recipients: number, perSweep: number): string {
   const rows = recipients.toLocaleString();
 
   if (sweeps <= 1) {
-    return `${rows} queued — one sweep’s worth. The sweep runs about every five minutes, so the first run after the scheduled time would work through all of them.`;
+    return `${rows} queued — one sweep’s worth. The sweep runs ${SWEEP_CADENCE}, so the first run after the scheduled time would work through all of them.`;
   }
 
   const per = perSweep.toLocaleString();
   const dayWord = days === 1 ? "day" : "days";
-  return `${rows} queued, and a sweep works through at most ${per}. That is ${sweeps.toLocaleString()} sweeps, and the sweep runs about every five minutes — at least ${days.toLocaleString()} ${dayWord} from the scheduled time before the last person is reached, and longer whenever a scheduled run is delayed or skipped.`;
+  return `${rows} queued, and a sweep works through at most ${per}. That is ${sweeps.toLocaleString()} sweeps, and the sweep runs ${SWEEP_CADENCE} — at least ${days.toLocaleString()} ${dayWord} from the scheduled time before the last person is reached, and longer whenever a scheduled run is delayed or skipped.`;
 }
