@@ -47,7 +47,7 @@ describe("a brand new workspace", () => {
   it("points at connecting the form first", () => {
     // Until an enquiry can reach the inbox, nothing else in the product does
     // anything at all.
-    expect(onboardingProgress(none).next?.id).toBe("connect_form");
+    expect(onboardingProgress(none).next?.id).toBe("test_enquiry");
   });
 
   it("puts the postal address before collecting subscribers", () => {
@@ -67,7 +67,7 @@ describe("what counts as connected", () => {
     // them their form is not set up while their mail is arriving would be
     // plainly, visibly wrong.
     const p = onboardingProgress({ ...none, hasAnyTicket: true });
-    expect(p.steps.find((s) => s.id === "connect_form")?.done).toBe(true);
+    expect(p.steps.find((s) => s.id === "test_enquiry")?.done).toBe(true);
   });
 
   it("does not count an auto-reply that exists but is switched off", () => {
@@ -103,6 +103,45 @@ describe("completion", () => {
     const p = onboardingProgress(none);
     expect(p.total).toBe(onboardingSteps(none).filter((s) => !s.optional).length);
     expect(p.total).toBe(4);
+  });
+});
+
+describe("the first step needs nobody else", () => {
+  /*
+   * A brand new workspace used to open on "Get your enquiries arriving here",
+   * whose honest instruction was "wait". Every workspace has a working inbound
+   * address from the moment it exists, so the first thing on the list is now
+   * proof rather than setup: email it and watch a ticket appear.
+   *
+   * It matters beyond the first step. "Answer your first enquiry" is the aha,
+   * and it could not be reached until a customer happened to write in. A test
+   * enquiry is something to answer, so the aha becomes available immediately.
+   */
+  it("opens on the test enquiry", () => {
+    expect(onboardingSteps(none)[0].id).toBe("test_enquiry");
+    expect(onboardingProgress(none).next?.id).toBe("test_enquiry");
+  });
+
+  it("tells the reader to do something, not to wait", () => {
+    const step = onboardingSteps(none)[0];
+    expect(step.title).toMatch(/^Send yourself/i);
+    // The address is on the install screen, so that is where "Do it" goes.
+    expect(step.href).toBe("/settings/install");
+  });
+
+  it("does not ask for a test from a workspace already receiving mail", () => {
+    // Same evidence as before — any ticket. Somebody whose real enquiries are
+    // arriving is not told to send themselves one they plainly do not need.
+    const live = { ...none, hasAnyTicket: true };
+    expect(onboardingSteps(live).find((s) => s.id === "test_enquiry")?.done).toBe(
+      true,
+    );
+  });
+
+  it("a test enquiry alone makes the aha reachable", () => {
+    // One ticket in, nothing else done: the next thing to do is answer it.
+    const afterTest = { ...none, hasAnyTicket: true };
+    expect(onboardingProgress(afterTest).next?.id).toBe("first_reply");
   });
 });
 
@@ -152,7 +191,7 @@ describe("no step claims something that is not true", () => {
    * honest and the sentence beside it was not.
    */
   it("the arrival step does not name one specific route", () => {
-    const step = onboardingSteps(none).find((s) => s.id === "connect_form");
+    const step = onboardingSteps(none).find((s) => s.id === "test_enquiry");
     expect(step?.title).not.toMatch(/contact form/i);
     // …and the detail still offers both, so it stays actionable.
     expect(step?.detail).toMatch(/snippet/i);
@@ -161,7 +200,7 @@ describe("no step claims something that is not true", () => {
 
   it("ticks the arrival step for mail that came by any route", () => {
     const byEmailOnly = { ...none, hasAnyTicket: true, hasFormTicket: false };
-    const step = onboardingSteps(byEmailOnly).find((s) => s.id === "connect_form");
+    const step = onboardingSteps(byEmailOnly).find((s) => s.id === "test_enquiry");
     expect(step?.done).toBe(true);
   });
 });
@@ -245,7 +284,7 @@ describe("a plan without newsletters", () => {
     const ids = onboardingSteps(starter).map((s) => s.id);
     expect(ids).not.toContain("first_subscriber");
     expect(ids).not.toContain("postal_address");
-    expect(ids).toContain("connect_form");
+    expect(ids).toContain("test_enquiry");
     expect(ids).toContain("auto_reply");
   });
 

@@ -26,7 +26,7 @@
  */
 
 export type OnboardingStepId =
-  | "connect_form"
+  | "test_enquiry"
   | "first_reply"
   | "auto_reply"
   | "postal_address"
@@ -83,27 +83,42 @@ export type OnboardingFacts = {
 export function onboardingSteps(f: OnboardingFacts): OnboardingStep[] {
   const steps: OnboardingStep[] = [
     {
-      id: "connect_form",
       /*
-       * ── THE TITLE HAD TO CHANGE, NOT THE EVIDENCE ──
+       * ── THE FIRST STEP IS SOMETHING THEY CAN DO IN NINETY SECONDS ──
        *
-       * This said "Connect your contact form" and ticked on ANY ticket
-       * arriving. The evidence is right — a workspace forwarding its support
-       * email is just as connected, and telling somebody their form is not set
-       * up while their mail is pouring in would be plainly wrong.
+       * This has been through two wrong versions. It began as "Connect your
+       * contact form" — which ticked on ANY ticket arriving, so it put a tick
+       * against connecting a form for people who had connected no form. It
+       * then became "Get your enquiries arriving here", which was at least
+       * true, but is not an instruction: it describes a state and leaves the
+       * reader to work out what to do about it, and the honest answer for a
+       * brand new workspace was "wait".
        *
-       * But that made the LABEL false. It put a tick against "Connect your
-       * contact form" for somebody who had not connected a contact form, and a
-       * checklist that claims a thing is done when it is not is the exact
-       * failure this file's header sets out to avoid. The tick was honest
-       * about the workspace and dishonest about the sentence next to it.
+       * Every workspace has a working inbound address from the moment it
+       * exists. So the first step is not setup at all — it is proof. Email
+       * that address from your phone and watch a ticket appear, which takes a
+       * minute, needs no snippet, no forwarding, no DNS and nobody else.
        *
-       * So the sentence now says what is actually being checked: mail is
-       * arriving, by whichever route.
+       * ── AND IT UNBLOCKS THE NEXT STEP ──
+       * "Answer your first enquiry" is the moment the product becomes real,
+       * and until now it could not be reached until a customer happened to
+       * write in. A test enquiry is something to answer, so the aha moves from
+       * "whenever somebody turns up" to "right now".
+       *
+       * THE EVIDENCE IS UNCHANGED — any ticket at all. That is deliberate:
+       * this is the same check as before, so a workspace whose real enquiries
+       * are already arriving is not asked to send itself a test it plainly
+       * does not need. Only the instruction changed, because the instruction
+       * was the part that was not helping.
+       *
+       * It is also why this REPLACED the old step rather than joining it. Two
+       * steps satisfied by one ticket would tick together, and a checklist
+       * where one action fills two boxes reads as padding.
        */
-      title: "Get your enquiries arriving here",
+      id: "test_enquiry",
+      title: "Send yourself a test enquiry",
       detail:
-        "Put the snippet on your website, or forward your support address to your Postbox address. Either one, whichever is easier.",
+        "Email your Postbox address from your phone and watch it arrive here. Nothing needs setting up first — then add the snippet to your website, or forward your support address, so real ones come the same way.",
       done: f.hasFormTicket || f.hasAnyTicket,
       href: "/settings/install",
       optional: false,
