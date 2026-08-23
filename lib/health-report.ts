@@ -1,4 +1,8 @@
 import { workspaceHealth, type WorkspaceHealthState } from "./workspace-health";
+import {
+  describeUnconfirmed,
+  type UnconfirmedGroup,
+} from "./campaign-reconcile";
 
 /**
  * The daily "is anything broken?" sweep, as a pure function.
@@ -31,7 +35,10 @@ import { workspaceHealth, type WorkspaceHealthState } from "./workspace-health";
  * setting protects captured context, not strings we chose to put in a title.
  */
 
-export type HealthAlertKind = "workspace_silent" | "campaign_stalled";
+export type HealthAlertKind =
+  | "workspace_silent"
+  | "campaign_stalled"
+  | "campaign_unconfirmed";
 
 export type HealthAlert = {
   kind: HealthAlertKind;
@@ -86,6 +93,8 @@ export const CAMPAIGN_STALL_DAYS = 1;
 export function buildHealthReport(input: {
   workspaces: WorkspaceHealthRow[];
   sendingCampaigns: StalledCampaignRow[];
+  /** Newly stamped rows claimed for sending with no provider id ever recorded. */
+  unconfirmed?: UnconfirmedGroup[];
   now: Date;
 }): HealthReport {
   const alerts: HealthAlert[] = [];
@@ -131,6 +140,24 @@ export function buildHealthReport(input: {
       level: "error",
       workspaceId: c.workspaceId,
       workspaceName: c.workspaceName,
+    });
+  }
+
+  for (const g of input.unconfirmed ?? []) {
+    alerts.push({
+      kind: "campaign_unconfirmed",
+      // Includes the campaign but NOT the count: the count is the thing most
+      // likely to differ between runs, and putting it in the fingerprint would
+      // open a fresh Sentry issue every time one more row turned up.
+      fingerprint: `campaign_unconfirmed:${g.workspaceId}:${g.campaignId}`,
+      title: `${g.workspaceName}: campaign delivered fewer than it reports`,
+      detail: describeUnconfirmed(g),
+      // Warning, not error. Nothing is broken and nothing is stuck — the
+      // campaign finished. Some of it cannot be evidenced, which is worth
+      // knowing and is not an incident.
+      level: "warning",
+      workspaceId: g.workspaceId,
+      workspaceName: g.workspaceName,
     });
   }
 

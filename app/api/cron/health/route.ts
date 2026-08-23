@@ -2,7 +2,10 @@ import * as Sentry from "@sentry/nextjs";
 import { json } from "@/lib/http";
 import { authorizeCronRequest, CRON_SECRET_ENV } from "@/lib/campaign-cron";
 import { listWorkspaceSummaries } from "@/lib/data";
-import { listSendingCampaigns } from "@/lib/campaign-send";
+import {
+  listSendingCampaigns,
+  stampUnconfirmedRecipients,
+} from "@/lib/campaign-send";
 import { buildHealthReport } from "@/lib/health-report";
 import { pruneRateLimits } from "@/lib/rate-limit-store";
 
@@ -45,9 +48,15 @@ export async function GET(req: Request) {
   }
 
   const now = new Date();
-  const [workspaces, sending, pruned] = await Promise.all([
+  const [workspaces, sending, unconfirmed, pruned] = await Promise.all([
     listWorkspaceSummaries(),
     listSendingCampaigns(),
+    // Both a read and a WRITE: it stamps the rows it finds so they explain
+    // themselves in the database, and returns only what it newly stamped.
+    // Idempotent — a row already annotated is neither rewritten nor reported
+    // again, so this alert fires the day the residue appears rather than every
+    // day forever about something nothing can resolve.
+    stampUnconfirmedRecipients(now),
     // Housekeeping, not health: rate_limits gains a row per distinct bucket,
     // and the IP-keyed buckets on the public endpoints mean that is one row
     // per distinct visitor. Nothing else deletes them.
@@ -64,6 +73,7 @@ export async function GET(req: Request) {
       firstTicketAt: w.firstTicketAt,
       lastTicketAt: w.lastTicketAt,
     })),
+    unconfirmed: unconfirmed.groups,
     sendingCampaigns: sending.map((c) => ({
       campaignId: c.campaignId,
       campaignName: c.campaignName,
@@ -106,6 +116,12 @@ export async function GET(req: Request) {
     report.checked.sendingCampaigns,
     report.alerts.length,
   );
+  if (unconfirmed.stamped > 0) {
+    console.info(
+      "[cron/health] annotated %d recipient(s) with no delivery confirmation",
+      unconfirmed.stamped,
+    );
+  }
   if (pruned > 0) {
     console.info("[cron/health] pruned %d expired rate-limit window(s)", pruned);
   }
@@ -114,6 +130,7 @@ export async function GET(req: Request) {
     ok: true,
     checked: report.checked,
     prunedRateLimits: pruned,
+    unconfirmedStamped: unconfirmed.stamped,
     alerts: report.alerts.map((a) => ({
       kind: a.kind,
       level: a.level,

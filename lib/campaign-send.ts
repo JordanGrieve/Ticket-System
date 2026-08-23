@@ -15,6 +15,13 @@ import {
 import { generateUnsubscribeToken } from "./tokens";
 import { getWorkspaceEntitlement } from "./billing-query";
 import {
+  groupUnconfirmed,
+  UNCONFIRMED_AFTER_MINUTES,
+  UNCONFIRMED_ERROR,
+  type UnconfirmedGroup,
+  type UnconfirmedRow,
+} from "./campaign-reconcile";
+import {
   ABORT_RECIPIENT_ERROR,
   canDiscardRecipients,
   canSchedule,
@@ -1390,4 +1397,92 @@ export async function listSendingCampaigns(): Promise<
     // there some other way.
     since: r.scheduledAt ?? r.updatedAt,
   }));
+}
+
+/**
+ * Find recipients claimed for sending whose outcome was never recorded, stamp
+ * them so they stop looking like ordinary sends, and report what was found.
+ *
+ * Platform-wide: this runs from the daily health sweep and its whole purpose is
+ * spotting one tenant's under-delivery, so there is no caller-supplied
+ * workspace to scope it by. It reads no message bodies and returns counts and
+ * names, never addresses.
+ *
+ * ── IT DOES NOT RE-QUEUE, AND IT DOES NOT CHANGE STATUS ──
+ * lib/campaign-reconcile.ts explains at length why. In short: there is no
+ * provider id to resolve the row against, so "crashed before sending" and
+ * "sent, then crashed before writing the id" cannot be told apart. Re-queueing
+ * risks a duplicate to fix a maybe, and duplicate marketing mail costs
+ * complaints and sending reputation where a miss costs one email.
+ *
+ * ── ONE STATEMENT, NOT A READ THEN A WRITE ──
+ * Selecting the ids and then updating them would be a TOCTOU window — an
+ * in-flight batch could write a real provider id between the two, and this
+ * would then stamp "no confirmation" onto a row that had just been confirmed.
+ * A single UPDATE ... RETURNING closes that, and it names `campaigns` inside
+ * the mutating statement, which is the invariant every write to this parentless
+ * table is held to.
+ *
+ * `error IS NULL` does two jobs: it never overwrites a real provider error with
+ * our explanation, and it makes the sweep idempotent — a row already annotated
+ * is not rewritten, and is not reported twice.
+ *
+ * ── REPORTED ONCE, ON PURPOSE ──
+ * Only newly stamped rows come back, so the alert fires the day the residue
+ * appears and not every day afterwards. These rows are a permanent historical
+ * fact that nothing can resolve; re-alerting daily forever about an unfixable
+ * thing is how people learn to ignore alerts.
+ */
+export async function stampUnconfirmedRecipients(now: Date): Promise<{
+  groups: UnconfirmedGroup[];
+  stamped: number;
+}> {
+  const cutoff = new Date(now.getTime() - UNCONFIRMED_AFTER_MINUTES * 60_000);
+
+  const res = await db.execute(sql`
+    WITH due AS (
+      SELECT cr.id
+      FROM campaign_recipients cr
+      JOIN campaigns c ON c.id = cr.campaign_id
+      WHERE cr.status = 'sent'
+        AND cr.provider_message_id IS NULL
+        AND cr.sent_at IS NOT NULL
+        AND cr.sent_at <= ${cutoff.toISOString()}
+        AND cr.error IS NULL
+      ORDER BY cr.sent_at
+      -- Bounded so one bad night cannot make this statement enormous. The rest
+      -- are picked up by the next run; nothing here is time-critical.
+      LIMIT 500
+    )
+    UPDATE campaign_recipients cr
+    SET error = ${UNCONFIRMED_ERROR}
+    FROM campaigns c, workspaces w
+    WHERE cr.id IN (SELECT id FROM due)
+      AND cr.campaign_id = c.id
+      AND c.workspace_id = w.id
+    RETURNING
+      cr.id      AS recipient_id,
+      cr.sent_at AS sent_at,
+      c.id       AS campaign_id,
+      c.name     AS campaign_name,
+      w.id       AS workspace_id,
+      w.name     AS workspace_name
+  `);
+
+  const unconfirmed: UnconfirmedRow[] = res.rows.map((r) => {
+    const row = r as Record<string, unknown>;
+    return {
+      recipientId: Number(row.recipient_id),
+      campaignId: Number(row.campaign_id),
+      campaignName: String(row.campaign_name),
+      workspaceId: Number(row.workspace_id),
+      workspaceName: String(row.workspace_name),
+      sentAt: new Date(row.sent_at as string),
+    };
+  });
+
+  return {
+    groups: groupUnconfirmed(unconfirmed),
+    stamped: unconfirmed.length,
+  };
 }
