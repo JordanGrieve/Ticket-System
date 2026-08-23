@@ -2,21 +2,27 @@ import Link from "next/link";
 import { getWorkspaceEntitlement } from "@/lib/billing-query";
 import { trialNotice } from "@/lib/trial";
 import TrialBannerDismiss from "./TrialBannerDismiss";
+import TrialBannerMeasure from "./TrialBannerMeasure";
 import "./trial-banner.css";
 
 /**
  * The trial countdown, and the "sending is paused" notice.
  *
- * ── WHY IT LIVES INSIDE <main>, NOT BESIDE THE SHELL ──
- * The obvious place was next to ImpersonationBanner, which sits immediately
- * before .pb-shell and buys back its own height with a `~` sibling rule. That
- * does not compose: two such rules do not add up, the later one simply wins,
- * so an operator working inside a client on a trial would get two stacked
- * banners and only one banner's worth of offset — the second covering the top
- * of the inbox.
+ * ── WHERE THIS BELONGS, AND THE MISTAKE THAT GOT HERE ──
+ * It is rendered immediately BEFORE `<div className="pb-shell">` in
+ * app/(dashboard)/layout.tsx, as a sibling — the same place and the same
+ * mechanism as ImpersonationBanner: fixed to the top of the viewport, with the
+ * shell buying its height back through a `~` rule.
  *
- * Sitting inside the main scroll area sidesteps that entirely, and `sticky`
- * keeps it visible without any layout arithmetic at all.
+ * It was first put inside `<main className="pb-main">` instead, on the
+ * reasoning that two `~ .pb-shell` padding rules would not compose. That was
+ * wrong twice over. They compose fine — `.pbi-banner ~ .pbt-slot ~ .pb-shell`
+ * is three classes and beats either single rule, so the combined offset can be
+ * stated explicitly. And `.pbm .pb-main` is `flex-direction: row`, because the
+ * mail client puts its three panes side by side: a banner placed in there does
+ * not span the top at all, it becomes a FOURTH COLUMN, a vertical strip
+ * squeezed between the sidebar and the ticket list. Which is exactly how it
+ * shipped and exactly how it looked.
  *
  * ── WHY IT IS NOT A MODAL ──
  * Somebody signing in to answer a customer should not have to dismiss a sales
@@ -24,8 +30,8 @@ import "./trial-banner.css";
  * cannot, because by then it is no longer a nudge — it is the explanation for
  * something that has stopped working.
  *
- * Renders nothing at all for a comped workspace or a trial with more than a
- * week to run, which is the common case and should be silent.
+ * Renders nothing at all for a paid or comped workspace, or a trial with more
+ * than a week to run, which is the common case and should be silent.
  */
 export default async function TrialBanner({
   workspaceId,
@@ -38,15 +44,15 @@ export default async function TrialBanner({
   const notice = trialNotice(e);
   if (!notice) return null;
 
-  const body = (
-    <div className="pbt-banner" data-tone={notice.tone} role="status">
+  const inner = (
+    <>
       <span className="pbt-text">
         {notice.message}
         {/*
           Always paired with what still works. Somebody reading a blocked
           banner is worried about their customer mail, and the true answer is
-          that it is completely unaffected — saying so here is the difference
-          between a nudge and a scare.
+          that it is untouched — saying so is the difference between a nudge
+          and a scare.
         */}
         {notice.tone === "block" && (
           <span className="pbt-reassure">
@@ -57,17 +63,29 @@ export default async function TrialBanner({
       <Link className="pbt-cta" href="/settings/billing">
         {notice.tone === "block" ? "Choose a plan" : "See plans"}
       </Link>
-    </div>
+    </>
   );
 
-  // Only the gentlest tone can be put away, and only until the number changes.
+  /*
+    Both branches render `.pbt-slot` as their single root. The `~ .pb-shell`
+    rules key off that class, so a wrapper present in one tone and absent in
+    another would leave the banner overlaying the inbox on exactly the tones
+    nobody happened to test.
+  */
   if (notice.tone === "info") {
     return (
       <TrialBannerDismiss dismissKey={`trial-${e.daysLeft ?? "x"}`}>
-        {body}
+        {inner}
       </TrialBannerDismiss>
     );
   }
 
-  return body;
+  return (
+    <div className="pbt-slot" data-tone={notice.tone}>
+      <div className="pbt-banner" role="status">
+        {inner}
+      </div>
+      <TrialBannerMeasure />
+    </div>
+  );
 }

@@ -27,6 +27,13 @@ export default async function DashboardLayout({
           shell: its CSS uses a `~` selector to buy back its own height from
           .pb-shell, which is height:100dvh with overflow hidden. */}
       <ImpersonationBanner />
+      {/* Also a SIBLING immediately before the shell, and for the same reason:
+          the shell is height:100dvh with overflow hidden, so a banner above it
+          buys its own height back through a `~` rule. It must not go inside
+          .pb-main — the mail client lays that out as a row, and a banner in
+          there becomes a fourth column instead of a bar. Renders null unless
+          the workspace is on a trial with a week or less left. */}
+      <TrialBanner workspaceId={workspace.id} />
       <div className="pb-shell pbm">
         {/* The `accent` column stores a theme key since the pivot. */}
         <ThemeApplier theme={workspace.accent} />
@@ -38,14 +45,7 @@ export default async function DashboardLayout({
           counts={counts}
           isAdmin={viewer.isAdmin}
         />
-        <main className="pb-main pbm-main">
-          {/* Inside <main>, not beside the shell — see the note in
-              TrialBanner.tsx. Two `~ .pb-shell` height rules do not add up,
-              so an operator inside a trialling client would get one banner
-              covering the top of the inbox. Renders null in the common case. */}
-          <TrialBanner workspaceId={workspace.id} />
-          {children}
-        </main>
+        <main className="pb-main pbm-main">{children}</main>
       </div>
     </>
   );

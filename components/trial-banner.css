@@ -1,42 +1,108 @@
 /*
  * The trial countdown banner.
  *
- * Lives inside the main scroll area (see the note in TrialBanner.tsx about why
- * it is not a sibling of .pb-shell), so it needs no layout arithmetic — sticky
- * keeps it in view without buying height back from anything.
+ * ── HOW IT SITS IN THE PAGE ──
+ * Rendered immediately before `.pb-shell`, fixed to the top of the viewport,
+ * with the shell buying its height back via a `~` rule. Exactly the mechanism
+ * app/(admin)/impersonation-banner.css uses, and for the same reason: the
+ * shell is height:100dvh with overflow:hidden, so anything above it has to pay
+ * for its own space.
  *
- * Three tones, all built from theme tokens so they work across the six themes:
+ * It must NOT be placed inside `.pb-main`. The mail client sets
+ * `.pbm .pb-main { flex-direction: row }` so its three panes sit side by side,
+ * and a banner in there becomes a fourth COLUMN — a vertical strip between the
+ * sidebar and the ticket list rather than a bar across the top.
+ *
+ * ── COMPOSING WITH THE IMPERSONATION BANNER ──
+ * Both can be on screen at once (a Postbox operator working inside a client
+ * that is on a trial). The offsets do compose, because a compound sibling
+ * selector is more specific than either single one:
+ *
+ *   .pbi-banner ~ .pb-shell               → 46px          (impersonation only)
+ *   .pbt-slot   ~ .pb-shell               → 46px          (trial only)
+ *   .pbi-banner ~ .pbt-slot ~ .pb-shell   → 92px          (both; 3 classes wins)
+ *
+ * and the trial banner drops below the impersonation one rather than under it.
+ *
+ * Three tones, all from theme tokens so they work across the six themes:
  *   info  — quiet, dismissible, a week or less to go
  *   warn  — accent, three days or less
- *   block — the semantic warn colours, something has actually stopped
+ *   block — semantic warn colours, something has actually stopped
  */
 
-.pbt-dismissable {
-  position: relative;
+/*
+ * The banner's height, on :root and MEASURED AT RUNTIME.
+ *
+ * Two separate reasons it lives here rather than on .pbt-slot:
+ *
+ * 1. The banner and .pb-shell are SIBLINGS. A custom property set on the
+ *    banner is invisible to the shell, which silently falls back to the
+ *    default inside var() — so the two numbers quietly stop being the same
+ *    number.
+ *
+ * 2. It cannot be a constant at all. This banner's text wraps, and how much
+ *    depends on the tone and the width: measured on one 384px viewport, the
+ *    same element was 46px for the short countdown, 84px once the CTA dropped
+ *    to its own line, and 152px for the lapsed-subscription message with its
+ *    reassurance line. Any single number written here is wrong most of the
+ *    time, and wrong in the direction that matters — too small means the
+ *    banner covers the top of the inbox, where the unread count and the first
+ *    ticket are.
+ *
+ * components/TrialBannerMeasure.tsx observes the slot and writes the real
+ * height here. The 46px below is only the pre-hydration default: what the
+ * server paints with for one frame, chosen because being briefly a little
+ * short is invisible next to starting at zero and shifting.
+ */
+:root {
+  --pbt-h: 46px;
+}
+
+.pbt-slot {
+  position: fixed;
+  inset: 0 0 auto 0;
+  /* Below the impersonation banner's 200: an operator must never lose sight of
+     whose data they are looking at because a billing notice covered it. */
+  z-index: 190;
+  box-sizing: border-box;
+  min-height: var(--pbt-h);
+}
+
+/* Trial banner alone. */
+.pbt-slot ~ .pb-shell {
+  box-sizing: border-box;
+  padding-top: var(--pbt-h, 46px);
+}
+
+/* Both banners: stack them, and pay for both. */
+.pbi-banner ~ .pbt-slot {
+  top: var(--pbi-h, 46px);
+}
+
+.pbi-banner ~ .pbt-slot ~ .pb-shell {
+  padding-top: calc(var(--pbi-h, 46px) + var(--pbt-h, 46px));
 }
 
 .pbt-banner {
-  position: sticky;
-  top: 0;
-  z-index: 5;
+  box-sizing: border-box;
+  min-height: var(--pbt-h);
   display: flex;
   align-items: center;
   gap: 14px;
-  flex-wrap: wrap;
-  padding: 11px 16px;
+  padding: 8px 44px 8px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   font-size: 13.5px;
-  line-height: 1.5;
+  line-height: 1.45;
   color: var(--text-3);
 }
 
 .pbt-text {
   flex: 1;
-  min-width: 200px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .pbt-reassure {
@@ -46,7 +112,7 @@
 
 .pbt-cta {
   flex: none;
-  padding: 7px 14px;
+  padding: 6px 14px;
   border-radius: 9px;
   font-size: 13px;
   font-weight: 700;
@@ -62,22 +128,22 @@
 
 /* ── tones ───────────────────────────────────────────────────── */
 
-.pbt-banner[data-tone="warn"] {
+.pbt-slot[data-tone="warn"] .pbt-banner {
   background: var(--accent-soft);
   border-bottom-color: var(--accent-line);
   color: var(--text-2);
 }
 
-.pbt-banner[data-tone="block"] {
+.pbt-slot[data-tone="block"] .pbt-banner {
   background: var(--warn-bg);
   border-bottom-color: var(--warn-fg);
   color: var(--warn-fg);
   font-weight: 500;
 }
 
-/* The reassurance has to stay legible against the warn background, which is a
-   pale amber in light themes — --muted-2 washes out on it. */
-.pbt-banner[data-tone="block"] .pbt-reassure {
+/* The reassurance must stay legible on the warn background, which is a pale
+   amber in the light themes — --muted-2 washes out against it. */
+.pbt-slot[data-tone="block"] .pbt-reassure {
   color: var(--warn-fg);
   opacity: 0.85;
 }
@@ -86,9 +152,9 @@
 
 .pbt-dismiss {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 6;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
   width: 24px;
   height: 24px;
   display: inline-flex;
@@ -108,15 +174,24 @@
   color: var(--text-3);
 }
 
-/* The dismiss button overlaps the CTA on a narrow screen, and the CTA is the
-   one that matters. */
-@media (max-width: 560px) {
+/* ── narrow ──────────────────────────────────────────────────── */
+
+@media (max-width: 620px) {
+  /* No --pbt-h override here: the measurer reports whatever this layout
+     actually produces, which is the whole point of measuring it. */
   .pbt-banner {
-    padding-right: 40px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 44px 12px 16px;
   }
 
   .pbt-cta {
-    width: 100%;
     text-align: center;
+  }
+
+  .pbt-dismiss {
+    top: 8px;
+    transform: none;
   }
 }
