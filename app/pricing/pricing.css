@@ -1,0 +1,173 @@
+/*
+ * The pricing page. Loaded alongside home.css, which supplies the shared
+ * marketing furniture (nav, buttons, bands, footer, section rhythm).
+ *
+ * Everything here is theme-token based. There is no dark band on this page
+ * except the shared .home-band, so nothing may assume a light-on-dark context.
+ */
+
+.prc-head {
+  text-align: center;
+}
+
+.prc-title {
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.prc-sub {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.prc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.prc-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 30px 26px;
+}
+
+/*
+ * The highlighted plan. Lifted with the accent and a shadow rather than a
+ * "most popular" ribbon: there is one pilot client, so a claim about what most
+ * customers choose would be invented.
+ */
+.prc-card--featured {
+  border-color: var(--accent-line);
+  box-shadow: 0 18px 44px var(--glow);
+  position: relative;
+}
+
+.prc-card--featured::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 20px;
+  padding: 1px;
+  background: var(--accent-grad);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.prc-name {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0 0 6px;
+  color: var(--text);
+}
+
+.prc-tagline {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-4);
+  margin: 0 0 22px;
+  min-height: 43px;
+}
+
+.prc-price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 22px;
+}
+
+.prc-amount {
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  line-height: 1;
+}
+
+.prc-period {
+  font-size: 14px;
+  color: var(--muted-2);
+}
+
+.prc-cta {
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.prc-features {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  flex: 1;
+}
+
+.prc-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+.prc-features svg {
+  color: var(--accent-text);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.prc-limits {
+  margin: 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted-2);
+}
+
+/* ── FAQ ─────────────────────────────────────────────────────── */
+
+.prc-faq {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 22px 32px;
+}
+
+.prc-faq-q {
+  font-size: 15.5px;
+  font-weight: 700;
+  margin: 0 0 7px;
+  color: var(--text);
+}
+
+.prc-faq-a {
+  font-size: 14.5px;
+  line-height: 1.68;
+  color: var(--text-4);
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .prc-card {
+    padding: 26px 22px;
+  }
+
+  /* The min-height exists to keep three card headers aligned in a row. In a
+     single column there is no row to align to, and it just adds a gap. */
+  .prc-tagline {
+    min-height: 0;
+  }
+}

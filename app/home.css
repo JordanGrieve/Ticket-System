@@ -1,0 +1,377 @@
+/*
+ * The public marketing page.
+ *
+ * Loaded only by app/page.tsx, so none of this reaches the app bundle.
+ *
+ * ── WHY A DARK HERO IS SAFE HERE ──
+ * Six themes exist and a marketing page must work in all of them. The hero
+ * band paints itself with --nav / --nav-deep, which globals.css guarantees to
+ * be a near-black indigo in every light theme and stays dark in the dark ones
+ * — it is what the app sidebar is painted with. Because that background is a
+ * known dark surface, this file may set light foreground colours against it
+ * without consulting the theme, which is the one place in the product where
+ * that is true. Everything BELOW the hero uses ordinary surface/ink tokens and
+ * inherits the visitor's theme normally.
+ *
+ * Nothing here hardcodes a brand colour: the purple comes from --accent-grad.
+ */
+
+.home {
+  min-height: 100vh;
+  background: var(--app-bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+}
+
+.home-wrap {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ── nav ─────────────────────────────────────────────────────── */
+
+.home-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  max-width: 1080px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.home-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.home-nav-link {
+  color: var(--text-4);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 9px;
+}
+
+.home-nav-link:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+
+/* ── buttons ─────────────────────────────────────────────────── */
+
+.home-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 46px;
+  padding: 0 24px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.home-btn--primary {
+  background: var(--accent-grad);
+  color: #fff;
+  box-shadow: 0 10px 26px var(--glow);
+}
+
+.home-btn--primary:hover {
+  filter: brightness(1.06);
+}
+
+/* Ghost button sitting ON the dark hero. Its background is --nav-deep, so
+   light-on-dark is correct in every theme. */
+.home-btn--ghost {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #f4f1ff;
+}
+
+.home-btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.home-btn--sm {
+  height: 38px;
+  padding: 0 16px;
+  font-size: 13.5px;
+  border-radius: 10px;
+}
+
+.home-btn--quiet {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+/* ── hero ────────────────────────────────────────────────────── */
+
+.home-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(150deg, var(--nav), var(--nav-deep));
+  border-radius: 28px;
+  margin: 8px 24px 0;
+  padding: 76px 40px 80px;
+}
+
+/* A soft accent bloom. Decorative only — the hero reads fine without it, so
+   it is aria-hidden and carries no information. */
+.home-hero::after {
+  content: "";
+  position: absolute;
+  top: -180px;
+  right: -140px;
+  width: 520px;
+  height: 520px;
+  border-radius: 50%;
+  background: var(--accent-grad);
+  opacity: 0.22;
+  filter: blur(80px);
+  pointer-events: none;
+}
+
+.home-hero-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
+}
+
+.home-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--nav-active-fg);
+  background: var(--nav-active-bg);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 6px 14px;
+  border-radius: 999px;
+  margin: 0 0 22px;
+}
+
+.home-h1 {
+  font-size: clamp(38px, 6.4vw, 64px);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 20px;
+}
+
+.home-h1 em {
+  font-style: normal;
+  background: linear-gradient(120deg, #c7b6ff, #8b6bff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.home-lede {
+  font-size: 17.5px;
+  line-height: 1.65;
+  color: rgba(244, 241, 255, 0.78);
+  margin: 0 0 32px;
+  max-width: 560px;
+}
+
+.home-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.home-cta-note {
+  margin: 18px 0 0;
+  font-size: 13.5px;
+  color: rgba(244, 241, 255, 0.6);
+}
+
+/* ── section furniture ───────────────────────────────────────── */
+
+.home-section {
+  padding: 76px 0 0;
+}
+
+.home-section--last {
+  padding-bottom: 84px;
+}
+
+.home-kicker {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+  margin: 0 0 10px;
+}
+
+.home-h2 {
+  font-size: clamp(26px, 3.4vw, 34px);
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+  margin: 0 0 12px;
+  color: var(--text);
+}
+
+.home-sub {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--text-4);
+  margin: 0 0 32px;
+  max-width: 620px;
+}
+
+/* ── feature grid ────────────────────────────────────────────── */
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.home-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 26px 24px;
+}
+
+.home-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.home-card-title {
+  font-size: 16.5px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: var(--text);
+}
+
+.home-card-body {
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: var(--text-4);
+  margin: 0;
+}
+
+/* ── closing CTA band ────────────────────────────────────────── */
+
+.home-band {
+  background: linear-gradient(150deg, var(--nav), var(--nav-deep));
+  border-radius: 24px;
+  padding: 48px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.home-band-title {
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+  margin: 0 0 8px;
+}
+
+.home-band-sub {
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(244, 241, 255, 0.72);
+  margin: 0;
+  max-width: 440px;
+}
+
+/* ── footer ──────────────────────────────────────────────────── */
+
+.home-footer {
+  border-top: 1px solid var(--border-soft);
+  margin-top: 12px;
+  padding: 22px 24px;
+  font-size: 12.5px;
+  color: var(--muted-2);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-width: 1080px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.home-footer a {
+  color: var(--muted-2);
+}
+
+.home-footer a:hover {
+  color: var(--text-4);
+}
+
+.home-footer-links {
+  display: flex;
+  gap: 16px;
+}
+
+/* ── mobile ──────────────────────────────────────────────────── */
+
+@media (max-width: 720px) {
+  .home-hero {
+    margin: 8px 14px 0;
+    padding: 52px 24px 56px;
+    border-radius: 22px;
+  }
+
+  .home-wrap,
+  .home-nav {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .home-section {
+    padding-top: 56px;
+  }
+
+  .home-band {
+    padding: 34px 24px;
+  }
+
+  /* The nav links crowd the sign-in button on a narrow screen, and the
+     hero's own CTAs already cover both jobs. */
+  .home-nav-link--hide-sm {
+    display: none;
+  }
+
+  .home-btn {
+    width: 100%;
+  }
+
+  .home-cta-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

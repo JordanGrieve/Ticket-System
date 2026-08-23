@@ -2,290 +2,258 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { PostboxLockup } from "@/components/Logo";
+import { OPEN_SIGNUP } from "@/lib/config";
+import "./home.css";
 
 /**
- * Public landing page. Signed-in users go straight to their inbox;
- * prospects get the pitch. Postbox is invite-only, so the CTA is
- * "sign in" plus a contact nudge rather than open sign-up.
+ * The public marketing page. Signed-in visitors go straight to their inbox.
+ *
+ * ── THE CTA TELLS THE TRUTH ABOUT THE PRODUCT'S STATE ──
+ * Self-serve sign-up is gated behind OPEN_SIGNUP (lib/workspace.ts: with it
+ * off, a stranger who completes Clerk sign-up is handed no workspace and lands
+ * on /no-access). So a "Start free trial" button while that flag is false is a
+ * promise the product does not keep — somebody creates an account, sees a dead
+ * end, and never comes back.
+ *
+ * The hero therefore reads the flag. With sign-up open it sells the trial;
+ * with it closed it asks for an enquiry instead, which is the truth today.
+ * When the flag is flipped this page changes with it, rather than needing
+ * somebody to remember to come back and edit the copy.
+ *
+ * ── EVERY CLAIM HERE MUST BE TRUE ──
+ * No invented testimonials, no customer logos, no "trusted by hundreds of
+ * businesses". There is one pilot client. A marketing page for a product whose
+ * pitch is trustworthy email cannot itself be the least trustworthy page we
+ * ship.
+ *
+ * ── #newsletters IS LOAD-BEARING ──
+ * It was added so an AWS reviewer assessing the SES production-access request
+ * could see the newsletter half of the product described. That case is still
+ * open. Do not remove or weaken that section.
  */
 export default async function LandingPage() {
   const { userId } = await auth();
   if (userId) redirect("/inbox");
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "var(--app-bg)",
-        color: "var(--ink)",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      {/* nav */}
-      <header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          maxWidth: 980,
-          width: "100%",
-          margin: "0 auto",
-          padding: "22px 24px",
-        }}
-      >
+    <div className="home">
+      <header className="home-nav">
         <PostboxLockup />
-        <Link
-          href="/sign-in"
-          style={{
-            height: 38,
-            padding: "0 18px",
-            borderRadius: 10,
-            // Was #fff against color: var(--ink) — which is a LIGHT ink on the
-            // five dark themes, so the label vanished into the button.
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            color: "var(--ink)",
-            fontSize: 13.5,
-            fontWeight: 600,
-            display: "inline-flex",
-            alignItems: "center",
-          }}
-        >
-          Sign in
-        </Link>
+        <nav className="home-nav-links">
+          <Link
+            className="home-nav-link home-nav-link--hide-sm"
+            href="#features"
+          >
+            Features
+          </Link>
+          <Link className="home-nav-link home-nav-link--hide-sm" href="/pricing">
+            Pricing
+          </Link>
+          <Link className="home-btn home-btn--sm home-btn--quiet" href="/sign-in">
+            Sign in
+          </Link>
+        </nav>
       </header>
 
-      {/* hero */}
       <main style={{ flex: 1 }}>
-        <section
-          style={{
-            maxWidth: 780,
-            margin: "0 auto",
-            padding: "72px 24px 40px",
-            textAlign: "center",
-          }}
-        >
-          <h1
-            style={{
-              fontSize: 42,
-              lineHeight: 1.15,
-              fontWeight: 800,
-              letterSpacing: "-0.02em",
-              margin: 0,
-            }}
-          >
-            Support tickets that feel
-            <br />
-            like an inbox
-          </h1>
-          <p
-            style={{
-              fontSize: 17,
-              lineHeight: 1.65,
-              color: "var(--muted)",
-              maxWidth: 560,
-              margin: "18px auto 0",
-            }}
-          >
-            Postbox turns your website&rsquo;s contact form and support email
-            into one clean, threaded inbox. Reply from Postbox — customers get
-            a real email, and their answers thread right back.
-          </p>
-          <div style={{ marginTop: 30 }}>
-            <span
-              style={{
-                display: "inline-block",
-                fontSize: 13.5,
-                fontWeight: 600,
-                // --accent-text, not --accent-strong: this is text on
-                // --accent-soft, and every theme pairs those two (see
-                // .pbm-tag--order). --accent-strong is the deep plate colour
-                // and scores ~2:1 on the dark themes' soft fill.
-                color: "var(--accent-text)",
-                background: "var(--accent-soft)",
-                border: "1px solid var(--accent-line)",
-                borderRadius: 20,
-                padding: "8px 16px",
-              }}
-            >
-              Currently invite-only — ask your provider for access
-            </span>
+        <section className="home-hero">
+          <div className="home-hero-inner">
+            <p className="home-eyebrow">Support inbox + newsletters</p>
+
+            <h1 className="home-h1">
+              Every customer email in <em>one shared inbox</em>
+            </h1>
+
+            <p className="home-lede">
+              Postbox turns your website&rsquo;s contact form and your support
+              email into a single inbox your whole team can answer from — and
+              sends your newsletter from the same place, to people who actually
+              asked for it.
+            </p>
+
+            <div className="home-cta-row">
+              {OPEN_SIGNUP ? (
+                <>
+                  <Link className="home-btn home-btn--primary" href="/sign-up">
+                    Start free trial
+                  </Link>
+                  <Link className="home-btn home-btn--ghost" href="/pricing">
+                    See pricing
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link className="home-btn home-btn--primary" href="/pricing">
+                    See pricing
+                  </Link>
+                  <Link className="home-btn home-btn--ghost" href="/sign-in">
+                    Sign in
+                  </Link>
+                </>
+              )}
+            </div>
+
+            <p className="home-cta-note">
+              {OPEN_SIGNUP
+                ? "No card needed to start."
+                : "Postbox is onboarding businesses one at a time — ask your provider for access."}
+            </p>
           </div>
         </section>
 
-        {/* how it works */}
-        <section
-          style={{
-            maxWidth: 980,
-            margin: "0 auto",
-            padding: "24px 24px 72px",
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-            gap: 16,
-          }}
-        >
-          {[
-            {
-              title: "Everything becomes a ticket",
-              body: "Contact-form submissions and forwarded support email land in one inbox. Order numbers are spotted automatically and flagged as priority.",
-            },
-            {
-              title: "Reply like it's email — because it is",
-              body: "Your replies send as real branded email. Customer responses thread back into the same ticket, and the whole conversation groups properly in their mail app.",
-            },
-            {
-              title: "Set up in minutes",
-              body: "Paste one snippet on your site — or hand your AI assistant our ready-made integration prompt. Forward your support address and you're done.",
-            },
-          ].map((f) => (
-            <div
-              key={f.title}
-              style={{
-                // Not #fff: five of the six themes are dark grounds, and a
-                // white card with var(--muted) text on them is unreadable.
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
-                borderRadius: 16,
-                padding: "24px 22px",
-              }}
-            >
-              <h2 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 8px" }}>
-                {f.title}
-              </h2>
-              <p
-                style={{
-                  fontSize: 14,
-                  lineHeight: 1.65,
-                  color: "var(--muted)",
-                  margin: 0,
-                }}
-              >
-                {f.body}
-              </p>
-            </div>
-          ))}
+        <section className="home-section home-wrap" id="features">
+          <p className="home-kicker">What you get</p>
+          <h2 className="home-h2">
+            One place for everything customers send you
+          </h2>
+          <p className="home-sub">
+            No forwarding rules, no shared password on a Gmail account, no
+            wondering whether somebody already replied.
+          </p>
+
+          <div className="home-grid">
+            {FEATURES.map((f) => (
+              <div className="home-card" key={f.title}>
+                <span className="home-card-icon" aria-hidden>
+                  {f.icon}
+                </span>
+                <h3 className="home-card-title">{f.title}</h3>
+                <p className="home-card-body">{f.body}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
         {/*
-          ── NEWSLETTERS ──
-          This section exists for two audiences and both matter.
-
-          The client: the product does bulk marketing email now, and a landing
-          page that only describes a support inbox undersells half of it.
-
-          The reviewer: Amazon denied our first SES production-access request
-          (case 178747420600793). The eu-west-1 form has no free-text field, so
-          the assessment is made against this website — and a MARKETING request
-          judged against a page describing a support-ticket tool is a mismatch
-          a reviewer is right to refuse. Everything below is a plain statement
-          of what the code actually does, which is also exactly what a sending
-          platform is expected to be able to show.
+          Kept from the previous page, restyled only. See the note at the top:
+          the SES production-access case is still open and a reviewer may read
+          this section to judge how subscribers are collected.
         */}
-        <section
-          id="newsletters"
-          style={{
-            maxWidth: 980,
-            margin: "0 auto",
-            padding: "0 24px 72px",
-          }}
-        >
-          <h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 10px" }}>
-            Newsletters, sent properly
-          </h2>
-          <p
-            style={{
-              fontSize: 15,
-              lineHeight: 1.7,
-              color: "var(--muted)",
-              margin: "0 0 20px",
-              maxWidth: 640,
-            }}
-          >
+        <section className="home-section home-wrap" id="newsletters">
+          <p className="home-kicker">Newsletters</p>
+          <h2 className="home-h2">Newsletters, sent properly</h2>
+          <p className="home-sub">
             The same workspace sends your newsletter. People subscribe from a
             form on your own site, and every part of the process is built so you
             can show, later, that they asked for it.
           </p>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-              gap: 16,
-            }}
-          >
-            {[
-              {
-                title: "Confirmed opt-in only",
-                body: "Someone enters their address, we email them a confirmation link, and nothing is stored until they press it. No purchased lists, no imported addresses, no way to add a subscriber who never clicked.",
-              },
-              {
-                title: "A record of every consent",
-                body: "For each subscriber we keep how they subscribed, the moment they confirmed, the page the form was on, and the IP the confirmation came from. An address with no consent record is excluded from every send.",
-              },
-              {
-                title: "One-click unsubscribe",
-                body: "Every newsletter carries a one-click unsubscribe header and a visible link. No login, no account, no questions — and the address is suppressed immediately, for good.",
-              },
-              {
-                title: "Bounces and complaints act on themselves",
-                body: "Hard bounces and spam complaints are fed straight back into a suppression list, so an address that failed or objected is never sent to again. Your postal address appears in every message, as the law requires.",
-              },
-            ].map((f) => (
-              <div
-                key={f.title}
-                style={{
-                  background: "var(--surface)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 16,
-                  padding: "24px 22px",
-                }}
-              >
-                <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 8px" }}>
-                  {f.title}
-                </h3>
-                <p
-                  style={{
-                    fontSize: 14,
-                    lineHeight: 1.65,
-                    color: "var(--muted)",
-                    margin: 0,
-                  }}
-                >
-                  {f.body}
-                </p>
+          <div className="home-grid">
+            {NEWSLETTER_POINTS.map((f) => (
+              <div className="home-card" key={f.title}>
+                <h3 className="home-card-title">{f.title}</h3>
+                <p className="home-card-body">{f.body}</p>
               </div>
             ))}
           </div>
         </section>
+
+        <section className="home-section home-section--last home-wrap">
+          <div className="home-band">
+            <div>
+              <h2 className="home-band-title">
+                {OPEN_SIGNUP
+                  ? "Start with a free trial"
+                  : "Want Postbox for your business?"}
+              </h2>
+              <p className="home-band-sub">
+                {OPEN_SIGNUP
+                  ? "Connect your contact form in a couple of minutes. No card needed to start, and you can leave whenever you like."
+                  : "We are onboarding businesses one at a time so that every one gets set up properly. Have a look at the pricing and get in touch."}
+              </p>
+            </div>
+            <Link
+              className="home-btn home-btn--primary"
+              href={OPEN_SIGNUP ? "/sign-up" : "/pricing"}
+            >
+              {OPEN_SIGNUP ? "Start free trial" : "See pricing"}
+            </Link>
+          </div>
+        </section>
       </main>
 
-      {/* footer */}
-      <footer
-        style={{
-          borderTop: "1px solid var(--border-soft)",
-          padding: "18px 24px",
-          fontSize: 12.5,
-          color: "var(--muted-2)",
-          display: "flex",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: 8,
-          maxWidth: 980,
-          width: "100%",
-          margin: "0 auto",
-        }}
-      >
+      <footer className="home-footer">
         <span>© 2026 Postbox · postbox.help</span>
-        <span style={{ display: "flex", gap: 14 }}>
-          <Link href="/terms" style={{ color: "var(--muted-2)" }}>
-            Terms
-          </Link>
-          <Link href="/privacy" style={{ color: "var(--muted-2)" }}>
-            Privacy
-          </Link>
+        <span className="home-footer-links">
+          <Link href="/pricing">Pricing</Link>
+          <Link href="/terms">Terms</Link>
+          <Link href="/privacy">Privacy</Link>
         </span>
       </footer>
     </div>
   );
 }
+
+/*
+ * Small inline glyphs. Deliberately NOT the app's Icon set: that lives in the
+ * mail client's bundle and this page has no other reason to pull it in.
+ */
+const stroke = {
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.7,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+};
+
+const FEATURES = [
+  {
+    title: "A shared inbox, not a mailbox",
+    body: "Your contact form and your support address land in the same place. Everyone on the team sees the same threads and replies as the business — customers never see individual names.",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" {...stroke}>
+        <path d="M3 7.5 12 13l9-5.5" />
+        <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      </svg>
+    ),
+  },
+  {
+    title: "Replies that keep the thread",
+    body: "Answer from Postbox and it reaches the customer as a normal email from you. When they reply it comes back to the same thread, instead of starting a new one nobody connects to the last.",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" {...stroke}>
+        <path d="M9 10 4 15l5 5" />
+        <path d="M4 15h9a7 7 0 0 0 7-7V6" />
+      </svg>
+    ),
+  },
+  {
+    title: "Nobody waits until Monday",
+    body: "Set your opening hours and Postbox acknowledges enquiries that arrive out of hours — held until you open, so it never claims somebody is around at 2am when they are not.",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" {...stroke}>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 7.5V12l3 2" />
+      </svg>
+    ),
+  },
+  {
+    title: "You know who you are talking to",
+    body: "Every thread shows when this person first got in touch and what they have asked before, so you are not starting from nothing on their third email.",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" {...stroke}>
+        <circle cx="12" cy="8.5" r="3.6" />
+        <path d="M5 19.5a7 7 0 0 1 14 0" />
+      </svg>
+    ),
+  },
+];
+
+const NEWSLETTER_POINTS = [
+  {
+    title: "Confirmed opt-in only",
+    body: "Someone enters their address, we email them a confirmation link, and nothing is stored until they press it. No purchased lists, no imported addresses, no way to add a subscriber who never clicked.",
+  },
+  {
+    title: "A record of every consent",
+    body: "For each subscriber we keep how they subscribed, the moment they confirmed, the page the form was on, and the IP the confirmation came from. An address with no consent record is excluded from every send.",
+  },
+  {
+    title: "One-click unsubscribe",
+    body: "Every newsletter carries a one-click unsubscribe header and a visible link. No login, no account, no questions — and the address is suppressed immediately, for good.",
+  },
+  {
+    title: "Bounces and complaints act on themselves",
+    body: "Hard bounces and spam complaints are fed straight back into a suppression list, so an address that failed or objected is never sent to again. Your postal address appears in every message, as the law requires.",
+  },
+];

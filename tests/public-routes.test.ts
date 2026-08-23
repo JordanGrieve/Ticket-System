@@ -59,17 +59,49 @@ describe("public route matcher", () => {
     },
   );
 
-  it("declares every top-level app segment as either public or deliberately protected", () => {
+  it("declares every app segment as either public or deliberately protected", () => {
     // Catches a NEW public area being added without a decision being made
-    // about it. Route groups in parentheses are layout-only and never appear
-    // in a URL, so they cannot be matched and are skipped.
-    const KNOWN_PROTECTED = ["no-access"];
-    const segments = readdirSync(join(process.cwd(), "app"), {
-      withFileTypes: true,
-    })
-      .filter((e) => e.isDirectory())
-      .map((e) => e.name)
-      .filter((n) => !n.startsWith("(") && !n.startsWith("_") && n !== "api");
+    // about it.
+    //
+    // Route groups in parentheses are layout-only and never appear in a URL,
+    // so the GROUP is not a segment — but what is inside it is. This used to
+    // skip them entirely, which left a blind spot precisely where it mattered:
+    // app/(legal)/ holds /terms and /privacy, both of which must be public, so
+    // the next public page added there would have gone unnoticed. It did, when
+    // /pricing was added. Now the groups are flattened into the segments they
+    // actually produce.
+    // Every one of these requires a session, and that is the point of them.
+    // They were invisible to this test until route groups were flattened —
+    // they live under app/(dashboard) and app/(admin) — so listing them here
+    // is not bookkeeping: it is the first time the guard has actually asserted
+    // that the inbox and the operator console are not public.
+    const KNOWN_PROTECTED = [
+      "no-access",
+      "admin",
+      "inbox",
+      "newsletters",
+      "search",
+      "settings",
+      "subscribers",
+      "tickets",
+    ];
+    const appDir = join(process.cwd(), "app");
+
+    const dirsIn = (p: string) =>
+      readdirSync(p, { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .map((e) => e.name);
+
+    const segments = dirsIn(appDir).flatMap((name) => {
+      if (name.startsWith("_") || name === "api") return [];
+      // A route group contributes its children's names, not its own.
+      if (name.startsWith("(")) {
+        return dirsIn(join(appDir, name)).filter(
+          (child) => !child.startsWith("_") && !child.startsWith("("),
+        );
+      }
+      return [name];
+    });
 
     const undeclared = segments.filter(
       (n) =>

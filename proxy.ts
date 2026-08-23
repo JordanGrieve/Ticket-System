@@ -13,6 +13,13 @@ const isPublicRoute = createRouteMatcher([
   "/",
   "/terms",
   "/privacy",
+  // The pricing page. Public for the obvious reason — it is a marketing page
+  // and the whole point is that people read it before they have an account —
+  // but worth a line rather than folding it in silently: it is the first route
+  // added here whose omission would not 404 loudly in testing. It would 307 a
+  // logged-out visitor to /sign-in, i.e. the pricing link on the homepage
+  // would quietly become a sign-in wall for exactly the people it is for.
+  "/pricing",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/(.*)",
