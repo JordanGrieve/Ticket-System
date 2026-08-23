@@ -13,7 +13,7 @@ import {
   getOpenSession,
   touchImpersonation,
 } from "./impersonation";
-import { getAgentByClerkId, getWorkspaceById } from "./data";
+import { getAgentWithWorkspaceByClerkId, getWorkspaceById } from "./data";
 import { resolveWorkspace } from "./workspace";
 
 /**
@@ -144,20 +144,26 @@ async function _resolveViewer(): Promise<Viewer> {
     };
   }
 
-  // Fast path 2 — a returning client (existing agent). No Clerk API call.
-  // Any agent here is genuinely a client: admins promoted from a client are
-  // pre-linked by addAdmin, so they'd have matched fast path 1 above.
-  const agent = await getAgentByClerkId(userId);
-  if (agent) {
-    const workspace = await getWorkspaceById(agent.workspaceId);
-    if (workspace) {
-      return {
-        isAdmin: false,
-        email: agent.email,
-        workspace,
-        agentEmail: agent.email,
-      };
-    }
+  /*
+   * Fast path 2 — a returning client (existing agent). No Clerk API call.
+   *
+   * Any agent here is genuinely a client: admins promoted from a client are
+   * pre-linked by addAdmin, so they'd have matched fast path 1 above.
+   *
+   * ONE query, not two. This is the commonest request in the product — every
+   * dashboard render goes through it — and the layout above blocks on it
+   * before emitting any HTML. It used to fetch the agent, then its workspace,
+   * as two sequential neon-http requests; the workspace is now joined in. See
+   * getAgentWithWorkspaceByClerkId for the measurements.
+   */
+  const found = await getAgentWithWorkspaceByClerkId(userId);
+  if (found?.workspace) {
+    return {
+      isAdmin: false,
+      email: found.agent.email,
+      workspace: found.workspace,
+      agentEmail: found.agent.email,
+    };
   }
 
   // Slow path — first sign-in (or an admin who hasn't logged in yet). Only now

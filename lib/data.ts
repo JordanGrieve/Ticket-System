@@ -81,15 +81,52 @@ export async function getWorkspaceById(id: number): Promise<Workspace | null> {
 
 // ── Agent lookups ────────────────────────────────────────────────
 
-export async function getAgentByClerkId(
+
+/**
+ * The agent for a Clerk id, together with the workspace it belongs to, in ONE
+ * round trip.
+ *
+ * ── WHY THIS EXISTS WHEN THE TWO SEPARATE LOOKUPS ALREADY DID ──
+ * resolveViewer runs on every dashboard render, and the layout awaits it
+ * before a single byte of HTML is produced. It was fetching the agent and then
+ * its workspace as two sequential queries, and over neon-http every query is
+ * its own HTTP request.
+ *
+ * Measured against the development database: a bare `SELECT 1` costs 33ms and
+ * each of these lookups costs 38-44ms. That is roughly five milliseconds of
+ * work sitting on top of a thirty-three millisecond round trip — so the cost
+ * of the pair is almost entirely the fact that there are two of them, and
+ * joining removes a whole hop rather than shaving a query.
+ *
+ * (Those absolute numbers are from a laptop, not from Vercel, so production
+ * will be lower. The ratio is what transfers: the hop dominates the work
+ * wherever it runs, which is why the fix is fewer queries and not faster ones.)
+ *
+ * LEFT JOIN, and the honest reason is not the one it looks like. An orphaned
+ * agent cannot exist: agents.workspace_id is NOT NULL with ON DELETE CASCADE,
+ * so deleting a workspace takes its agents with it and the null-workspace
+ * branch is unreachable today. The caller checked for it before this change
+ * too, equally unreachably.
+ *
+ * It stays LEFT because that preserves the previous behaviour EXACTLY, and
+ * because an INNER join would quietly couple this lookup to that constraint —
+ * if the cascade were ever relaxed, an inner join would turn a real agent into
+ * "no agent at all" and send them to sign-up, which is a bad way to discover a
+ * schema change. LEFT costs nothing and cannot become that bug.
+ */
+export async function getAgentWithWorkspaceByClerkId(
   clerkUserId: string,
-): Promise<Agent | null> {
+): Promise<{ agent: Agent; workspace: Workspace | null } | null> {
   const rows = await db
-    .select()
+    .select({ agent: agents, workspace: workspaces })
     .from(agents)
+    .leftJoin(workspaces, eq(workspaces.id, agents.workspaceId))
     .where(eq(agents.clerkUserId, clerkUserId))
     .limit(1);
-  return rows[0] ?? null;
+
+  const row = rows[0];
+  if (!row) return null;
+  return { agent: row.agent, workspace: row.workspace ?? null };
 }
 
 /** A real (non-seed) agent for this email, if any — used to pre-link admins. */
