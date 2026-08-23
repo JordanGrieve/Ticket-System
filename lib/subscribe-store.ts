@@ -88,8 +88,10 @@ export const SIGNUP_SOURCE = "signup_form";
  * returns 503 rather than issuing tokens anybody could forge. A missing secret
  * is a deployment fault, not permission to trust everything.
  *
- * `SUBSCRIBE_TOKEN_SECRET` is the variable to set, and it is NOT yet in
- * .env.example or in Vercel — see the note accompanying this work. The
+ * `SUBSCRIBE_TOKEN_SECRET` is the variable to set. It IS in .env.example,
+ * with the command to generate one. Whether it is set in Vercel is a
+ * deployment question this file cannot answer — if signups are 503ing in
+ * production, that is the first thing to check. The
  * fallback to `INBOUND_WEBHOOK_SECRET` exists so the feature is not dead on
  * arrival in an environment that already has one, and is safe only because
  * every signature mixes in a constant naming this use (TOKEN_DOMAIN in
