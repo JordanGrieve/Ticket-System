@@ -1,6 +1,7 @@
 import { CORS_HEADERS, json, clientIp } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { getWorkspaceByApiKey } from "@/lib/data";
+import { recordIngestionFailure } from "@/lib/ingestion-log";
 import { APP_URL } from "@/lib/config";
 import {
   consentSourceFrom,
@@ -53,6 +54,7 @@ export async function POST(
 
   const workspace = await getWorkspaceByApiKey(key);
   if (!workspace) {
+    await recordIngestionFailure({ reason: "invalid_key", key });
     return json(
       { ok: false, error: "Invalid API key." },
       { status: 401, headers: CORS_HEADERS },
@@ -93,6 +95,11 @@ export async function POST(
   // with the field cleared; a bot told it succeeded goes away. Checked before
   // validation so a tripped submission never reaches the mailer.
   if (isHoneypotTripped(fields)) {
+    await recordIngestionFailure({
+      reason: "honeypot",
+      key,
+      workspaceId: workspace.id,
+    });
     return accepted(req, workspace.name);
   }
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Admin, ImpersonationEnd, ImpersonationSession } from "@/db/schema";
 import type { WorkspaceSummary } from "@/lib/data";
+import type { IngestionFailureRow } from "@/lib/ingestion-log";
 import {
   sessionState,
   sessionStates,
@@ -449,13 +450,77 @@ export function BillingSection() {
    DELIVERABILITY
    ──────────────────────────────────────────────────────────────────────── */
 
+/**
+ * Why a submission was turned away, in the operator’s words rather than the
+ * code’s. "invalid_key" is what the column holds; this is what it means.
+ */
+const REJECTION_LABELS: Record<string, string> = {
+  invalid_key: "Key not recognised",
+  missing_fields: "Incomplete submission",
+  invalid_email: "Bad email address",
+  honeypot: "Caught by spam trap",
+};
+
 export function DeliverabilitySection({
   accounts,
+  rejections,
 }: {
   accounts: WorkspaceSummary[];
+  /** Aggregated rejected ingestion attempts. See lib/ingestion-log.ts. */
+  rejections: IngestionFailureRow[];
 }) {
+  const byWorkspace = new Map(accounts.map((w) => [w.id, w.name]));
   return (
     <div className="pba-stack">
+      {/*
+        First, above the "nothing is measured" notice, because this IS measured
+        and it is the thing that cost six weeks. Open Door Bakery's site posted
+        a dead key every day and the 401s went nowhere.
+      */}
+      <div className="pba-card">
+        <div className="pba-card-head">
+          <h2 className="pba-card-title">Rejected submissions</h2>
+          <p className="pba-card-sub">
+            Requests the public endpoints turned away, grouped by key. A high
+            count against one key usually means a client&rsquo;s website is
+            posting credentials we don&rsquo;t recognise &mdash; their form has
+            been broken since whenever the count started.
+          </p>
+        </div>
+        {rejections.length === 0 ? (
+          <p className="pba-card-sub" style={{ padding: "0 18px 18px" }}>
+            Nothing rejected. Either every integration is working, or none has
+            been touched since this started being recorded on 23 August 2026.
+          </p>
+        ) : (
+          <div className="pba-table">
+            <div className="pba-scroll">
+              <div className="pba-row pba-row-head">
+                <span>Key</span>
+                <span>Reason</span>
+                <span>Workspace</span>
+                <span>Count</span>
+                <span>Last seen</span>
+              </div>
+              {rejections.map((r) => (
+                <div className="pba-row" key={`${r.reason}:${r.keyPrefix}`}>
+                  <span className="pba-mono">{r.keyPrefix}…</span>
+                  <span>{REJECTION_LABELS[r.reason] ?? r.reason}</span>
+                  <span>
+                    {r.workspaceId === null
+                      ? // An unknown key belongs to no workspace by definition.
+                        "— unknown key"
+                      : (byWorkspace.get(r.workspaceId) ?? `#${r.workspaceId}`)}
+                  </span>
+                  <span>{r.count}</span>
+                  <span>{formatDate(r.lastSeenAt)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       <NotBuilt
         title="Nothing about delivery is measured yet"
         text="The tables exist and almost nothing fills them. campaign_recipients holds a per-send row with status, sent_at, delivered_at, provider_message_id and error, and sending_domains holds per-workspace SPF/DKIM/DMARC state — but the only thing that ever fills those delivery columns is the nightly campaign sweep, which has never run against a live provider; no webhook exists to record a bounce or a complaint; and no row has ever been written to sending_domains at all. Transactional ticket replies are not logged at all: they go out through one shared provider and nothing records the result. So the four headline numbers this pane was designed around are unavailable because nothing populates the schema, not because the schema is missing."

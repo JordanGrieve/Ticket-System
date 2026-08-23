@@ -834,6 +834,64 @@ export const sendingDomains = pgTable(
 );
 
 export type Workspace = typeof workspaces.$inferSelect;
+/**
+ * Rejected attempts at the public ingestion endpoints.
+ *
+ * WHY: Open Door Bakery’s contact form posted a key that no longer existed for
+ * six weeks. Postbox correctly returned 401 to every request and threw the
+ * fact away, so nothing anywhere recorded that thousands of attempts had
+ * arrived carrying an unknown key. The quiet-workspace detector
+ * (lib/workspace-health.ts) infers that problem from an ABSENCE; this records
+ * the CAUSE.
+ *
+ * AGGREGATED, NOT APPENDED. One row per (reason, key_prefix) with a count and
+ * first/last seen, upserted. A row-per-request log written by an unauthenticated
+ * public endpoint is a free database-growth primitive for anyone who reads the
+ * client’s page source — which is exactly what app/api/subscribe/[key] was
+ * designed to avoid. The unique constraint bounds this table by DISTINCT KEYS
+ * rather than by request volume, which is the property that makes it safe.
+ *
+ * key_prefix is TRUNCATED: enough to recognise which integration is failing,
+ * never enough to replay. And only keys shaped like ours are recorded at all
+ * (see lib/ingestion-log.ts) — internet background scanning would otherwise
+ * fill this with one row per random string.
+ */
+export const ingestionFailures = pgTable(
+  "ingestion_failures",
+  {
+    id: serial("id").primaryKey(),
+    /** invalid_key | missing_fields | invalid_email | honeypot */
+    reason: text("reason").$type<IngestionFailureReason>().notNull(),
+    /** First 16 chars of the attempted key. Recognisable, not reusable. */
+    keyPrefix: text("key_prefix").notNull(),
+    /**
+     * Known only when the key WAS valid and the body failed validation. Null
+     * for invalid_key — an unknown key belongs to no workspace by definition,
+     * and guessing which client it was meant for would be inventing evidence.
+     */
+    workspaceId: integer("workspace_id").references(() => workspaces.id, {
+      onDelete: "cascade",
+    }),
+    count: integer("count").notNull().default(1),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("ingestion_failures_reason_key_idx").on(t.reason, t.keyPrefix),
+    index("ingestion_failures_last_seen_idx").on(t.lastSeenAt),
+  ],
+);
+
+export type IngestionFailureReason =
+  | "invalid_key"
+  | "missing_fields"
+  | "invalid_email"
+  | "honeypot";
+
 export type Ticket = typeof tickets.$inferSelect;
 export type TicketMessage = typeof ticketMessages.$inferSelect;
 export type Contact = typeof contacts.$inferSelect;
@@ -854,3 +912,4 @@ export type Suppression = typeof suppressions.$inferSelect;
 export type Campaign = typeof campaigns.$inferSelect;
 export type CampaignRecipient = typeof campaignRecipients.$inferSelect;
 export type SendingDomain = typeof sendingDomains.$inferSelect;
+export type IngestionFailure = typeof ingestionFailures.$inferSelect;

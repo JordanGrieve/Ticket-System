@@ -1,6 +1,7 @@
 import { CORS_HEADERS, json, isValidEmail, clientIp } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { isHoneypotTripped } from "@/lib/subscribe";
+import { recordIngestionFailure } from "@/lib/ingestion-log";
 import { previewText } from "@/lib/tickets";
 import {
   getWorkspaceByApiKey,
@@ -29,6 +30,10 @@ export async function POST(
 
   const workspace = await getWorkspaceByApiKey(apiKey);
   if (!workspace) {
+    // THE bakery case. Their site posted a key that no longer existed, every
+    // day for six weeks, and this branch discarded the fact every time — so
+    // the only way it could ever have been found was the client complaining.
+    await recordIngestionFailure({ reason: "invalid_key", key: apiKey });
     return json(
       { ok: false, error: "Invalid API key." },
       { status: 401, headers: CORS_HEADERS },
@@ -82,6 +87,11 @@ export async function POST(
   // mention these fields, and the contact snippet that predates them omits
   // them. This only ever catches a filler that populated one.
   if (isHoneypotTripped(fields)) {
+    await recordIngestionFailure({
+      reason: "honeypot",
+      key: apiKey,
+      workspaceId: workspace.id,
+    });
     return honeypotSuccess(req, workspace.name);
   }
   const name = (fields.name ?? "").trim().slice(0, 120);
@@ -94,6 +104,14 @@ export async function POST(
   if (!email) missing.push("email");
   if (!message) missing.push("message");
   if (missing.length > 0) {
+    // A form that suddenly starts posting incomplete bodies — a renamed input,
+    // a broken build on the client's site — is broken in a way that otherwise
+    // looks exactly like a quiet week.
+    await recordIngestionFailure({
+      reason: "missing_fields",
+      key: apiKey,
+      workspaceId: workspace.id,
+    });
     return badRequest(req, `Missing required field(s): ${missing.join(", ")}.`);
   }
   if (email.length > 254 || !isValidEmail(email)) {
