@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { PostboxLockup } from "@/components/Logo";
 import { OPEN_SIGNUP } from "@/lib/config";
+import ProductShot from "@/components/marketing/ProductShot";
 import "./home.css";
 
 /**
@@ -99,9 +100,27 @@ export default async function LandingPage() {
                 : "Postbox is onboarding businesses one at a time — ask your provider for access."}
             </p>
           </div>
+
+          {/*
+            The product, shown. This page described Postbox in words and never
+            once showed it, which asks a bakery owner to imagine software.
+
+            NO ANNOTATIONS HERE, deliberately. The hero's job is recognition —
+            a visitor should think "oh, it's like an email client" in about
+            half a second, without reading anything inside it. Callouts here
+            would compete with the headline and the button, which are the two
+            things this section actually needs somebody to read. The feature
+            sections below carry the labelled, single-idea crops.
+          */}
+          <div className="home-shot">
+            <ProductShot />
+          </div>
         </section>
 
-        <section className="home-section home-wrap" id="features">
+        <section
+          className="home-section home-section--after-shot home-wrap"
+          id="features"
+        >
           <p className="home-kicker">What you get</p>
           <h2 className="home-h2">
             One place for everything customers send you
@@ -121,6 +140,101 @@ export default async function LandingPage() {
                 <p className="home-card-body">{f.body}</p>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/*
+          THE TWO LOAD-BEARING FEATURES, SHOWN.
+
+          The grid above states eight things in words. These two sections take
+          the two that matter most and put the product next to the claim,
+          because a bakery owner deciding whether to move their customer email
+          into an unfamiliar tool is being asked to imagine software, and the
+          page gave them nothing to look at.
+
+          Alternating sides, one idea per image, and at most two callouts each.
+          Three is the documented ceiling before a screenshot stops being a
+          picture of a product and becomes a diagram — and the ceiling is
+          lower here than it looks, because these crops are narrow.
+        */}
+        <section className="home-showcase home-wrap">
+          <div className="home-show">
+            <div className="home-show-copy">
+              <p className="home-kicker">The inbox</p>
+              <h2 className="home-show-title">
+                Your contact form and your email, in one list
+              </h2>
+              <p className="home-show-body">
+                Everything a customer sends you arrives in the same place, in
+                the order it arrived, with a label saying where it came from.
+                No forwarding rules to maintain, and nothing sitting unread in
+                a mailbox only one person can open.
+              </p>
+              <p className="home-show-body">
+                Whoever is free answers. The whole team sees the same threads,
+                so nobody sends a second reply to a customer who has already
+                been helped.
+              </p>
+            </div>
+            <div className="home-show-shot">
+              <ProductShot
+                focus="inbox"
+                annotations={[
+                  {
+                    /*
+                     * Measured against the "Order" chip, not guessed. The
+                     * first version of this sat at 62%/-2% and its connector
+                     * landed 150px away from any UI at all — a callout
+                     * pointing at blank space, which is worse than no callout
+                     * because the reader hunts for what it means.
+                     */
+                    text: "Where it came from",
+                    top: "71.6%",
+                    left: "60.9%",
+                    from: "right",
+                  },
+                  {
+                    text: "One list, every channel",
+                    top: "13%",
+                    left: "82%",
+                    from: "right",
+                  },
+                ]}
+              />
+            </div>
+          </div>
+
+          <div className="home-show home-show--flip">
+            <div className="home-show-copy">
+              <p className="home-kicker">Replies</p>
+              <h2 className="home-show-title">
+                You can see that it actually arrived
+              </h2>
+              <p className="home-show-body">
+                Answer from Postbox and it reaches the customer as an ordinary
+                email from your business. When they write back it returns to the
+                same thread instead of starting a new one nobody connects to the
+                last.
+              </p>
+              <p className="home-show-body">
+                Every reply says what happened to it. If a message bounced, the
+                thread tells you — rather than you finding out because the
+                customer chased you.
+              </p>
+            </div>
+            <div className="home-show-shot">
+              <ProductShot
+                focus="thread"
+                annotations={[
+                  {
+                    text: "Confirmed by the mail provider",
+                    top: "84%",
+                    left: "76%",
+                    from: "right",
+                  },
+                ]}
+              />
+            </div>
           </div>
         </section>
 

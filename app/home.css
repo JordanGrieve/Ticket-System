@@ -375,3 +375,118 @@
     align-items: stretch;
   }
 }
+
+/* ── the product shot in the hero ────────────────────────────── */
+
+/*
+ * Sits inside the hero band, so it is on the guaranteed-dark --nav ground
+ * rather than on the visitor's theme surface. That matters: the shot's own
+ * frame is drawn from theme tokens, and putting it here means the dark app
+ * imagery lands on a dark ground in all six themes rather than a light card
+ * floating on a dark band in some of them.
+ */
+.home-shot {
+  width: 100%;
+  max-width: 1000px;
+  margin: 56px auto -110px;
+  padding: 0 24px;
+  /*
+   * Bleeds off the BOTTOM of the hero and into the section below, which is
+   * what makes it read as "there is more product than fits" rather than as a
+   * picture placed on a page. The negative margin is paired with padding on
+   * the following section so nothing is actually covered.
+   */
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 860px) {
+  .home-shot {
+    margin: 40px auto -70px;
+    padding: 0 16px;
+  }
+}
+
+/* The section after the hero has to make room for the overhang. */
+.home-section--after-shot {
+  padding-top: 150px;
+}
+@media (max-width: 860px) {
+  .home-section--after-shot {
+    padding-top: 100px;
+  }
+}
+
+/* ── showcase: the product beside the claim ──────────────────── */
+
+.home-showcase {
+  display: flex;
+  flex-direction: column;
+  gap: 96px;
+  padding: 96px 24px;
+}
+
+.home-show {
+  display: grid;
+  /* Copy narrower than the image: the text is there to be read in a glance
+     and the product is the thing doing the persuading. */
+  grid-template-columns: 5fr 7fr;
+  gap: 56px;
+  align-items: center;
+}
+/* Alternating sides. Only the ORDER changes — the copy column stays narrower
+   on both, so the rhythm reads as deliberate rather than as two layouts. */
+.home-show--flip .home-show-copy {
+  order: 2;
+}
+.home-show--flip .home-show-shot {
+  order: 1;
+}
+
+.home-show-title {
+  margin: 10px 0 14px;
+  font-size: clamp(24px, 3vw, 31px);
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.home-show-body {
+  margin: 0 0 12px;
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--text-2);
+  max-width: 46ch;
+}
+
+/*
+ * The shot needs breathing room for the callouts, which sit OUTSIDE its box
+ * by design — a pill overlapping the UI it names covers the evidence. The
+ * padding is what they hang in; without it they would be clipped by the
+ * section or trigger a horizontal scrollbar.
+ */
+.home-show-shot {
+  padding: 0 22px;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .home-showcase {
+    gap: 64px;
+    padding: 64px 20px;
+  }
+  .home-show {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  /* Stacked, the copy always leads. A flipped image-first block reads as a
+     mistake once there is only one column. */
+  .home-show--flip .home-show-copy {
+    order: 0;
+  }
+  .home-show--flip .home-show-shot {
+    order: 0;
+  }
+  .home-show-shot {
+    padding: 0;
+  }
+}
