@@ -195,6 +195,64 @@ export const contacts = pgTable(
 );
 
 /**
+ * Internal notes a team writes about a customer. Never shown to the customer.
+ *
+ * KEYED BY EMAIL, NOT contact_id. A ticket can exist with no `contacts` row at
+ * all — contacts were added to this product later, and getContactFacts already
+ * has a fallback path for exactly that. Keying notes on contact_id would mean
+ * the note box silently failing for the oldest customers, who are precisely the
+ * ones somebody has most to say about. (workspace_id, email) is the identity
+ * the rail already uses, and `contacts` itself is unique on the same pair.
+ *
+ * Stored lower-cased, like contacts.email, so "Emma@" and "emma@" are one
+ * person rather than two note lists nobody can reconcile.
+ *
+ * workspace_id is NOT derivable from anything else here and is the tenancy key:
+ * every read and every write must constrain on it INSIDE the statement. See
+ * tests/tenancy-invariants.test.ts, which has caught that being got wrong.
+ *
+ * authorAgentId is ON DELETE SET NULL, not cascade: removing somebody from a
+ * team must not silently delete the notes they wrote about customers. The note
+ * outlives the employment. A null author renders as "a former teammate".
+ */
+export const contactNotes = pgTable(
+  "contact_notes",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    contactEmail: text("contact_email").notNull(),
+    authorAgentId: integer("author_agent_id").references(() => agents.id, {
+      onDelete: "set null",
+    }),
+    /**
+     * Who wrote it, captured AT WRITE TIME and never updated.
+     *
+     * Redundant with authorAgentId on purpose. The id is null in two entirely
+     * different situations — the teammate was removed, and a Postbox operator
+     * wrote the note while acting inside the workspace (operators have no
+     * agents row here) — and the rail would have no way to tell them apart. It
+     * would have to render one of them as the other, and "a former teammate"
+     * against a note the support desk wrote is a lie to a paying client about
+     * who has been in their account.
+     *
+     * A snapshot also survives the thing it names: an email that changes later
+     * does not rewrite the history of who said what.
+     */
+    authorLabel: text("author_label").notNull(),
+    /** Plain text. Rendered as text, never as HTML. */
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("contact_notes_lookup_idx").on(t.workspaceId, t.contactEmail),
+  ],
+);
+
+/**
  * Who owns a workspace.
  *
  * There are no permission levels in this product — an invited teammate can read

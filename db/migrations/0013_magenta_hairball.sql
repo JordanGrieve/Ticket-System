@@ -1,0 +1,1 @@
+ALTER TABLE "contact_notes" ADD COLUMN "author_label" text NOT NULL;
