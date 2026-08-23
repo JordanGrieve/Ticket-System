@@ -96,6 +96,20 @@ export async function POST(
     direction: "outbound",
     body: message,
     status: ticket.status === "closed" ? "closed" : "in_progress",
+    /*
+     * Both of these are known here and nowhere else afterwards.
+     *
+     * The provider id is the ONLY key a delivery webhook can match on — it was
+     * being thrown away, which is what made every transactional bounce
+     * unattributable by construction.
+     *
+     * 'failed' rather than leaving it null when the send errored: null means
+     * "not applicable" on this column, so a failed send with a null status is
+     * indistinguishable from an inbound message, and the thread would show
+     * nothing at all about a reply that never left.
+     */
+    providerMessageId: emailResult.sent ? (emailResult.id ?? null) : null,
+    deliveryStatus: emailResult.sent ? "sent" : "failed",
   });
 
   return json(

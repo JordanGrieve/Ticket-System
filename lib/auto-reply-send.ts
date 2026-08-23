@@ -266,6 +266,11 @@ async function deliverDecidedAutoReply(
     // this is ever dropped the guard silently reverts to treating our own
     // acknowledgement as a human answer.
     automated: true,
+    // The provider's id, so a bounce on this acknowledgement can be matched
+    // back to it. Reached only after the provider accepted, so there is always
+    // an id and the status is always 'sent'.
+    providerMessageId: data?.id ?? null,
+    deliveryStatus: "sent",
     // Deliberately no status change — a robot acknowledging receipt has not
     // put the ticket "in progress".
   });

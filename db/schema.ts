@@ -206,6 +206,24 @@ export const ticketMessages = pgTable(
     // applicable" (inbound), NOT "unknown", so don't default it.
     deliveryStatus: text("delivery_status").$type<DeliveryStatus>(),
     /**
+     * The PROVIDER's id for this send — Resend's, not ours.
+     *
+     * Distinct from `messageId` above, which is the RFC 5322 Message-ID used
+     * for threading. This is the correlation key a delivery webhook arrives
+     * with, and without it a bounce notification has nothing to match against:
+     * the event says "email_id abc123 bounced" and the database has never
+     * heard of abc123.
+     *
+     * That was the state until 23 August 2026 — the id came back from
+     * `resend.emails.send()` and was thrown away, so every transactional
+     * bounce was unattributable by construction. A reply to a dead address
+     * failed and nobody was told.
+     *
+     * Null for inbound messages, and for outbound ones whose send failed
+     * before the provider issued an id.
+     */
+    providerMessageId: text("provider_message_id"),
+    /**
      * Did WE compose this, or did a human? Today only the auto-acknowledgement
      * sets it (see lib/auto-reply-send.ts).
      *
@@ -236,6 +254,7 @@ export const ticketMessages = pgTable(
     // instead of walking the whole (ticket_id, sent_at) range discarding
     // outbound rows. Column order is the whole point here; ticket_id first
     // because it is also the only prefix the other reads share.
+    uniqueIndex("ticket_messages_provider_idx").on(t.providerMessageId),
     index("ticket_messages_ticket_direction_idx").on(
       t.ticketId,
       t.direction,

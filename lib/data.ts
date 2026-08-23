@@ -12,6 +12,7 @@ import {
   type Agent,
   type TicketSource,
   type TicketStatus,
+  type DeliveryStatus,
   type MessageDirection,
 } from "@/db/schema";
 import { generateReplyToken } from "./tokens";
@@ -558,6 +559,22 @@ export async function addMessage(input: {
    * guard reads as "a teammate already answered".
    */
   automated?: boolean;
+  /**
+   * The PROVIDER's id for this send — Resend's, not the RFC 5322 Message-ID.
+   *
+   * It is the only thing a delivery webhook can be matched on. Discarding it,
+   * which is what happened until 23 August 2026, makes every transactional
+   * bounce unattributable: the event names an id the database has never heard
+   * of, and a reply to a dead address fails with nobody told.
+   */
+  providerMessageId?: string | null;
+  /**
+   * Outbound only. Null on inbound means "not applicable", never "unknown".
+   *
+   * Set to 'sent' when the provider accepted it and 'failed' when it did not —
+   * both are known at the call site and neither can be recovered later.
+   */
+  deliveryStatus?: DeliveryStatus | null;
 }): Promise<TicketMessage> {
   const [message] = await db
     .insert(ticketMessages)
@@ -567,6 +584,8 @@ export async function addMessage(input: {
       body: input.body,
       messageId: input.messageId ?? null,
       automated: input.automated ?? false,
+      providerMessageId: input.providerMessageId ?? null,
+      deliveryStatus: input.deliveryStatus ?? null,
     })
     .returning();
 

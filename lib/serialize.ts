@@ -4,6 +4,7 @@ import type {
   TicketSource,
   TicketStatus,
   MessageDirection,
+  DeliveryStatus,
 } from "@/db/schema";
 // "./ticket-format", not "./tickets": this module is reachable from client
 // components (components/mail/Thread.tsx), and lib/tickets imports the
@@ -29,6 +30,14 @@ export type MessageDTO = {
   /** ISO timestamp — formatted in the BROWSER so it shows the viewer's
    * timezone (server-side formatting rendered UTC for everyone). */
   sentAtIso: string;
+  /**
+   * Outbound only, and null means "not applicable" rather than "unknown".
+   *
+   * Advanced by the Resend webhook. Before 23 Aug 2026 this column was never
+   * populated, so the thread said "Sent" for everything — including replies
+   * that had bounced hours earlier.
+   */
+  deliveryStatus: DeliveryStatus | null;
 };
 
 export function toTicketDTO(t: Ticket, now: Date = new Date()): TicketDTO {
@@ -52,6 +61,7 @@ export function toMessageDTO(m: TicketMessage): MessageDTO {
     body: m.body,
     sentAtIso:
       m.sentAt instanceof Date ? m.sentAt.toISOString() : String(m.sentAt),
+    deliveryStatus: m.deliveryStatus,
   };
 }
 

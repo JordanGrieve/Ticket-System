@@ -12,6 +12,7 @@ import ContactRail from "./ContactRail";
 import type { ContactNoteDTO } from "@/app/(dashboard)/queries";
 import type { SharedLink } from "@/lib/shared-links";
 import { describeRetention, describeDeletedBy } from "@/lib/trash";
+import { describeDeliveryStatus } from "@/lib/delivery-events";
 import LabelPicker from "./LabelPicker";
 import StarButton from "./StarButton";
 import type { ContactCard, LabelChipDTO } from "./types";
@@ -413,12 +414,20 @@ export default function Thread({
               <div key={m.id} className="pbm-bubble-row" data-out={out || undefined}>
                 <div className="pbm-bubble-wrap">
                   <div className="pbm-bubble">{m.body}</div>
-                  {/* "Delivered" in the design is a claim we can't make: the
-                      delivery_status column is never populated. "Sent" is what
-                      we actually know. */}
-                  <p className="pbm-bubble-foot" suppressHydrationWarning>
+                  {/* The design's "Delivered" is now a claim we can back: the
+                      Resend webhook advances delivery_status. It is still only
+                      ever what the provider told us, so this falls back to
+                      "Sent" when nothing has come back yet rather than
+                      assuming the better outcome. */}
+                  <p
+                    className="pbm-bubble-foot"
+                    data-delivery={out ? (m.deliveryStatus ?? undefined) : undefined}
+                    suppressHydrationWarning
+                  >
                     {formatDateTime(m.sentAtIso)}
-                    {out ? " · Sent" : ` · via ${src.label.toLowerCase()}`}
+                    {out
+                      ? ` · ${describeDeliveryStatus(m.deliveryStatus) ?? "Sent"}`
+                      : ` · via ${src.label.toLowerCase()}`}
                   </p>
                 </div>
               </div>

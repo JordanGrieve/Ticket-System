@@ -65,6 +65,7 @@ describe("DTO mapping", () => {
       automated: false,
       messageId: null,
       deliveryStatus: null,
+      providerMessageId: null,
       sentAt: new Date("2026-08-01T10:30:00Z"),
     };
     expect(toMessageDTO(msg).sentAtIso).toBe("2026-08-01T10:30:00.000Z");

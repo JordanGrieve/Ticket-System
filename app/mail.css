@@ -844,6 +844,22 @@
   text-align: right;
 }
 
+/* A failed send must not read like the timestamp beside it.
+   `--muted` is correct for "12:46 · Delivered" — that is reassurance, and
+   reassurance should be quiet. A bounce is the opposite: it is the moment the
+   business finds out their customer never heard back, and if it is rendered in
+   the same grey 10.5px as everything else it gets skimmed past. Only the two
+   states that mean "this did not arrive" get the colour.
+
+   --pdf-fg, not a literal red: it is this codebase's danger foreground and is
+   defined in all six themes. A hardcoded #b42318 would be unreadable on the
+   dark ones, which is the whole reason the tokens exist. */
+.pbm-bubble-foot[data-delivery="bounced"],
+.pbm-bubble-foot[data-delivery="failed"] {
+  color: var(--pdf-fg);
+  font-weight: 700;
+}
+
 .pbm-composer-wrap {
   flex: none;
   padding: 0 20px 18px;
