@@ -264,6 +264,17 @@ export default function MailNavShell({
 
         <div className="pbm-nav-divider" />
 
+        {/*
+          The heading row stays even with no labels, because "Manage" is the
+          ONLY way to create the first one — hiding the whole block when the
+          list is empty would make the feature unreachable for exactly the
+          workspaces that have never used it.
+
+          What does go is the explanatory sentence. A permanent two-line note
+          in the nav telling you about a feature you are not using is the kind
+          of clutter you stop seeing, and the button next to it already says
+          what to press.
+        */}
         <div className="pbm-nav-heading-row">
           <p className="pbm-nav-heading">Labels</p>
           <button
@@ -276,11 +287,7 @@ export default function MailNavShell({
           </button>
         </div>
         <div className="pbm-folders">
-          {labels.length === 0 ? (
-            <p className="pbm-nav-note">
-              No labels yet. &ldquo;Manage&rdquo; makes the first one.
-            </p>
-          ) : (
+          {labels.length > 0 &&
             labels.map((l) => {
               const active = activeLabel === String(l.id);
               return (
@@ -296,8 +303,7 @@ export default function MailNavShell({
                   <span className="pbm-folder-count">{l.ticketCount}</span>
                 </Link>
               );
-            })
-          )}
+            })}
         </div>
 
         <div className="pbm-nav-divider" />
