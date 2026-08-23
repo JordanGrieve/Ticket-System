@@ -2296,3 +2296,16 @@
   font-size: 13px;
   line-height: 1.55;
 }
+
+/* An address the product believes is mistyped. Amber: it is a problem the
+   business needs to notice, not a feature. See lib/email-typo.ts for why it
+   fires so rarely. */
+.pbm-rail-warn {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  font-size: 12px;
+  line-height: 1.5;
+}

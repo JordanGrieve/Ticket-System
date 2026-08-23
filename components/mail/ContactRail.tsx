@@ -6,6 +6,7 @@ import ContactNotes from "./ContactNotes";
 import SharedLinks from "./SharedLinks";
 import type { ContactNoteDTO } from "@/app/(dashboard)/queries";
 import type { SharedLink } from "@/lib/shared-links";
+import { detectEmailTypo, describeEmailTypo } from "@/lib/email-typo";
 
 /**
  * The 290px contact rail — a bottom sheet below 768px.
@@ -78,6 +79,9 @@ export default function ContactRail({
   links?: SharedLink[];
 }) {
   const firstSeen = formatFirstSeen(contact.firstSeenIso);
+  // Derived on render, not stored: it is a judgement about the address as it
+  // is right now, and the rules can improve without a backfill.
+  const emailTypo = detectEmailTypo(contact.email);
 
   return (
     <>
@@ -106,6 +110,22 @@ export default function ContactRail({
             <p className="pbm-rail-void">No phone number on file</p>
           </div>
           <Field label="Email" value={contact.email} />
+          {/*
+            Shown only when the address is OBVIOUSLY wrong — see
+            lib/email-typo.ts, which flags a short list of certain slips and
+            stays quiet about everything else. A false positive here tells a
+            business their customer's perfectly good address is broken, and
+            somebody rings a customer to correct an email that was already
+            right, so the module errs heavily towards silence.
+
+            The enquiry itself was never refused over this. Losing somebody's
+            actual customer because they mistyped their own return address
+            would be far worse than a bounce — the message still has a name, a
+            question and often a phone number in it.
+          */}
+          {emailTypo && (
+            <p className="pbm-rail-warn">{describeEmailTypo(emailTypo)}</p>
+          )}
           <Field
             label="First contact"
             value={firstSeen}
