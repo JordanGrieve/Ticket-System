@@ -8,6 +8,8 @@ import {
 } from "@/lib/campaign-send";
 import { buildHealthReport } from "@/lib/health-report";
 import { pruneRateLimits } from "@/lib/rate-limit-store";
+import { purgeExpiredTrash } from "@/lib/trash-store";
+import { TRASH_RETENTION_DAYS } from "@/lib/trash";
 
 /**
  * GET /api/cron/health — the daily "is anything broken?" sweep.
@@ -48,7 +50,7 @@ export async function GET(req: Request) {
   }
 
   const now = new Date();
-  const [workspaces, sending, unconfirmed, pruned] = await Promise.all([
+  const [workspaces, sending, unconfirmed, purgedTrash, pruned] = await Promise.all([
     listWorkspaceSummaries(),
     listSendingCampaigns(),
     // Both a read and a WRITE: it stamps the rows it finds so they explain
@@ -57,6 +59,10 @@ export async function GET(req: Request) {
     // again, so this alert fires the day the residue appears rather than every
     // day forever about something nothing can resolve.
     stampUnconfirmedRecipients(now),
+    // The ONLY thing in the product that destroys customer correspondence.
+    // Runs here because it is retention, not health — but it belongs on a
+    // daily job rather than a five-minute one, and this is the daily job.
+    purgeExpiredTrash(),
     // Housekeeping, not health: rate_limits gains a row per distinct bucket,
     // and the IP-keyed buckets on the public endpoints mean that is one row
     // per distinct visitor. Nothing else deletes them.
@@ -122,6 +128,14 @@ export async function GET(req: Request) {
       unconfirmed.stamped,
     );
   }
+  if (purgedTrash.purged > 0) {
+    console.info(
+      "[cron/health] purged %d ticket(s) past the %d-day trash retention, across %d workspace(s)",
+      purgedTrash.purged,
+      TRASH_RETENTION_DAYS,
+      purgedTrash.workspaceIds.length,
+    );
+  }
   if (pruned > 0) {
     console.info("[cron/health] pruned %d expired rate-limit window(s)", pruned);
   }
@@ -131,6 +145,7 @@ export async function GET(req: Request) {
     checked: report.checked,
     prunedRateLimits: pruned,
     unconfirmedStamped: unconfirmed.stamped,
+    purgedFromTrash: purgedTrash.purged,
     alerts: report.alerts.map((a) => ({
       kind: a.kind,
       level: a.level,

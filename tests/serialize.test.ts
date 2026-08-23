@@ -44,6 +44,8 @@ describe("DTO mapping", () => {
     status: "open",
     createdAt: new Date("2026-08-01T10:00:00Z"),
     updatedAt: new Date("2026-08-01T10:00:00Z"),
+    deletedAt: null,
+    deletedBy: null,
   };
 
   it("maps tickets with a ref and relative time", () => {

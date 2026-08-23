@@ -2281,3 +2281,18 @@
 .pbl-jump:hover {
   color: var(--text-4);
 }
+
+/* ── A thread that is in the trash ───────────────────────────────
+   Amber rather than the accent: this is a state the reader needs to notice,
+   not a feature being advertised. It sits directly under the thread header so
+   it is impossible to read the conversation without seeing that it is going. */
+
+.pbm-trashed {
+  margin: 0;
+  padding: 10px 20px;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  border-bottom: 1px solid var(--warn-fg);
+  font-size: 13px;
+  line-height: 1.55;
+}

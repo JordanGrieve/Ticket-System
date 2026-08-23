@@ -483,6 +483,20 @@ const EXEMPT: Exemption[] = [
       "and no content.",
   },
   {
+    file: "lib/trash-store.ts",
+    match: /DELETE FROM tickets/,
+    why:
+      "purgeExpiredTrash: the 30-day retention sweep, platform-wide because " +
+      "expired trash belongs to every tenant and there is no caller-supplied " +
+      "workspace. It is the ONLY statement in the product that destroys " +
+      "customer correspondence, so it is scoped by TIME instead, and " +
+      "conservatively: `deleted_at IS NOT NULL` first so no arithmetic can " +
+      "reach a live ticket, the interval computed in Postgres from the same " +
+      "clock that stamped the column rather than from a serverless " +
+      "instance's, and a bounded CTE so one neglected month cannot become an " +
+      "enormous DELETE. It reads no addresses and no content — it returns ids.",
+  },
+  {
     file: "lib/auto-reply-send.ts",
     match: /UPDATE auto_reply_queue SET\s+status = 'sending'/,
     why:
@@ -676,9 +690,68 @@ describe("the mail list's correlated subqueries are anchored and outer-scoped", 
     expect(start).toBeGreaterThan(0);
     const body = src.slice(start, src.indexOf("export type MailCounts"));
     // `mine` is built first and returned first, so no folder branch can drop
-    // it â€” adding a folder cannot accidentally widen the query.
+    // it — adding a folder cannot accidentally widen the query.
     expect(body).toMatch(/const mine = eq\(tickets\.workspaceId, workspaceId\)/);
-    expect(body).toMatch(/return and\(mine, \.\.\.extra\)/);
+    /*
+     * `mine` must be the FIRST argument of the returned and(), and outside the
+     * spread. Deliberately no longer pinned to the exact argument list: it was
+     * `and(mine, ...extra)` until the trash filter joined it, and a test that
+     * pins the literal forces the next always-on predicate either to weaken
+     * this guard or to be squeezed into `extra`, where a folder branch could
+     * drop it. What matters is that the tenant filter is unconditional and out
+     * of reach of the branching above.
+     */
+    expect(body).toMatch(/return and\(\s*mine\s*[,)]/);
+    expect(body).not.toMatch(/return and\(\s*\.\.\.extra/);
+  });
+
+  it("folderWhere ANDs the trash filter into every folder too", () => {
+    // Same shape of invariant, same reason. `bin` is computed unconditionally
+    // from the folder and passed outside the spread, so a folder added later
+    // hides deleted tickets by doing nothing at all. The alternative — every
+    // folder remembering to add `notDeleted` — works until somebody forgets
+    // once, and then deleted mail reappears in one folder and nobody can say
+    // when it started.
+    const start = src.indexOf("function folderWhere(");
+    const body = src.slice(start, src.indexOf("export type MailCounts"));
+    expect(body).toMatch(
+      /const bin = folder === "trash" \? isDeleted : notDeleted/,
+    );
+    expect(body).toMatch(/return and\(mine, bin[,)]/);
+  });
+
+  it("the folder counts exclude deleted tickets in every count but trash", () => {
+    // mailCounts does NOT go through folderWhere — it computes every folder in
+    // one pass — so it is the one place the trash predicate has to be repeated,
+    // and therefore the one place it can be forgotten. A nav badge counting
+    // deleted mail sends somebody hunting for a ticket that is not there.
+    const start = src.indexOf("export const mailCounts");
+    expect(start).toBeGreaterThan(0);
+    const body = src.slice(start, start + 3000);
+
+    for (const folder of [
+      "all",
+      "inbox",
+      "closed",
+      "awaiting",
+      "unread",
+      "starred",
+      "labeled",
+      "sent",
+    ]) {
+      const line = body
+        .split("\n")
+        .find((l) => l.trim().startsWith(folder + ":"));
+      expect(line, "no count line found for " + folder).toBeTruthy();
+      expect(line, folder + " count does not exclude deleted tickets").toMatch(
+        /\$\{notDeleted\}/,
+      );
+    }
+
+    const trashLine = body
+      .split("\n")
+      .find((l) => l.trim().startsWith("trash:"));
+    expect(trashLine).toMatch(/\$\{isDeleted\}/);
   });
 
   it("no select in that file reads tickets without a workspace filter", () => {

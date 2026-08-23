@@ -51,9 +51,17 @@ type LiveFolder = {
  * trail, or actually destroy it?) rather than a WHERE clause. Guessing would
  * ship a button whose meaning we would have to change later.
  */
-const UNBUILT_FOLDERS: { label: string; icon: IconName }[] = [
-  { label: "Trash", icon: "trash" },
-];
+/*
+ * EMPTY as of 23 August 2026. Trash was the last entry and is now a real
+ * folder above — deleting hides a ticket for 30 days, then a sweep destroys
+ * it, which is what every mail client a client already uses means by "delete".
+ *
+ * The list and the "Not built yet" heading are kept rather than removed. They
+ * cost nothing while empty, they render nothing, and the next feature the
+ * design asks for before its data exists has somewhere honest to sit. Deleting
+ * the mechanism is how the next one ends up as a link that goes nowhere.
+ */
+const UNBUILT_FOLDERS: { label: string; icon: IconName }[] = [];
 
 export default function MailNavShell({
   workspaceName,
@@ -190,6 +198,18 @@ export default function MailNavShell({
       count: counts.labeled,
       href: "/inbox?folder=labeled",
     },
+    /*
+     * Trash is a real folder as of 23 August 2026. It sits last because it is
+     * where things go, not somewhere anybody works — and unlike the folders
+     * above, its count going up is not progress.
+     */
+    {
+      key: "trash",
+      label: "Trash",
+      icon: "trash",
+      count: counts.trash,
+      href: "/inbox?folder=trash",
+    },
   ];
 
   return (
@@ -319,24 +339,34 @@ export default function MailNavShell({
           </>
         )}
 
-        <p className="pbm-nav-heading">Not built yet</p>
-        <div className="pbm-folders">
-          {UNBUILT_FOLDERS.map((f) => (
-            <button
-              key={f.label}
-              type="button"
-              className="pbm-folder pbm-folder--dead"
-              disabled
-              title={`${f.label} isn't available yet — there's no data behind it.`}
-            >
-              <Icon name={f.icon} size={18} />
-              <span className="pbm-folder-label">{f.label}</span>
-              <span className="pbm-folder-soon">soon</span>
-            </button>
-          ))}
-        </div>
+        {/*
+          Guarded on length. UNBUILT_FOLDERS is empty now that Trash is real,
+          and an unguarded map would leave the "Not built yet" heading sitting
+          above nothing — a section announcing an absence, which reads as a
+          rendering fault rather than as an empty list.
+        */}
+        {UNBUILT_FOLDERS.length > 0 && (
+          <>
+            <p className="pbm-nav-heading">Not built yet</p>
+            <div className="pbm-folders">
+              {UNBUILT_FOLDERS.map((f) => (
+                <button
+                  key={f.label}
+                  type="button"
+                  className="pbm-folder pbm-folder--dead"
+                  disabled
+                  title={`${f.label} isn't available yet — there's no data behind it.`}
+                >
+                  <Icon name={f.icon} size={18} />
+                  <span className="pbm-folder-label">{f.label}</span>
+                  <span className="pbm-folder-soon">soon</span>
+                </button>
+              ))}
+            </div>
 
-        <div className="pbm-nav-divider" />
+            <div className="pbm-nav-divider" />
+          </>
+        )}
 
         <div className="pbm-folders">
           {/* Contacts, Auto-reply and Install are all "things you configure

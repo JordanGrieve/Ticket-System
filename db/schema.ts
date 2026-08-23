@@ -153,11 +153,39 @@ export const tickets = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+
+    // ── Trash ────────────────────────────────────────────────────────
+    //
+    // Deleting is a SOFT delete for 30 days and then a real one. That is what
+    // every mail client the client already uses means by "delete", and in an
+    // inbox holding customer correspondence an accidental permanent delete is
+    // unrecoverable — somebody loses a customer's enquiry to a stray click.
+    //
+    // NULL means live. The predicate is `deleted_at IS NULL`, and it is applied
+    // in folderWhere() so every folder inherits it from one place; only Trash
+    // asks for the opposite. See app/(dashboard)/queries.ts.
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    /**
+     * Who deleted it — an email SNAPSHOT, not an agent id.
+     *
+     * Same reasoning as contact_notes.authorLabel: an id goes null when the
+     * teammate is removed, and "deleted by nobody" is exactly the wrong answer
+     * to "who deleted our customer's enquiry?". A Postbox operator acting
+     * inside the workspace has no agents row at all, and would be
+     * indistinguishable from a departed teammate.
+     *
+     * It dies with the ticket at purge, deliberately. A permanent record that
+     * somebody's message existed would defeat the erasure the purge performs.
+     */
+    deletedBy: text("deleted_by"),
   },
   (t) => [
     index("tickets_workspace_idx").on(t.workspaceId, t.updatedAt),
     // "Show me everything that came through this form."
     index("tickets_form_idx").on(t.formId),
+    // The purge sweep asks "what is past its 30 days?" across every workspace,
+    // and every folder query asks "is this live?". Both are served by this.
+    index("tickets_deleted_idx").on(t.deletedAt),
   ],
 );
 

@@ -11,6 +11,7 @@ import { Icon, OverflowIcon } from "./icons";
 import ContactRail from "./ContactRail";
 import type { ContactNoteDTO } from "@/app/(dashboard)/queries";
 import type { SharedLink } from "@/lib/shared-links";
+import { describeRetention, describeDeletedBy } from "@/lib/trash";
 import LabelPicker from "./LabelPicker";
 import StarButton from "./StarButton";
 import type { ContactCard, LabelChipDTO } from "./types";
@@ -33,6 +34,10 @@ export default function Thread({
   addNote,
   deleteNote,
   links,
+  deletedAt,
+  deletedBy,
+  trashTicket,
+  restoreTicket,
   backHref,
   starred,
   unread,
@@ -57,6 +62,18 @@ export default function Thread({
   deleteNote: (formData: FormData) => void;
   /** Derived from message bodies at read time — see lib/shared-links.ts. */
   links: SharedLink[];
+  /**
+   * ISO timestamp if this ticket is in the trash, else null.
+   *
+   * Drives the delete/restore toggle and the banner. A string rather than a
+   * Date because everything crossing into this client component is serialised.
+   */
+  deletedAt: string | null;
+  /** Email snapshot of whoever deleted it. See tickets.deletedBy. */
+  deletedBy: string | null;
+  /** Server actions, passed down: this is a client file. */
+  trashTicket: (formData: FormData) => void;
+  restoreTicket: (formData: FormData) => void;
   backHref: string;
   /** Per-agent state. Both false when the viewer has no agent row here. */
   starred: boolean;
@@ -263,16 +280,40 @@ export default function Thread({
                 <Icon name="envelopeOpen" size={17} strokeWidth={1.8} />
               </button>
             )}
-            {/* Deleting still has no table and no endpoint: disabled rather
-                than omitted, so the gap is visible instead of hidden. */}
-            <button
-              className="pbm-icon-btn"
-              disabled
-              aria-label="Delete this thread (not available yet)"
-              title="Deleting isn't available yet. Close the ticket instead."
-            >
-              <Icon name="trash" size={17} strokeWidth={1.8} />
-            </button>
+            {/*
+              Delete, or restore if this one is already in the trash.
+
+              No confirmation dialog, deliberately. Deleting is reversible for
+              30 days and the trash says so, which is exactly the trade that
+              makes a confirm step unnecessary — an "are you sure?" on a
+              reversible action trains people to click through the ones that
+              are not. The undo IS the safety.
+            */}
+            {deletedAt ? (
+              <form action={restoreTicket}>
+                <input type="hidden" name="ticketId" value={ticket.id} />
+                <button
+                  className="pbm-icon-btn"
+                  type="submit"
+                  aria-label="Restore this thread from the trash"
+                  title="Restore this thread"
+                >
+                  <Icon name="mail" size={17} strokeWidth={1.8} />
+                </button>
+              </form>
+            ) : (
+              <form action={trashTicket}>
+                <input type="hidden" name="ticketId" value={ticket.id} />
+                <button
+                  className="pbm-icon-btn"
+                  type="submit"
+                  aria-label="Move this thread to the trash"
+                  title="Move to trash — recoverable for 30 days"
+                >
+                  <Icon name="trash" size={17} strokeWidth={1.8} />
+                </button>
+              </form>
+            )}
             <button
               className="pbm-icon-btn"
               onClick={() => setRail(railOpen ? "closed" : "open")}
@@ -283,6 +324,22 @@ export default function Thread({
             </button>
           </div>
         </header>
+
+        {/*
+          The retention promise, stated where somebody is looking at the thread
+          it applies to. A trash folder that does not say when things go is one
+          people are afraid to use and equally afraid to empty — and the whole
+          reason deleting is safe here is the 30 days, so hiding that undoes
+          the design.
+        */}
+        {deletedAt && (
+          <p className="pbm-trashed" role="status">
+            <b>In the trash.</b>{" "}
+            {describeRetention(new Date(deletedAt), new Date())} Deleted by{" "}
+            {describeDeletedBy(deletedBy)}. Restore it with the button above and
+            it goes back where it was.
+          </p>
+        )}
 
         <div className="pbm-thread-subject">
           <h1 className="pbm-subject">{ticket.subject}</h1>

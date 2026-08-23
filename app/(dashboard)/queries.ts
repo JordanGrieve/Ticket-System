@@ -72,7 +72,15 @@ export type MailFolder =
   | "closed"
   | "starred"
   | "labeled"
-  | "sent";
+  | "sent"
+  /**
+   * Soft-deleted, kept for 30 days, then purged.
+   *
+   * The ONLY folder that shows deleted tickets — folderWhere() excludes them
+   * everywhere else from one place, so a new folder inherits the exclusion
+   * rather than having to remember it.
+   */
+  | "trash";
 
 export const MAIL_FOLDERS: MailFolder[] = [
   "all",
@@ -83,6 +91,7 @@ export const MAIL_FOLDERS: MailFolder[] = [
   "starred",
   "labeled",
   "sent",
+  "trash",
 ];
 
 export function parseFolder(value: string | undefined): MailFolder {
@@ -213,6 +222,16 @@ function hasLabelExpr(workspaceId: number, labelId: number): SQL {
 
 const notClosed = sql`${tickets.status} != 'closed'`;
 
+/**
+ * Live, i.e. not in the trash. Exported because every other read of `tickets`
+ * outside this file needs the same predicate, and two spellings of it would
+ * eventually disagree.
+ */
+export const notDeleted = sql`${tickets.deletedAt} IS NULL`;
+
+/** In the trash: soft-deleted and not yet purged. */
+const isDeleted = sql`${tickets.deletedAt} IS NOT NULL`;
+
 function folderWhere(
   workspaceId: number,
   agentId: number | null,
@@ -222,6 +241,18 @@ function folderWhere(
   // The tenant filter. Everything else is ANDed onto it, so it can never be
   // dropped by adding a folder.
   const mine = eq(tickets.workspaceId, workspaceId);
+
+  /*
+   * The trash filter, applied the same way and for the same reason.
+   *
+   * Structured as "trash is the exception" rather than "each folder adds
+   * `notDeleted`": a folder added later inherits the exclusion by doing
+   * nothing, whereas the other arrangement hides deleted tickets everywhere
+   * until somebody forgets once, and then a deleted ticket reappears in one
+   * folder and nobody can say when it started.
+   */
+  const bin = folder === "trash" ? isDeleted : notDeleted;
+
   const extra: SQL[] = [];
 
   if (folder === "closed") extra.push(eq(tickets.status, "closed"));
@@ -237,7 +268,7 @@ function folderWhere(
 
   if (labelId !== undefined) extra.push(hasLabelExpr(workspaceId, labelId));
 
-  return and(mine, ...extra);
+  return and(mine, bin, ...extra);
 }
 
 export type MailCounts = {
@@ -249,6 +280,8 @@ export type MailCounts = {
   starred: number;
   labeled: number;
   sent: number;
+  /** Soft-deleted and not yet purged. */
+  trash: number;
 };
 
 /**
@@ -263,15 +296,24 @@ export const mailCounts = cache(
   async (workspaceId: number): Promise<MailCounts> => {
     const agentId = await viewerAgentId(workspaceId);
     const [row] = await db
+      /*
+       * This query does NOT go through folderWhere — it computes every folder
+       * in one pass — so the trash predicate has to be spelled out here. Every
+       * count except `trash` carries `notDeleted`, because a folder badge that
+       * counts deleted tickets sends somebody looking for mail that is not
+       * there, and a nav that says "Inbox 8" over a list of 7 is the kind of
+       * small wrongness that makes people stop trusting the numbers.
+       */
       .select({
-        all: sql<number>`count(*)::int`,
-        inbox: sql<number>`(count(*) FILTER (WHERE ${notClosed}))::int`,
-        closed: sql<number>`(count(*) FILTER (WHERE ${tickets.status} = 'closed'))::int`,
-        awaiting: sql<number>`(count(*) FILTER (WHERE ${notClosed} AND ${lastDirection} = 'inbound'))::int`,
-        unread: sql<number>`(count(*) FILTER (WHERE ${notClosed} AND ${unreadExpr(agentId)}))::int`,
-        starred: sql<number>`(count(*) FILTER (WHERE ${starredExpr(agentId)}))::int`,
-        labeled: sql<number>`(count(*) FILTER (WHERE ${labeledExpr(workspaceId)}))::int`,
-        sent: sql<number>`(count(*) FILTER (WHERE ${sentExpr}))::int`,
+        all: sql<number>`(count(*) FILTER (WHERE ${notDeleted}))::int`,
+        inbox: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${notClosed}))::int`,
+        closed: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${tickets.status} = 'closed'))::int`,
+        awaiting: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${notClosed} AND ${lastDirection} = 'inbound'))::int`,
+        unread: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${notClosed} AND ${unreadExpr(agentId)}))::int`,
+        starred: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${starredExpr(agentId)}))::int`,
+        labeled: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${labeledExpr(workspaceId)}))::int`,
+        sent: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${sentExpr}))::int`,
+        trash: sql<number>`(count(*) FILTER (WHERE ${isDeleted}))::int`,
       })
       .from(tickets)
       .where(eq(tickets.workspaceId, workspaceId));
@@ -285,6 +327,7 @@ export const mailCounts = cache(
       starred: row?.starred ?? 0,
       labeled: row?.labeled ?? 0,
       sent: row?.sent ?? 0,
+      trash: row?.trash ?? 0,
     };
   },
 );

@@ -56,6 +56,8 @@ export type MailCountsDTO = {
   labeled: number;
   /** Tickets a person here has replied to at least once. */
   sent: number;
+  /** Deleted, still recoverable, not yet purged. Every other count excludes these. */
+  trash: number;
 };
 
 /** A label plus how many of this workspace's tickets carry it. */

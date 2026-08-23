@@ -19,6 +19,10 @@ import {
   addContactNoteAction,
   deleteContactNoteAction,
 } from "../note-actions";
+import {
+  trashTicketAction,
+  restoreTicketAction,
+} from "../trash-actions";
 
 /**
  * The `@thread` slot: the conversation, plus the contact rail that <Thread>
@@ -114,6 +118,10 @@ export default async function TicketThreadSlot({
       addNote={addContactNoteAction}
       deleteNote={deleteContactNoteAction}
       links={links}
+      deletedAt={ticket.deletedAt ? new Date(ticket.deletedAt).toISOString() : null}
+      deletedBy={ticket.deletedBy}
+      trashTicket={trashTicketAction}
+      restoreTicket={restoreTicketAction}
       backHref={backHref}
       starred={personal.starred}
       unread={personal.unread}
