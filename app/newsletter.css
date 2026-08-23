@@ -850,3 +850,51 @@
     transition: none;
   }
 }
+
+/*
+  "Stop this campaign" — the sending → failed edge.
+
+  Deliberately NOT .nl-queue and deliberately NOT .nl-secondary. Both of those
+  belong to acts that can be undone: schedule, cancel a schedule, queue, unqueue,
+  send yourself a test. This one ends a campaign part way through a real
+  audience and cannot be undone, so it does not get to look like them. The
+  danger tokens are the same pair .nl-error uses, because this is the only
+  button on the page whose consequence is of that order.
+
+  Outlined rather than filled: a solid red block next to a solid accent block
+  reads as "the important one", which is the wrong instruction. The point is
+  that it should be recognisably apart from the others, not louder than them.
+*/
+.nl-danger {
+  border: 1px solid var(--pdf-fg);
+  border-radius: 12px;
+  background: var(--pdf-bg);
+  color: var(--pdf-fg);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: filter 0.14s ease;
+}
+
+.nl-danger:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+.nl-danger:disabled {
+  cursor: not-allowed;
+  border-color: var(--border);
+  background: var(--surface-3);
+  color: var(--muted);
+}
+
+.nl-danger:focus-visible {
+  outline: 2px solid var(--pdf-fg);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nl-danger {
+    transition: none;
+  }
+}

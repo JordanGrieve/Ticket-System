@@ -17,12 +17,15 @@ import {
   type TemplateKey,
 } from "@/lib/newsletter";
 import {
+  canAbortSend,
   canCancelSchedule,
   canDiscardRecipients,
   canSchedule,
+  describeAbort,
   describeDrain,
 } from "@/lib/campaign-schedule";
 import type { CampaignHealth } from "@/lib/campaign-health";
+import type { RecipientStatus } from "@/db/schema";
 
 /**
  * The newsletter composer. One page, no wizard.
@@ -142,6 +145,18 @@ type ScheduleState =
   | { kind: "error"; message: string }
   | { kind: "armed"; immediate: boolean }
   | { kind: "cancelled" };
+
+/**
+ * The sending → failed edge. SEPARATE state from `schedule`, and separate on
+ * purpose: sharing one state would let "Schedule cancelled. This campaign is a
+ * draft again" render after an abort, which is the single most dangerous
+ * sentence this screen could get wrong.
+ */
+type AbortState =
+  | { kind: "idle" }
+  | { kind: "working" }
+  | { kind: "error"; message: string }
+  | { kind: "stopped"; stopped: number; alreadySent: number };
 
 /** "As soon as the next sweep runs" vs "at a time I pick". One request either way. */
 type WhenMode = "asap" | "at";
@@ -329,6 +344,18 @@ export default function Composer({
    * an unsaved draft, which cannot be stuck yet.
    */
   const [health, setHealth] = useState<CampaignHealth | null>(null);
+  /**
+   * The per-status recipient counts the campaign GET already returns and this
+   * screen used to throw away. The abort confirmation is built from them, and
+   * it must not be built from `recipientCount` — that is a cached total of ALL
+   * rows, which would tell somebody stopping a campaign that forty thousand
+   * people are still queued when thirty thousand have already been mailed.
+   */
+  const [recipients, setRecipients] = useState<Record<
+    RecipientStatus,
+    number
+  > | null>(null);
+  const [abort, setAbort] = useState<AbortState>({ kind: "idle" });
   const [testSend, setTestSend] = useState<
     | { kind: "idle" }
     | { kind: "working" }
@@ -478,6 +505,7 @@ export default function Composer({
       const payload = (await res.json()) as {
         campaign?: CampaignJson;
         health?: CampaignHealth;
+        recipients?: Record<RecipientStatus, number>;
         error?: string;
       };
       if (!res.ok || !payload.campaign) {
@@ -487,6 +515,7 @@ export default function Composer({
       setDraft(draftFrom(payload.campaign));
       setSavedId(payload.campaign.id);
       setSavedListId(payload.campaign.listId);
+      setRecipients(payload.recipients ?? null);
       // The server computed this on the way past. It was already being
       // computed before today and thrown away here, which is how a campaign
       // could sit wedged with the explanation sitting unread in the response.
@@ -495,6 +524,7 @@ export default function Composer({
       setSaved(false);
       setQueue({ kind: "idle" });
       setSchedule({ kind: "idle" });
+      setAbort({ kind: "idle" });
     } catch {
       setError("Couldn’t reach the server.");
     } finally {
@@ -750,6 +780,75 @@ export default function Composer({
       await refreshList();
     } catch {
       setSchedule({ kind: "error", message: "Couldn’t reach the server." });
+    }
+  }
+
+  /**
+   * STOP a send in progress: sending → failed. Not the same act as
+   * `cancelSchedule` above and not the same word.
+   *
+   * The confirmation text comes from `describeAbort` rather than being written
+   * inline here, so the exact wording a person reads before an irreversible act
+   * on a live audience is pinned by a test instead of by whoever last edited
+   * this file. It is built from the per-status breakdown the server sent, never
+   * from `recipientCount` — that is every row ever created for the campaign,
+   * and quoting it as "still queued" would understate what has already gone out
+   * by exactly the number of people who received it.
+   *
+   * When the breakdown is missing (an older response, a failed refresh) the
+   * numbers are NOT guessed. The confirm says so instead: a made-up "0 already
+   * sent" is the one error here that could not be walked back.
+   */
+  async function abortSend() {
+    if (savedId === null || abort.kind === "working") return;
+
+    const ok = window.confirm(
+      recipients
+        ? describeAbort({
+            queued: recipients.queued,
+            alreadySent:
+              recipients.sent +
+              recipients.delivered +
+              recipients.bounced +
+              recipients.complained,
+          })
+        : "Stop this campaign for good?\n\nWe couldn’t read how many people have already been sent this, so this may stop a campaign that is part way through a live audience. Anyone already mailed cannot be un-mailed.\n\nThis cannot be undone. The campaign is marked Failed and can’t be edited, re-scheduled or sent again.",
+    );
+    if (!ok) return;
+
+    setAbort({ kind: "working" });
+    try {
+      const res = await fetch(`/api/campaigns/${savedId}/abort`, {
+        method: "POST",
+      });
+      const payload = (await res.json()) as {
+        stopped?: number;
+        alreadySent?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        setAbort({
+          kind: "error",
+          message: payload.error ?? "Couldn’t stop this campaign.",
+        });
+        return;
+      }
+      // Re-read rather than patching the status locally. The counts on screen
+      // after an abort are the campaign report, and a report assembled from
+      // what this function assumed happened is exactly the kind of number that
+      // gets quoted back in a complaint.
+      //
+      // Ordered before the setAbort below because `open` clears this state —
+      // it is per-campaign, so opening one has to forget the last one's result.
+      await open(savedId);
+      await refreshList();
+      setAbort({
+        kind: "stopped",
+        stopped: payload.stopped ?? 0,
+        alreadySent: payload.alreadySent ?? 0,
+      });
+    } catch {
+      setAbort({ kind: "error", message: "Couldn’t reach the server." });
     }
   }
 
@@ -1403,7 +1502,65 @@ export default function Composer({
                 </p>
               )}
 
-              {draft.status === "scheduled" ? (
+              {/*
+                Why this campaign is not moving. Rendered only when there is
+                something to say — a healthy campaign gets no panel, because a
+                reassurance box on every screen is noise that trains people to
+                skip the one that matters.
+
+                Hoisted OUT of the arming form below, where it used to live.
+                "stalled" is by definition a `sending` campaign, and `sending`
+                is the branch that now offers Stop — so leaving the diagnosis
+                inside the branch that renders the arming form would mean the
+                explanation vanished from precisely the screen a person reaches
+                when they are deciding whether to stop.
+              */}
+              {health && health.blockers.length > 0 && (
+                <div
+                  className={health.state === "stalled" ? "nl-warn" : "nl-note"}
+                  role="status"
+                >
+                  <b>
+                    {health.state === "stalled"
+                      ? `This campaign is stuck — ${health.remaining} ${
+                          health.remaining === 1 ? "person has" : "people have"
+                        } not been sent to.`
+                      : "Before this can send:"}
+                  </b>
+                  <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
+                    {health.blockers.map((b) => (
+                      <li key={b.code} style={{ marginBottom: 4 }}>
+                        {b.message}
+                        {b.operatorOnly && (
+                          <>
+                            {" "}
+                            <em>We&rsquo;ve been told about this one.</em>
+                          </>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/*
+                ── THREE BRANCHES, NOT TWO ──
+
+                `sending` is checked FIRST. It used to fall through to the
+                arming form, which rendered a "When" fieldset and a Schedule
+                button that were disabled and pointless — the screen's answer to
+                a wedged campaign was a greyed-out control for a transition that
+                had already happened. The only action that applies to a campaign
+                mid-send is stopping it, so that is the only action it shows.
+              */}
+              {canAbortSend(draft.status) ? (
+                <AbortPanel
+                  state={abort}
+                  recipients={recipients}
+                  stalled={health?.state === "stalled"}
+                  onAbort={abortSend}
+                />
+              ) : draft.status === "scheduled" ? (
                 <>
                   <p className="nl-note nl-note--warn" role="status">
                     Scheduled for{" "}
@@ -1504,42 +1661,6 @@ export default function Composer({
                       Postbox refuses the send rather than leaving it out. Add
                       it under <b>Settings → Sender identity</b>, then come back.
                     </p>
-                  )}
-
-                  {/*
-                    Why this campaign is not moving. Rendered only when there is
-                    something to say — a healthy campaign gets no panel, because
-                    a reassurance box on every screen is noise that trains
-                    people to skip the one that matters.
-                  */}
-                  {health && health.blockers.length > 0 && (
-                    <div
-                      className={
-                        health.state === "stalled" ? "nl-warn" : "nl-note"
-                      }
-                      role="status"
-                    >
-                      <b>
-                        {health.state === "stalled"
-                          ? `This campaign is stuck — ${health.remaining} ${
-                              health.remaining === 1 ? "person has" : "people have"
-                            } not been sent to.`
-                          : "Before this can send:"}
-                      </b>
-                      <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
-                        {health.blockers.map((b) => (
-                          <li key={b.code} style={{ marginBottom: 4 }}>
-                            {b.message}
-                            {b.operatorOnly && (
-                              <>
-                                {" "}
-                                <em>We&rsquo;ve been told about this one.</em>
-                              </>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
                   )}
 
                   {/*
@@ -1665,6 +1786,117 @@ export default function Composer({
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Stopping a send in progress ──────────────────────────────────
+
+/**
+ * The only control a `sending` campaign gets.
+ *
+ * ── IT IS NOT STYLED AS "CANCEL SCHEDULE" ──
+ *
+ * Different verb, different className, and the numbers are on screen BEFORE the
+ * confirm rather than only inside it. Cancelling a schedule costs nothing and
+ * can be redone in a second; this ends a campaign part way through a real
+ * audience and cannot be redone at all. A person who has cancelled a schedule
+ * twice this week should not be able to press this on the same reflex.
+ *
+ * The counts are shown even when nothing is wrong, because "this is fine, it is
+ * just working through the queue" and "this will never move again" are the two
+ * things a person is choosing between, and only one of them is worth stopping.
+ */
+function AbortPanel({
+  state,
+  recipients,
+  stalled,
+  onAbort,
+}: {
+  state: AbortState;
+  recipients: Record<RecipientStatus, number> | null;
+  stalled: boolean;
+  onAbort: () => void;
+}) {
+  const alreadySent =
+    recipients === null
+      ? null
+      : recipients.sent +
+        recipients.delivered +
+        recipients.bounced +
+        recipients.complained;
+
+  return (
+    <>
+      <p className="nl-note nl-note--warn" role="status">
+        This campaign is <b>sending</b>. It can’t be edited, re-scheduled, or
+        have its recipients changed — those rows are already being worked
+        through. {stalled
+          ? "It is also not moving, and it will keep re-entering the sweep every few minutes until something changes."
+          : "The sweep is working through it a batch at a time."}
+      </p>
+
+      {recipients !== null && alreadySent !== null && (
+        <ul className="nl-facts">
+          <li className="nl-fact nl-fact--no">
+            <b>
+              {alreadySent.toLocaleString()}{" "}
+              {alreadySent === 1 ? "person has" : "people have"} already been
+              sent this.
+            </b>{" "}
+            Those messages were handed over before you got here and cannot be
+            recalled. Stopping does not touch them, and they stay on the report
+            as mailed.
+          </li>
+          <li className="nl-fact nl-fact--yes">
+            <b>
+              {recipients.queued.toLocaleString()}{" "}
+              {recipients.queued === 1 ? "person is" : "people are"} still
+              queued.
+            </b>{" "}
+            Stopping is the only thing that reaches them — they would never be
+            sent this campaign.
+          </li>
+        </ul>
+      )}
+
+      <div className="nl-queue-row">
+        <button
+          type="button"
+          className="nl-danger"
+          onClick={onAbort}
+          disabled={state.kind === "working"}
+        >
+          {state.kind === "working" ? "Stopping…" : "Stop this campaign"}
+        </button>
+        <span className="nl-help">
+          Ends the campaign for good and marks it <b>Failed</b>. There is no way
+          back to draft and no way to finish the send afterwards.
+        </span>
+      </div>
+
+      {state.kind === "error" && (
+        <p className="nl-error" role="alert">
+          {state.message}
+        </p>
+      )}
+
+      {state.kind === "stopped" && (
+        <p className="nl-note nl-note--warn" role="status">
+          <b>Stopped.</b>{" "}
+          {state.stopped === 0
+            ? "Nobody was still queued, so nobody was cut off."
+            : `${state.stopped.toLocaleString()} queued ${
+                state.stopped === 1 ? "recipient" : "recipients"
+              } will never be sent this campaign.`}{" "}
+          {state.alreadySent === 0
+            ? "Nobody had been sent it."
+            : `${state.alreadySent.toLocaleString()} ${
+                state.alreadySent === 1 ? "person" : "people"
+              } had already been sent it, and that cannot be undone.`}{" "}
+          The campaign is marked Failed and the sweep will not pick it up again.
+        </p>
+      )}
+    </>
   );
 }
 

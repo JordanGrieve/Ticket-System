@@ -23,19 +23,34 @@ import type { CampaignStatus } from "@/db/schema";
  * ── THE STATE MACHINE ──
  *
  *      draft ──schedule──▶ scheduled ──(cron, when due)──▶ sending ──▶ sent
- *        ▲                     │
- *        └───────cancel────────┘
+ *        ▲                     │                             │
+ *        └───────cancel────────┘                             └──abort──▶ failed
  *
- * Two edges are new (`schedule`, `cancel`); the other two already existed in
- * lib/campaign-send.ts and had no way of ever firing, because nothing in the
- * product could write `status = 'scheduled'` or `scheduled_at`.
+ * Three edges are new (`schedule`, `cancel`, `abort`); the other two already
+ * existed in lib/campaign-send.ts and had no way of ever firing, because
+ * nothing in the product could write `status = 'scheduled'` or `scheduled_at`.
  *
  * Everything from `sending` rightwards is ONE WAY. There is no edge back from
  * `sending` or `sent` to `draft` and there must never be one: by the time a
  * campaign is `sending`, `campaign_recipients` rows have been claimed and, on
  * a live deployment, handed to a provider. "Un-send" is not a state
- * transition, it is a lie about what already left the building. `failed` is
- * terminal for the same reason — it is reached only from `sending`.
+ * transition, it is a lie about what already left the building.
+ *
+ * `abort` does not break that. It moves FORWARD, to `failed`, which is
+ * terminal and reached only from `sending` — exactly as this file has said
+ * since before anything could write it. It un-sends nothing; it stops what has
+ * not yet been claimed and closes the campaign honestly.
+ *
+ * ── CANCEL AND ABORT ARE NOT THE SAME WORD ──
+ *
+ * `cancel` (scheduled → draft) is reversible, costs nothing, and the audience
+ * is untouched — you can re-arm a second later and nobody is any the wiser.
+ * `abort` (sending → failed) is irreversible and leaves an audience HALF
+ * MAILED: some people have the message, the rest never will, and there is no
+ * way to finish or to retract. Those are different enough that they get
+ * different verbs, different buttons and different confirmations. Sharing the
+ * word "cancel" would let muscle memory built on the harmless one carry
+ * straight into the one that cannot be undone.
  *
  * ── WHY NONE OF THIS IS A `status` FIELD ON THE PATCH BODY ──
  *
@@ -82,6 +97,100 @@ export function canCancelSchedule(status: CampaignStatus): boolean {
  */
 export function canDiscardRecipients(status: CampaignStatus): boolean {
   return status === "draft";
+}
+
+// ── Abort: the sending → failed edge ─────────────────────────────
+
+/**
+ * May a send in progress be stopped for good?
+ *
+ * `sending` ONLY, and that is the whole point of it. Before this edge existed,
+ * `sending` was a trap with no exit: `isEditableStatus` is draft|scheduled,
+ * `canCancelSchedule` is scheduled, `canDiscardRecipients` is draft. A campaign
+ * that reached `sending` and could not drain — the postal address cleared out
+ * from under it, delivery misconfigured — re-entered the sweep every five
+ * minutes for ever, and no button anywhere in the product could touch it.
+ * lib/campaign-health.ts could DIAGNOSE that (state "stalled") and the composer
+ * rendered the diagnosis; what did not exist was a way out.
+ *
+ * Not `scheduled`: that one is `cancelCampaignSchedule`, it is free, and it is
+ * reversible. Offering the terminal button where the reversible one belongs
+ * would be the worst kind of helpful.
+ *
+ * Not `sent` or `failed`: both are already terminal. There is nothing left to
+ * stop, and re-running this would only re-stamp a row that already tells the
+ * truth.
+ */
+export function canAbortSend(status: CampaignStatus): boolean {
+  return status === "sending";
+}
+
+/**
+ * What is written into `campaign_recipients.error` for a row that was stopped.
+ *
+ * A stopped row goes to `failed`, not deleted and not left `queued`:
+ *
+ *   - deleted would destroy the campaign report, which is the same reason
+ *     `discardQueuedRecipients` refuses anything past `draft`;
+ *   - left `queued` would keep `claimDueCampaigns`'s EXISTS clause true and
+ *     the campaign in the sweep, which is the trap we are opening.
+ *
+ * `RecipientStatus` has no "stopped" member and inventing one is a schema
+ * change, so the honest signal is the error text — the same trade
+ * `retireSuppressedQueuedRows` already makes for suppressed rows. It has to
+ * read as a deliberate act rather than a delivery failure, because on the
+ * report it will sit beside rows that genuinely bounced.
+ */
+export const ABORT_RECIPIENT_ERROR =
+  "Stopped: the sender stopped this campaign before this message was sent.";
+
+/** The counts an abort confirmation has to be honest about. */
+export type AbortCounts = {
+  /** Rows never claimed. These are the ones stopping actually stops. */
+  queued: number;
+  /**
+   * Rows already claimed and handed to the provider — sent, delivered,
+   * bounced, complained. Claim-before-send marks a row `sent` BEFORE the
+   * provider call, so at abort time some of these are genuinely in flight.
+   * None of them can be recalled and none of them is touched.
+   */
+  alreadySent: number;
+};
+
+/**
+ * The confirmation text for stopping a part-sent campaign.
+ *
+ * Pure, and here rather than inline in the composer, for the reason the whole
+ * module exists: this is the last thing a person reads before an irreversible
+ * act on a live audience, so it is worth being able to assert its exact wording
+ * in a test rather than hoping a JSX edit did not quietly soften it.
+ *
+ * It has to say three things and it says all three every time, including in the
+ * zero cases: what has already gone and cannot be recalled, what will now never
+ * go, and that there is no way back. Nothing here is rounded, abbreviated or
+ * left to be inferred from a number.
+ */
+export function describeAbort(counts: AbortCounts): string {
+  const gone =
+    counts.alreadySent === 0
+      ? "Nothing has been sent yet — no message from this campaign has reached anybody."
+      : counts.alreadySent === 1
+        ? "1 person has already been sent this. That message has gone and cannot be recalled."
+        : `${counts.alreadySent.toLocaleString()} people have already been sent this. Those messages have gone and cannot be recalled.`;
+
+  const stopping =
+    counts.queued === 0
+      ? "Nobody is still queued, so stopping reaches nobody new."
+      : counts.queued === 1
+        ? "1 person is still queued. They will never be sent this campaign."
+        : `${counts.queued.toLocaleString()} people are still queued. They will never be sent this campaign.`;
+
+  return [
+    "Stop this campaign for good?",
+    gone,
+    stopping,
+    "This cannot be undone. The campaign is marked Failed, the sweep stops picking it up, and it can’t be edited, re-scheduled or sent again. Anyone already mailed stays on the report as mailed.",
+  ].join("\n\n");
 }
 
 // ── When ─────────────────────────────────────────────────────────

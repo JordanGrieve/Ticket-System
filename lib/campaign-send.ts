@@ -13,7 +13,11 @@ import {
   type RecipientStatus,
 } from "@/db/schema";
 import { generateUnsubscribeToken } from "./tokens";
-import { canDiscardRecipients, canSchedule } from "./campaign-schedule";
+import {
+  ABORT_RECIPIENT_ERROR,
+  canDiscardRecipients,
+  canSchedule,
+} from "./campaign-schedule";
 import {
   isEditableStatus,
   listUnsubscribeHeaders,
@@ -435,6 +439,147 @@ export async function cancelCampaignSchedule(
   const existing = await getCampaign(workspaceId, campaignId);
   if (!existing) return null;
   return { error: "not_scheduled" };
+}
+
+// ── Abort: the sending → failed edge ─────────────────────────────
+
+export type AbortResult = {
+  /** Queued rows this call retired. Nobody will be mailed these. */
+  stopped: number;
+  /**
+   * Rows already handed to the provider — sent, delivered, bounced,
+   * complained. NOT touched by this call, and reported back so the caller can
+   * say out loud how many people cannot be un-mailed.
+   */
+  alreadySent: number;
+};
+
+/**
+ * STOP a campaign that is mid-send: `sending → failed`.
+ *
+ * This is the exit from the one state the product had no exit from. `sending`
+ * is not editable (isEditableStatus), not cancellable (cancelCampaignSchedule
+ * wants `scheduled`) and its recipients are not discardable
+ * (canDiscardRecipients wants `draft`) — so a campaign that reached `sending`
+ * and could not drain sat in the sweep for ever with nothing a client could
+ * press. lib/campaign-health.ts already named that condition ("stalled"); this
+ * is the thing it was naming.
+ *
+ * ── WHY `failed` AND NOT SOMETHING ELSE ──
+ *
+ * `failed` is the one CampaignStatus member nothing wrote, and
+ * lib/campaign-schedule.ts has described it since it was written as terminal
+ * and reachable only from `sending`. That is exactly this edge. It also earns
+ * its place mechanically, in statements that already exist:
+ *
+ *   - `settleCampaign` carries `AND c.status = 'sending'`, so once the row is
+ *     `failed` the sweep can never mark it `sent`. A stopped campaign cannot
+ *     later claim it finished.
+ *   - `claimDueCampaigns` selects `status = 'sending'`, so it leaves the sweep
+ *     on the very next tick rather than being refused every five minutes.
+ *   - `listSendingCampaigns` (the operator health report) is scoped the same
+ *     way, so it stops being reported as wedged — it isn't; it was stopped.
+ *   - `promoteDueScheduledCampaigns` only ever reads `scheduled`, so nothing
+ *     can promote it back into flight.
+ *
+ * The alternatives are all lies. `sent` would claim an audience received it.
+ * `draft` would be "un-send" — and worse than the word, because it would make
+ * a half-mailed campaign editable AND re-armable, so the second half of the
+ * list could receive different content, or the first half could receive it
+ * twice.
+ *
+ * ── WHAT HAPPENS TO ROWS ALREADY CLAIMED ──
+ *
+ * Nothing. Deliberately, and this is the part the confirmation on screen has to
+ * say out loud.
+ *
+ * The claim protocol marks a row `sent` BEFORE the provider call
+ * (see sendCampaignBatch), so at the instant this runs some rows are genuinely
+ * in flight: the UPDATE has landed, the provider call has not returned. There
+ * is no un-sending those, and there is no pretending otherwise — they are the
+ * campaign report and the evidence behind any complaint that follows. So this
+ * statement touches `queued` rows and only `queued` rows.
+ *
+ * It also must not touch them for a concurrency reason. A sweep that is
+ * mid-loop right now will, when its provider call returns, write
+ * `provider_message_id` (or `status = 'failed'` plus the provider's error) onto
+ * rows it already claimed, keyed by id with no status predicate. Overwriting
+ * those here would replace a true delivery outcome with our own text.
+ *
+ * That same in-flight loop is stopped from doing any further damage without
+ * needing to be told: its per-row claim carries `AND cr.status = 'queued'`, and
+ * the rows below are no longer queued, so every remaining iteration claims zero
+ * rows and sends nothing. The abort is a latch on the batch already running.
+ *
+ * ── ONE STATEMENT, AND WHY IT HAS TO BE ──
+ *
+ * neon-http has no interactive transactions, so the campaign row and the
+ * recipient rows are moved by a single statement with data-modifying CTEs. Two
+ * round trips would have two failure modes, both bad: recipients retired but
+ * the campaign left `sending` (the sweep keeps picking up a campaign with
+ * nothing to do), or the campaign `failed` with rows still `queued` (rows that
+ * can never be sent and never be explained).
+ *
+ * The order inside is forced by the data dependency: `stopped` selects FROM
+ * `aborted`, so Postgres runs the campaign UPDATE first and the recipient
+ * UPDATE only against the row it returned.
+ *
+ * ── TENANCY ──
+ *
+ * The workspace predicate is INSIDE the mutating statement, never a check above
+ * it. The recipient half inherits it structurally rather than by repeating it:
+ * `stopped` can only match rows whose campaign_id came out of `aborted`, and
+ * `aborted` only returns a row when `c.workspace_id` and `c.status = 'sending'`
+ * both matched. A concurrent request cannot invalidate that between the two,
+ * because there is no between.
+ */
+export async function abortCampaignSend(
+  workspaceId: number,
+  campaignId: number,
+): Promise<AbortResult | null | { error: "not_sending" }> {
+  const res = await db.execute(sql`
+    WITH aborted AS (
+      UPDATE campaigns c
+      SET status = 'failed', updated_at = now()
+      WHERE c.id = ${campaignId}
+        AND c.workspace_id = ${workspaceId}
+        AND c.status = 'sending'
+      RETURNING c.id
+    ),
+    stopped AS (
+      UPDATE campaign_recipients cr
+      SET status = 'failed', error = ${ABORT_RECIPIENT_ERROR}
+      FROM aborted a
+      WHERE cr.campaign_id = a.id
+        AND cr.status = 'queued'
+      RETURNING cr.id
+    ),
+    untouched AS (
+      SELECT cr.id FROM campaign_recipients cr
+      JOIN aborted a ON a.id = cr.campaign_id
+      WHERE cr.status IN ('sent', 'delivered', 'bounced', 'complained')
+    )
+    SELECT
+      (SELECT count(*)::int FROM aborted)   AS aborted,
+      (SELECT count(*)::int FROM stopped)   AS stopped,
+      (SELECT count(*)::int FROM untouched) AS already_sent
+  `);
+
+  const row = res.rows[0] as
+    | { aborted: number; stopped: number; already_sent: number }
+    | undefined;
+
+  // Zero campaign rows: wrong workspace, no such id, or — the case that
+  // matters — the status was not `sending`. A second read decides which
+  // refusal to report, and like scheduleCampaign's it is diagnostic only. The
+  // write has already happened or already not happened by the time it runs.
+  if (!row || row.aborted === 0) {
+    const existing = await getCampaign(workspaceId, campaignId);
+    if (!existing) return null;
+    return { error: "not_sending" };
+  }
+
+  return { stopped: row.stopped, alreadySent: row.already_sent };
 }
 
 export type DiscardResult = {
