@@ -1,11 +1,28 @@
 /**
- * Per-workspace rate limiting for the public ingestion endpoint, so one
- * client's traffic (or abuse) can never affect another's.
+ * The DEGRADED-MODE rate limiter. Nothing calls this directly any more.
  *
- * This is an in-memory fixed-window limiter. It is correct within a single
- * serverless instance; for strict cross-instance limits in production, swap
- * the store for Upstash Redis (same interface). The window is intentionally
- * generous — it's a safety valve against runaway loops, not a paywall.
+ * ── WHAT IT IS FOR NOW ──
+ * An in-memory fixed-window limiter, correct within a single serverless
+ * instance and therefore not a real limit on Vercel, where concurrency spreads
+ * requests across instances. Since 23 August 2026 its only caller is
+ * lib/rate-limit-store.ts, which falls back to it when the database is
+ * unreachable: a database outage degrades protection to what it was yesterday
+ * rather than to nothing, and never takes a client's contact form down.
+ *
+ * That makes this file load-bearing rather than legacy, which is easy to get
+ * wrong — a search for callers that filters out "rate-limit-store" finds none
+ * and concludes it is dead. It is not.
+ *
+ * ── AND WHAT IT IS NOT FOR ──
+ * It used to be the primary limiter on /api/tickets/[id]/reply, test-send and
+ * the workspace export. Those moved to the durable store, because a limit that
+ * resets per instance is close to no limit at all and the reply route sends
+ * real email from our domain.
+ *
+ * The header used to recommend swapping the store for Upstash Redis. That is
+ * no longer the plan: the durable limiter uses Postgres, which is already on
+ * the request path and needs no second paid service. Upstash would still be
+ * the better answer at volume — this is not it.
  */
 
 type Bucket = { count: number; resetAt: number };

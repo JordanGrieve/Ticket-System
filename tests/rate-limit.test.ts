@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { rateLimit } from "../lib/rate-limit";
 
 /**
@@ -84,5 +86,68 @@ describe("rateLimit", () => {
     vi.advanceTimersByTime(1001);
     expect(rateLimit(k, { max: 2, windowMs: 1000 }).ok).toBe(true);
     expect(rateLimit(k, { max: 2, windowMs: 1000 }).ok).toBe(true);
+  });
+});
+
+describe("only the durable store may use the in-memory limiter", () => {
+  /*
+   * lib/rate-limit.ts is a module-level Map, so on Vercel it counts per
+   * instance and concurrency walks straight past it. Since 23 Aug 2026 its one
+   * legitimate caller is lib/rate-limit-store.ts, which falls back to it when
+   * the database is unreachable.
+   *
+   * Anything else importing it is a public limit that silently is not one. The
+   * reply endpoint had exactly that shape and sends real email from our domain.
+   */
+  const ROOT = join(__dirname, "..");
+
+  function sourcesUnder(dir: string): string[] {
+    const out: string[] = [];
+    const walk = (d: string) => {
+      for (const entry of readdirSync(d)) {
+        if (entry === "node_modules" || entry === ".next") continue;
+        const p = join(d, entry);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (/\.tsx?$/.test(entry)) out.push(p);
+      }
+    };
+    walk(join(ROOT, dir));
+    return out.map((p) => p.slice(ROOT.length + 1).split("\\").join("/"));
+  }
+
+  it("no route or component imports rateLimit directly", () => {
+    const offenders: string[] = [];
+
+    for (const file of [...sourcesUnder("app"), ...sourcesUnder("lib")]) {
+      if (file === "lib/rate-limit.ts" || file === "lib/rate-limit-store.ts") {
+        continue;
+      }
+      const src = readFileSync(join(ROOT, file), "utf8");
+
+      // Type-only imports are fine: RateLimitResult is the shared shape and
+      // erases at compile time. It is the VALUE import that would mean a real
+      // per-instance limit guarding a public endpoint.
+      const valueImport =
+        /import\s+\{[^}]*\brateLimit\b(?!\s*Result)[^}]*\}\s+from\s+["'][^"']*\/rate-limit["']/;
+      if (valueImport.test(src) && !/import\s+type/.test(src.slice(0, src.indexOf("rate-limit")))) {
+        offenders.push(file);
+      }
+    }
+
+    expect(
+      offenders,
+      `These import the in-memory rateLimit() directly: ${offenders.join(", ")}. ` +
+        "On Vercel that counts per serverless instance, so the limit is close " +
+        "to no limit. Use rateLimitDurable from lib/rate-limit-store.ts.",
+    ).toEqual([]);
+  });
+
+  it("the durable store still falls back to it", () => {
+    // If this import ever goes, a database outage stops degrading protection
+    // and starts removing it — or, worse, starts 429ing every real customer on
+    // a client's contact form.
+    const store = readFileSync(join(ROOT, "lib/rate-limit-store.ts"), "utf8");
+    expect(store).toMatch(/rateLimit as rateLimitInMemory/);
+    expect(store).toMatch(/degraded:\s*true/);
   });
 });

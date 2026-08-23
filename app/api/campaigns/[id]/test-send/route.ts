@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { json } from "@/lib/http";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimitDurable } from "@/lib/rate-limit-store";
 import { APP_URL } from "@/lib/config";
 import { resolveViewer } from "@/lib/viewer";
 import { getCampaign } from "@/lib/campaign-send";
@@ -91,7 +91,7 @@ export async function POST(
   // holding back abuse — it is stopping a stuck button from sending forty
   // copies of the same draft to somebody's own inbox, and from spending the
   // account's daily SES quota (200/day in the sandbox) on tests.
-  const limit = rateLimit(`test-send:${userId}`, { max: 6, windowMs: 600_000 });
+  const limit = await rateLimitDurable(`test-send:${userId}`, { max: 6, windowMs: 600_000 });
   if (!limit.ok) {
     return json(
       {

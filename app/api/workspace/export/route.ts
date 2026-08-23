@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { json } from "@/lib/http";
 import { activeWorkspace } from "@/lib/viewer";
 import { exportWorkspaceData } from "@/lib/data";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimitDurable } from "@/lib/rate-limit-store";
 
 /**
  * GET /api/workspace/export  (authed)
@@ -26,7 +26,7 @@ export async function GET() {
   // An export reads every ticket, message and contact the workspace owns.
   // Cheap at pilot size, but it is the heaviest query in the app, so it gets
   // a lower ceiling than the reply endpoint.
-  const limit = rateLimit(`export:${workspace.id}`, { max: 5 });
+  const limit = await rateLimitDurable(`export:${workspace.id}`, { max: 5 });
   if (!limit.ok) {
     return json(
       { error: "Too many exports. Try again in a minute." },

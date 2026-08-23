@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { json } from "@/lib/http";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimitDurable } from "@/lib/rate-limit-store";
 import { getTicket, getMessages, addMessage } from "@/lib/data";
 import { activeWorkspace } from "@/lib/viewer";
 import { sendReplyEmail } from "@/lib/email";
@@ -49,7 +49,7 @@ export async function POST(
 
   // Replies send real email from our domain — cap the blast radius of a
   // compromised or runaway account.
-  const limit = rateLimit(`reply:${workspace.id}`, { max: 30 });
+  const limit = await rateLimitDurable(`reply:${workspace.id}`, { max: 30 });
   if (!limit.ok) {
     return json(
       { error: "Too many replies at once — try again in a minute." },
