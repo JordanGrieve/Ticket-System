@@ -536,6 +536,20 @@ export const ticketReads = pgTable(
 /**
  * Files hanging off a ticket message. Bytes live in object storage; the DB only
  * ever holds the pointer (`storageKey`) plus enough metadata to render a chip.
+ *
+ * ── NOTHING READS OR WRITES THIS YET ──
+ * Declared unused on 23 August 2026, and asserted by tests/unused-tables.test.ts
+ * so it cannot quietly gain a writer without somebody deciding to.
+ *
+ * It is UNBUILT, not abandoned — the distinction the schema could not make
+ * before, because a table waiting for a feature and a table nobody wants look
+ * identical from here. What it is waiting on is object storage, plus answers to
+ * the questions in PIVOT 9: where bytes live (S3, and NOT Postgres — the Neon
+ * free tier is 0.5 GB), whether files from strangers are virus-scanned before
+ * being served back to the business owner, and how long they are kept.
+ *
+ * The contact rail's "Shared files" row stays disabled until then, because
+ * there is genuinely nothing to list.
  */
 export const attachments = pgTable(
   "attachments",
@@ -1011,6 +1025,24 @@ export type DomainVerificationStatus = "pending" | "verified" | "failed";
  * Custom sending domain. Each auth mechanism verifies independently — SPF and
  * DKIM can pass while DMARC is still missing — so they get a column each
  * rather than one rolled-up state.
+ *
+ * ── NOTHING READS OR WRITES THIS YET ──
+ * Declared unused on 23 August 2026, and asserted by tests/unused-tables.test.ts
+ * so it cannot quietly gain a writer without somebody deciding to.
+ *
+ * UNBUILT, not abandoned. This is the table behind "send newsletters from
+ * @theirdomain.com instead of ours", which is the ONLY thing in the product
+ * that ever requires a client to touch DNS — worth knowing, because clients ask
+ * whether they need to and today the answer is no.
+ *
+ * Today every workspace sends from the platform's own verified subdomain
+ * (news.postbox.help), so one reputation carries every tenant's mail. That is
+ * simpler and it is the reason a single client's bounce rate is everybody's
+ * problem, which is what this table would eventually fix.
+ *
+ * Blocked on nothing technical — it is unbuilt because SES production access
+ * is still pending and there is no point verifying a client's domain against a
+ * sandboxed account.
  */
 export const sendingDomains = pgTable(
   "sending_domains",
