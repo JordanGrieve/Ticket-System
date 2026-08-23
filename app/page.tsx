@@ -41,7 +41,9 @@ export default async function LandingPage() {
             height: 38,
             padding: "0 18px",
             borderRadius: 10,
-            background: "#fff",
+            // Was #fff against color: var(--ink) — which is a LIGHT ink on the
+            // five dark themes, so the label vanished into the button.
+            background: "var(--surface)",
             border: "1px solid var(--border)",
             color: "var(--ink)",
             fontSize: 13.5,
@@ -140,7 +142,9 @@ export default async function LandingPage() {
             <div
               key={f.title}
               style={{
-                background: "#fff",
+                // Not #fff: five of the six themes are dark grounds, and a
+                // white card with var(--muted) text on them is unreadable.
+                background: "var(--surface)",
                 border: "1px solid var(--border)",
                 borderRadius: 16,
                 padding: "24px 22px",
@@ -161,6 +165,98 @@ export default async function LandingPage() {
               </p>
             </div>
           ))}
+        </section>
+
+        {/*
+          ── NEWSLETTERS ──
+          This section exists for two audiences and both matter.
+
+          The client: the product does bulk marketing email now, and a landing
+          page that only describes a support inbox undersells half of it.
+
+          The reviewer: Amazon denied our first SES production-access request
+          (case 178747420600793). The eu-west-1 form has no free-text field, so
+          the assessment is made against this website — and a MARKETING request
+          judged against a page describing a support-ticket tool is a mismatch
+          a reviewer is right to refuse. Everything below is a plain statement
+          of what the code actually does, which is also exactly what a sending
+          platform is expected to be able to show.
+        */}
+        <section
+          id="newsletters"
+          style={{
+            maxWidth: 980,
+            margin: "0 auto",
+            padding: "0 24px 72px",
+          }}
+        >
+          <h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 10px" }}>
+            Newsletters, sent properly
+          </h2>
+          <p
+            style={{
+              fontSize: 15,
+              lineHeight: 1.7,
+              color: "var(--muted)",
+              margin: "0 0 20px",
+              maxWidth: 640,
+            }}
+          >
+            The same workspace sends your newsletter. People subscribe from a
+            form on your own site, and every part of the process is built so you
+            can show, later, that they asked for it.
+          </p>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: 16,
+            }}
+          >
+            {[
+              {
+                title: "Confirmed opt-in only",
+                body: "Someone enters their address, we email them a confirmation link, and nothing is stored until they press it. No purchased lists, no imported addresses, no way to add a subscriber who never clicked.",
+              },
+              {
+                title: "A record of every consent",
+                body: "For each subscriber we keep how they subscribed, the moment they confirmed, the page the form was on, and the IP the confirmation came from. An address with no consent record is excluded from every send.",
+              },
+              {
+                title: "One-click unsubscribe",
+                body: "Every newsletter carries a one-click unsubscribe header and a visible link. No login, no account, no questions — and the address is suppressed immediately, for good.",
+              },
+              {
+                title: "Bounces and complaints act on themselves",
+                body: "Hard bounces and spam complaints are fed straight back into a suppression list, so an address that failed or objected is never sent to again. Your postal address appears in every message, as the law requires.",
+              },
+            ].map((f) => (
+              <div
+                key={f.title}
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 16,
+                  padding: "24px 22px",
+                }}
+              >
+                <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 8px" }}>
+                  {f.title}
+                </h3>
+                <p
+                  style={{
+                    fontSize: 14,
+                    lineHeight: 1.65,
+                    color: "var(--muted)",
+                    margin: 0,
+                  }}
+                >
+                  {f.body}
+                </p>
+              </div>
+            ))}
+          </div>
         </section>
       </main>
 
