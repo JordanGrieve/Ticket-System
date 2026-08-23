@@ -115,6 +115,63 @@ assumed:
 
 ---
 
+## 3b. IT WAS DENIED — 23 August 2026, case 178747420600793
+
+`aws sesv2 get-account` reports `ReviewDetails.Status: DENIED`, with
+`EnforcementStatus: HEALTHY` — so this is NOT a reputation or complaint
+problem. The Support API needs a paid support plan, so the stated reason is
+only readable in the console or the notification email.
+
+**The most likely cause, and it is fixable.** The eu-west-1 console form has no
+free-text use-case field. The assessment is therefore made against the website
+— and on the day of the request, postbox.help described only the support-ticket
+product: “support tickets that feel like an inbox”, contact forms, threaded
+replies. Nothing about newsletters, subscribers, consent or unsubscribe. A
+**Marketing** request judged against that page is a mismatch a reviewer is right
+to refuse. The page also said “invite-only”, so they could not sign up and look.
+
+That has been fixed: https://postbox.help/#newsletters now describes confirmed
+opt-in, the consent record, one-click unsubscribe and suppression, and
+https://postbox.help/s/cli_fdcd84f4e0f013a2a6703efdac6ec277 is a live, public,
+working double opt-in form a reviewer can use.
+
+### Reply on the SAME case. Do not open a new one.
+
+A new case restarts the queue and loses the history. Paste §3 above as the body,
+prefaced with this:
+
+> Thank you for reviewing this. I think the refusal is fair on what you could
+> see: the website described only our support-inbox product and said nothing
+> about the newsletter side, which is what this request was actually for. There
+> was no free-text field on the form to explain it.
+>
+> I have since published that half of the product. https://postbox.help/#newsletters
+> sets out how subscribers are collected and how they leave, and
+> https://postbox.help/s/cli_fdcd84f4e0f013a2a6703efdac6ec277 is a live signup
+> form you are welcome to test end to end — it will send you a confirmation link
+> and will not add you to anything unless you press it.
+>
+> The full detail follows. If any of it is the wrong shape for what you need,
+> please say which part and I will answer specifically.
+
+**Then add these, which are specific and checkable:**
+
+- The sending domain is `news.postbox.help`, verified with DKIM, with a custom
+  MAIL FROM of `bounce.news.postbox.help`.
+- A test message sent in the sandbox on 23 August passed SPF, DKIM and DMARC,
+  and carried `List-Unsubscribe` (https) and `List-Unsubscribe-Post: One-Click`.
+- Bounce and complaint events publish to SNS topic
+  `arn:aws:sns:eu-west-1:479127223828:postbox-ses-feedback`, consumed by an
+  endpoint that verifies the SNS signature AND pins the topic ARN. Permanent
+  bounces and all complaints suppress immediately; transient bounces do not.
+- Every message carries the sender’s postal address, and the platform refuses
+  to send for any customer who has not supplied one.
+
+**Do not** bundle a sending-limit increase into the reply. Ask only for
+production access at default limits.
+
+---
+
 ## 4. If it is rejected
 
 A first-time rejection is usually one of: no verifiable website, a vague
