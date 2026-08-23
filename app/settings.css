@@ -1849,3 +1849,216 @@
     transition: none;
   }
 }
+
+/* ── Access log ──────────────────────────────────────────────────
+   Settings → Access log: the client's view of impersonation_sessions.
+
+   Deliberately NOT the operator console's .pba-* table. That grid lives in
+   app/(admin)/access-log.css, is six columns wide and expects a horizontal
+   scroller; this surface is narrower and one of those columns (workspace) is
+   the same value on every row here. Same data, laid out for one workspace.
+
+   Every colour is a token, as everywhere else in this file. The state pill in
+   particular has to survive all six themes — a hardcoded amber reads as cream
+   on the dark ones. */
+
+.stg-al-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.stg-al-tile {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 14px 16px;
+  min-width: 0;
+}
+
+.stg-al-tile-value {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.stg-al-tile-label {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--muted-2);
+}
+
+/* The list of visits. An <ol> because the order is the point — newest first —
+   and a screen reader should say how many there are. */
+.stg-al-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stg-al-visit {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 14px 16px;
+  min-width: 0;
+}
+
+.stg-al-visit-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stg-al-who {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stg-al-who-email {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.stg-al-who-note {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted-2);
+}
+
+.stg-al-pill {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 4px 11px;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  border: 1px solid transparent;
+  background: var(--surface-3);
+  color: var(--muted-2);
+}
+
+/* Someone is inside the workspace right now. Accent, not alarm: an operator in
+   here is normal, and colouring it red would be a lie about what it means. */
+.stg-al-pill[data-state="active"] {
+  background: var(--accent-chip);
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+
+/* Never observed to end. Amber because it is a gap in the record, not a breach
+   — the row is honest about what was seen and nothing more. */
+.stg-al-pill[data-state="abandoned"] {
+  background: var(--warn-bg);
+  border-color: var(--warn-fg);
+  color: var(--warn-fg);
+}
+
+.stg-al-facts {
+  margin: 12px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px 18px;
+}
+
+.stg-al-fact {
+  min-width: 0;
+}
+
+.stg-al-fact-wide {
+  grid-column: 1 / -1;
+}
+
+.stg-al-key {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+
+.stg-al-val {
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+/* The qualifier under a duration — "last seen …; never seen to leave". Its own
+   line, because it is what stops the number above it being read as an exact
+   answer. */
+.stg-al-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--muted-2);
+}
+
+/* "None given" — a stated fact, so it is legible rather than greyed to nothing,
+   but visibly not something the operator typed. */
+.stg-al-unset {
+  font-style: italic;
+  color: var(--muted-2);
+}
+
+.stg-al-none {
+  border: 1px solid var(--accent-line);
+  border-radius: 14px;
+  background: var(--accent-soft);
+  padding: 16px 18px;
+}
+
+.stg-al-none-lead {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.stg-al-none-body {
+  margin: 6px 0 0;
+  max-width: 62ch;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--text-3);
+}
+
+.stg-al-none-body b {
+  color: var(--text-2);
+  font-weight: 700;
+}
+
+.stg-al-note {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--muted-2);
+}
+
+.stg-al-note b {
+  color: var(--text-2);
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .stg-al-tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

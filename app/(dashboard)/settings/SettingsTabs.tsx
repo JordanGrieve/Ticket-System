@@ -19,6 +19,7 @@ const TABS = [
   { href: "/settings/labels", label: "Labels" },
   { href: "/settings/team", label: "Team" },
   { href: "/settings/install", label: "Install" },
+  { href: "/settings/access-log", label: "Access log" },
 ] as const;
 
 export default function SettingsTabs() {
