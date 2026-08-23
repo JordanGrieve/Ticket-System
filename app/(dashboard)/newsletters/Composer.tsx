@@ -22,6 +22,7 @@ import {
   canSchedule,
   describeDrain,
 } from "@/lib/campaign-schedule";
+import type { CampaignHealth } from "@/lib/campaign-health";
 
 /**
  * The newsletter composer. One page, no wizard.
@@ -323,6 +324,11 @@ export default function Composer({
    * the draft→scheduled edge at all — it writes nothing and changes no status,
    * so it must not be able to put the schedule UI into a working state.
    */
+  /**
+   * The server's diagnosis of why this campaign is or is not moving. Null for
+   * an unsaved draft, which cannot be stuck yet.
+   */
+  const [health, setHealth] = useState<CampaignHealth | null>(null);
   const [testSend, setTestSend] = useState<
     | { kind: "idle" }
     | { kind: "working" }
@@ -471,6 +477,7 @@ export default function Composer({
       const res = await fetch(`/api/campaigns/${id}`);
       const payload = (await res.json()) as {
         campaign?: CampaignJson;
+        health?: CampaignHealth;
         error?: string;
       };
       if (!res.ok || !payload.campaign) {
@@ -480,6 +487,10 @@ export default function Composer({
       setDraft(draftFrom(payload.campaign));
       setSavedId(payload.campaign.id);
       setSavedListId(payload.campaign.listId);
+      // The server computed this on the way past. It was already being
+      // computed before today and thrown away here, which is how a campaign
+      // could sit wedged with the explanation sitting unread in the response.
+      setHealth(payload.health ?? null);
       setDirty(false);
       setSaved(false);
       setQueue({ kind: "idle" });
@@ -1493,6 +1504,42 @@ export default function Composer({
                       Postbox refuses the send rather than leaving it out. Add
                       it under <b>Settings → Sender identity</b>, then come back.
                     </p>
+                  )}
+
+                  {/*
+                    Why this campaign is not moving. Rendered only when there is
+                    something to say — a healthy campaign gets no panel, because
+                    a reassurance box on every screen is noise that trains
+                    people to skip the one that matters.
+                  */}
+                  {health && health.blockers.length > 0 && (
+                    <div
+                      className={
+                        health.state === "stalled" ? "nl-warn" : "nl-note"
+                      }
+                      role="status"
+                    >
+                      <b>
+                        {health.state === "stalled"
+                          ? `This campaign is stuck — ${health.remaining} ${
+                              health.remaining === 1 ? "person has" : "people have"
+                            } not been sent to.`
+                          : "Before this can send:"}
+                      </b>
+                      <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
+                        {health.blockers.map((b) => (
+                          <li key={b.code} style={{ marginBottom: 4 }}>
+                            {b.message}
+                            {b.operatorOnly && (
+                              <>
+                                {" "}
+                                <em>We&rsquo;ve been told about this one.</em>
+                              </>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
 
                   {/*

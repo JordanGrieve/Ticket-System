@@ -6,6 +6,7 @@ import {
   getCampaign,
   updateCampaign,
 } from "@/lib/campaign-send";
+import { diagnoseCampaign } from "@/lib/campaign-health";
 import { parseCampaignInput, type CampaignDraftInput } from "@/lib/newsletter";
 
 /**
@@ -45,7 +46,27 @@ export async function GET(
   if (!campaign) return json({ error: "Not found" }, { status: 404 });
 
   const recipients = await campaignRecipientBreakdown(workspace.id, campaignId);
-  return json({ campaign, recipients });
+
+  // The environment is read HERE and the answers passed down as booleans —
+  // lib/campaign-health.ts reads no env of its own, which is what lets every
+  // one of its branches be tested without breaking production to reproduce
+  // them. See its header.
+  const health = diagnoseCampaign({
+    status: campaign.status,
+    listId: campaign.listId,
+    recipients,
+    postalAddress: workspace.postalAddress,
+    env: {
+      sweepConfigured: Boolean((process.env.CRON_SECRET ?? "").trim()),
+      senderConfigured: Boolean(
+        (process.env.CAMPAIGN_FROM_ADDRESS ?? "").trim(),
+      ),
+      deliveryLive:
+        (process.env.CAMPAIGN_DELIVERY_MODE ?? "").trim() === "ses",
+    },
+  });
+
+  return json({ campaign, recipients, health });
 }
 
 export async function PATCH(
