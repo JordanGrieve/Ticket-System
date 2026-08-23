@@ -7,6 +7,16 @@ import { MAX_NOTE_LENGTH } from "@/lib/contact-notes";
 /**
  * Internal notes about a customer, in the contact rail.
  *
+ * ── THIS IS ALSO WHERE "ADDITIONAL INFO" WENT ──
+ * The design had a separate disclosure row for it. Folded in here on 23 August
+ * 2026 rather than built, because the plausible reading — per-contact custom
+ * fields, "Allergy", "Usual order" — is a large feature (field definitions per
+ * workspace, types, validation, ordering, a settings screen) and a free-text
+ * note already holds "gluten free, usually orders Thursday". If a client asks
+ * for structure, that is the moment to build fields. The copy below carries
+ * examples for that reason: it is the only place those facts can live now, and
+ * a box labelled "add a note" does not say so.
+ *
  * ── THESE ARE NEVER SHOWN TO THE CUSTOMER ──
  * Said on the screen, not just in a comment, because staff will write things
  * here they would not put in a reply. It is also not the whole truth and the
@@ -53,12 +63,20 @@ export default function ContactNotes({
         }}
       >
         <input type="hidden" name="contactEmail" value={contactEmail} />
+        {/*
+          The placeholder carries an example, not just an instruction.
+          "Additional info" was folded into this box on 23 Aug 2026 rather than
+          built as custom fields, so this is now the only place a per-customer
+          fact like an allergy or a usual order can live — and an empty box
+          labelled "add a note" does not suggest that. A concrete example is
+          what tells somebody the box is for more than "rang her Tuesday".
+        */}
         <textarea
           className="pbn-input"
           name="body"
           rows={2}
           maxLength={MAX_NOTE_LENGTH}
-          placeholder="Add a note about this customer…"
+          placeholder="Allergies, usual order, what you agreed on the phone…"
           aria-label="Add a note about this customer"
         />
         <button className="pbn-add" type="submit">
@@ -68,8 +86,9 @@ export default function ContactNotes({
 
       {notes.length === 0 ? (
         <p className="pbm-rail-void">
-          No notes yet. Anything you write here is for your team only — the
-          customer never sees it.
+          Nothing noted about this customer yet. Anything you write here — a
+          dietary requirement, what they usually order, what was agreed on a
+          call — is for your team only. The customer never sees it.
         </p>
       ) : (
         <ul className="pbn-list">

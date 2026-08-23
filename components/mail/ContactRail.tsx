@@ -18,16 +18,29 @@ import type { SharedLink } from "@/lib/shared-links";
  */
 
 /*
- * "Shared links" left this list on 23 Aug 2026 — it is derived from message
- * bodies now (lib/shared-links.ts) rather than waiting on a table.
+ * What is left of the design's disclosure rows, and why only one remains.
  *
- * The three that remain are still honestly unbuilt. "Shared files" is blocked
- * on the attachments subsystem and cannot be faked from anything; the other two
- * are on the board with a recommendation to define them or delete them, because
- * a disabled row promising something nobody can describe makes the rows beside
- * it less believable.
+ * "Shared links" left on 23 Aug 2026 — derived from message bodies now
+ * (lib/shared-links.ts) rather than waiting on a table.
+ *
+ * "Documentation" was DELETED the same day, not built. Nobody could say what it
+ * would hold against a CONTACT: the business's own help articles? files the
+ * customer sent (that is Shared files)? internal process notes (that is Notes)?
+ * A disabled row labelled "soon" is a promise, and keeping one nobody can
+ * define made the rows beside it less believable.
+ *
+ * "Additional info" was FOLDED INTO NOTES, also not built. The plausible
+ * reading was per-contact custom fields — "Allergy", "Usual order" — which is a
+ * real feature and a large one: field definitions per workspace, types,
+ * validation, ordering, a settings screen. A free-text note already holds
+ * "gluten free, usually orders Thursday", and it is where people were going to
+ * type it anyway. If a client asks for structure, that is the moment to build
+ * fields, not before.
+ *
+ * "Shared files" stays because it is honestly unbuilt rather than undefined: it
+ * is blocked on the attachments subsystem and cannot be faked from anything.
  */
-const UNBUILT_SECTIONS = ["Additional info", "Shared files", "Documentation"];
+const UNBUILT_SECTIONS = ["Shared files"];
 
 function formatFirstSeen(iso: string | null): string | null {
   if (!iso) return null;
