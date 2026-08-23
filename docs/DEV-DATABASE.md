@@ -47,9 +47,25 @@ A schema-only branch gives you the real schema with none of the real rows.
    npm run db:seed-dev
    ```
 
-   `db:migrate` should be a no-op — a schema-only branch copies the schema as
-   it stands. Run it anyway: it proves the branch and your migration history
-   agree, which is worth finding out now rather than mid-task.
+   **If `db:migrate` exits 1 with no error message, this is why.** A
+   schema-only branch copies the `public` tables but NOT drizzle’s
+   `__drizzle_migrations` records. Drizzle therefore believes nothing has been
+   applied, tries to run 0000 from the top, hits "relation already exists" —
+   and swallows the error behind its spinner, exiting non-zero and silent.
+
+   The fix is to build the branch purely from migrations, which is better
+   anyway: it is the only thing that ever proves the migration chain works from
+   zero, and a dev database whose history matches the repo exactly cannot drift
+   from it.
+
+   ```sql
+   -- On the DEV branch only. Check the hostname twice.
+   DROP SCHEMA public CASCADE; CREATE SCHEMA public;
+   DROP SCHEMA IF EXISTS drizzle CASCADE;
+   ```
+
+   Then `npm run db:migrate` again. It should report
+   `migrations applied successfully!`.
 
 That's it. `npm run dev` and every script now work exactly as before, against a
 database you are free to break.
