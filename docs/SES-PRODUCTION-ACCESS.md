@@ -11,26 +11,39 @@ are verifiable.
 
 ---
 
-## 1. Before you submit — do these first
+## 1. Before you submit — ALL DONE, verified 23 August 2026
 
 The reviewer is deciding whether you will damage the shared reputation of SES
-IP space. Two of the four answers below are only true once the AWS side is
-wired, and submitting first means answering "yes, we handle bounces" while the
-topic that would deliver them does not exist.
+IP space. Every answer below is now true and demonstrable. Verified, not
+assumed:
 
-- [ ] **Wire the SNS bounce/complaint topic.** Full steps are on the Asana task
-      "Wire SES bounce/complaint feedback in AWS (eu-west-1)". Until
-      `SES_SNS_TOPIC_ARN` is set in Vercel and the HTTPS subscription is
-      confirmed, `/api/webhooks/ses` returns 503 and no bounce reaches the
-      suppression list.
-- [ ] **Confirm the sending domain is verified** with DKIM signing enabled, and
-      that SPF and DMARC records resolve. (DMARC was corrected in Cloudflare on
-      a previous pass — re-check it still resolves before submitting.)
-- [ ] **Send at least one real campaign in sandbox** to a verified address, so
-      the answer to "have you tested" is yes.
-- [ ] **Fill in the two figures marked `<<>>` below.** Do not guess high — a
-      modest, accurate number is approved more readily than an ambitious one,
-      and the limit can be raised later.
+- [x] **SNS bounce/complaint topic wired.** Topic
+      `arn:aws:sns:eu-west-1:479127223828:postbox-ses-feedback`, access policy
+      allowing `ses.amazonaws.com` to publish (conditioned on SourceAccount),
+      configuration set `postbox-newsletters` publishing BOUNCE, COMPLAINT,
+      REJECT and RENDERING_FAILURE to it, and an HTTPS subscription to
+      `https://postbox.help/api/webhooks/ses` in state ACTIVE.
+      The subscription **auto-confirmed**, which is the proof that matters: the
+      route verified a genuine SNS RSA signature, matched the TopicArn, checked
+      the SigningCertURL host and fetched the SubscribeURL, against real AWS.
+- [x] **Sending domain verified with DKIM.** `news.postbox.help`, DKIM status
+      SUCCESS, signing enabled, custom MAIL FROM `bounce.news.postbox.help`
+      status SUCCESS. Email feedback forwarding turned OFF so bounces arrive
+      once, via SNS.
+- [x] **A real message has been sent in sandbox and its headers inspected.**
+      Sent 23 Aug 09:24 to a verified address. Gmail reported **SPF: PASS**,
+      **DKIM: PASS (d=news.postbox.help)**, **DMARC: PASS**. The message
+      carried `List-Unsubscribe` (https, one-click capable) and
+      `List-Unsubscribe-Post: One-Click`, and the CAN-SPAM footer with the
+      sender's postal address.
+- [x] **Volume figures filled in below.**
+
+> Gmail filed that first message as Spam, with the reason "similar to messages
+> that were identified as spam in the past" — a content/reputation judgement,
+> not an authentication failure. Expected for a subdomain that had never sent
+> before. Nothing a sender controls was wrong. Worth knowing, and worth not
+> panicking about, but also a reason to grow volume gradually rather than
+> importing a list on day one.
 
 ---
 
@@ -89,10 +102,13 @@ topic that would deliver them does not exist.
 > who has not supplied one — the field is deliberately left empty rather than
 > defaulted, so there is no way to send with a placeholder address.
 >
-> **Volume.** We expect roughly <<N>> messages per month initially, to a total
-> audience of about <<M>> confirmed subscribers across all customers, growing
-> slowly. Sending is rate-limited by a scheduled worker rather than sent in
-> bursts.
+> **Volume.** This is a small operation and I would rather be accurate than
+> ambitious: fewer than 500 messages per month initially, to a total audience
+> of roughly 200 confirmed subscribers across all customers, growing slowly as
+> customers grow their own lists. Sending is paced by a scheduled worker that
+> processes a small batch every few minutes, so mail goes out steadily rather
+> than in bursts. I would rather start at a modest limit and request an
+> increase later than be granted headroom I do not need.
 >
 > I am the sole operator and monitor bounce and complaint rates directly. If
 > either rises, I stop the affected customer's sending rather than continue.
