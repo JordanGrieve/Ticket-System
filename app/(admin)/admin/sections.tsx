@@ -17,6 +17,7 @@ import {
 } from "./actions";
 import {
   accountStatus,
+  needsAttention,
   formatDate,
   formatDateTime,
   formatDuration,
@@ -36,6 +37,10 @@ import {
 
 const TABS: { key: Filter; label: string }[] = [
   { key: "all", label: "All accounts" },
+  // Second, and named as an instruction rather than a state. This tab exists
+  // because Open Door Bakery sat under "No enquiries yet" for six weeks with a
+  // broken contact form and nothing ever asked anyone to look.
+  { key: "attention", label: "Needs a look" },
   { key: "active", label: "Active" },
   { key: "invited", label: "Awaiting sign-in" },
   { key: "quiet", label: "No enquiries yet" },
@@ -54,8 +59,11 @@ export function AccountsSection({
   query: AdminQuery;
   deleteTarget: WorkspaceSummary | null;
 }) {
-  const countFor = (f: Filter) =>
-    f === "all" ? accounts.length : accounts.filter((w) => accountStatus(w) === f).length;
+  const countFor = (f: Filter) => {
+    if (f === "all") return accounts.length;
+    if (f === "attention") return accounts.filter((w) => needsAttention(w)).length;
+    return accounts.filter((w) => accountStatus(w) === f).length;
+  };
 
   return (
     <>

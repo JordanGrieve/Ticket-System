@@ -113,6 +113,14 @@ export type WorkspaceSummary = Workspace & {
   ownerEmail: string | null;
   /** True while the owner hasn't signed in yet (SEED_/INVITE_ placeholder). */
   pending: boolean;
+  /**
+   * Oldest and newest enquiry, or null when none have ever arrived. Feeds
+   * lib/workspace-health.ts, which judges a workspace's silence against its
+   * own historical rate rather than a fixed threshold — see its header for why
+   * a fixed threshold is worse than useless here.
+   */
+  firstTicketAt: Date | null;
+  lastTicketAt: Date | null;
 };
 
 /**
@@ -127,6 +135,11 @@ export async function listWorkspaceSummaries(): Promise<WorkspaceSummary[]> {
         workspaceId: tickets.workspaceId,
         status: tickets.status,
         count: sql<number>`count(*)::int`,
+        // Per (workspace, status) because that is the existing grouping;
+        // reduced to a per-workspace min/max below. One grouped scan rather
+        // than a second round trip.
+        oldest: sql<string | null>`min(${tickets.createdAt})`,
+        newest: sql<string | null>`max(${tickets.createdAt})`,
       })
       .from(tickets)
       .groupBy(tickets.workspaceId, tickets.status),
@@ -140,11 +153,29 @@ export async function listWorkspaceSummaries(): Promise<WorkspaceSummary[]> {
       .orderBy(asc(agents.id)),
   ]);
 
-  const byWorkspace = new Map<number, { open: number; total: number }>();
+  type Agg = {
+    open: number;
+    total: number;
+    first: Date | null;
+    last: Date | null;
+  };
+  const byWorkspace = new Map<number, Agg>();
   for (const row of counts) {
-    const agg = byWorkspace.get(row.workspaceId) ?? { open: 0, total: 0 };
+    const agg: Agg = byWorkspace.get(row.workspaceId) ?? {
+      open: 0,
+      total: 0,
+      first: null,
+      last: null,
+    };
     agg.total += row.count;
     if (row.status !== "closed") agg.open += row.count;
+
+    // Fold the per-status extremes into per-workspace ones.
+    const oldest = row.oldest ? new Date(row.oldest) : null;
+    const newest = row.newest ? new Date(row.newest) : null;
+    if (oldest && (!agg.first || oldest < agg.first)) agg.first = oldest;
+    if (newest && (!agg.last || newest > agg.last)) agg.last = newest;
+
     byWorkspace.set(row.workspaceId, agg);
   }
 
@@ -166,6 +197,8 @@ export async function listWorkspaceSummaries(): Promise<WorkspaceSummary[]> {
     totalCount: byWorkspace.get(w.id)?.total ?? 0,
     ownerEmail: ownerByWorkspace.get(w.id)?.email ?? null,
     pending: ownerByWorkspace.get(w.id)?.pending ?? false,
+    firstTicketAt: byWorkspace.get(w.id)?.first ?? null,
+    lastTicketAt: byWorkspace.get(w.id)?.last ?? null,
   }));
 }
 

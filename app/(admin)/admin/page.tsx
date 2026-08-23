@@ -24,6 +24,7 @@ import {
   SearchIcon,
   SECTIONS,
   accountStatus,
+  needsAttention,
   hrefFor,
   type AdminQuery,
   type Filter,
@@ -125,7 +126,9 @@ export default async function AdminHomePage({
       w.name.toLowerCase().includes(needle) ||
       (w.ownerEmail ?? "").toLowerCase().includes(needle) ||
       w.inboundEmail.toLowerCase().includes(needle);
-    const matchesFilter = filter === "all" || accountStatus(w) === filter;
+    const matchesFilter =
+      filter === "all" ||
+      (filter === "attention" ? needsAttention(w) : accountStatus(w) === filter);
     return matchesQuery && matchesFilter;
   });
 

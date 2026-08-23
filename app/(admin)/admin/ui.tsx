@@ -1,4 +1,5 @@
 import type { WorkspaceSummary } from "@/lib/data";
+import { workspaceHealth } from "@/lib/workspace-health";
 
 /**
  * Shared pieces for the admin console: the query model that drives navigation,
@@ -20,7 +21,21 @@ export const SECTIONS = [
 
 export type Section = (typeof SECTIONS)[number];
 
-export const FILTERS = ["all", "active", "invited", "quiet"] as const;
+export const FILTERS = [
+  "all",
+  // Not an AccountStatus — a view over the two that mean "go and look".
+  // First in the list because it is the only tab with a deadline attached.
+  "attention",
+  "active",
+  "invited",
+  "quiet",
+] as const;
+
+/** True when this account is one somebody should investigate. */
+export function needsAttention(w: WorkspaceSummary, now: Date = new Date()): boolean {
+  const s = accountStatus(w, now);
+  return s === "never_received" || s === "gone_quiet";
+}
 
 export type Filter = (typeof FILTERS)[number];
 
@@ -52,28 +67,71 @@ export function hrefFor(
  * The design asked for Active / Trial / Past due / Churn risk. Three of those
  * describe a billing relationship the product does not have — there are no
  * plans, no subscriptions and no payment state anywhere in the schema — so
- * they are not rendered. These three are real:
- *   invited — the owner has an INVITE_/SEED_ placeholder and has never signed in
- *   quiet   — signed in, but no enquiries have ever reached the workspace
- *   active  — signed in, and enquiries exist
+ * they are not rendered.
+ *
+ * ── WHY THIS IS NO LONGER A ONE-LINER ──
+ * It used to be `totalCount > 0 ? "active" : "quiet"`, and "quiet" rendered in
+ * muted grey as "No enquiries yet". Open Door Bakery sat in that state for six
+ * weeks with a contact form that was returning 401 to every visitor, and the
+ * screen said the reassuring thing the whole time. It was found because the
+ * client complained.
+ *
+ * Silence and breakage are not the same state and must not share a pill. The
+ * judgement now lives in lib/workspace-health.ts, which compares a workspace
+ * against its OWN rate — see its header for why a fixed threshold would just
+ * teach the operator to ignore the badge.
  */
-export type AccountStatus = "active" | "invited" | "quiet";
+export type AccountStatus =
+  | "active"
+  | "invited"
+  | "quiet"
+  | "never_received"
+  | "gone_quiet";
 
-export function accountStatus(w: WorkspaceSummary): AccountStatus {
-  if (w.pending) return "invited";
-  return w.totalCount > 0 ? "active" : "quiet";
+export function accountStatus(
+  w: WorkspaceSummary,
+  now: Date = new Date(),
+): AccountStatus {
+  const health = workspaceHealth({
+    pending: w.pending,
+    createdAt: w.createdAt,
+    totalCount: w.totalCount,
+    firstTicketAt: w.firstTicketAt,
+    lastTicketAt: w.lastTicketAt,
+    now,
+  });
+  switch (health.state) {
+    case "invited":
+      return "invited";
+    case "settling":
+      return "quiet";
+    case "never_received":
+      return "never_received";
+    case "gone_quiet":
+      return "gone_quiet";
+    case "healthy":
+      return "active";
+  }
 }
 
 const STATUS_LABEL: Record<AccountStatus, string> = {
   active: "Active",
   invited: "Awaiting sign-in",
   quiet: "No enquiries yet",
+  // Phrased as the thing to check, not as a diagnosis. The operator cannot see
+  // the client's site from here, and "broken" would be a claim this screen
+  // cannot support.
+  never_received: "Never received anything",
+  gone_quiet: "Gone quiet",
 };
 
 const STATUS_TONE: Record<AccountStatus, PillTone> = {
   active: "ok",
   invited: "warn",
   quiet: "muted",
+  // RISK, not muted. The entire failure was that this state looked calm.
+  never_received: "risk",
+  gone_quiet: "risk",
 };
 
 export type PillTone = "ok" | "accent" | "warn" | "risk" | "muted";
