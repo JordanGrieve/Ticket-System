@@ -45,7 +45,7 @@ import { ADMIN_WS_COOKIE } from "@/lib/viewer";
  *
  * The cookie is attacker-writable and only *names* a row (lib/viewer explains
  * this at length). Closing whatever row it points at would let anyone mark
- * another operator's live session as cleanly "stopped" while they are still
+ * another operator's live session as cleanly "signed_out" while they are still
  * inside a client — poisoning the log in precisely the direction that hides
  * access. So the id is never read. We resolve the admin from Clerk's session
  * and close the sessions that are actually theirs; `endOpenSessionsForAdmin`
@@ -74,12 +74,11 @@ export async function POST(): Promise<Response> {
       // exist.
       const admin = await findAdminByClerkId(userId);
       if (admin) {
-        // "stopped" rather than a truer "signed_out": ImpersonationEnd is a
-        // closed union in db/schema.ts and adding a member is a schema change.
-        // "stopped" is honest enough — the operator deliberately ended the
-        // visit — and is enormously better than the open row this replaces.
-        // A dedicated reason would read better in the log; noted, not done.
-        await endOpenSessionsForAdmin(admin.id, "stopped");
+        // Not "stopped": that reason means they clicked "Stop impersonating"
+        // and stayed in the admin console. Here they left Postbox altogether,
+        // which is what the log should say. `ended_reason` is a plain text
+        // column, so the union gained a member without a migration.
+        await endOpenSessionsForAdmin(admin.id, "signed_out");
         closed = true;
       }
     }

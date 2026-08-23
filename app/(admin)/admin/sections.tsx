@@ -273,6 +273,7 @@ export function OverviewSection({ accounts }: { accounts: WorkspaceSummary[] }) 
 
 const END_LABEL: Record<ImpersonationEnd, string> = {
   stopped: "Stopped",
+  signed_out: "Signed out",
   switched: "Switched client",
   workspace_deleted: "Workspace deleted",
   admin_removed: "Admin access revoked",

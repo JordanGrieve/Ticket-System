@@ -232,6 +232,11 @@ export const admins = pgTable("admins", {
 export type ImpersonationEnd =
   // The operator clicked "Stop impersonating".
   | "stopped"
+  // They signed out of Postbox entirely while still inside the client. A
+  // deliberate exit like "stopped", but they left the building rather than
+  // returning to the admin console — worth telling apart in the log, because
+  // it is the one case where the session ends without them seeing it end.
+  | "signed_out"
   // They opened a different client, which ends the previous session.
   | "switched"
   // The workspace was deleted out from under them.

@@ -171,13 +171,19 @@ export default async function AccessLogPage() {
 /**
  * How an ended visit ended, in the client's terms rather than ours.
  *
- * These are the same four `endedReason` values the operator console shows, said
+ * These are the same `endedReason` values the operator console shows, said
  * plainly. "switched" in particular is worth spelling out: it means the
  * operator moved on to another workspace, which is how we know they left this
  * one — not something to hide behind a one-word label.
+ *
+ * Exhaustive by type: this is a Record over the whole union, so adding a
+ * reason in db/schema.ts fails the build here until the client has been given
+ * words for it. That is deliberate. A reason the operator console can name and
+ * this page cannot would be a gap in exactly the direction that hides access.
  */
 const END_LABEL: Record<ImpersonationEnd, string> = {
   stopped: "Ended — the operator left",
+  signed_out: "Ended — the operator signed out of Postbox",
   switched: "Ended — the operator moved to another workspace",
   workspace_deleted: "Ended — this workspace was deleted",
   admin_removed: "Ended — their operator access was withdrawn",
