@@ -75,10 +75,53 @@ export const workspaces = pgTable("workspaces", {
   // country and a normalised address model would reject valid addresses, which
   // in this table means blocking a lawful send.
   postalAddress: text("postal_address"),
+
+  // ── Billing ──────────────────────────────────────────────────────────
+  //
+  // Every workspace starts on 'trial'. There is no 'none' and no null: a
+  // workspace that exists is always in exactly one billable state, so no
+  // caller ever has to decide what an absent plan means.
+  //
+  // `plan` is what they are ENTITLED to. `subscriptionStatus` is what Stripe
+  // last told us. They are separate on purpose — a subscription can be
+  // past_due while the customer is still, correctly, entitled to the product
+  // through the end of the period they paid for. Collapsing the two would mean
+  // a failed card locking somebody out of their own customer mail the same
+  // afternoon.
+  plan: text("plan").$type<PlanState>().notNull().default("trial"),
+  trialStartedAt: timestamp("trial_started_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+
+  // Stripe's ids. Nullable: a workspace on trial has never met Stripe.
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  /** Raw Stripe subscription status: active, past_due, canceled, … */
+  subscriptionStatus: text("subscription_status"),
+  /**
+   * End of the period the customer has actually paid for.
+   *
+   * This, not `subscriptionStatus`, is what access is judged against once a
+   * plan is chosen. Stripe retries a failed card for days; during that window
+   * the status is past_due but the paid period has not ended, and cutting
+   * access off would be taking something they paid for.
+   */
+  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });
+
+/**
+ * What a workspace is entitled to.
+ *
+ * 'trial' is the starting state; the three paid ids mirror lib/pricing.ts.
+ * Deliberately a text column with a TypeScript union rather than a pg enum:
+ * adding a plan should not require a migration that locks the table, and the
+ * ids here have to stay in step with PLANS, which is checked by a test.
+ */
+export type PlanState = "trial" | "starter" | "growth" | "business";
 
 export const tickets = pgTable(
   "tickets",

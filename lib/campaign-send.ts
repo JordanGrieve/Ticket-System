@@ -13,6 +13,7 @@ import {
   type RecipientStatus,
 } from "@/db/schema";
 import { generateUnsubscribeToken } from "./tokens";
+import { getWorkspaceEntitlement } from "./billing-query";
 import {
   ABORT_RECIPIENT_ERROR,
   canDiscardRecipients,
@@ -998,6 +999,31 @@ export async function sendCampaignBatch(input: {
 }): Promise<SendBatchResult> {
   const campaign = await getCampaign(input.workspaceId, input.campaignId);
   if (!campaign) throw new Error("Campaign not found in this workspace");
+
+  // BEFORE anything is claimed, and for the same reason as the postal address
+  // below: a refusal that leaves every row untouched costs nothing, whereas
+  // refusing mid-loop burns claimed recipients nobody will ever retry.
+  //
+  // THIS is the right place to enforce billing, and it is the ONLY place in
+  // the product where a hard block is correct. Sending costs real money and
+  // real sending reputation, and the person inconvenienced is the account
+  // holder, who can fix it. Inbound enquiries and newsletter signups are never
+  // blocked for billing — see lib/trial.ts, which explains at length why
+  // dropping a customer's message over an unpaid invoice punishes the wrong
+  // person entirely.
+  const billing = await getWorkspaceEntitlement(input.workspaceId);
+  if (billing && !billing.maySendCampaigns) {
+    console.warn(
+      "[campaign] refusing to send: workspace %d is blocked (%s)",
+      input.workspaceId,
+      billing.blockedReason,
+    );
+    // `more: true` for the same reason as the postal-address refusal: the rows
+    // are untouched and still queued. Reporting false would tell the sweep the
+    // campaign is finished and let it be marked sent — a campaign recorded as
+    // delivered that nobody received.
+    return { claimed: 0, delivered: 0, failed: 0, suppressed: 0, more: true };
+  }
 
   // BEFORE anything is claimed. A commercial message must carry a physical
   // postal address, and the column is nullable because inventing one is worse
