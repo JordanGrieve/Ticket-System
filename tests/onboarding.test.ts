@@ -102,7 +102,67 @@ describe("completion", () => {
     // reaches the end for somebody working alone.
     const p = onboardingProgress(none);
     expect(p.total).toBe(onboardingSteps(none).filter((s) => !s.optional).length);
-    expect(p.total).toBe(5);
+    expect(p.total).toBe(4);
+  });
+});
+
+describe("every REQUIRED step is something the user can actually do", () => {
+  /*
+   * The property that "get your first subscriber" broke.
+   *
+   * It was required, and it ticks only when a member of the public finds the
+   * form, enters an address and clicks a link in their email. A bakery could
+   * do everything within their control and still never finish their setup —
+   * which this file's own plan-gating argument already calls out as reading
+   * "as the product being broken rather than as a plan boundary". It looked
+   * like an action because the title said "get".
+   *
+   * Anything gated on a THIRD PARTY acting belongs in the list as optional, so
+   * it can be celebrated when it happens and can never be the reason setup
+   * never completes.
+   */
+  it("does not require a stranger to do something first", () => {
+    const required = onboardingSteps(none).filter((s) => !s.optional);
+    const ids = required.map((s) => s.id);
+    // A subscriber requires a member of the public to sign up AND confirm.
+    expect(ids).not.toContain("first_subscriber");
+  });
+
+  it("a workspace can finish setup with no customers and no subscribers", () => {
+    // Everything a person here can do, done; nobody outside has acted.
+    const p = onboardingProgress({
+      ...none,
+      hasAnyTicket: true,
+      hasSentReply: true,
+      autoReplyEnabled: true,
+      hasPostalAddress: true,
+      hasSubscriber: false,
+      hasTeammate: false,
+    });
+    expect(p.complete).toBe(true);
+  });
+});
+
+describe("no step claims something that is not true", () => {
+  /*
+   * The first step ticks when ANY ticket arrives, which is right — a workspace
+   * forwarding its support mail is as connected as one using the snippet. But
+   * it used to be titled "Connect your contact form", so it put a tick against
+   * connecting a form for somebody who had connected no form. The evidence was
+   * honest and the sentence beside it was not.
+   */
+  it("the arrival step does not name one specific route", () => {
+    const step = onboardingSteps(none).find((s) => s.id === "connect_form");
+    expect(step?.title).not.toMatch(/contact form/i);
+    // …and the detail still offers both, so it stays actionable.
+    expect(step?.detail).toMatch(/snippet/i);
+    expect(step?.detail).toMatch(/forward/i);
+  });
+
+  it("ticks the arrival step for mail that came by any route", () => {
+    const byEmailOnly = { ...none, hasAnyTicket: true, hasFormTicket: false };
+    const step = onboardingSteps(byEmailOnly).find((s) => s.id === "connect_form");
+    expect(step?.done).toBe(true);
   });
 });
 

@@ -84,12 +84,26 @@ export function onboardingSteps(f: OnboardingFacts): OnboardingStep[] {
   const steps: OnboardingStep[] = [
     {
       id: "connect_form",
-      title: "Connect your contact form",
+      /*
+       * ── THE TITLE HAD TO CHANGE, NOT THE EVIDENCE ──
+       *
+       * This said "Connect your contact form" and ticked on ANY ticket
+       * arriving. The evidence is right — a workspace forwarding its support
+       * email is just as connected, and telling somebody their form is not set
+       * up while their mail is pouring in would be plainly wrong.
+       *
+       * But that made the LABEL false. It put a tick against "Connect your
+       * contact form" for somebody who had not connected a contact form, and a
+       * checklist that claims a thing is done when it is not is the exact
+       * failure this file's header sets out to avoid. The tick was honest
+       * about the workspace and dishonest about the sentence next to it.
+       *
+       * So the sentence now says what is actually being checked: mail is
+       * arriving, by whichever route.
+       */
+      title: "Get your enquiries arriving here",
       detail:
-        "Put the snippet on your website so enquiries land here instead of in a personal inbox.",
-      // Any ticket counts, not just a form one: a workspace forwarding its
-      // support email is just as connected, and telling somebody their form
-      // is not set up while their mail is arriving would be plainly wrong.
+        "Put the snippet on your website, or forward your support address to your Postbox address. Either one, whichever is easier.",
       done: f.hasFormTicket || f.hasAnyTicket,
       href: "/settings/install",
       optional: false,
@@ -145,12 +159,33 @@ export function onboardingSteps(f: OnboardingFacts): OnboardingStep[] {
     },
     {
       id: "first_subscriber",
-      title: "Get your first subscriber",
+      /*
+       * ── OPTIONAL, BECAUSE THE USER CANNOT DO IT ──
+       *
+       * Every other required step is an action somebody here can take. This
+       * one is not: it needs a member of the public to find the form, enter
+       * their address, and click a link in their email. A bakery can do
+       * everything right — form live, link shared, sitting in their Instagram
+       * bio — and this stays unticked for a week because nobody has signed up
+       * yet.
+       *
+       * Which makes it a checklist that cannot be finished, and this file
+       * already argues, about plan-gated steps, that such a thing "reads as
+       * the product being broken rather than as a plan boundary". That
+       * reasoning applies here and was missed because the step LOOKS like an
+       * action. The title said "get", which sounds like something you do.
+       *
+       * It stays in the list, because the first confirmed subscriber genuinely
+       * is a milestone worth showing. It is optional so it can never be the
+       * reason somebody's setup never finishes, and the title now names the
+       * part they control.
+       */
+      title: "Share your signup link",
       detail:
-        "Add a signup form to your site, or share your hosted signup link. Everyone confirms their own address by email.",
+        "Put the form on your site or post the link. It ticks when the first person confirms their address by email — that confirmation is what makes them a subscriber.",
       done: f.hasSubscriber,
       href: "/settings/install",
-      optional: false,
+      optional: true,
     },
     {
       id: "invite_team",
