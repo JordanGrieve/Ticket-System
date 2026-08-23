@@ -51,6 +51,10 @@ export default function InstallView({
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<"a" | "b" | "ai">("b");
+  // The newsletter section has its own toggle. Separate state from the contact
+  // form above on purpose: they are different jobs and a client who has already
+  // wired up one should not have the other silently switch tab underneath them.
+  const [nlMode, setNlMode] = useState<"form" | "ai" | "link">("form");
   const [rotating, setRotating] = useState(false);
 
   async function rotateKey() {
@@ -169,6 +173,13 @@ human mailbox).
     honeypotFields,
   );
 
+  const newsletterAiPrompt = buildNewsletterAiPrompt(
+    subscribeEndpoint,
+    honeypotFields,
+    workspaceName,
+    hostedSignupUrl,
+  );
+
   return (
     // The pane wrapper lives in the settings layout, shared with the other tabs.
     <div className="sti-wrap">
@@ -207,6 +218,18 @@ human mailbox).
             ticket, the other asks a stranger for permission to email them
             later. They share the workspace key and nothing else. */}
         <Section title="2 · Add a newsletter signup">
+          <div className="sti-modes">
+            <Toggle active={nlMode === "form"} onClick={() => setNlMode("form")}>
+              Paste a form
+            </Toggle>
+            <Toggle active={nlMode === "ai"} onClick={() => setNlMode("ai")}>
+              ✨ AI prompt
+            </Toggle>
+            <Toggle active={nlMode === "link"} onClick={() => setNlMode("link")}>
+              Just a link
+            </Toggle>
+          </div>
+
           <p className="sti-help">
             Collect subscribers for your newsletter. Every signup is confirmed by
             email before it is added — nobody joins the list until they click the
@@ -214,23 +237,50 @@ human mailbox).
             evidenced.
           </p>
 
-          <h3 className="sti-sub-title">Paste this form on your site</h3>
-          <p className="sti-help sti-help--tight">
-            Plain HTML, no JavaScript needed. Style it however you like, but keep
-            the field names — and the two anti-spam fields — exactly as they are.
-            After submitting, the visitor is shown a hosted &ldquo;check your
-            email&rdquo; page.
-          </p>
-          <CodeBlock code={newsletterSnippet} />
+          {nlMode === "form" && (
+            <>
+              <h3 className="sti-sub-title">Paste this form on your site</h3>
+              <p className="sti-help sti-help--tight">
+                Plain HTML, no JavaScript needed. Style it however you like, but
+                keep the field names — and the two anti-spam fields — exactly as
+                they are. After submitting, the visitor is shown a hosted
+                &ldquo;check your email&rdquo; page.
+              </p>
+              <CodeBlock code={newsletterSnippet} />
+            </>
+          )}
 
-          <div className="sti-divider" />
+          {nlMode === "ai" && (
+            <>
+              <h3 className="sti-sub-title">
+                Already have a signup box? Point your AI at it
+              </h3>
+              <p className="sti-help sti-help--tight">
+                If your site already has a &ldquo;subscribe to our newsletter&rdquo;
+                section, this is the one to use. Paste it into Claude, ChatGPT,
+                Cursor or whatever you build with. It finds the form you already
+                have and connects it, keeping your design exactly as it is —
+                rather than dropping a plain grey form into the middle of your
+                page. It also tells the assistant the one thing it would
+                otherwise get wrong: not to say &ldquo;you&rsquo;re
+                subscribed&rdquo; when the confirmation email has only just been
+                sent.
+              </p>
+              <CodeBlock code={newsletterAiPrompt} />
+            </>
+          )}
 
-          <h3 className="sti-sub-title">Or just link to the hosted page</h3>
-          <p className="sti-help sti-help--tight">
-            No code at all: point a button, a link in your footer or a social bio
-            at this address and we host the signup form for you.
-          </p>
-          <Field value={hostedSignupUrl} copyLabel="Copy link" mono />
+          {nlMode === "link" && (
+            <>
+              <h3 className="sti-sub-title">Or just link to the hosted page</h3>
+              <p className="sti-help sti-help--tight">
+                No code at all, and nothing to change on your website. Point a
+                button, a link in your footer, a social bio or a QR code at this
+                address and we host the signup form for you.
+              </p>
+              <Field value={hostedSignupUrl} copyLabel="Copy link" mono />
+            </>
+          )}
         </Section>
 
         {/* ── Inbound email ── */}
@@ -292,6 +342,153 @@ human mailbox).
       </div>
     </div>
   );
+}
+
+/**
+ * The AI-assistant prompt for the newsletter form.
+ *
+ * Separate from the contact-form prompt above, and deliberately more insistent,
+ * because the failure mode is worse. A contact form that is wired up wrongly
+ * loses a message and somebody notices. A signup form that is wired up wrongly
+ * tells a stranger "you're subscribed!" when nothing of the sort has happened —
+ * they never confirm, they never hear from the business again, and nobody finds
+ * out until someone asks why the list stopped growing.
+ *
+ * So the wording rules are stated as rules rather than left to the assistant's
+ * judgement. Most models, told only "POST the email here", will write a cheerful
+ * "You're on the list!" because that is what a signup form usually says. Here it
+ * is a lie: the subscriber does not exist until the link in the email is pressed.
+ *
+ * The honeypot names are INTERPOLATED, never written into this string. They come
+ * from HONEYPOT_FIELDS via the page, so changing the trap names in one place
+ * changes them everywhere including in prompts already pasted into a chat.
+ */
+function buildNewsletterAiPrompt(
+  endpoint: string,
+  fields: readonly string[],
+  workspaceName: string,
+  hostedUrl: string,
+): string {
+  const traps = fields
+    .map(
+      (name) =>
+        `  <input name="${name}" type="text" tabindex="-1" autocomplete="off"\n` +
+        `         style="position:absolute;left:-9999px" />`,
+    )
+    .join("\n");
+
+  const trapList = fields.map((f) => `"${f}"`).join(" and ");
+
+  return `You are wiring up an existing newsletter signup form on a website so that
+subscribers are collected by Postbox, the email platform used by "${workspaceName}".
+
+The site almost certainly ALREADY has a signup section — a heading, a line of
+copy, an email input and a Subscribe button. Your job is to connect what is
+already there. Do not redesign it, do not restyle it, and do not replace it with
+a form of your own. Keep the existing markup, classes and styling exactly as they
+are and change only what has to change to make it submit to Postbox.
+
+## The endpoint
+
+POST ${endpoint}
+
+Fields:
+- email (string, REQUIRED) — the subscriber's address
+- name  (string, optional) — their name, if the existing form asks for one
+
+Accepts either a normal form-encoded POST or JSON (Content-Type: application/json).
+CORS is open, so browser JavaScript can call it directly. The key in the URL is a
+public ingestion key and is safe in client-side source. Do not add any other
+secret, token or API key to the page.
+
+## Anti-spam fields — copy these in exactly
+
+Add these to the form, unchanged. They are invisible to people and to screen
+readers; a bot that fills one in is silently discarded.
+
+<div aria-hidden="true">
+${traps}
+</div>
+
+Do not rename them, do not remove the inline style, and do not add labels or
+placeholders to them. If the form already contains inputs named ${trapList},
+leave those alone rather than adding a second copy.
+
+## HOW THIS WORKS, AND THE WORDING RULES THAT FOLLOW FROM IT
+
+Postbox uses confirmed opt-in. Submitting the form does NOT subscribe anybody.
+It sends them an email containing a confirmation link, and the subscription is
+created only when they press it. Nothing is stored until then.
+
+This changes what the page is allowed to say, and it is the part most likely to
+be got wrong:
+
+- DO say, after a successful submit, something like
+  "Almost there — check your email for a link to confirm."
+- DO NOT say "You're subscribed", "You're on the list", "Welcome aboard",
+  "Thanks for subscribing", or anything else that claims the signup is complete.
+  It is not complete, and telling them it is means they will not go and press
+  the link.
+- If the existing form already shows a success message of the wrong kind, change
+  the wording. This is the one piece of visible copy you SHOULD edit.
+- Near the input, it is worth saying plainly that a confirmation email is coming.
+  Adjust the existing supporting copy if it promises instant signup.
+
+## Two ways to connect it — pick ONE
+
+Option 1, no JavaScript (simplest, and fine for a static site):
+Set the form's action to the endpoint and its method to POST:
+
+  <form action="${endpoint}" method="POST">
+
+On submit the visitor is taken to a hosted "check your email" page. You do not
+need to write a success message at all in this case — the hosted page handles it.
+
+Option 2, JavaScript (keeps the visitor on the page):
+Intercept the submit, POST the fields as JSON, and show an inline message. While
+the request is in flight, disable the submit button so the form cannot be sent
+twice. Then show the "check your email" wording described above.
+
+## Responses
+
+- 202 Accepted — {"ok": true, ...}. Show the "check your email" message.
+- 400 Bad Request — {"ok": false, "error": "..."}. Usually a malformed address.
+  Show a short inline error and let them correct it.
+- 429 Too Many Requests — too many signups too quickly. Ask them to try again in
+  a minute. Do not retry automatically in a loop.
+- 503 Service Unavailable — the platform is not configured to accept signups yet.
+  Show a neutral failure and do not lose the address the visitor typed.
+
+Important: a successful response tells you the request was accepted. It does NOT
+tell you whether the address was new, already subscribed, or previously
+unsubscribed — Postbox deliberately answers identically in every case so that
+nobody can use the form to test whether an address is on the list. Do not write
+code that tries to distinguish these; there is nothing to distinguish.
+
+## Things you do NOT need to do
+
+- No DNS changes. Collecting subscribers needs nothing in the domain settings.
+  (DNS records are only involved later, and only if the business wants newsletters
+  to be sent from its own domain instead of the platform's. That is a separate
+  job, done in Postbox, and it is not part of this task.)
+- No backend, no database, no server code, no environment variables.
+- No consent checkbox is required for this to work — the confirmation email is
+  the consent record. Leave one in place if the site already has one.
+
+## If there is no form on the site at all
+
+Build a minimal one that matches the site's existing type, spacing and colours:
+an email input, a Subscribe button, and the hidden fields above. Alternatively,
+the business can skip code entirely and link to their hosted signup page:
+
+  ${hostedUrl}
+
+## When you are done
+
+Submit one real address you can read, confirm the page shows the "check your
+email" wording rather than a completed-signup message, and check that the
+confirmation email arrives. Do not press the link if you are only testing the
+form — pressing it creates a real subscriber.`;
 }
 
 /**
