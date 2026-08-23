@@ -183,25 +183,37 @@ export default function LabelManager({
 
   return (
     <>
-      <div className="pbm-modal-scrim" onClick={onClose} aria-hidden />
+      {/* Chrome only. Everything below the head is identical in both
+          placements — see the `inline` prop. */}
+      {!inline && (
+        <div className="pbm-modal-scrim" onClick={onClose} aria-hidden />
+      )}
       <div
-        className="pbm-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Manage labels"
+        className={inline ? "pbm-modal pbm-modal--inline" : "pbm-modal"}
+        // A settings panel is not a dialog. Announcing one that cannot be
+        // dismissed traps a screen-reader user in a modal with no way out.
+        role={inline ? undefined : "dialog"}
+        aria-modal={inline ? undefined : true}
+        aria-label={inline ? undefined : "Manage labels"}
       >
-        <div className="pbm-modal-head">
-          <h2 className="pbm-modal-title">Labels</h2>
-          <button
-            className="pbm-rail-close"
-            onClick={onClose}
-            aria-label="Close label manager"
-          >
-            <Icon name="close" size={12} strokeWidth={2.4} />
-          </button>
-        </div>
+        {!inline && (
+          <div className="pbm-modal-head">
+            <h2 className="pbm-modal-title">Labels</h2>
+            <button
+              className="pbm-rail-close"
+              onClick={onClose}
+              aria-label="Close label manager"
+            >
+              <Icon name="close" size={12} strokeWidth={2.4} />
+            </button>
+          </div>
+        )}
 
-        <div className="pbm-modal-body pb-scroll">
+        <div
+          className={
+            inline ? "pbm-modal-body" : "pbm-modal-body pb-scroll"
+          }
+        >
           {rows.length === 0 && (
             <p className="pbm-modal-note">
               No labels yet. Labels are shared by everyone in this workspace.
