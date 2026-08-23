@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   impersonationSessions,
@@ -37,11 +37,23 @@ const NOW = sql`now()`;
 const HEARTBEAT_DUE = sql`now() - interval '60 seconds'`;
 
 /**
- * After this much silence an open session is presented as abandoned rather
- * than in progress. It does NOT close the row — nothing but an observed exit
- * writes endedAt — it only changes how the log describes it.
+ * After this much silence a session is abandoned: refused for access, and
+ * presented in the log as abandoned rather than in progress.
+ *
+ * It still does NOT close the row. Nothing but an observed exit writes
+ * `endedAt`, because that column answers "when did they leave" and a guess
+ * there is worse than an honest null — see getOpenSession.
  */
 export const ABANDONED_AFTER_MS = 15 * 60 * 1000;
+
+/**
+ * The same threshold as a SQL expression, derived from the constant rather
+ * than written twice. If these two ever disagree, a session shown as abandoned
+ * in the access log would still open a client's inbox.
+ */
+const ABANDONED_CUTOFF = sql.raw(
+  `now() - interval '${Math.round(ABANDONED_AFTER_MS / 1000)} seconds'`,
+);
 
 /**
  * Open a session. Any session the operator already had open is closed first as
@@ -145,7 +157,28 @@ export async function touchImpersonation(sessionId: number): Promise<void> {
     );
 }
 
-/** A session that is still open, by id. Null if it never existed or is closed. */
+/**
+ * A session that is still USABLE, by id. Null if it never existed, was closed,
+ * or has gone quiet for longer than ABANDONED_AFTER_MS.
+ *
+ * ── WHY EXPIRY LIVES HERE AND NOT IN A REAPER JOB ──
+ * This is the check that gates entry into a client's workspace (lib/viewer.ts),
+ * so an open row was, until now, an access grant with no expiry: an operator
+ * who closed their laptop mid-session left a session that still worked days
+ * later. Session #5 sat open for hours on 23 August as exactly that.
+ *
+ * The obvious fix — a cron that stamps `ended_at = now()` on stale rows — was
+ * deliberately NOT taken. `ended_at` means "we observed this session end", and
+ * a reaper would be recording an exit nobody saw, at a time it did not happen.
+ * This table is the answer to a client asking "did anyone at Postbox read my
+ * customers' data, when, and for how long"; filling it with inferred exit times
+ * makes it a worse answer while looking like a better one. `sessionState()`
+ * already renders these honestly as "abandoned" — never observed to end.
+ *
+ * So: access expires on the HEARTBEAT, the log keeps saying what was actually
+ * seen, and no scheduled job is needed at all. The row is closed properly if
+ * the operator ever comes back — `startImpersonation` ends it as "switched".
+ */
 export async function getOpenSession(
   sessionId: number,
 ): Promise<ImpersonationSession | null> {
@@ -156,6 +189,9 @@ export async function getOpenSession(
       and(
         eq(impersonationSessions.id, sessionId),
         isNull(impersonationSessions.endedAt),
+        // Expressed from the same constant the log uses, so "shown as
+        // abandoned" and "refused" can never drift apart.
+        gt(impersonationSessions.lastSeenAt, ABANDONED_CUTOFF),
       ),
     )
     .limit(1);
