@@ -7,15 +7,43 @@ Read `db/schema.ts` first — the doc comments on `subscribers`, `suppressions`,
 `campaigns` and `campaign_recipients` encode decisions this document only
 elaborates on.
 
-> **Status (22 August 2026): the pipeline is complete and reachable, and still
-> cannot email a real person.** Commit `7900a5c` added the worker
-> (`app/api/cron/campaigns/route.ts`), the schedule (`vercel.json` `crons`) and
-> the delivery abstraction (`lib/deliver.ts`, `lib/deliver-ses.ts`). What holds
-> it shut is now a set of gates and unfinished prerequisites, not an absent
-> caller. They are listed in order in
-> [§0, What actually blocks a send today](#0-what-actually-blocks-a-send-today).
-> Every earlier version of this document said "there is no send route, no
-> worker, no scheduler". That was true until `7900a5c` and is now false.
+> **Status (22 August 2026, late): the pipeline is complete, reachable and
+> lawful, and still cannot email a real person.** Commit `7900a5c` added the
+> worker (`app/api/cron/campaigns/route.ts`) and the delivery abstraction
+> (`lib/deliver.ts`, `lib/deliver-ses.ts`). What holds it shut is now
+> configuration and an Amazon review, not missing code.
+>
+> **Corrections to earlier versions of this file, which are still wrong in
+> places further down — trust this block over the sections below:**
+>
+> - The schedule is **not** `vercel.json` `crons`. It is
+>   `.github/workflows/campaign-sweep.yml`, every 5 minutes, best-effort.
+>   `vercel.json` has no `crons` key. Any arithmetic in this document based on
+>   "one sweep a day" or "75 recipients per night" describes deleted
+>   infrastructure.
+> - Marketing consent **is** enforced. `selectAudience` reads `consentAt` and
+>   buckets `no_consent`; the composer shows the count.
+> - The CAN-SPAM postal address **is** captured (Settings → Sender identity)
+>   and enforced. `renderCampaign` throws without one, `sendCampaignBatch`
+>   refuses the batch before claiming a row, and the schedule route refuses to
+>   arm the campaign at all.
+> - The bounce/complaint webhook **is** built:
+>   `app/api/webhooks/ses/route.ts` + `lib/ses-events.ts`, SNS signature
+>   verified and topic-ARN pinned. It returns 503 until `SES_SNS_TOPIC_ARN` is
+>   set. The AWS side (topic, access policy, configuration-set event
+>   destination) is created.
+> - Newsletter signup with double opt-in **is** built and verified end to end
+>   in production, including consent evidence (method, timestamp, page URL,
+>   IP).
+>
+> **What actually remains:** SES is in the eu-west-1 **sandbox**; and
+> `CRON_SECRET`, `CAMPAIGN_FROM_ADDRESS`, `SES_SNS_TOPIC_ARN` and AWS
+> credentials are unset in Vercel. See `docs/SES-PRODUCTION-ACCESS.md`.
+>
+> ⚠️ Do not flip `CAMPAIGN_DELIVERY_MODE=ses` to "see if it works". Open Door
+> Bakery has one confirmed subscriber; in the sandbox that send is rejected,
+> the row is written `failed`, the campaign is marked `sent`, and nothing in
+> the product can re-queue it. Use **Send a test to myself** in the composer.
 
 ---
 

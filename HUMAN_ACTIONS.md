@@ -96,11 +96,33 @@ switches below are yours; the code side is mine. **Do not set
   press it.
 - [ ] **Do NOT flip `CAMPAIGN_DELIVERY_MODE=ses` yet** — this is the one switch
   in the codebase that cannot be undone, because its failure mode is mail that
-  has already left. Blocking on my side, not yours: there is no consent check
-  (`selectAudience` never reads `consentAt`, so an import with no provenance is
-  mailable), no postal address in the schema for the CAN-SPAM footer, and no
-  bounce/complaint webhook, so a hard bounce gets re-mailed every campaign.
-  `docs/NEWSLETTER.md` §0 is the ordered list. I will tell you when it is safe.
+  has already left.
+
+  **The three reasons this item used to give are now all FIXED** (22 Aug), and
+  are listed here so nobody re-adds them as blockers: consent IS enforced
+  (`selectAudience` reads `consentAt` and buckets `no_consent`); the CAN-SPAM
+  postal address IS in the schema, captured in Settings → Sender identity, and
+  the send is refused without it; the bounce/complaint webhook IS built
+  (`app/api/webhooks/ses/route.ts`, signature-verified and topic-pinned).
+
+  **What actually blocks it now**, in order:
+  1. SES is still in the **sandbox** (`ProductionAccessEnabled: false`,
+     eu-west-1). Only verified addresses can receive anything at all.
+  2. `CRON_SECRET`, `CAMPAIGN_FROM_ADDRESS` and AWS credentials are unset in
+     Vercel, so the sweep 503s and the deliverer would throw.
+  3. `SES_SNS_TOPIC_ARN` is unset, so the bounce webhook 503s — the code exists
+     but nothing reaches it. The AWS side (topic, policy, event destination) IS
+     created; only the env var is missing.
+
+  ⚠️ **The specific way this goes wrong.** Open Door Bakery has exactly ONE
+  confirmed subscriber. Flipping the mode while still sandboxed returns
+  `MessageRejected`, writes that recipient row `failed`, and `settleCampaign`
+  counts failed rows as drained and marks the campaign `sent`. There is no
+  re-queue path anywhere in the product, so the only real subscriber this
+  product has is spent — and the UI reports it as success.
+
+  Use **"Send a test to myself"** in the composer instead. It goes only to your
+  own address, writes nothing, and transitions nothing.
 
 ## 2 · Do soon (nothing stuck yet, but needed)
 

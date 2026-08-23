@@ -1,5 +1,6 @@
-import { CORS_HEADERS, json, isValidEmail } from "@/lib/http";
+import { CORS_HEADERS, json, isValidEmail, clientIp } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
+import { isHoneypotTripped } from "@/lib/subscribe";
 import { previewText } from "@/lib/tickets";
 import {
   getWorkspaceByApiKey,
@@ -34,21 +35,55 @@ export async function POST(
     );
   }
 
-  // Rate-limit per workspace so one client can't affect others.
-  const limit = rateLimit(`ingest:${workspace.id}`);
-  if (!limit.ok) {
-    return json(
-      { ok: false, error: "Too many requests. Please try again shortly." },
-      {
-        status: 429,
-        headers: { ...CORS_HEADERS, "Retry-After": String(limit.retryAfterSeconds) },
-      },
-    );
+  // Two buckets. The workspace one stops a flood against one client from
+  // consuming shared capacity; the IP one bounds a single sender, because each
+  // accepted POST here writes a row AND sends up to two emails (the workspace
+  // notification and the customer auto-reply). Without it, a stranger who
+  // view-sources the client's page — where this key is published by design —
+  // has an unmetered write-and-mail primitive.
+  //
+  // Both are still only as strong as lib/rate-limit.ts, which is an in-memory
+  // Map and therefore per-instance. On Vercel that means concurrency defeats
+  // it. Tracked separately; this closes the single-sender case, not the
+  // distributed one.
+  const ip = clientIp(req);
+  const buckets: Array<[string, { max: number; windowMs: number } | undefined]> = [
+    [`ingest:${workspace.id}`, undefined],
+  ];
+  if (ip) buckets.push([`ingest:ip:${ip}`, { max: 10, windowMs: 60_000 }]);
+
+  for (const [bucket, opts] of buckets) {
+    const limit = opts ? rateLimit(bucket, opts) : rateLimit(bucket);
+    if (!limit.ok) {
+      return json(
+        { ok: false, error: "Too many requests. Please try again shortly." },
+        {
+          status: 429,
+          headers: {
+            ...CORS_HEADERS,
+            "Retry-After": String(limit.retryAfterSeconds),
+          },
+        },
+      );
+    }
   }
 
   // Accept JSON (Mode B fetch) or form-encoded (Mode A native form).
   // Public, attacker-reachable input — cap every field's length.
   const fields = await readFields(req);
+
+  // Honeypot, shared with the newsletter signup so both forms trap the same
+  // field names and neither can drift. Answered as if it had worked: a bot
+  // told it failed retries with the field cleared, one told it succeeded goes
+  // away. Checked before validation so a tripped submission never reaches the
+  // database or the mailer.
+  //
+  // ABSENT is fine and always will be — the documented JSON API does not
+  // mention these fields, and the contact snippet that predates them omits
+  // them. This only ever catches a filler that populated one.
+  if (isHoneypotTripped(fields)) {
+    return honeypotSuccess(req, workspace.name);
+  }
   const name = (fields.name ?? "").trim().slice(0, 120);
   const email = (fields.email ?? "").trim();
   const message = (fields.message ?? "").trim().slice(0, 10_000);
@@ -131,6 +166,25 @@ async function readFields(req: Request): Promise<Record<string, string>> {
   } catch {
     return {};
   }
+}
+
+/**
+ * The reply to a tripped honeypot: byte-identical in shape to a real success,
+ * and a lie. Nothing was written and nobody was emailed.
+ *
+ * The ticket id is the giveaway to guard against — a real success returns one,
+ * so this returns one too. `0` is used rather than a plausible number because
+ * no ticket has id 0, so anything that later trusts this value fails loudly
+ * instead of pointing at somebody else's ticket.
+ */
+function honeypotSuccess(req: Request, workspaceName: string): Response {
+  if (!isJsonRequest(req) && (req.headers.get("accept") ?? "").includes("text/html")) {
+    return htmlSuccess(workspaceName);
+  }
+  return json(
+    { ok: true, ticket: { id: 0, status: "open" } },
+    { status: 201, headers: CORS_HEADERS },
+  );
 }
 
 function badRequest(req: Request, error: string): Response {

@@ -3,7 +3,7 @@
 **Date:** 22 August 2026 (rewritten; the previous version was dated 1 August and
 predated the newsletter pivot entirely)
 **Repo:** `JordanGrieve/Ticket-System` (public) · **Live:** https://postbox.help
-**Head:** `7900a5c` · 59 commits on `main`
+**Head:** `c711857` · updated late 22 August after the signup, CAN-SPAM and test-send work
 
 ## Overview
 
@@ -21,8 +21,23 @@ this document needed rewriting rather than updating: the 1 August version
 described a product that no longer exists.
 
 **Current state: v1 support inbox is live in production with its first real pilot
-client (Open Door Bakery). The newsletter feature is built end to end and
-switched off.**
+client (Open Door Bakery). The newsletter feature is built end to end, is now
+lawful to send, and is switched off pending Amazon SES production access.**
+
+What changed late on 22 August, in case the sections below still disagree:
+newsletter signup with double opt-in shipped and was verified end to end in
+production (one confirmed subscriber, with consent method, timestamp, page URL
+and IP recorded); marketing consent is enforced in `selectAudience`; the
+CAN-SPAM postal address is captured in Settings and the send is refused without
+it; the SES bounce/complaint webhook is built and the AWS topic wired; the
+sweep moved from Vercel Cron to GitHub Actions every five minutes; and the
+composer gained a **Send a test to myself** action so the delivery path can be
+exercised without spending the one real subscriber.
+
+A long-standing bug was also found and fixed: Open Door Bakery's website
+contact form had been failing for every visitor for six weeks (a stale key in
+their `POSTBOX_TICKET_URL`, so Postbox correctly returned 401). Postbox
+surfaced this to nobody, which is now tracked as a product gap.
 
 ## Where we are now
 
@@ -139,13 +154,19 @@ Human/dashboard actions, not code. Full detail in `HUMAN_ACTIONS.md`.
 2. **Admin account 2FA** — the super-admin can read every client's data. Google
    2FA on the sign-in path is the free stand-in; Clerk MFA is a paid add-on and
    was deliberately deferred.
-3. **Secret rotation pending** — Clerk `sk_live`, Neon DB password, and Resend
-   API key were exposed in an AI chat transcript during setup.
-4. **Vercel Pro** — Hobby prohibits commercial use. It also caps cron at once a
-   day, but that is no longer the newsletter's throughput ceiling: the sweep is
-   scheduled by GitHub Actions every five minutes instead (288 sweeps/day, best
-   effort). Pro would still raise `maxDuration` from 60s to 300s with Fluid
-   compute, which is what `RECIPIENTS_PER_SWEEP` is really bounded by.
+3. **Secret rotation pending — STILL OPEN, oldest unresolved security item** —
+   Clerk `sk_live`, Neon DB password, and Resend API key were exposed in an AI
+   chat transcript during setup. Nothing in the repo can verify whether this
+   was done; if it has been, tick it here, because right now every audit keeps
+   re-reporting it.
+4. **Vercel Pro — deferred deliberately, revisit at the first invoice.** Hobby
+   is for non-commercial use; the working position is that this is a hobby
+   project until it charges anyone, which is defensible while nothing is
+   invoiced and stops being defensible the moment something is. The cron cap
+   that used to force an upgrade is irrelevant now: the sweep is GitHub Actions
+   every five minutes, outside Vercel's plan limits entirely. Pro would still
+   raise `maxDuration` from 60s to 300s, which is what `RECIPIENTS_PER_SWEEP`
+   is really bounded by.
 5. **SES identity unverified from here** — `news.postbox.help` in `eu-west-1` is
    reported verified but no AWS credentials are available in the dev environment
    to confirm it, and sandbox status is unknown.
