@@ -132,6 +132,10 @@
   --muted: #8a84a4;
   --muted-2: #8e88a8;
   --accent-text: #b9a6ff;
+  /* Deeper sibling of --accent, same as forest/slate/ocean do it. Dark inherits
+     --accent (#6d4aff) from :root because the palette is the same purple, but
+     --accent-strong has to be stated or it silently leaks the light value. */
+  --accent-strong: #5636e0;
   --accent-soft: rgba(124, 92, 255, 0.14);
   --accent-chip: rgba(124, 92, 255, 0.22);
   --accent-line: rgba(124, 92, 255, 0.3);
@@ -170,6 +174,7 @@
     --muted: #8a84a4;
     --muted-2: #8e88a8;
     --accent-text: #b9a6ff;
+    --accent-strong: #5636e0;
     --accent-soft: rgba(124, 92, 255, 0.14);
     --accent-chip: rgba(124, 92, 255, 0.22);
     --accent-line: rgba(124, 92, 255, 0.3);
@@ -356,12 +361,31 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/*
+  Bare links read --accent-text, NOT --accent-strong.
+
+  --accent-strong is the deep, behind-the-front-plate accent: every theme sets
+  it darker than --accent (light #5636e0 < #6d4aff, forest #238153 < #2fa36b,
+  slate #9a6d3b < #c08a4e, ocean #2354b8 < #2e6be6). That reads on a white card
+  and disappears on a dark one — it scored 2.1:1 in ocean and 2.2:1 in dark
+  against their own surfaces. Five of the six themes are dark grounds, so a
+  "darker than accent" token is the wrong contract for body text.
+
+  --accent-text is the token that exists for accent-as-foreground, is set in
+  every theme, and clears AA on all six surfaces (light 5.15:1, dark 7.45:1,
+  forest 9.94:1, slate 8.39:1, ocean 8.36:1). Same choice .psb-empty a and
+  .psb-back already make by hand in subscribers.css.
+
+  Hover shifts to an underline rather than to --accent, which is a mid-tone in
+  every palette and drops to ~3:1 on the dark grounds — a hover state should
+  not be less legible than the resting one.
+*/
 a {
-  color: var(--accent-strong);
+  color: var(--accent-text);
   text-decoration: none;
 }
 a:hover {
-  color: var(--accent);
+  text-decoration: underline;
 }
 
 textarea,

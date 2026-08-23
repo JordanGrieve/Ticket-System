@@ -17,6 +17,15 @@ export type MailRow = {
   preview: string;
   /** Compact relative time, e.g. "12m", "3h", "2d". */
   time: string;
+  /**
+   * When a person here last replied, same compact form. Null when nobody has —
+   * an automatic acknowledgement is not somebody replying, so it does not set
+   * this. The Sent folder shows it in place of `time`, which tracks the
+   * ticket's activity rather than ours.
+   */
+  sentTime: string | null;
+  /** First line of that reply, so Sent previews what we wrote, not what they said. */
+  sentPreview: string;
   source: TicketSource;
   status: TicketStatus;
   orderId: string | null;
@@ -45,6 +54,8 @@ export type MailCountsDTO = {
   closed: number;
   starred: number;
   labeled: number;
+  /** Tickets a person here has replied to at least once. */
+  sent: number;
 };
 
 /** A label plus how many of this workspace's tickets carry it. */

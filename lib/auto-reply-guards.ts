@@ -1,7 +1,7 @@
 import type { TicketSource } from "@/db/schema";
 import { EMAIL_FROM_ADDRESS, INBOUND_DOMAIN } from "./config";
 import { parseTicketRefFromAddress } from "./tickets";
-import { rateLimit } from "./rate-limit";
+import type { RateLimitResult } from "./rate-limit";
 import { evaluateSchedule } from "./business-hours";
 import {
   buildMergeValues,
@@ -238,34 +238,93 @@ export function decideAutoReply(input: DecisionInput): AutoReplyDecision {
  *    guard never fires against them; only "we already emailed this address
  *    very recently" breaks that cycle.
  *
- * Both use the in-memory limiter in lib/rate-limit.ts, which is per serverless
- * instance. Under fan-out the true ceiling is (instances × limit), so treat
- * these as a safety valve rather than a guarantee — a shared Redis store would
- * make them exact.
+ * All three counters are DURABLE (Postgres, one atomic upsert per check) rather
+ * than the module-level Map in lib/rate-limit.ts. The in-memory limiter is per
+ * serverless instance, so its true ceiling is (instances × limit) — which for a
+ * mail loop is no ceiling at all, because a loop IS concurrency: every round
+ * trip can land on a cold instance with an empty counter.
+ *
+ * The limiter is INJECTED rather than imported. lib/rate-limit-store.ts carries
+ * `server-only` and pulls in the database, and this module is imported by the
+ * pure guard tests, which run without one. The only production caller is
+ * lib/auto-reply-send.ts, which is on the IO side already and passes the strict
+ * durable limiter defined there.
  */
-export function checkAutoReplyRateLimits(
+export type AutoReplyLimiter = (
+  key: string,
+  opts: { max: number; windowMs: number },
+) => Promise<RateLimitResult>;
+
+/**
+ * ⚠️ THIS GUARD FAILS **CLOSED**. READ BEFORE CHANGING. ⚠️
+ *
+ * lib/rate-limit-store.ts deliberately fails OPEN: if the database is
+ * unreachable it degrades to the in-memory limiter rather than refusing, so a
+ * client's public contact form never returns 429 to real customers during a
+ * database outage. That is the right trade for a form, and wrong here.
+ *
+ * The asymmetry is the whole argument:
+ *
+ *  • Failing closed on a mail-loop guard costs a COURTESY. The ticket is still
+ *    created, the customer's mail is still in the inbox, a human still replies.
+ *    Nobody's enquiry is lost; an acknowledgement is merely not sent, and the
+ *    suppression is logged.
+ *  • Failing open costs the SENDING DOMAIN. An escaped loop sends thousands of
+ *    messages from the address that carries every tenant's transactional mail.
+ *    That damage is shared, slow to undo, and hits clients who had nothing to
+ *    do with the workspace that looped.
+ *
+ * And the failure modes CORRELATE, which is what makes fail-open actively
+ * dangerous here: a running loop generates exactly the load that produces
+ * statement timeouts, so the moment the durable counter stops answering is the
+ * moment it is most needed. Degrading to a per-instance Map at that point is
+ * degrading to nothing.
+ *
+ * So: any error out of the limiter is a REFUSAL, not a shrug. Because
+ * `rateLimitDurable` swallows its own database errors, the caller must pass a
+ * limiter that THROWS when the counter did not durably land — see
+ * `durableAutoReplyLimit` in lib/auto-reply-send.ts. Passing `rateLimitDurable`
+ * directly would silently reinstate the fail-open behaviour this comment exists
+ * to prevent.
+ */
+export async function checkAutoReplyRateLimits(
   workspaceId: number,
   recipient: string,
-): { ok: true } | { ok: false; scope: "workspace" | "recipient" } {
-  const perWorkspace = rateLimit(`autoreply:ws:${workspaceId}`, {
-    max: 60,
-    windowMs: 60 * 60 * 1000,
-  });
-  if (!perWorkspace.ok) return { ok: false, scope: "workspace" };
+  limiter: AutoReplyLimiter,
+): Promise<
+  { ok: true } | { ok: false; scope: "workspace" | "recipient" | "unavailable" }
+> {
+  try {
+    // Order is load-bearing and the checks are sequential, never Promise.all:
+    // a refusal must short-circuit so the later counters are not consumed by a
+    // send that was already refused.
+    const perWorkspace = await limiter(`autoreply:ws:${workspaceId}`, {
+      max: 60,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!perWorkspace.ok) return { ok: false, scope: "workspace" };
 
-  const to = recipient.trim().toLowerCase();
-  // At most one acknowledgement to the same person in 10 minutes…
-  const burst = rateLimit(`autoreply:to10:${workspaceId}:${to}`, {
-    max: 1,
-    windowMs: 10 * 60 * 1000,
-  });
-  if (!burst.ok) return { ok: false, scope: "recipient" };
-  // …and at most three in an hour, so a slow loop can't tick along all day.
-  const hourly = rateLimit(`autoreply:to60:${workspaceId}:${to}`, {
-    max: 3,
-    windowMs: 60 * 60 * 1000,
-  });
-  if (!hourly.ok) return { ok: false, scope: "recipient" };
+    const to = recipient.trim().toLowerCase();
+    // At most one acknowledgement to the same person in 10 minutes…
+    const burst = await limiter(`autoreply:to10:${workspaceId}:${to}`, {
+      max: 1,
+      windowMs: 10 * 60 * 1000,
+    });
+    if (!burst.ok) return { ok: false, scope: "recipient" };
+    // …and at most three in an hour, so a slow loop can't tick along all day.
+    const hourly = await limiter(`autoreply:to60:${workspaceId}:${to}`, {
+      max: 3,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!hourly.ok) return { ok: false, scope: "recipient" };
 
-  return { ok: true };
+    return { ok: true };
+  } catch (err) {
+    // See the block comment above: an uncountable send is a refused send.
+    console.error(
+      `[auto-reply] durable rate limit unavailable for workspace ${workspaceId} — refusing to send (fail closed):`,
+      err,
+    );
+    return { ok: false, scope: "unavailable" };
+  }
 }

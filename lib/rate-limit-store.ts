@@ -87,7 +87,11 @@ export async function rateLimitDurable(
   } catch (err) {
     // See the header: degrade to the old limiter, never take the form down.
     console.error("[rate-limit] durable store unavailable, using memory:", err);
-    return rateLimitInMemory(key, { max, windowMs });
+    // degraded:true is the whole point of the fallback being visible. Without
+    // it a caller cannot tell a shared count from a per-instance one, and a
+    // caller that needs to fail closed has to re-derive the fact with an extra
+    // query. See RateLimitResult.degraded.
+    return { ...rateLimitInMemory(key, { max, windowMs }), degraded: true };
   }
 }
 
@@ -98,14 +102,27 @@ export async function rateLimitDurable(
  * IP-keyed buckets on the public endpoints mean that is one row per distinct
  * visitor. Called from the daily health sweep.
  *
- * An hour of slack past the longest window in use (10 minutes, on test-send)
- * so a prune can never delete a window that is still counting.
+ * ⚠️ THE INTERVAL MUST EXCEED THE LONGEST WINDOW IN USE, BY A LOT.
+ * Deleting a row mid-count does not just lose a statistic — it RESETS the
+ * counter, so the next request starts a fresh window and a caller that should
+ * have been refused is let through.
+ *
+ * This originally said "an hour of slack past the longest window in use (10
+ * minutes, on test-send)" and deleted at one hour. That was already false when
+ * written down a few hours later: the auto-reply mail-loop guards use
+ * 60-MINUTE windows, so the margin was zero and a 61-minute window would have
+ * been truncated silently. Caught in review, not by a test — there is no
+ * assertion tying this interval to the windows the code actually uses, which
+ * is the real weakness here.
+ *
+ * 24 hours is far past anything plausible, and the table is bounded by
+ * distinct buckets rather than by traffic, so the extra rows cost nothing.
  */
 export async function pruneRateLimits(): Promise<number> {
   try {
     const res = await db.execute(sql`
       DELETE FROM rate_limits
-      WHERE window_start < now() - interval '1 hour'
+      WHERE window_start < now() - interval '24 hours'
       RETURNING bucket
     `);
     return res.rows.length;

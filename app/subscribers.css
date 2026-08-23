@@ -307,10 +307,9 @@ a.psb-row:hover {
 }
 
 /*
-  Explicitly --accent-text, not the global `a` colour. globals.css paints links
-  --accent-strong, which is only redefined in four of the six themes — in the
-  other two it stays the light palette's deep purple on a dark card. Every
-  colour on this page has to be a token that all six palettes actually move.
+  Explicitly --accent-text plus an underline. globals.css now paints bare links
+  --accent-text too, so this is belt-and-braces rather than a correction, but
+  the underline is local to the empty state and worth keeping.
 */
 .psb-empty a {
   color: var(--accent-text);

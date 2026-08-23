@@ -100,6 +100,10 @@ export default function MessageList({
 
   const refined = refine !== "all" || search.trim() !== "";
   const labelQuery = labelId === undefined ? "" : `&label=${labelId}`;
+  // Sent is the same list of tickets read from the other end: the card leads
+  // with who we wrote to and when we wrote, not who wrote to us and when they
+  // last did anything.
+  const sentView = folder === "sent";
 
   return (
     <section
@@ -148,6 +152,7 @@ export default function MessageList({
           <EmptyList
             refined={refined}
             hasAny={total > 0}
+            sentView={sentView}
             onClear={() => {
               setRefine("all");
               setSearch("");
@@ -163,6 +168,7 @@ export default function MessageList({
               page={page}
               labelQuery={labelQuery}
               canPersonalise={canPersonalise}
+              sentView={sentView}
             />
           ))
         )}
@@ -200,6 +206,7 @@ function MailCard({
   page,
   labelQuery,
   canPersonalise,
+  sentView = false,
 }: {
   row: MailRow;
   selected: boolean;
@@ -207,8 +214,13 @@ function MailCard({
   page: number;
   labelQuery: string;
   canPersonalise: boolean;
+  /** Reading this ticket as "something we sent" rather than "mail we got". */
+  sentView?: boolean;
 }) {
   const src = SOURCE_META[row.source];
+  // `sentTime` is null only when the row has no human reply, which the sent
+  // folder's WHERE already excludes — the fallback is for safety, not display.
+  const showSent = sentView && row.sentTime !== null;
   return (
     // The star is a button and the card is a link, so they cannot nest. The
     // wrapper gives the star somewhere to sit without swallowing the row's
@@ -228,13 +240,25 @@ function MailCard({
                 <span className="pbm-sr">Unread</span>
               </span>
             )}
-            <span className="pbm-card-name">{row.name}</span>
+            {/* "To Ada Lovelace" in Sent: the row is a reply we wrote, and the
+                name alone would read as a message from her. The address is the
+                thing that was actually written to, so it is shown too — it can
+                differ from the display name. */}
+            <span className="pbm-card-name">
+              {showSent ? `To ${row.name}` : row.name}
+            </span>
+            {showSent && <span className="pbm-card-preview">{row.email}</span>}
           </span>
-          <span className="pbm-card-time">{row.time}</span>
+          <span className="pbm-card-time">
+            {showSent && <span className="pbm-sr">Last reply sent </span>}
+            {showSent ? row.sentTime : row.time}
+          </span>
         </div>
         <div className="pbm-card-subject">{row.subject}</div>
         <div className="pbm-card-preview">
-          {row.preview || "No messages on this ticket yet."}
+          {showSent
+            ? row.sentPreview || "This reply had no text."
+            : row.preview || "No messages on this ticket yet."}
         </div>
         <div className="pbm-card-chips">
           {/* Real: which channel this ticket arrived on. */}
@@ -269,33 +293,51 @@ function MailCard({
 function EmptyList({
   refined,
   hasAny,
+  sentView = false,
   onClear,
 }: {
   refined: boolean;
   hasAny: boolean;
+  sentView?: boolean;
   onClear: () => void;
 }) {
+  // An empty Sent folder has one cause and one cure, and neither is "connect
+  // your form" — the tickets may well be sitting in the inbox already. It also
+  // has to say what does not count, or the auto-acknowledgement customers have
+  // definitely received makes this screen look broken.
+  // `hasAny` guards the odd case of a real total with an empty page (an
+  // out-of-range ?page=), where "nothing sent yet" would be a lie.
+  const emptySent = sentView && !refined && !hasAny;
   return (
     <div className="pbm-empty">
       <span className="pbm-empty-mark" aria-hidden>
-        <Icon name="mail" size={26} />
+        <Icon name={emptySent ? "send" : "mail"} size={26} />
       </span>
       <h2 className="pbm-empty-title">
-        {refined ? "Nothing matches" : hasAny ? "Nothing in this folder" : "No tickets yet"}
+        {refined
+          ? "Nothing matches"
+          : emptySent
+            ? "Nothing sent yet"
+            : hasAny
+              ? "Nothing in this folder"
+              : "No tickets yet"}
       </h2>
       <p className="pbm-empty-body">
         {refined
           ? "No tickets on this page match your search or chips."
-          : hasAny
-            ? "Other folders still have tickets in them."
-            : "When someone fills in your contact form or emails you, the thread appears here."}
+          : emptySent
+            ? "Open a ticket and reply to it, and the thread lands here. Automatic acknowledgements don’t count — this folder is what your team wrote."
+            : hasAny
+              ? "Other folders still have tickets in them."
+              : "When someone fills in your contact form or emails you, the thread appears here."}
       </p>
       {refined ? (
         <button className="pbm-btn" onClick={onClear}>
           Clear
         </button>
       ) : (
-        !hasAny && (
+        !hasAny &&
+        !emptySent && (
           <Link className="pbm-btn" href="/settings/install">
             Connect your form
           </Link>

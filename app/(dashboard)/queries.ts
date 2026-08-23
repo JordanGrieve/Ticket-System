@@ -68,7 +68,8 @@ export type MailFolder =
   | "inbox"
   | "closed"
   | "starred"
-  | "labeled";
+  | "labeled"
+  | "sent";
 
 export const MAIL_FOLDERS: MailFolder[] = [
   "all",
@@ -78,6 +79,7 @@ export const MAIL_FOLDERS: MailFolder[] = [
   "closed",
   "starred",
   "labeled",
+  "sent",
 ];
 
 export function parseFolder(value: string | undefined): MailFolder {
@@ -127,6 +129,36 @@ const lastInboundAt = sql`(
   SELECT max(m.sent_at) FROM ticket_messages m
   WHERE m.ticket_id = ${outerTicketId} AND m.direction = 'inbound'
 )`;
+
+/**
+ * When we last WROTE to this customer — the Sent folder's clock, and its
+ * membership test (NOT NULL means "we have sent something").
+ *
+ * `automated = false` is doing real work here, and it is the whole difference
+ * between a Sent folder and a second copy of All mail. The auto-acknowledgement
+ * fires once per ticket at creation (lib/auto-reply-send.ts), so counting it
+ * would put practically every ticket in Sent while telling you nothing about
+ * what anyone actually wrote. Sent means "a person here replied".
+ *
+ * Deliberately NOT tickets.updated_at: that moves for inbound mail, status
+ * changes and labelling, so sorting Sent by it would reorder the folder around
+ * events that are not sends. The customer writing back must not make our reply
+ * look newer than it is.
+ *
+ * Served by ticket_messages_ticket_direction_idx — (ticket_id, direction,
+ * sent_at) — so this is a max off the end of the index, not a scan. The
+ * `automated` filter is not in that index and is applied after, which is fine:
+ * one ticket's outbound messages are a handful of rows.
+ */
+const lastHumanOutboundAt = sql`(
+  SELECT max(m.sent_at) FROM ticket_messages m
+  WHERE m.ticket_id = ${outerTicketId}
+    AND m.direction = 'outbound'
+    AND m.automated = false
+)`;
+
+/** Somebody here has replied to this ticket at least once. */
+const sentExpr = sql`${lastHumanOutboundAt} IS NOT NULL`;
 
 /**
  * Unread for this agent: the customer has written something newer than this
@@ -196,6 +228,9 @@ function folderWhere(
     extra.push(notClosed, sql`${lastDirection} = 'inbound'`);
   else if (folder === "starred") extra.push(starredExpr(agentId));
   else if (folder === "labeled") extra.push(labeledExpr(workspaceId));
+  // No status filter, unlike inbox/unread/awaiting: closing a ticket does not
+  // unsend the reply we wrote on it.
+  else if (folder === "sent") extra.push(sentExpr);
 
   if (labelId !== undefined) extra.push(hasLabelExpr(workspaceId, labelId));
 
@@ -210,6 +245,7 @@ export type MailCounts = {
   closed: number;
   starred: number;
   labeled: number;
+  sent: number;
 };
 
 /**
@@ -232,6 +268,7 @@ export const mailCounts = cache(
         unread: sql<number>`(count(*) FILTER (WHERE ${notClosed} AND ${unreadExpr(agentId)}))::int`,
         starred: sql<number>`(count(*) FILTER (WHERE ${starredExpr(agentId)}))::int`,
         labeled: sql<number>`(count(*) FILTER (WHERE ${labeledExpr(workspaceId)}))::int`,
+        sent: sql<number>`(count(*) FILTER (WHERE ${sentExpr}))::int`,
       })
       .from(tickets)
       .where(eq(tickets.workspaceId, workspaceId));
@@ -244,6 +281,7 @@ export const mailCounts = cache(
       unread: row?.unread ?? 0,
       starred: row?.starred ?? 0,
       labeled: row?.labeled ?? 0,
+      sent: row?.sent ?? 0,
     };
   },
 );
@@ -283,6 +321,17 @@ export type TicketListRow = {
   /** Direction of the newest message; drives the "awaiting reply" chip. */
   lastDirection: string | null;
   messageCount: number;
+  /**
+   * When a person here last replied, and what they wrote. Null / null when
+   * nobody has (auto-acknowledgements do not count — see lastHumanOutboundAt).
+   * The Sent folder shows these instead of updatedAt and the newest body: in
+   * Sent, "3d" has to mean "we wrote 3 days ago", not "something happened".
+   *
+   * Typed loosely because this is a raw SQL timestamp rather than a mapped
+   * Drizzle column; relativeTime() takes Date | string either way.
+   */
+  lastSentAt: Date | string | null;
+  lastSentBody: string | null;
   /** Per-agent. Always false when the viewer has no agent row. */
   starred: boolean;
   unread: boolean;
@@ -321,12 +370,30 @@ export const listMailPage = cache(
         messageCount: sql<number>`(
           SELECT count(*)::int FROM ticket_messages m WHERE m.ticket_id = ${outerTicketId}
         )`,
+        lastSentAt: sql<Date | string | null>`${lastHumanOutboundAt}`,
+        lastSentBody: sql<string | null>`(
+          SELECT m.body FROM ticket_messages m
+          WHERE m.ticket_id = ${outerTicketId}
+            AND m.direction = 'outbound'
+            AND m.automated = false
+          ORDER BY m.sent_at DESC, m.id DESC
+          LIMIT 1
+        )`,
         starred: sql<boolean>`${starredExpr(agentId)}`,
         unread: sql<boolean>`${unreadExpr(agentId)}`,
       })
       .from(tickets)
       .where(folderWhere(workspaceId, agentId, folder, labelId))
-      .orderBy(desc(tickets.updatedAt))
+      // Sent is ordered by when WE last wrote; every other folder by the
+      // ticket's own activity. Same reasoning as lastHumanOutboundAt: sorting
+      // Sent by updated_at would let an inbound reply or a label change
+      // reshuffle a list of our own sends. NULLS LAST is belt-and-braces —
+      // folderWhere already excludes never-replied tickets from this folder.
+      .orderBy(
+        folder === "sent"
+          ? sql`${lastHumanOutboundAt} DESC NULLS LAST`
+          : desc(tickets.updatedAt),
+      )
       .limit(TICKETS_PAGE_SIZE)
       .offset((Math.max(1, page) - 1) * TICKETS_PAGE_SIZE);
 
@@ -358,6 +425,8 @@ export function toMailRow(t: TicketListRow, now: Date = new Date()): MailRow {
     source: t.source,
     status: t.status,
     orderId: t.orderId,
+    sentTime: t.lastSentAt ? relativeTime(t.lastSentAt, now) : null,
+    sentPreview: t.lastSentBody ? previewText(t.lastSentBody, 90) : "",
     awaitingReply: t.lastDirection === "inbound" && t.status !== "closed",
     starred: t.starred,
     unread: t.unread,

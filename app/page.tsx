@@ -96,7 +96,11 @@ export default async function LandingPage() {
                 display: "inline-block",
                 fontSize: 13.5,
                 fontWeight: 600,
-                color: "var(--accent-strong)",
+                // --accent-text, not --accent-strong: this is text on
+                // --accent-soft, and every theme pairs those two (see
+                // .pbm-tag--order). --accent-strong is the deep plate colour
+                // and scores ~2:1 on the dark themes' soft fill.
+                color: "var(--accent-text)",
                 background: "var(--accent-soft)",
                 border: "1px solid var(--accent-line)",
                 borderRadius: 20,

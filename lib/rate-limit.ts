@@ -21,6 +21,22 @@ export type RateLimitResult = {
   remaining: number;
   limit: number;
   retryAfterSeconds: number;
+  /**
+   * True when this answer came from the per-instance fallback rather than the
+   * shared store — i.e. the count is NOT authoritative across instances.
+   *
+   * It exists so a caller can choose its own failure semantics. The public
+   * endpoints treat a degraded answer as good enough: a contact form that 429s
+   * everyone through a database outage looks exactly like a form nobody is
+   * using. The auto-reply mail-loop guards treat it as a refusal, because the
+   * cost there is a courtesy message rather than a lost enquiry, and because a
+   * running loop generates exactly the load that makes the store stop
+   * answering — the moment it degrades is the moment it matters most.
+   *
+   * Optional so the in-memory limiter, which is always degraded by definition,
+   * does not have to say so at every return.
+   */
+  degraded?: boolean;
 };
 
 export function rateLimit(

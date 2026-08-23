@@ -42,11 +42,16 @@ type LiveFolder = {
  * as genuinely disabled controls rather than links that go nowhere, and with
  * no count pill at all — a "0" here would read as a fact we do not have.
  *
- * Starred and Labeled used to live in this list. They have tables now, so they
- * are real links above.
+ * Starred, Labeled and now Sent used to live in this list. They have tables
+ * now, so they are real links above.
+ *
+ * Trash stays. It is not waiting on a query, it is waiting on a decision:
+ * `tickets` has no deleted/archived column, and in an inbox holding customer
+ * correspondence "delete" is a retention question (hide it, keep the audit
+ * trail, or actually destroy it?) rather than a WHERE clause. Guessing would
+ * ship a button whose meaning we would have to change later.
  */
 const UNBUILT_FOLDERS: { label: string; icon: IconName }[] = [
-  { label: "Sent", icon: "send" },
   { label: "Trash", icon: "trash" },
 ];
 
@@ -163,6 +168,10 @@ export default function MailNavShell({
       count: counts.closed,
       href: "/inbox?folder=closed",
     },
+    // Not gated on canPersonalise: "did anyone here reply" is a fact about the
+    // workspace, so it reads the same for an operator viewing a client as it
+    // does for the team. Unread and Starred are the personal ones.
+    { key: "sent", label: "Sent", icon: "send", count: counts.sent, href: "/inbox?folder=sent" },
     ...(canPersonalise
       ? [
           {

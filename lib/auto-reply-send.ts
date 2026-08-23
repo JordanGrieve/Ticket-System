@@ -14,9 +14,11 @@ import { EMAIL_FROM_ADDRESS } from "./config";
 import { buildReplyTo } from "./tickets";
 import { isValidTimeZone } from "./business-hours";
 import { extractHeaders, type AutoReplyConfig } from "./auto-reply";
+import { rateLimitDurable } from "./rate-limit-store";
 import {
   checkAutoReplyRateLimits,
   decideAutoReply,
+  type AutoReplyLimiter,
   type SuppressReason,
 } from "./auto-reply-guards";
 
@@ -132,6 +134,47 @@ async function getFormName(
   return rows[0]?.name ?? null;
 }
 
+/**
+ * The mail-loop counters, and the ONE place that decides they must be durable.
+ *
+ * `rateLimitDurable` fails open by design: on a database error it quietly falls
+ * back to the per-instance in-memory limiter and returns a perfectly ordinary
+ * `ok` result. For the public contact form that is correct. For a mail-loop
+ * guard it is not — see the block comment on `checkAutoReplyRateLimits` — so
+ * this wrapper turns the silent degradation back into a hard error by
+ * confirming the counter actually landed in the shared table.
+ *
+ * One extra indexed read per check, on a path that runs at most a few times an
+ * hour per workspace. If the database is unreachable this SELECT throws, which
+ * is exactly the signal the guard needs; if the write silently fell back to
+ * memory, the row is absent and we throw ourselves.
+ */
+export const durableAutoReplyLimit: AutoReplyLimiter = async (key, opts) => {
+  const result = await rateLimitDurable(key, opts);
+
+  // FAIL CLOSED, unlike the public endpoints.
+  //
+  // rateLimitDurable degrades to a per-instance Map when the database is
+  // unreachable, and reports that as `degraded`. For a contact form that is
+  // right: refusing everyone through an outage loses real enquiries silently.
+  // Here the cost of refusing is a courtesy acknowledgement — the ticket still
+  // exists, the mail is still in the inbox, a human still replies — while the
+  // cost of allowing is a mail loop against the shared sending domain, which
+  // damages the reputation carrying every other tenant's ticket replies.
+  //
+  // The failure modes also correlate: a running loop generates exactly the load
+  // that makes the counter stop answering, so the moment it degrades is the
+  // moment it matters most, and the fallback at that moment is per-instance —
+  // no real ceiling at all.
+  if (result.degraded) {
+    throw new Error(
+      `rate limit for "${key}" fell back to per-instance counting; refusing rather than risk a mail loop`,
+    );
+  }
+
+  return result;
+};
+
 export type AutoReplyOutcome =
   | { sent: true; providerId?: string }
   | { sent: false; reason: SuppressReason | "rate_limited" | "send_failed" };
@@ -194,7 +237,11 @@ export async function maybeSendAutoReply(input: {
 
     // Rate limits are consumed only once we've decided to send, so suppressed
     // enquiries don't eat a workspace's budget.
-    const limits = checkAutoReplyRateLimits(workspace.id, ticket.customerEmail);
+    const limits = await checkAutoReplyRateLimits(
+      workspace.id,
+      ticket.customerEmail,
+      durableAutoReplyLimit,
+    );
     if (!limits.ok) {
       console.warn(
         `[auto-reply] rate limit hit (${limits.scope}) for workspace ${workspace.id}`,
