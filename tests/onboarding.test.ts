@@ -17,6 +17,7 @@ import {
 const none: OnboardingFacts = {
   hasFormTicket: false,
   hasAnyTicket: false,
+  hasSentReply: false,
   autoReplyEnabled: false,
   hasPostalAddress: false,
   hasSubscriber: false,
@@ -27,6 +28,7 @@ const none: OnboardingFacts = {
 const all: OnboardingFacts = {
   hasFormTicket: true,
   hasAnyTicket: true,
+  hasSentReply: true,
   autoReplyEnabled: true,
   hasPostalAddress: true,
   hasSubscriber: true,
@@ -100,7 +102,52 @@ describe("completion", () => {
     // reaches the end for somebody working alone.
     const p = onboardingProgress(none);
     expect(p.total).toBe(onboardingSteps(none).filter((s) => !s.optional).length);
-    expect(p.total).toBe(4);
+    expect(p.total).toBe(5);
+  });
+});
+
+describe("the checklist contains the moment the product becomes real", () => {
+  /*
+   * Every other step is configuration — put a snippet somewhere, fill in a
+   * field, switch a thing on. A checklist made entirely of chores is the
+   * documented failure shape: the value lands after the list ends, so the list
+   * reads as a tax rather than as progress. This one item is the product
+   * actually doing something for somebody.
+   */
+  it("asks the user to answer a real customer", () => {
+    expect(onboardingSteps(none).map((s) => s.id)).toContain("first_reply");
+  });
+
+  it("puts it ahead of the configuration, not after it", () => {
+    // Behind three settings screens it stops being the point of the list and
+    // becomes the reward for finishing it, which is the shape being avoided.
+    const ids = onboardingSteps(none).map((s) => s.id);
+    expect(ids.indexOf("first_reply")).toBeLessThan(ids.indexOf("auto_reply"));
+    expect(ids.indexOf("first_reply")).toBeLessThan(
+      ids.indexOf("postal_address"),
+    );
+  });
+
+  it("is not ticked by the auto-reply answering for them", () => {
+    // hasSentReply is a HUMAN reply. If switching the autoresponder on ticked
+    // this, the checklist would report a workspace activated where no person
+    // has ever answered anybody.
+    const autoOnly = { ...none, hasAnyTicket: true, autoReplyEnabled: true };
+    const step = onboardingSteps(autoOnly).find((s) => s.id === "first_reply");
+    expect(step?.done).toBe(false);
+  });
+
+  it("does not tell somebody to answer mail they have not received", () => {
+    // Same step, two situations, and one sentence would be wrong in one of
+    // them. With an empty inbox this is something to expect, not something to
+    // go and do.
+    const empty = onboardingSteps(none).find((s) => s.id === "first_reply");
+    const waiting = onboardingSteps({ ...none, hasAnyTicket: true }).find(
+      (s) => s.id === "first_reply",
+    );
+    expect(empty?.detail).not.toEqual(waiting?.detail);
+    expect(empty?.detail).toMatch(/nothing has arrived/i);
+    expect(waiting?.detail).toMatch(/waiting/i);
   });
 });
 
@@ -146,10 +193,13 @@ describe("a plan without newsletters", () => {
     const p = onboardingProgress({
       ...starter,
       hasAnyTicket: true,
+      // Answering a customer is on every plan, so the activation step belongs
+      // in a Starter checklist and does not stop it finishing.
+      hasSentReply: true,
       autoReplyEnabled: true,
     });
     expect(p.complete).toBe(true);
-    expect(p.total).toBe(2);
+    expect(p.total).toBe(3);
   });
 
   it("still offers the optional team step", () => {

@@ -27,6 +27,7 @@
 
 export type OnboardingStepId =
   | "connect_form"
+  | "first_reply"
   | "auto_reply"
   | "postal_address"
   | "first_subscriber"
@@ -49,6 +50,14 @@ export type OnboardingFacts = {
   hasFormTicket: boolean;
   /** Any ticket at all, from any source. */
   hasAnyTicket: boolean;
+  /**
+   * Somebody here has answered a customer from Postbox.
+   *
+   * A HUMAN reply, not an auto-acknowledgement: the auto-reply is a setting
+   * somebody switched on, and counting it would tick this step for a workspace
+   * where no person has ever actually used the product.
+   */
+  hasSentReply: boolean;
   /** An auto-reply exists AND is switched on. */
   autoReplyEnabled: boolean;
   /** A non-blank postal address is stored. */
@@ -83,6 +92,37 @@ export function onboardingSteps(f: OnboardingFacts): OnboardingStep[] {
       // is not set up while their mail is arriving would be plainly wrong.
       done: f.hasFormTicket || f.hasAnyTicket,
       href: "/settings/install",
+      optional: false,
+    },
+    {
+      /*
+       * ── THE ONLY STEP HERE THAT IS NOT A CHORE ──
+       *
+       * Every other item is configuration: put a snippet on a page, fill in an
+       * address, switch a thing on. None of them is the product doing anything
+       * for anybody. A checklist made entirely of chores is the documented
+       * failure shape — the value arrives after the list ends, so the list
+       * reads as a tax rather than as progress.
+       *
+       * This is the moment Postbox becomes real: a customer wrote in and got
+       * an answer back, from the shared inbox, as the business. It is also the
+       * activation event we should be measuring, which makes it the one item
+       * worth putting in front of the configuration rather than behind it.
+       */
+      id: "first_reply",
+      title: "Answer your first enquiry",
+      /*
+       * The wording changes with the situation, because the same sentence
+       * would be wrong in one of them. With no mail yet this is not something
+       * to go and do, it is something to expect — telling somebody to answer
+       * an enquiry they have not received reads as the product not knowing
+       * what state it is in.
+       */
+      detail: f.hasAnyTicket
+        ? "There is mail waiting. Replying from here keeps the whole thread in one place, and your team can see it has been handled."
+        : "Nothing has arrived yet. When the first enquiry does, answer it here rather than from your own mailbox — that is the bit that changes.",
+      done: f.hasSentReply,
+      href: "/inbox",
       optional: false,
     },
     {

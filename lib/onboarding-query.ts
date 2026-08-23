@@ -40,6 +40,16 @@ export async function getOnboardingProgress(
       hasAnyTicket: sql<boolean>`EXISTS (
         SELECT 1 FROM tickets t WHERE t.workspace_id = ${workspaceId}
       )`,
+      // A human reply, so automated = false. Counting the auto-reply would
+      // tick the activation step for a workspace where nobody has ever
+      // answered anybody.
+      hasSentReply: sql<boolean>`EXISTS (
+        SELECT 1 FROM ticket_messages m
+        JOIN tickets t ON t.id = m.ticket_id
+        WHERE t.workspace_id = ${workspaceId}
+          AND m.direction = 'outbound'
+          AND m.automated = false
+      )`,
       autoReplyEnabled: sql<boolean>`EXISTS (
         SELECT 1 FROM auto_replies a
         WHERE a.workspace_id = ${workspaceId} AND a.enabled = true
@@ -76,6 +86,7 @@ export async function getOnboardingProgress(
   return onboardingProgress({
     hasFormTicket: Boolean(row.hasFormTicket),
     hasAnyTicket: Boolean(row.hasAnyTicket),
+    hasSentReply: Boolean(row.hasSentReply),
     autoReplyEnabled: Boolean(row.autoReplyEnabled),
     hasPostalAddress: Boolean(row.hasPostalAddress),
     hasSubscriber: Boolean(row.hasSubscriber),
