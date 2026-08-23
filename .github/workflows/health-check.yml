@@ -1,0 +1,96 @@
+name: Health check
+
+# The daily "is anything broken?" sweep. Calls /api/cron/health, which asks
+# lib/workspace-health.ts and lib/health-report.ts whether any client's
+# integration has stopped working or any campaign is wedged, and raises a
+# Sentry issue for each.
+#
+# ── WHY IT EXISTS ──
+# Open Door Bakery's contact form returned 401 to every visitor for six weeks.
+# Postbox had the information to notice and no path to tell anyone: the admin
+# console showed "No enquiries yet" in muted grey, and nobody was looking. The
+# detectors are now written, but they only render when a human opens a screen.
+# This is the part that pushes.
+#
+# ── WHY IT IS NOT PART OF campaign-sweep.yml ──
+# That job runs every few minutes; a health check on the same cadence either
+# spams Sentry or needs a throttle built from clock arithmetic. More
+# importantly, monitoring that shares a schedule with the thing it monitors
+# goes down with it. Separate job, separate failure mode.
+#
+# ── SAME CAVEATS AS THE SWEEP ──
+# GitHub scheduled workflows are best effort: delayed or dropped under runner
+# load, with no retry and no backfill, and disabled entirely after 60 days with
+# no commits to the default branch. Observed cadence on the five-minute sweep in
+# this repo is nearer twenty minutes. For a daily digest that is harmless — a
+# missed day is a day late, not a lost alert, because the conditions it reports
+# are all persistent states rather than moments.
+
+on:
+  schedule:
+    # 09:00 UTC. Early enough to act on during a working day, late enough that
+    # a campaign scheduled overnight has had its chance to drain.
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: health-check
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call the health endpoint
+        shell: bash
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          # Shared with campaign-sweep deliberately: one credential to rotate,
+          # not two. Must be a REPOSITORY secret — an environment secret is
+          # invisible to a job that declares no `environment:`, which fails
+          # silently as an empty string.
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          # GitHub's default shell is `bash -e`, which would kill this step on
+          # curl's non-zero exit BEFORE the diagnostic echo below — defeating
+          # the entire point of printing the status and body.
+          set +e
+
+          if [ -z "${APP_URL}" ]; then
+            echo "::error::Repository variable APP_URL is not set."
+            exit 1
+          fi
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "::error::Repository secret CRON_SECRET is not set."
+            exit 1
+          fi
+
+          URL="${APP_URL%/}/api/cron/health"
+          echo "Checking ${URL}"
+
+          RAW=$(curl --fail-with-body -sS --max-time 60 \
+                     -H "Authorization: Bearer ${CRON_SECRET}" \
+                     -w $'\n%{http_code}' \
+                     "${URL}")
+          CURL_EXIT=$?
+
+          STATUS=$(printf '%s' "${RAW}" | tail -n 1)
+          BODY=$(printf '%s' "${RAW}" | sed '$d')
+
+          echo "HTTP status: ${STATUS:-<none>}"
+          echo "Response body:"
+          echo "${BODY:-<empty>}"
+
+          if [ "${CURL_EXIT}" -ne 0 ]; then
+            echo "::error::Health check failed (curl exit ${CURL_EXIT}, HTTP ${STATUS:-unknown}). Nothing was checked this run."
+            exit 1
+          fi
+
+          # A red run means the CHECK failed, not that a client is broken.
+          # Client problems are Sentry issues; this job going green having
+          # raised ten alerts is the system working correctly.
+          echo "Health check completed."

@@ -1166,3 +1166,57 @@ async function subscriberNames(
   for (const r of rows) out.set(r.id, r.name);
   return out;
 }
+
+/**
+ * Campaigns sitting in `sending`, with how many recipients are still queued.
+ *
+ * For the daily health check (lib/health-report.ts), which needs to tell a
+ * campaign that is draining from one that is wedged.
+ *
+ * ── WHY scheduledAt AND NOT updatedAt ──
+ * `settleCampaign` stamps `updated_at` on every sweep whether or not anything
+ * was sent — including when `sendCampaignBatch` refused the batch outright. So
+ * a permanently stuck campaign has a permanently fresh `updated_at`, and using
+ * it to measure staleness would report every stalled campaign as brand new,
+ * forever. `scheduled_at` is written once when the campaign is armed and never
+ * moves, which is what "how long has this been overdue" actually needs.
+ */
+export async function listSendingCampaigns(): Promise<
+  Array<{
+    campaignId: number;
+    campaignName: string;
+    workspaceId: number;
+    workspaceName: string;
+    queued: number;
+    since: Date;
+  }>
+> {
+  const rows = await db
+    .select({
+      campaignId: campaigns.id,
+      campaignName: campaigns.name,
+      workspaceId: campaigns.workspaceId,
+      workspaceName: workspaces.name,
+      scheduledAt: campaigns.scheduledAt,
+      updatedAt: campaigns.updatedAt,
+      queued: sql<number>`(
+        SELECT count(*)::int FROM campaign_recipients cr
+        WHERE cr.campaign_id = ${campaigns.id} AND cr.status = 'queued'
+      )`,
+    })
+    .from(campaigns)
+    .innerJoin(workspaces, eq(workspaces.id, campaigns.workspaceId))
+    .where(eq(campaigns.status, "sending"));
+
+  return rows.map((r) => ({
+    campaignId: r.campaignId,
+    campaignName: r.campaignName,
+    workspaceId: r.workspaceId,
+    workspaceName: r.workspaceName,
+    queued: r.queued,
+    // scheduledAt is nullable in the schema; a `sending` campaign should always
+    // have one, but falling back keeps this from throwing on a row that got
+    // there some other way.
+    since: r.scheduledAt ?? r.updatedAt,
+  }));
+}
