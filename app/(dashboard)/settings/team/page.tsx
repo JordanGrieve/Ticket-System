@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { resolveViewer } from "@/lib/viewer";
-import { sortTeam, MAX_TEAM_SIZE } from "@/lib/team";
+import { sortTeam, seatLimit } from "@/lib/team";
+import { getWorkspaceEntitlement } from "@/lib/billing-query";
+import { planById, smallestPlanForSeats } from "@/lib/pricing";
 import { initials } from "@/lib/tickets";
 import { inviteTeammateAction, revokeTeammateAction } from "./actions";
 import { listTeam } from "./queries";
@@ -33,7 +35,21 @@ export default async function TeamSettingsPage({
 
   const { error, notice } = await searchParams;
   const team = sortTeam(await listTeam(workspace.id));
-  const full = team.length >= MAX_TEAM_SIZE;
+  // Seats follow the PLAN. On trial they follow Starter — the trial proves
+  // the product, it is not a free Business account for a fortnight.
+  const ent = await getWorkspaceEntitlement(workspace.id);
+  const planId = !ent || ent.plan === "trial" ? "starter" : ent.plan;
+  const seats = planById(planId)?.limits.seats ?? null;
+  const limit = seatLimit(seats);
+  const nextPlan = smallestPlanForSeats(limit + 1);
+
+  // >= not >, and "over" is a state that can be reached WITHOUT inviting
+  // anybody: downgrading from Business to Growth leaves eight people in a
+  // three-seat plan. Nobody is signed out for that — removing people from a
+  // shared inbox because of a billing change is how a support desk loses its
+  // staff on a Monday morning. They stay; only new invites are refused.
+  const full = team.length >= limit;
+  const overLimit = team.length > limit;
 
   return (
     <div className="stg-wrap">
@@ -121,8 +137,28 @@ export default async function TeamSettingsPage({
 
         {full ? (
           <p className="stg-section-sub">
-            You’ve reached the limit of {MAX_TEAM_SIZE} people. Remove somebody
-            before adding another.
+            {overLimit ? (
+              <>
+                Your plan includes {limit}{" "}
+                {limit === 1 ? "person" : "people"} and this workspace has{" "}
+                {team.length}. <b>Nobody has been signed out</b> — everyone here
+                keeps working as normal. You just can&rsquo;t add anyone new
+                until you&rsquo;re back within the plan.
+              </>
+            ) : (
+              <>
+                Your plan includes {limit}{" "}
+                {limit === 1 ? "person" : "people"}, and that&rsquo;s everyone.
+              </>
+            )}{" "}
+            {nextPlan && nextPlan.limits.seats > limit ? (
+              <>
+                {nextPlan.name} includes {nextPlan.limits.seats} — you can
+                upgrade in Settings → Billing, or remove somebody first.
+              </>
+            ) : (
+              <>Remove somebody before adding another.</>
+            )}
           </p>
         ) : (
           <form action={inviteTeammateAction}>

@@ -11,6 +11,8 @@ import { INVITE_PREFIX } from "@/lib/workspace";
 import { sendInviteEmail } from "@/lib/email";
 import { APP_URL, EMAIL_FROM_ADDRESS } from "@/lib/config";
 import { checkInvite, checkRevoke } from "@/lib/team";
+import { getWorkspaceEntitlement } from "@/lib/billing-query";
+import { planById, smallestPlanForSeats } from "@/lib/pricing";
 import { listTeam } from "./queries";
 
 /**
@@ -72,10 +74,18 @@ export async function inviteTeammateAction(formData: FormData): Promise<void> {
   // the first sign-in claims whichever row the query returns first.
   const existing = await getAgentByEmail(raw.trim().toLowerCase());
 
+  // Seats come from the PLAN, not from a single global constant. The pricing
+  // page sells 1 / 3 / 10 people, so a Starter customer inviting nine
+  // colleagues would be a promise on the page taking money that the code
+  // taking it does not keep.
+  const seats = await planSeatsFor(workspace.id);
+
   const check = checkInvite({
     email: raw,
     team,
     existingAnywhere: existing !== null,
+    planSeats: seats.allowed,
+    upgradeTo: seats.upgradeTo,
   });
   if (!check.ok) back(check.error);
 
@@ -150,3 +160,34 @@ export async function revokeTeammateAction(formData: FormData): Promise<void> {
 }
 
 
+
+/**
+ * Seats this workspace's plan allows, and the next plan up if there is one.
+ *
+ * A workspace on trial gets the entry plan's allowance rather than unlimited
+ * seats: the trial is meant to prove the product, not to be a free Business
+ * account for a fortnight. A comped workspace gets whatever plan it was comped
+ * onto, which for everything predating billing is Business.
+ *
+ * Returns null seats when entitlement cannot be resolved, which seatLimit()
+ * reads as "fall back to the absolute ceiling". Failing open is deliberate: a
+ * broken lookup should not stop a paying customer adding their own staff.
+ */
+async function planSeatsFor(workspaceId: number): Promise<{
+  allowed: number | null;
+  upgradeTo: { name: string; seats: number } | null;
+}> {
+  const e = await getWorkspaceEntitlement(workspaceId);
+  if (!e) return { allowed: null, upgradeTo: null };
+
+  // On trial, seats follow Starter — the smallest thing they might buy.
+  const planId = e.plan === "trial" ? "starter" : e.plan;
+  const plan = planById(planId);
+  if (!plan) return { allowed: null, upgradeTo: null };
+
+  const next = smallestPlanForSeats(plan.limits.seats + 1);
+  return {
+    allowed: plan.limits.seats,
+    upgradeTo: next ? { name: next.name, seats: next.limits.seats } : null,
+  };
+}

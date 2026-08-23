@@ -3,6 +3,7 @@ import MailNav from "@/components/mail/MailNav";
 import { resolveViewer } from "@/lib/viewer";
 import { ThemeApplier } from "@/components/ThemeApplier";
 import ImpersonationBanner from "@/app/(admin)/ImpersonationBanner";
+import TrialBanner from "@/components/TrialBanner";
 import { mailCounts } from "./queries";
 import "../mail.css";
 
@@ -37,7 +38,14 @@ export default async function DashboardLayout({
           counts={counts}
           isAdmin={viewer.isAdmin}
         />
-        <main className="pb-main pbm-main">{children}</main>
+        <main className="pb-main pbm-main">
+          {/* Inside <main>, not beside the shell — see the note in
+              TrialBanner.tsx. Two `~ .pb-shell` height rules do not add up,
+              so an operator inside a trialling client would get one banner
+              covering the top of the inbox. Renders null in the common case. */}
+          <TrialBanner workspaceId={workspace.id} />
+          {children}
+        </main>
       </div>
     </>
   );

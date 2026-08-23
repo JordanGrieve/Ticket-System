@@ -1,0 +1,122 @@
+/*
+ * The trial countdown banner.
+ *
+ * Lives inside the main scroll area (see the note in TrialBanner.tsx about why
+ * it is not a sibling of .pb-shell), so it needs no layout arithmetic — sticky
+ * keeps it in view without buying height back from anything.
+ *
+ * Three tones, all built from theme tokens so they work across the six themes:
+ *   info  — quiet, dismissible, a week or less to go
+ *   warn  — accent, three days or less
+ *   block — the semantic warn colours, something has actually stopped
+ */
+
+.pbt-dismissable {
+  position: relative;
+}
+
+.pbt-banner {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+.pbt-text {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pbt-reassure {
+  color: var(--muted-2);
+  font-size: 12.5px;
+}
+
+.pbt-cta {
+  flex: none;
+  padding: 7px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--accent);
+  /* Not --accent-text: this sits ON the accent, not beside it. */
+  color: #fff;
+  white-space: nowrap;
+}
+
+.pbt-cta:hover {
+  background: var(--accent-strong);
+}
+
+/* ── tones ───────────────────────────────────────────────────── */
+
+.pbt-banner[data-tone="warn"] {
+  background: var(--accent-soft);
+  border-bottom-color: var(--accent-line);
+  color: var(--text-2);
+}
+
+.pbt-banner[data-tone="block"] {
+  background: var(--warn-bg);
+  border-bottom-color: var(--warn-fg);
+  color: var(--warn-fg);
+  font-weight: 500;
+}
+
+/* The reassurance has to stay legible against the warn background, which is a
+   pale amber in light themes — --muted-2 washes out on it. */
+.pbt-banner[data-tone="block"] .pbt-reassure {
+  color: var(--warn-fg);
+  opacity: 0.85;
+}
+
+/* ── dismiss ─────────────────────────────────────────────────── */
+
+.pbt-dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 6;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted-2);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pbt-dismiss:hover {
+  background: var(--border-soft);
+  color: var(--text-3);
+}
+
+/* The dismiss button overlaps the CTA on a narrow screen, and the CTA is the
+   one that matters. */
+@media (max-width: 560px) {
+  .pbt-banner {
+    padding-right: 40px;
+  }
+
+  .pbt-cta {
+    width: 100%;
+    text-align: center;
+  }
+}

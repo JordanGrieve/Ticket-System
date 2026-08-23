@@ -44,8 +44,31 @@ export type InviteCheck =
   | { ok: true; email: string }
   | { ok: false; error: string };
 
-/** Upper bound on a workspace's team. Not a licence tier — a blast radius. */
+/**
+ * Absolute ceiling on a workspace's team, regardless of plan.
+ *
+ * NOT a licence tier — a blast radius. Even the largest plan should not be
+ * able to put fifty people into one shared inbox by accident, because every
+ * one of them can read every customer message and reply as the business.
+ *
+ * The per-plan seat allowance is a separate, smaller number and lives in
+ * lib/pricing.ts. This is the backstop underneath it.
+ */
 export const MAX_TEAM_SIZE = 10;
+
+/**
+ * How many people this workspace's plan allows.
+ *
+ * `seats` null means "no plan information available" — the caller could not
+ * resolve one. That FAILS OPEN to the absolute ceiling rather than to zero: a
+ * lookup that breaks should not lock a paying customer out of adding their
+ * own staff, and the worst case is one invite too many rather than a support
+ * desk that cannot grow.
+ */
+export function seatLimit(seats: number | null): number {
+  if (seats === null) return MAX_TEAM_SIZE;
+  return Math.min(seats, MAX_TEAM_SIZE);
+}
 
 /**
  * May this address be invited to this workspace?
@@ -60,6 +83,13 @@ export function checkInvite(input: {
   email: string;
   team: TeamMember[];
   existingAnywhere: boolean;
+  /**
+   * Seats the workspace's plan allows, or null when it could not be resolved.
+   * See seatLimit() — null fails open to the absolute ceiling.
+   */
+  planSeats?: number | null;
+  /** Name of the smallest plan that would fit one more person, if any. */
+  upgradeTo?: { name: string; seats: number } | null;
 }): InviteCheck {
   const email = input.email.trim().toLowerCase();
 
@@ -86,10 +116,24 @@ export function checkInvite(input: {
     };
   }
 
-  if (input.team.length >= MAX_TEAM_SIZE) {
+  const limit = seatLimit(input.planSeats ?? null);
+  if (input.team.length >= limit) {
+    // Name the plan that would fit them. "Growth includes 3 people, Business
+    // includes 10" is a decision somebody can act on; "limit reached" is a
+    // dead end that produces a support email asking what the limit is.
+    //
+    // Only when upgrading would actually help: suggesting an upgrade to
+    // somebody already on the largest plan is worse than saying nothing.
+    const canUpgrade = input.upgradeTo && input.upgradeTo.seats > limit;
+    if (canUpgrade) {
+      return {
+        ok: false,
+        error: `Your plan includes ${limit} ${limit === 1 ? "person" : "people"}. ${input.upgradeTo!.name} includes ${input.upgradeTo!.seats} — upgrade in Settings → Billing, or remove somebody first.`,
+      };
+    }
     return {
       ok: false,
-      error: `A workspace can have up to ${MAX_TEAM_SIZE} people. Remove somebody first.`,
+      error: `A workspace can have up to ${limit} ${limit === 1 ? "person" : "people"}. Remove somebody first.`,
     };
   }
 

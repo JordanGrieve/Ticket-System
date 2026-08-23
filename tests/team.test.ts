@@ -4,6 +4,7 @@ import {
   checkRevoke,
   describeInviteRisk,
   sortTeam,
+  seatLimit,
   MAX_TEAM_SIZE,
   type TeamMember,
 } from "../lib/team";
@@ -188,5 +189,117 @@ describe("the owner cannot be removed by somebody else", () => {
     const r = checkRevoke({ targetId: owner.id, selfId: staff.id, team: [owner] });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toMatch(/owner/i);
+  });
+});
+
+describe("seats follow the plan, not one global constant", () => {
+  // The pricing page sells 1 / 3 / 10 people. Before this, MAX_TEAM_SIZE was
+  // 10 for everybody, so a Starter customer could invite nine colleagues —
+  // a promise on the page taking money that the code taking it did not keep.
+  const teamOf = (n: number) =>
+    Array.from({ length: n }, (_, i) =>
+      member({ id: i + 1, email: `p${i}@bakery.com` }),
+    );
+
+  it("refuses a second person on a one-seat plan", () => {
+    const r = checkInvite({
+      email: "new@bakery.com",
+      team: teamOf(1),
+      existingAnywhere: false,
+      planSeats: 1,
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/1 person/);
+  });
+
+  it("allows a second person on a three-seat plan", () => {
+    expect(
+      checkInvite({
+        email: "new@bakery.com",
+        team: teamOf(1),
+        existingAnywhere: false,
+        planSeats: 3,
+      }).ok,
+    ).toBe(true);
+  });
+
+  it("names the plan that would fit them", () => {
+    // "Limit reached" is a dead end that produces a support email asking what
+    // the limit is. Naming the next plan is something somebody can act on.
+    const r = checkInvite({
+      email: "new@bakery.com",
+      team: teamOf(1),
+      existingAnywhere: false,
+      planSeats: 1,
+      upgradeTo: { name: "Growth", seats: 3 },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error).toMatch(/Growth/);
+      expect(r.error).toMatch(/3/);
+    }
+  });
+
+  it("does NOT suggest an upgrade that would not help", () => {
+    // Telling somebody on the largest plan to upgrade is worse than saying
+    // nothing: it sends them to a billing page that cannot solve their problem.
+    const r = checkInvite({
+      email: "new@bakery.com",
+      team: teamOf(10),
+      existingAnywhere: false,
+      planSeats: 10,
+      upgradeTo: { name: "Business", seats: 10 },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).not.toMatch(/upgrade/i);
+  });
+
+  it("still refuses beyond MAX_TEAM_SIZE even if a plan claimed more", () => {
+    // The absolute ceiling is a blast radius, not a licence tier: everyone in
+    // a workspace can read every customer message and reply as the business.
+    const r = checkInvite({
+      email: "new@bakery.com",
+      team: teamOf(MAX_TEAM_SIZE),
+      existingAnywhere: false,
+      planSeats: 500,
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it("fails OPEN to the ceiling when the plan cannot be resolved", () => {
+    // A broken entitlement lookup must not stop a paying customer adding
+    // their own staff. Worst case is one invite too many.
+    expect(seatLimit(null)).toBe(MAX_TEAM_SIZE);
+    expect(
+      checkInvite({
+        email: "new@bakery.com",
+        team: teamOf(2),
+        existingAnywhere: false,
+        planSeats: null,
+      }).ok,
+    ).toBe(true);
+  });
+
+  it("refuses new invites when a downgrade left them over, but that is all", () => {
+    // Downgrading Business (8 people) to Growth (3) is a state reached without
+    // inviting anybody. checkInvite only ever refuses ADDING someone — there
+    // is no path here that removes a person, because removing staff from a
+    // shared inbox over a billing change is how a support desk loses its team
+    // on a Monday morning. checkRevoke is the only remover and it is untouched.
+    const over = teamOf(8);
+    expect(
+      checkInvite({
+        email: "new@bakery.com",
+        team: over,
+        existingAnywhere: false,
+        planSeats: 3,
+      }).ok,
+    ).toBe(false);
+
+    // Everyone already there can still be removed deliberately by a human,
+    // and nothing about the plan changes that.
+    expect(
+      checkRevoke({ targetId: 2, selfId: 1, team: over }).ok,
+    ).toBe(true);
   });
 });
