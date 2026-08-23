@@ -387,9 +387,15 @@ export async function maybeSendAutoReply(input: {
 
 /**
  * Rows claimed per tick. Small on purpose. The sweep has no deadline pressure —
- * 25 rows every five minutes drains 300 an hour, far above any plausible
+ * 25 rows every fifteen minutes drains 100 an hour, far above any plausible
  * overnight backlog for a support desk, while keeping one tick's blast radius
  * small if a workspace's config turns out to be pathological.
+ *
+ * The cadence moved from five minutes to fifteen on 23 August 2026 (commit
+ * 42539ef) to stay inside the Neon free compute allowance, which is why the
+ * arithmetic here is 100/hour rather than the 300 it used to say. Still ample:
+ * the backlog this drains is one night of out-of-hours enquiries for a small
+ * business, and held replies are dropped as stale after twelve hours anyway.
  */
 export const AUTO_REPLY_SWEEP_LIMIT = 25;
 

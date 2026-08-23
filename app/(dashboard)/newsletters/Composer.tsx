@@ -1650,9 +1650,10 @@ export default function Composer({
                     />
                     <p className="nl-help">
                       Your local time. Either way the campaign waits for a
-                      sweep, so “as soon as possible” means “within about five
-                      minutes”, not instantly. Sweeps are best-effort and can
-                      be delayed when the scheduler is busy.
+                      sweep, so &ldquo;as soon as possible&rdquo; means the next
+                      sweep — they run {SWEEP_CADENCE} — not instantly. Sweeps
+                      are best-effort and can be delayed when the scheduler is
+                      busy.
                     </p>
                   </fieldset>
 
