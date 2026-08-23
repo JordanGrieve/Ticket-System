@@ -7,7 +7,7 @@ export default function TermsPage() {
         Terms of Service
       </h1>
       <p style={{ color: "var(--muted)", marginTop: 0 }}>
-        Last updated: 22 August 2026
+        Last updated: 23 August 2026
       </p>
 
       <h2 style={h2}>1. The service</h2>
@@ -19,21 +19,23 @@ export default function TermsPage() {
         invite-only basis.
       </p>
       <p>
-        Postbox is also being extended to send marketing email &mdash;
-        newsletters and campaigns &mdash; to mailing lists you own. Sections 5
-        and 6 set out the terms for that, and they bind you from the moment the
-        feature is available to your workspace.
+        Postbox is also a mailing-list product. It hosts a double opt-in signup
+        form for your workspace, keeps the subscribers who confirm through it,
+        and is built to send newsletters and campaigns to those lists. Sections
+        5 and 6 set out the terms for that.
       </p>
       <div style={notBuilt}>
-        <strong>Not available yet.</strong>{" "}
-        No campaign has ever been delivered to anyone, and none can be today.
-        Subscriber lists, campaigns, audience selection, unsubscribe handling
-        and a delivery integration are all built, but delivery is switched off:
-        the system is configured to record what a campaign would have sent and
-        to transmit nothing, and turning that off is a deliberate configuration
-        change we have not made. Nothing in these terms should be read as an
-        offer of a working marketing-email feature today, or as a commitment to
-        a date.
+        <strong>Signup is available. Sending is not yet.</strong>{" "}
+        The two halves have different statuses. Your signup form works today and
+        real people are confirming subscriptions through it, so sections 5 and 6
+        already bind you in respect of the addresses you collect. Campaign{" "}
+        <em>delivery</em> is switched off: the composer, audience selection,
+        scheduling, unsubscribe handling and the delivery integration are all
+        built, but the system is configured to record what a campaign would have
+        sent and to transmit nothing, and our sending account is still
+        restricted to test addresses. No campaign has been delivered to anyone.
+        Nothing in these terms is an offer of a working send today, or a
+        commitment to a date.
       </div>
 
       <h2 style={h2}>2. Accounts</h2>
@@ -63,7 +65,17 @@ export default function TermsPage() {
         Your tickets, contacts, messages, subscribers and campaigns remain
         yours. We process them only to operate the service, as described in the{" "}
         <a href="/privacy">Privacy Policy</a>. You can request deletion of your
-        workspace and its data at any time.
+        workspace and its data at any time, and that deletion is complete: it
+        removes the tickets, messages, contacts, subscribers, lists,
+        suppressions, campaigns and send logs together.
+      </p>
+      <p>
+        Two limits on that, stated here rather than left to be discovered. There
+        is no way to delete an individual subscriber, contact or ticket from the
+        dashboard; removing one person is a manual operation we carry out on
+        request. And the self-service export covers tickets, messages and
+        support contacts only &mdash; not subscribers, lists or campaigns. Ask
+        us and we will produce those.
       </p>
       <p>
         In data-protection terms: <strong>you are the controller</strong>{" "}
@@ -97,6 +109,25 @@ export default function TermsPage() {
         </li>
       </ul>
       <p>
+        As things stand, those rules are easier to keep than they sound, because
+        Postbox gives you no way to break them: there is no import feature and
+        no way to add a subscriber by hand. The only route onto one of your
+        lists is someone entering their address on your signup form and then
+        confirming it from their own mailbox. If we add an import, these rules
+        are what will govern it, and the consent evidence it demands will not be
+        optional.
+      </p>
+      <p>
+        The system also enforces two of these conditions itself rather than
+        trusting the confirmation. A subscriber with no recorded consent
+        timestamp is dropped from the audience and not mailed, and the composer
+        shows you how many were dropped for that reason. And a campaign cannot
+        be sent at all until your workspace has a legal name and a physical
+        postal address on file, because a commercial message has to identify its
+        sender and we would rather refuse the send than produce a message that
+        does not.
+      </p>
+      <p>
         You are responsible for the content of your campaigns, including
         accurate sender identification and any disclosures your jurisdiction
         requires.
@@ -112,12 +143,21 @@ export default function TermsPage() {
         suspension.
       </p>
       <p>
-        Unsubscribes take effect immediately and always within 48 hours.
-        Addresses that unsubscribe, hard bounce, or report a message as spam
-        are added to your workspace&rsquo;s suppression list and are skipped on
-        every subsequent send regardless of list membership. Re-importing a
+        An unsubscribe takes effect in the same request that carries it, and it
+        applies across your whole workspace, not just the list the campaign drew
+        from. Addresses that unsubscribe, hard bounce, or report a message as
+        spam are added to your workspace&rsquo;s suppression list and are
+        skipped on every subsequent send regardless of list membership: they are
+        excluded when a campaign&rsquo;s audience is built, swept out again if
+        they are suppressed after that, and checked once more immediately before
+        each message is handed to the provider. Re-importing or re-signing-up a
         suppressed address does not clear the suppression, and asking us to
         clear one for a person who opted out is a request we will refuse.
+      </p>
+      <p>
+        Temporary delivery failures are treated differently and do not suppress
+        anyone: a full mailbox is recorded against that message in your report
+        and nothing is blocked.
       </p>
       <p>
         We may throttle, pause or stop a campaign that is generating bounces or
@@ -162,9 +202,10 @@ const h2: React.CSSProperties = {
 };
 
 /**
- * Explicit "this does not exist yet" marker. Mirrors the one on /privacy: the
- * marketing terms are written to bind before the first send, not to advertise
- * a capability the send path cannot currently perform.
+ * Status marker. Mirrors the one on /privacy, and for the same corrected
+ * reason: signup is LIVE and delivery is not, so a single "none of this exists
+ * yet" box would understate the obligations that already bite on the addresses
+ * a client is collecting today.
  */
 const notBuilt: React.CSSProperties = {
   background: "var(--warn-bg)",
