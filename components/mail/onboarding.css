@@ -1,0 +1,167 @@
+/*
+ * The setup checklist, shown in the empty thread pane.
+ *
+ * Theme-token only: this sits inside the mail client, which has six themes.
+ * The one deliberate exception is the tick mark's colour, which is white on
+ * the accent fill rather than an accent token — it is ON the accent, not
+ * beside it, so --accent-text (which carries the contrast contract against the
+ * PAGE) would be the wrong token and would fail on the darker themes.
+ */
+
+.pbo-card {
+  margin: auto;
+  width: min(560px, 100%);
+  padding: 28px 26px;
+  box-sizing: border-box;
+
+  /*
+    The host pane is .pbm-thread--empty, which centres its text — correct for
+    the two-line "pick a message on the left" placeholder it was written for,
+    and wrong for a checklist, where centred rows leave the tick marks stranded
+    on the far left with a gap before each label. Reset it here rather than
+    touching the placeholder's own styling, which is still doing its job.
+  */
+  text-align: left;
+}
+
+.pbo-head {
+  margin-bottom: 22px;
+}
+
+.pbo-title {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 5px;
+  color: var(--text);
+}
+
+.pbo-sub {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-4);
+  margin: 0 0 16px;
+}
+
+.pbo-bar {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--border-soft);
+  overflow: hidden;
+}
+
+.pbo-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent-grad);
+  transition: width 240ms ease;
+}
+
+/* ── steps ───────────────────────────────────────────────────── */
+
+.pbo-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pbo-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 12px 12px 10px;
+  border-radius: 12px;
+}
+
+.pbo-step[data-done="false"]:hover {
+  background: var(--surface-2, var(--border-soft));
+}
+
+.pbo-check {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
+  border: 1.6px solid var(--border-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.pbo-step[data-done="true"] .pbo-check {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.pbo-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pbo-step-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+/* A finished step steps back: it is no longer the thing to read. Not struck
+   through — this is a list of what is true, not a list of crossed-off chores,
+   and a step can come back if the setting is turned off again. */
+.pbo-step[data-done="true"] .pbo-step-title {
+  color: var(--muted-2);
+  font-weight: 500;
+}
+
+.pbo-optional {
+  font-weight: 500;
+  color: var(--muted-2);
+}
+
+.pbo-detail {
+  font-size: 12.8px;
+  line-height: 1.55;
+  color: var(--text-4);
+}
+
+.pbo-go {
+  flex: none;
+  align-self: center;
+  padding: 6px 13px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 700;
+  background: var(--accent);
+  color: #fff;
+  white-space: nowrap;
+}
+
+.pbo-go:hover {
+  background: var(--accent-strong);
+}
+
+@media (max-width: 560px) {
+  .pbo-card {
+    padding: 20px 16px;
+  }
+
+  .pbo-step {
+    flex-wrap: wrap;
+  }
+
+  /* Full width under the text rather than squeezed beside it. */
+  .pbo-go {
+    width: 100%;
+    text-align: center;
+    margin-left: 32px;
+  }
+}
