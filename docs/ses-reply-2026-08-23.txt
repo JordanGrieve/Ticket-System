@@ -1,0 +1,67 @@
+Thank you — here is the detail you asked for. I have answered your questions in the order you raised them, and added a sample of the email itself at the end.
+
+The submission form for this Region had no free-text field, so the original request carried almost no detail. That is the gap this reply is closing.
+
+VERIFIED IDENTITY (the point in your closing note)
+
+Already in place, before this request. The sending domain is news.postbox.help, verified as a domain identity — not just an address. DKIM status SUCCESS with signing enabled, and a custom MAIL FROM of bounce.news.postbox.help, status SUCCESS. Email feedback forwarding is turned OFF so that bounces arrive once, over SNS, rather than into a mailbox nobody reads.
+
+A test message sent in the sandbox on 23 August passed SPF, DKIM and DMARC at Gmail.
+
+HOW OFTEN WE SEND
+
+Rarely, and I would rather be accurate than ambitious: fewer than 500 messages per month to start, across all customers, to a total audience of roughly 200 confirmed subscribers. Our customers are small local businesses; a typical one sends a newsletter monthly, some less often.
+
+Sending is paced by a scheduled worker that claims a small batch of recipients once an hour, so mail leaves steadily rather than in a burst. I am asking only for production access at your default limits — not for a limit increase.
+
+HOW WE MAINTAIN RECIPIENT LISTS
+
+Confirmed opt-in only, with no exceptions and no path around it.
+
+A person types their address into a signup form. We store nothing at that point — submitting the form writes no database record at all. Instead we email them a confirmation link carrying a signed token, and the subscriber row is created only when they click it. The practical effect is that an address cannot be added to any list by anyone except the person who can read that mailbox, so a stranger cannot subscribe someone else, and a customer cannot type addresses in by hand.
+
+We do not import purchased lists, we do not append addresses from data brokers, and there is no code path that creates a subscriber without a confirmed click.
+
+For every subscriber we keep the evidence: the consent method, the timestamp of the confirming click, the URL of the page the form was on (read from the browser's own Origin/Referer headers, never from a field in the request body a caller could set), and the IP address the confirmation came from. An address with no consent record is excluded from every send by the audience-selection query itself, not by convention or by a checkbox someone might forget.
+
+You are welcome to test this end to end on a live customer form:
+https://postbox.help/s/cli_fdcd84f4e0f013a2a6703efdac6ec277
+It will email you a confirmation link, and it will not add you to anything unless you press it.
+
+HOW WE MANAGE UNSUBSCRIBES
+
+Every message carries RFC 8058 one-click headers — List-Unsubscribe with an https endpoint, and List-Unsubscribe-Post: One-Click — plus a visible link in the footer. The link is per-recipient and requires no account and no login.
+
+Unsubscribing writes to a suppression list that is enforced inside the same SQL statement that claims each recipient for sending, so an opt-out that arrives in the middle of a send takes effect for that send rather than the next one.
+
+HOW WE MANAGE BOUNCES AND COMPLAINTS
+
+Bounce and complaint notifications are delivered to the SNS topic
+arn:aws:sns:eu-west-1:479127223828:postbox-ses-feedback
+and consumed by an endpoint that verifies the SNS message signature and pins the expected topic ARN, so it cannot be driven by forged traffic. That subscription auto-confirmed against AWS, which is the practical proof the verification path works rather than a claim about it.
+
+Permanent bounces and all complaints are added to the suppression list immediately and the subscriber is marked accordingly. Transient bounces are recorded but do not suppress, so a temporarily full mailbox does not silently cost someone a subscription they asked for. A suppressed address is never resurrected by a later signup or import.
+
+I am the sole operator and I watch these rates directly. If either rises, I stop the affected customer's sending rather than let it continue.
+
+EXAMPLE OF THE EMAIL
+
+The content is written by the customer, but the structure is fixed by the platform. A typical message from our pilot customer, a bakery, looks like this:
+
+  From:     Open Door Bakery, sending from our verified
+            marketing subdomain news.postbox.help
+  Subject:  This week at the bakery
+  To:       [one confirmed subscriber]
+
+  [The customer's own content — what is baked this week,
+   opening hours, an occasional offer.]
+
+  —
+  Don't want these emails? Unsubscribe: https://postbox.help/u/<per-recipient token>
+
+  Open Door Bakery
+  18 Avonbank Crescent, Hamilton, ML3 7PD
+
+The footer is not optional and not editable. Every marketing message carries the sender's name and physical postal address, and the platform refuses to send at all for any customer who has not supplied one — the field is deliberately left empty rather than pre-filled with a default, so there is no way to send with a placeholder address in it.
+
+If any part of this is the wrong shape for what you need, please say which and I will answer specifically.

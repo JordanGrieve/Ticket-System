@@ -115,60 +115,65 @@ assumed:
 
 ---
 
-## 3b. IT WAS DENIED — 23 August 2026, case 178747420600793
+## 3b. NOT ACTUALLY DENIED — 23 August 2026, case 178747420600793
 
 `aws sesv2 get-account` reports `ReviewDetails.Status: DENIED`, with
-`EnforcementStatus: HEALTHY` — so this is NOT a reputation or complaint
-problem. The Support API needs a paid support plan, so the stated reason is
-only readable in the console or the notification email.
+`EnforcementStatus: HEALTHY`. **That status is misleading, and this section
+previously drew the wrong conclusion from it.**
 
-**The most likely cause, and it is fixable.** The eu-west-1 console form has no
-free-text use-case field. The assessment is therefore made against the website
-— and on the day of the request, postbox.help described only the support-ticket
-product: “support tickets that feel like an inbox”, contact forms, threaded
-replies. Nothing about newsletters, subscribers, consent or unsubscribe. A
-**Marketing** request judged against that page is a mismatch a reviewer is right
-to refuse. The page also said “invite-only”, so they could not sign up and look.
+Reading the case itself in the Support Center shows AWS did not refuse on the
+merits. They asked for more information:
 
-That has been fixed: https://postbox.help/#newsletters now describes confirmed
-opt-in, the consent record, one-click unsubscribe and suppression, and
-https://postbox.help/s/cli_fdcd84f4e0f013a2a6703efdac6ec277 is a live, public,
-working double opt-in form a reviewer can use.
+> Thank you for submitting your request… **We would like to gather more
+> information about your use case.** …tell us how often you send email, how you
+> maintain your recipient lists, and how you manage bounces, complaints, and
+> unsubscribe requests. It is also helpful to provide **examples of the email
+> you plan to send**.
 
-### Reply on the SAME case. Do not open a new one.
+So `DENIED` is how the API records "the request is closed pending your reply",
+not "your product was judged and rejected". The original submission is in the
+case and is two lines long — Mail Type and Website URL — because the eu-west-1
+form has no free-text field. There was nothing for a reviewer to assess.
 
-A new case restarts the queue and loses the history. Paste §3 above as the body,
-prefaced with this:
+**What this section used to say, and why it was wrong.** It asserted the
+refusal was caused by postbox.help describing only the support product, and
+recommended opening the reply with an apology for that. That was a guess built
+on the API status alone, before anyone had read the correspondence. It was
+plausible and it was wrong. Publishing the newsletter half of the homepage was
+still worth doing — a reviewer who visits now sees the product this request is
+about — but it was not the blocker, and apologising for an unraised objection
+would have drawn attention to a weakness AWS had not mentioned.
 
-> Thank you for reviewing this. I think the refusal is fair on what you could
-> see: the website described only our support-inbox product and said nothing
-> about the newsletter side, which is what this request was actually for. There
-> was no free-text field on the form to explain it.
->
-> I have since published that half of the product. https://postbox.help/#newsletters
-> sets out how subscribers are collected and how they leave, and
-> https://postbox.help/s/cli_fdcd84f4e0f013a2a6703efdac6ec277 is a live signup
-> form you are welcome to test end to end — it will send you a confirmation link
-> and will not add you to anything unless you press it.
->
-> The full detail follows. If any of it is the wrong shape for what you need,
-> please say which part and I will answer specifically.
+**Lesson worth keeping: read the case, not the status field.** The Support API
+needs a paid support plan, which is what pushed us to infer from
+`get-account` instead of looking. The console shows the correspondence to
+everyone.
 
-**Then add these, which are specific and checkable:**
+### The reply — answer their four questions, in their order
 
-- The sending domain is `news.postbox.help`, verified with DKIM, with a custom
-  MAIL FROM of `bounce.news.postbox.help`.
-- A test message sent in the sandbox on 23 August passed SPF, DKIM and DMARC,
-  and carried `List-Unsubscribe` (https) and `List-Unsubscribe-Post: One-Click`.
-- Bounce and complaint events publish to SNS topic
-  `arn:aws:sns:eu-west-1:479127223828:postbox-ses-feedback`, consumed by an
-  endpoint that verifies the SNS signature AND pins the topic ARN. Permanent
-  bounces and all complaints suppress immediately; transient bounces do not.
-- Every message carries the sender’s postal address, and the platform refuses
-  to send for any customer who has not supplied one.
+Verified 23 August, all live, all checkable by the reviewer:
+
+- `news.postbox.help` — domain identity, DKIM SUCCESS, signing enabled
+- custom MAIL FROM `bounce.news.postbox.help`, SUCCESS
+- feedback forwarding OFF, so bounces arrive once via SNS
+- SNS subscription to `https://postbox.help/api/webhooks/ses` — **ACTIVE**
+- `https://postbox.help/#newsletters` — 200, describes consent and unsubscribe
+- `https://postbox.help/s/cli_fdcd84f4e0f013a2a6703efdac6ec277` — 200, live form
+
+The reply text answers, in this order: verified identity (their closing note),
+how often we send, how lists are maintained, unsubscribes, bounces and
+complaints, and a worked example of the email — that last one is an explicit
+ask and the earlier draft omitted it entirely.
+
+**One correction made when the reply was written:** the stored draft said
+sending is paced "every few minutes". Since commit `42539ef` the campaign
+sweep runs hourly, so it now says hourly. Do not describe a cadence the
+deployed cron does not have to the people deciding whether to trust you.
 
 **Do not** bundle a sending-limit increase into the reply. Ask only for
 production access at default limits.
+
+Reply on the SAME case. A new case restarts the queue and loses this history.
 
 ---
 
