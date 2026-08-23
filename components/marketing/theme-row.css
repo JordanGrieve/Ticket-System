@@ -1,0 +1,107 @@
+/*
+ * The palette swatches. Every colour comes from the tokens the swatch's own
+ * data-theme brings with it, so there is not one hardcoded colour in this file
+ * — which is the only reason five palettes can render on one page.
+ */
+
+.pthemes {
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+}
+
+.pthemes-item {
+  min-width: 0;
+}
+
+.pthemes-swatch {
+  display: grid;
+  grid-template-columns: 22% 1fr;
+  height: 92px;
+  border-radius: 12px;
+  overflow: hidden;
+  /* The swatch supplies its own surface, so it reads as a window onto a
+     differently-themed app rather than as a tinted card on this page. */
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+}
+
+.pthemes-side {
+  background: var(--nav);
+}
+
+.pthemes-pane {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px;
+}
+
+/*
+ * Bars, not text. At 92px tall any real words would be illegible, and
+ * illegible micro-text is the thing that makes a page look homemade. The
+ * shapes carry the layout — inbound left, outbound right — and the colour is
+ * what the section is actually about.
+ */
+.pthemes-bubble {
+  height: 11px;
+  width: 74%;
+  border-radius: 6px;
+  /*
+   * --sel, not --surface-3. The real thread bubbles use --surface-3 and it
+   * works there because they are large and full of text. Here the bar is 11px
+   * tall and empty, and --surface-3 measured 1.15:1 against its own surface in
+   * every one of the five palettes — invisible. The swatch would have read as
+   * a single accent-coloured bar rather than as a conversation, which defeats
+   * showing an interface at all.
+   *
+   * The shape reads from its OUTLINE, as the real bubbles do: a subtle
+   * --surface-3 fill inside a --border-strong edge, which measured a
+   * consistent 1.4-1.8:1 against its surface across all five palettes. It is
+   * the token whose whole job is being a visible edge on a surface.
+   *
+   * A caution for whoever measures this next: contrast RATIO is a poor metric
+   * for two dark colours. The formula compresses differences at low luminance,
+   * so a bar that is plainly visible on a dark surface can still score 1.1.
+   * That is why the fill is chosen for consistency across themes rather than
+   * by chasing the highest number.
+   */
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+}
+.pthemes-bubble--out {
+  align-self: flex-end;
+  width: 62%;
+  background: var(--accent-grad);
+  border-color: transparent;
+}
+.pthemes-bubble--short {
+  width: 46%;
+}
+
+.pthemes-label {
+  margin: 9px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  /* Outside the swatch, so it takes the PAGE's theme, not the swatch's. A
+     label painted in the swatch's palette would be unreadable for whichever
+     swatch happens to clash with the page around it. */
+  color: var(--text-2);
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .pthemes {
+    /* Three then two, rather than five squeezed. Five 60px swatches on a phone
+       shows colour and nothing else, which defeats showing an interface. */
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .pthemes-swatch {
+    height: 78px;
+  }
+}

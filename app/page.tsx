@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { PostboxLockup } from "@/components/Logo";
 import { OPEN_SIGNUP } from "@/lib/config";
 import ProductShot from "@/components/marketing/ProductShot";
+import ThemeRow from "@/components/marketing/ThemeRow";
 import "./home.css";
 
 /**
@@ -280,6 +281,30 @@ export default async function LandingPage() {
               />
             </div>
           </div>
+        </section>
+
+        {/*
+          The palettes.
+
+          Several themes is normally an awkward fact for a marketing page,
+          because it means no single image is what the reader will actually
+          see. Showing them makes that the point instead: a shared inbox is
+          something somebody sits in front of from six in the morning, and
+          "it looks how you want it to look" is worth selling rather than
+          hiding.
+
+          Five, not six. The picker offers six but one is "System", which is
+          not a palette — it is the absence of a choice. Drawing a sixth
+          swatch would mean inventing one.
+        */}
+        <section className="home-section home-wrap">
+          <p className="home-kicker">Make it yours</p>
+          <h2 className="home-h2">Five looks, one inbox</h2>
+          <p className="home-sub">
+            Pick the one you can stand to look at all day. It is a per-person
+            setting, so nobody has to agree with anybody else about it.
+          </p>
+          <ThemeRow />
         </section>
 
         {/*

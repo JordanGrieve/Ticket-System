@@ -18,7 +18,19 @@
   rendering while it is migrated off inline styles. Delete them once no file
   references --ink, --panel, --app-bg or --sidebar-bg.
 */
-:root {
+/*
+ * The light palette, and the ONLY place it is written down.
+ *
+ * [data-theme="light"] is listed alongside :root rather than given its own
+ * copy. At the root element the two are equivalent — an explicit "light"
+ * choice already landed here via :root — but naming the attribute means the
+ * palette also applies to a NESTED element carrying it, which is what lets the
+ * marketing page render a light swatch inside an otherwise dark page. A second
+ * block duplicating forty custom properties would have gone stale the first
+ * time one of them changed.
+ */
+:root,
+[data-theme="light"] {
   /* surfaces */
   --page-grad: linear-gradient(135deg, #dcd3f5 0%, #d5d8f0 45%, #e3d8f2 100%);
   --screen-grad: linear-gradient(180deg, #efeafb 0%, #e9e5f7 100%);
