@@ -18,6 +18,7 @@ const TABS = [
   { href: "/settings/contacts", label: "Contacts" },
   { href: "/settings/labels", label: "Labels" },
   { href: "/settings/team", label: "Team" },
+  { href: "/settings/billing", label: "Billing" },
   { href: "/settings/install", label: "Install" },
   { href: "/settings/access-log", label: "Access log" },
 ] as const;

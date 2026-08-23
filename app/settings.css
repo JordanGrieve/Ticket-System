@@ -2070,3 +2070,81 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ── Settings → Billing ─────────────────────────────────────────
+   Plan chooser. Buttons rather than links because each one POSTs and then
+   follows a URL Stripe hands back — there is no href to give them. */
+
+.stb-plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.stb-plan {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  cursor: pointer;
+  color: var(--text);
+}
+
+.stb-plan:hover:not(:disabled) {
+  border-color: var(--accent-line);
+}
+
+/* The current plan is disabled, but it must not look like the "opening Stripe"
+   disabled state — one means "you already have this", the other means "wait".
+   So it keeps full contrast and gains an accent border instead of dimming. */
+.stb-plan[data-current="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  cursor: default;
+  opacity: 1;
+}
+
+.stb-plan:disabled:not([data-current="true"]) {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.stb-plan-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.stb-plan-price {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.stb-plan-per {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted-2);
+}
+
+.stb-plan-tag {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-4);
+  margin-bottom: 8px;
+}
+
+.stb-plan-cta {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-text);
+}
+
+.stb-plan[data-current="true"] .stb-plan-cta {
+  color: var(--text-4);
+}
