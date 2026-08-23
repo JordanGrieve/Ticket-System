@@ -403,7 +403,14 @@
 @media (max-width: 860px) {
   .home-shot {
     margin: 40px auto -70px;
-    padding: 0 16px;
+    /*
+     * No horizontal padding of its own: .home-hero already contributes 24px a
+     * side, and adding 16px more on top left the hero shot 68px narrower than
+     * the showcase shots below it — the same product rendered at two
+     * different sizes on one page, which is one of the reliable tells that a
+     * page was assembled rather than designed.
+     */
+    padding: 0;
   }
 }
 

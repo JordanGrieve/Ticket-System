@@ -104,8 +104,17 @@ const FOLDERS = [
  * worth copying — one full shot for shape, single-idea crops for everything
  * that has to be understood.
  */
-export type ShotFocus = "full" | "inbox" | "thread";
+export type ShotFocus = "full" | "inbox" | "thread" | "newsletter";
 
+/**
+ * The mail scene and the newsletter scene are different DOM, not the same DOM
+ * with panes hidden.
+ *
+ * The three mail variants really are crops of one screen, so they share a
+ * tree. The newsletter composer is a different screen entirely, and pretending
+ * otherwise would mean shipping an inbox to every visitor who only ever sees
+ * the newsletter section.
+ */
 export default function ProductShot({
   annotations = [],
   focus = "full",
@@ -129,6 +138,52 @@ export default function ProductShot({
         <span className="pshot-dot" />
       </div>
 
+      {focus === "newsletter" ? (
+        <div className="pshot-body" aria-hidden data-focus="newsletter">
+          {/*
+            The composer beside its live preview.
+
+            This shows the ONE thing the newsletter section claims and prose
+            cannot demonstrate: that a Postbox campaign carries a working
+            unsubscribe link and the sender's postal address, because the
+            preview is rendered by the same function the send path calls. A
+            paragraph saying "we handle compliance" is a promise; showing the
+            footer is evidence.
+          */}
+          <div className="pshot-compose">
+            <p className="pshot-field-label">Subject line</p>
+            <div className="pshot-input">This week: sourdough is back</div>
+
+            <p className="pshot-field-label">Sending to</p>
+            <div className="pshot-input pshot-input--quiet">
+              Everyone who confirmed &middot; 47 people
+            </div>
+
+            <p className="pshot-field-label">Layout</p>
+            <div className="pshot-input pshot-input--quiet">
+              Plain &mdash; text on white
+            </div>
+          </div>
+
+          <div className="pshot-preview">
+            <p className="pshot-field-label">Preview</p>
+            <div className="pshot-email">
+              <p className="pshot-email-body">
+                Morning! The rye starter is finally behaving, so sourdough is
+                back on the shelf from Thursday.
+              </p>
+              <p className="pshot-email-body">See you at the counter,<br />Emma</p>
+              <div className="pshot-email-foot">
+                <p>
+                  Don&rsquo;t want these emails?{" "}
+                  <span className="pshot-email-link">Unsubscribe</span>.
+                </p>
+                <p>Open Door Bakery, 18 Avonbank Crescent, Hamilton, ML3 7PD</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
       <div className="pshot-body" aria-hidden data-focus={focus}>
         <aside className="pshot-side">
           <div className="pshot-brand">
@@ -201,6 +256,7 @@ export default function ProductShot({
           </div>
         </div>
       </div>
+      )}
 
       {/*
         Callouts sit OUTSIDE the aria-hidden body so their text is still read,

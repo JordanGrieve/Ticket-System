@@ -236,6 +236,50 @@ export default async function LandingPage() {
               />
             </div>
           </div>
+
+          {/*
+            The newsletter half, which the page previously described in four
+            text cards and never showed.
+
+            The shot is the composer beside its live preview, and the preview
+            is the point: it is rendered by the same function the send path
+            calls, so the unsubscribe link and the postal address in it are the
+            real ones. "We handle compliance" is a promise; a visible footer is
+            evidence — and it is the specific evidence both a cautious owner
+            and an AWS reviewer are looking for.
+          */}
+          <div className="home-show">
+            <div className="home-show-copy">
+              <p className="home-kicker">Newsletters</p>
+              <h2 className="home-show-title">
+                The same customers, without the spreadsheet
+              </h2>
+              <p className="home-show-body">
+                People subscribe from a form on your own site and confirm their
+                own address by email, so you keep a record that they asked for
+                it. Nobody is added by hand, and somebody who only ever emailed
+                support is not a subscriber.
+              </p>
+              <p className="home-show-body">
+                Every campaign carries a one-click unsubscribe and your postal
+                address, because that is what the law asks for and what mail
+                providers look for before they deliver you.
+              </p>
+            </div>
+            <div className="home-show-shot">
+              <ProductShot
+                focus="newsletter"
+                annotations={[
+                  {
+                    text: "One-click unsubscribe, always",
+                    top: "70%",
+                    left: "30%",
+                    from: "left",
+                  },
+                ]}
+              />
+            </div>
+          </div>
         </section>
 
         {/*

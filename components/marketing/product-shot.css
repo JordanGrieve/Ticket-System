@@ -498,3 +498,91 @@
 .pshot-body[data-focus="full"] .pshot-tag {
   font-size: 10px;
 }
+
+/* ── the newsletter scene ────────────────────────────────────── */
+
+/*
+ * A different screen, so different DOM — not the inbox with panes hidden. Two
+ * columns: what you write on the left, what the recipient gets on the right.
+ */
+.pshot-body[data-focus="newsletter"] {
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  font-size: 12.5px;
+}
+.pshot-compose,
+.pshot-preview {
+  padding: 16px 18px;
+  min-width: 0;
+}
+.pshot-compose {
+  border-right: 1px solid var(--border-soft);
+}
+.pshot-field-label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.pshot-compose .pshot-field-label:not(:first-child) {
+  margin-top: 14px;
+}
+.pshot-input {
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  font-size: 12.5px;
+}
+/* Fields that are showing a choice rather than typed text. */
+.pshot-input--quiet {
+  color: var(--muted);
+}
+
+/*
+ * The rendered email, deliberately on WHITE in every theme.
+ *
+ * This is not a theming oversight. The preview shows what lands in the
+ * recipient's mail client, and that is a white email regardless of which
+ * theme the sender happens to be using — painting it in theme colours would
+ * misrepresent the one thing this pane exists to show.
+ */
+.pshot-email {
+  background: #fff;
+  color: #1a1a1a;
+  border-radius: 9px;
+  padding: 14px;
+  border: 1px solid var(--border-soft);
+}
+.pshot-email-body {
+  margin: 0 0 9px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.pshot-email-foot {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid #e6e4ee;
+  color: #6b6880;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.pshot-email-foot p {
+  margin: 0 0 4px;
+}
+.pshot-email-link {
+  color: #5b3fd6;
+  text-decoration: underline;
+}
+
+@media (max-width: 560px) {
+  .pshot-body[data-focus="newsletter"] {
+    /* The composer goes; the rendered email is the half that carries the
+       point, and two columns at this width leaves neither readable. */
+    grid-template-columns: 1fr;
+  }
+  .pshot-compose {
+    display: none;
+  }
+}
