@@ -27,6 +27,7 @@ export async function listTeam(workspaceId: number): Promise<TeamMember[]> {
       id: agents.id,
       email: agents.email,
       clerkUserId: agents.clerkUserId,
+      role: agents.role,
     })
     .from(agents)
     .where(eq(agents.workspaceId, workspaceId));
@@ -35,5 +36,6 @@ export async function listTeam(workspaceId: number): Promise<TeamMember[]> {
     id: r.id,
     email: r.email,
     pending: isPlaceholderClerkId(r.clerkUserId),
+    role: r.role,
   }));
 }

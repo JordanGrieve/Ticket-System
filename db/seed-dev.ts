@@ -22,16 +22,19 @@ import { generateReplyToken } from "../lib/tokens";
  * Seeds "DevBusiness" — a throwaway workspace for looking at the UI with real
  * data in it.
  *
- * WHY A SEPARATE WORKSPACE, not the pilot client's: this database is the
- * production one (there is still no dev branch), so writing invented enquiries
- * into a live customer's workspace would put fake people in an account they
- * can log into. This creates its own workspace instead, deletable in one click
- * from /admin.
+ * WHY A SEPARATE WORKSPACE, not the pilot client's: writing invented enquiries
+ * into a live customer's workspace would put fake people in an account they can
+ * log into. This creates its own workspace instead, deletable in one click from
+ * /admin. (Until 23 August 2026 there was no dev branch and this seed ran
+ * against production, which is where the caution below comes from.)
  *
- * NOT CLAIMABLE. The placeholder agent's address is on `.example`, a reserved
- * TLD that cannot be registered, so nobody can ever sign in and take this
- * workspace over. That matters: "first sign-up claims the seed" was a real
- * account-takeover hole in this product once already.
+ * CLAIMABLE ONLY ON A DEV DATABASE. By default the agent row carries a
+ * placeholder on `.example` — a reserved TLD nobody can register — so the
+ * workspace cannot be taken over by signing up. "First sign-up claims the seed"
+ * was a real account-takeover hole in this product once already. Set
+ * SEED_CLAIM_CLERK_USER_ID to bind it to a real Clerk user so you can actually
+ * sign in and look at what was seeded; that is honoured only when DATABASE_ENV
+ * is 'development', and ignored loudly otherwise. See resolveSeedOwner().
  *
  * NO EMAIL IS SENT. Everything is written straight to the database, so the
  * notification and auto-reply paths — which live in the API routes — never run.
@@ -39,6 +42,7 @@ import { generateReplyToken } from "../lib/tokens";
  * Idempotent: re-running wipes and recreates by api key.
  *
  * Run: npm run db:seed-dev
+ *   claimable: SEED_CLAIM_CLERK_USER_ID=user_xxx npm run db:seed-dev
  */
 
 const MIN = 60 * 1000;
@@ -47,6 +51,54 @@ const DAY = 24 * HOUR;
 
 const API_KEY = "cli_demo_devbusiness";
 const PLACEHOLDER = "SEED_PLACEHOLDER_DEVBUSINESS";
+
+/**
+ * Who owns the seeded workspace.
+ *
+ * Historically always the placeholder: an address on `.example`, a reserved TLD
+ * nobody can register, so the workspace could never be claimed by signing up.
+ * That mattered because this seed used to run against the PRODUCTION database —
+ * "first sign-up claims the seed" was a real account-takeover hole in this
+ * product once already, and an unclaimable row is the fix that cannot be got
+ * wrong.
+ *
+ * Since 23 August 2026 there is a real dev branch, and the placeholder started
+ * costing something instead: you can seed a workspace full of realistic tickets
+ * and then not be able to look at any of it, because signing in gives you a
+ * Clerk user that matches no agent row. Which is the whole point of the seed.
+ *
+ * So it is claimable now — but ONLY on a database that has declared itself
+ * development. `SEED_CLAIM_CLERK_USER_ID` names the Clerk user to bind the
+ * workspace to; on anything else the placeholder is used regardless of what the
+ * variable says. The check is on the declared environment, not on the URL,
+ * because a URL is a thing you can typo and a declaration is a thing you write
+ * on purpose — same reasoning as db/guard.ts.
+ */
+function resolveSeedOwner(): { clerkUserId: string; email: string } {
+  const requested = process.env.SEED_CLAIM_CLERK_USER_ID?.trim();
+  const isDevelopment = process.env.DATABASE_ENV?.trim() === "development";
+
+  if (!requested) {
+    return { clerkUserId: PLACEHOLDER, email: "owner@devbusiness.example" };
+  }
+
+  if (!isDevelopment) {
+    // Loud, not silent. Somebody asked for a claimable seed against a database
+    // that is not declared development; doing it quietly would be handing them
+    // an account-takeover hole they asked for by accident.
+    console.warn(
+      "[seed-dev] IGNORING SEED_CLAIM_CLERK_USER_ID: DATABASE_ENV is %s, not 'development'. Seeding an unclaimable workspace instead.",
+      process.env.DATABASE_ENV ?? "(unset)",
+    );
+    return { clerkUserId: PLACEHOLDER, email: "owner@devbusiness.example" };
+  }
+
+  console.log("[seed-dev] workspace will be owned by %s", requested);
+  return {
+    clerkUserId: requested,
+    email: process.env.SEED_CLAIM_EMAIL?.trim() || "owner@devbusiness.example",
+  };
+}
 
 type SeedMessage = {
   direction: MessageDirection;
@@ -259,11 +311,11 @@ async function main() {
     })
     .returning();
 
+  const owner = resolveSeedOwner();
   await db.insert(agents).values({
     workspaceId: ws.id,
-    // .example cannot be registered, so this workspace can never be claimed.
-    clerkUserId: PLACEHOLDER,
-    email: "owner@devbusiness.example",
+    clerkUserId: owner.clerkUserId,
+    email: owner.email,
   });
 
   const labelRows = await db

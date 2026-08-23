@@ -194,6 +194,25 @@ export const contacts = pgTable(
   ],
 );
 
+/**
+ * Who owns a workspace.
+ *
+ * There are no permission levels in this product — an invited teammate can read
+ * every message, reply as the business and change every setting. That is stated
+ * plainly on the invite screen and it is deliberate.
+ *
+ * What it must NOT mean is that an invitee can remove the person who invited
+ * them. Before this column every agent row was equal, so the bakery could invite
+ * a part-timer and the part-timer could delete the bakery's owner and keep the
+ * inbox. The invite is claimed by email address alone, so that is not even a
+ * malicious-insider story: it is one mis-typed address away.
+ *
+ * 'owner' is therefore about REMOVAL, not about capability. Owners and members
+ * can do exactly the same things; an owner simply cannot be removed by someone
+ * else. Every workspace has exactly one, backfilled to the earliest agent row.
+ */
+export type AgentRole = "owner" | "member";
+
 export const agents = pgTable(
   "agents",
   {
@@ -203,6 +222,9 @@ export const agents = pgTable(
       .references(() => workspaces.id, { onDelete: "cascade" }),
     clerkUserId: text("clerk_user_id").notNull().unique(),
     email: text("email").notNull(),
+    // Defaults to 'member' so an invite created by any older code path cannot
+    // accidentally mint a second owner.
+    role: text("role").$type<AgentRole>().notNull().default("member"),
   },
   (t) => [index("agents_workspace_idx").on(t.workspaceId)],
 );

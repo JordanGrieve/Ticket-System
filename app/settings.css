@@ -1820,6 +1820,14 @@
   font-weight: 500;
 }
 
+/* Owner marker. --accent-text, not --accent-strong: this sits inline in a run
+   of body copy, and --accent-text is the token that carries the contrast
+   contract against the page background across all six themes. */
+.stg-owner {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
 .stg-remove {
   background: none;
   border: 1px solid var(--border);

@@ -75,6 +75,9 @@ export default async function TeamSettingsPage({
                   <span className="stc-name">
                     {m.email}
                     {isSelf && <span className="stg-you"> — you</span>}
+                    {m.role === "owner" && (
+                      <span className="stg-owner"> · Owner</span>
+                    )}
                   </span>
                   <span className="stc-email">
                     {m.pending
@@ -86,10 +89,19 @@ export default async function TeamSettingsPage({
                   {/*
                     No button for yourself. Removing your own access is one
                     click from having no way back in, and the recovery path is
-                    "email the operator", which is not a feature. The server
-                    refuses it too — this only removes the temptation.
+                    "email the operator", which is not a feature.
+
+                    No button for the owner either. Everyone here has the same
+                    powers — that is said plainly on the invite form — but an
+                    invitee being able to delete the person whose business this
+                    is was never part of that bargain, and since an invite is
+                    claimed by whoever signs in with the address, it is a
+                    mis-typed invite away rather than a disgruntled-staff story.
+
+                    checkRevoke refuses both server-side. Hiding the buttons
+                    only removes the temptation and the pointless round trip.
                   */}
-                  {!isSelf && team.length > 1 && (
+                  {!isSelf && m.role !== "owner" && team.length > 1 && (
                     <form action={revokeTeammateAction}>
                       <input type="hidden" name="agentId" value={m.id} />
                       <button className="stg-remove" type="submit">

@@ -26,11 +26,18 @@
  * `pending` in.
  */
 
+import type { AgentRole } from "@/db/schema";
+
 export type TeamMember = {
   id: number;
   email: string;
   /** Placeholder clerk id — invited, never signed in. */
   pending: boolean;
+  /**
+   * 'owner' means "cannot be removed by anyone else", NOT "can do more".
+   * Capability is identical; see the note on checkRevoke.
+   */
+  role: AgentRole;
 };
 
 export type InviteCheck =
@@ -94,8 +101,24 @@ export type RevokeCheck = { ok: true } | { ok: false; error: string };
 /**
  * May this member be removed?
  *
- * Two ways this goes wrong and both end with somebody locked out of their own
- * customer mail: removing yourself, and removing the last person.
+ * Three ways this goes wrong, and all three end with somebody locked out of
+ * their own customer mail: removing yourself, removing the last person, and
+ * removing the owner.
+ *
+ * ── WHY THE OWNER RULE EXISTS ──
+ * There are no permission levels here: an invited teammate can do everything
+ * the person who invited them can do. That is deliberate and it is said plainly
+ * on the invite screen. What it must not extend to is deleting the person whose
+ * business this is. Before the `role` column every agent row was equal, so a
+ * bakery could invite a part-timer and the part-timer could remove the owner
+ * and keep the inbox — and since an invite is claimed by whoever signs in with
+ * that address, that is one mis-typed invite away rather than a story about a
+ * malicious employee.
+ *
+ * The owner can still leave: they remove themselves is refused too, but an
+ * operator can act on the workspace. Deliberately not solved here — a
+ * self-service ownership transfer is a real feature with real edge cases, and
+ * inventing half of it inside a revoke check would be worse than not having it.
  */
 export function checkRevoke(input: {
   targetId: number;
@@ -112,6 +135,15 @@ export function checkRevoke(input: {
     return {
       ok: false,
       error: "You can’t remove yourself. Ask someone else on the team to do it.",
+    };
+  }
+
+  if (target.role === "owner") {
+    // Checked BEFORE the team-size rule so the message is the true reason.
+    return {
+      ok: false,
+      error:
+        "You can’t remove the owner of this workspace. If they’re leaving, get in touch and we’ll transfer it.",
     };
   }
 

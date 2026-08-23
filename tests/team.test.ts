@@ -21,6 +21,9 @@ const member = (over: Partial<TeamMember> = {}): TeamMember => ({
   id: 1,
   email: "emma@opendoorbakery.com",
   pending: false,
+  // Members by default. Tests that care about ownership say so explicitly,
+  // so a new rule about owners cannot pass by accident on a fixture.
+  role: "member",
   ...over,
 });
 
@@ -134,5 +137,56 @@ describe("display order", () => {
       "bob@x.com",
       "zoe@x.com",
     ]);
+  });
+});
+
+describe("the owner cannot be removed by somebody else", () => {
+  // There are no permission levels in this product: an invited teammate can do
+  // everything the person who invited them can do. That is deliberate. What it
+  // must not extend to is deleting the person whose business this is.
+  //
+  // And this is not a malicious-employee story. The invite is claimed by
+  // whoever signs in with the address, so a mis-typed invite hands a stranger
+  // full access — and before the role column, the ability to delete the owner
+  // and keep the inbox.
+  const owner = member({ id: 1, email: "emma@bakery.com", role: "owner" });
+  const staff = member({ id: 2, email: "sam@bakery.com", role: "member" });
+
+  it("refuses when a member tries to remove the owner", () => {
+    const r = checkRevoke({ targetId: owner.id, selfId: staff.id, team: [owner, staff] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/owner/i);
+  });
+
+  it("still allows the owner to remove a member", () => {
+    expect(
+      checkRevoke({ targetId: staff.id, selfId: owner.id, team: [owner, staff] }).ok,
+    ).toBe(true);
+  });
+
+  it("refuses even when the remover is another owner", () => {
+    // Should not be reachable — the backfill and the default give exactly one
+    // owner per workspace — but the rule must not depend on that holding.
+    const second = member({ id: 3, email: "co@bakery.com", role: "owner" });
+    expect(
+      checkRevoke({ targetId: owner.id, selfId: second.id, team: [owner, second] }).ok,
+    ).toBe(false);
+  });
+
+  it("says 'yourself' rather than 'owner' when the owner removes themselves", () => {
+    // Both rules apply; the self rule is checked first and its message is the
+    // more useful one, because it names the thing they actually did.
+    const r = checkRevoke({ targetId: owner.id, selfId: owner.id, team: [owner, staff] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/yourself/i);
+  });
+
+  it("blames ownership, not team size, when the owner is the last person", () => {
+    // Removing the only person also trips the last-person rule. The owner rule
+    // is checked first on purpose: "add another person first" would be actively
+    // misleading, since adding one would not make the removal allowed.
+    const r = checkRevoke({ targetId: owner.id, selfId: staff.id, team: [owner] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/owner/i);
   });
 });
