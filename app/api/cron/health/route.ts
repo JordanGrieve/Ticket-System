@@ -4,6 +4,7 @@ import { authorizeCronRequest, CRON_SECRET_ENV } from "@/lib/campaign-cron";
 import { listWorkspaceSummaries } from "@/lib/data";
 import { listSendingCampaigns } from "@/lib/campaign-send";
 import { buildHealthReport } from "@/lib/health-report";
+import { pruneRateLimits } from "@/lib/rate-limit-store";
 
 /**
  * GET /api/cron/health — the daily "is anything broken?" sweep.
@@ -44,9 +45,13 @@ export async function GET(req: Request) {
   }
 
   const now = new Date();
-  const [workspaces, sending] = await Promise.all([
+  const [workspaces, sending, pruned] = await Promise.all([
     listWorkspaceSummaries(),
     listSendingCampaigns(),
+    // Housekeeping, not health: rate_limits gains a row per distinct bucket,
+    // and the IP-keyed buckets on the public endpoints mean that is one row
+    // per distinct visitor. Nothing else deletes them.
+    pruneRateLimits(),
   ]);
 
   const report = buildHealthReport({
@@ -101,10 +106,14 @@ export async function GET(req: Request) {
     report.checked.sendingCampaigns,
     report.alerts.length,
   );
+  if (pruned > 0) {
+    console.info("[cron/health] pruned %d expired rate-limit window(s)", pruned);
+  }
 
   return json({
     ok: true,
     checked: report.checked,
+    prunedRateLimits: pruned,
     alerts: report.alerts.map((a) => ({
       kind: a.kind,
       level: a.level,

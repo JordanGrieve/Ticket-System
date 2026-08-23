@@ -1,5 +1,5 @@
 import { CORS_HEADERS, json, isValidEmail, clientIp } from "@/lib/http";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimitDurable } from "@/lib/rate-limit-store";
 import { isHoneypotTripped } from "@/lib/subscribe";
 import { recordIngestionFailure } from "@/lib/ingestion-log";
 import { previewText } from "@/lib/tickets";
@@ -47,10 +47,11 @@ export async function POST(
   // view-sources the client's page — where this key is published by design —
   // has an unmetered write-and-mail primitive.
   //
-  // Both are still only as strong as lib/rate-limit.ts, which is an in-memory
-  // Map and therefore per-instance. On Vercel that means concurrency defeats
-  // it. Tracked separately; this closes the single-sender case, not the
-  // distributed one.
+  // Both are counted in Postgres (lib/rate-limit-store.ts), so they hold
+  // across serverless instances — the in-memory Map they used to use was
+  // per-instance, which meant concurrency defeated every public limit here.
+  // It degrades back to that Map if the database is unreachable, rather than
+  // returning 429 to a client's real customers for the length of an outage.
   const ip = clientIp(req);
   const buckets: Array<[string, { max: number; windowMs: number } | undefined]> = [
     [`ingest:${workspace.id}`, undefined],
@@ -58,7 +59,9 @@ export async function POST(
   if (ip) buckets.push([`ingest:ip:${ip}`, { max: 10, windowMs: 60_000 }]);
 
   for (const [bucket, opts] of buckets) {
-    const limit = opts ? rateLimit(bucket, opts) : rateLimit(bucket);
+    const limit = opts
+      ? await rateLimitDurable(bucket, opts)
+      : await rateLimitDurable(bucket);
     if (!limit.ok) {
       return json(
         { ok: false, error: "Too many requests. Please try again shortly." },

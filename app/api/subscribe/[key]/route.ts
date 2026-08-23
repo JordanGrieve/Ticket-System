@@ -1,5 +1,5 @@
 import { CORS_HEADERS, json, clientIp } from "@/lib/http";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimitDurable } from "@/lib/rate-limit-store";
 import { getWorkspaceByApiKey } from "@/lib/data";
 import { recordIngestionFailure } from "@/lib/ingestion-log";
 import { APP_URL } from "@/lib/config";
@@ -74,7 +74,7 @@ export async function POST(
   if (ip) buckets.push([`subscribe:ip:${ip}`, { max: 5, windowMs: 60_000 }]);
 
   for (const [bucket, opts] of buckets) {
-    const limit = rateLimit(bucket, opts);
+    const limit = await rateLimitDurable(bucket, opts);
     if (!limit.ok) {
       return json(
         { ok: false, error: "Too many requests. Please try again shortly." },

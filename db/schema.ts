@@ -892,6 +892,39 @@ export type IngestionFailureReason =
   | "invalid_email"
   | "honeypot";
 
+/**
+ * Cross-invocation rate limiting.
+ *
+ * lib/rate-limit.ts is an in-memory Map, which is correct within ONE serverless
+ * instance and therefore decorative on Vercel: concurrency spreads requests
+ * across instances and every public limit is bypassed by simply making
+ * requests in parallel. That matters most on /api/subscribe/[key], where each
+ * accepted request sends an email TO A THIRD PARTY from our domain — an
+ * unthrottled signup form is a mail-bombing tool charged to our sending
+ * reputation.
+ *
+ * Fixed window, one row per bucket, incremented by a single atomic upsert. Not
+ * a sliding window: that needs either a row per request (a growth primitive on
+ * a public endpoint) or a sorted set this database does not have. A fixed
+ * window lets a caller burst across a boundary, which is an acceptable price
+ * for a safety valve.
+ *
+ * Rows are pruned by the daily health sweep — without that this grows one row
+ * per distinct IP, forever.
+ */
+export const rateLimits = pgTable(
+  "rate_limits",
+  {
+    /** e.g. "subscribe:ip:1.2.3.4". Opaque to this table. */
+    bucket: text("bucket").primaryKey(),
+    windowStart: timestamp("window_start", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    count: integer("count").notNull().default(1),
+  },
+  (t) => [index("rate_limits_window_idx").on(t.windowStart)],
+);
+
 export type Ticket = typeof tickets.$inferSelect;
 export type TicketMessage = typeof ticketMessages.$inferSelect;
 export type Contact = typeof contacts.$inferSelect;
@@ -913,3 +946,4 @@ export type Campaign = typeof campaigns.$inferSelect;
 export type CampaignRecipient = typeof campaignRecipients.$inferSelect;
 export type SendingDomain = typeof sendingDomains.$inferSelect;
 export type IngestionFailure = typeof ingestionFailures.$inferSelect;
+export type RateLimitRow = typeof rateLimits.$inferSelect;

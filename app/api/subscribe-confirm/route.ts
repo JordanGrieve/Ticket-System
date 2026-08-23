@@ -1,5 +1,5 @@
 import { clientIp } from "@/lib/http";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimitDurable } from "@/lib/rate-limit-store";
 import { APP_URL } from "@/lib/config";
 import { decodeConfirmToken } from "@/lib/subscribe";
 import {
@@ -32,7 +32,10 @@ export async function POST(req: Request) {
   // route is public. Cheap ceiling per address.
   const ip = clientIp(req);
   if (ip) {
-    const limit = rateLimit(`confirm:ip:${ip}`, { max: 20, windowMs: 60_000 });
+    const limit = await rateLimitDurable(`confirm:ip:${ip}`, {
+      max: 20,
+      windowMs: 60_000,
+    });
     if (!limit.ok) return redirect("/s/confirm?e=1");
   }
 

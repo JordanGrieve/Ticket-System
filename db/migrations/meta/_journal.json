@@ -64,6 +64,13 @@
       "when": 1787478439800,
       "tag": "0008_friendly_redwing",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787479197593,
+      "tag": "0009_familiar_luckman",
+      "breakpoints": true
     }
   ]
 }
