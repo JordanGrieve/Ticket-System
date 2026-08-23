@@ -34,13 +34,45 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, "**/.claude/**"],
   },
   resolve: {
-    alias: {
-      // fileURLToPath, not URL.pathname: on Windows the latter yields
-      // "/C:/Users/Jordan%20Grieve/..." — leading slash, percent-encoded
-      // spaces — which resolves to nothing.
-      "server-only": fileURLToPath(
-        new URL("./node_modules/server-only/empty.js", import.meta.url),
-      ),
-    },
+    /*
+     * An ARRAY, not an object, because order matters: Vite tries these in turn
+     * and the specific `@/db` entry has to be attempted before the catch-all
+     * `@/` one, or every import would resolve through the catch-all and the
+     * stub would never be used.
+     */
+    alias: [
+      {
+        // fileURLToPath, not URL.pathname: on Windows the latter yields
+        // "/C:/Users/Jordan%20Grieve/..." — leading slash, percent-encoded
+        // spaces — which resolves to nothing.
+        find: "server-only",
+        replacement: fileURLToPath(
+          new URL("./node_modules/server-only/empty.js", import.meta.url),
+        ),
+      },
+      {
+        /*
+         * db/index.ts throws at import when DATABASE_URL is unset, and then
+         * runs db/guard.ts to refuse an undeclared database. Both are right —
+         * that guard exists because local dev once silently pointed at a live
+         * client's records — but together they make every module that touches
+         * the database unimportable in a suite which deliberately has no
+         * DATABASE_URL and should never acquire one.
+         *
+         * The stub throws on ANY use rather than pretending to be a database.
+         * A permissive fake would let a test that reached a real query look
+         * like it passed while exercising nothing, which is worse than the
+         * import error it replaced.
+         */
+        find: /^@\/db$/,
+        replacement: fileURLToPath(
+          new URL("./tests/stubs/db.ts", import.meta.url),
+        ),
+      },
+      {
+        find: /^@\//,
+        replacement: fileURLToPath(new URL("./", import.meta.url)),
+      },
+    ],
   },
 });

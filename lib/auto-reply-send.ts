@@ -299,6 +299,63 @@ async function enqueueDeferredAutoReply(input: {
 }
 
 /**
+ * The IO `maybeSendAutoReply` needs, injectable so the wiring can be tested.
+ *
+ * ── WHY THIS EXISTS ──
+ * The decision chain — token substitution, schedule evaluation, every loop
+ * guard — has been thoroughly covered for a while. The WIRING had no test at
+ * all: reading config, looking up the form name, checking what has already
+ * been sent, choosing between deferring and dropping, and calling the
+ * provider. It needed a database and a mail provider, so it was verified by
+ * the type checker and nothing else.
+ *
+ * That is the wrong half to leave untested. This function sends email
+ * automatically to addresses supplied by the public internet, and its worst
+ * failure mode is a mail loop — two robots answering each other at machine
+ * speed, from our sending domain, on the reputation every other tenant's mail
+ * depends on. Finding that out in production is not an acceptable plan.
+ *
+ * Defaults are the real implementations, so both production callers
+ * (app/api/inbound and app/api/tickets/[id]) pass nothing and are unchanged.
+ * Tests pass fakes. Same pattern as the rate limiter injected into
+ * lib/auto-reply-guards.ts, and for the same reason.
+ */
+export type AutoReplyDeps = {
+  loadConfig: (workspaceId: number) => Promise<AutoReplyConfig | null>;
+  loadFormName: (
+    workspaceId: number,
+    formId: number | null,
+  ) => Promise<string | null>;
+  loadOutboundKinds: (
+    ticketId: number,
+  ) => Promise<{ hasAutomatedReply: boolean; hasHumanReply: boolean }>;
+  enqueueDeferred: (input: {
+    workspaceId: number;
+    ticketId: number;
+    dueAt: Date;
+    headers: Record<string, string> | null;
+  }) => Promise<void>;
+  deliver: (
+    workspace: Workspace,
+    ticket: Ticket,
+    decision: Extract<AutoReplyDecision, { send: true }>,
+  ) => Promise<AutoReplyOutcome>;
+  /** Injected so schedule-dependent behaviour is testable without waiting. */
+  now: () => Date;
+};
+
+function realDeps(): AutoReplyDeps {
+  return {
+    loadConfig: getAutoReplyConfig,
+    loadFormName: getFormName,
+    loadOutboundKinds: ticketOutboundKinds,
+    enqueueDeferred: enqueueDeferredAutoReply,
+    deliver: deliverDecidedAutoReply,
+    now: () => new Date(),
+  };
+}
+
+/**
  * Send the acknowledgement for a freshly created ticket, if every guard says
  * yes. Strictly best-effort: ticket creation must never fail because of this,
  * so everything is wrapped and failures are logged rather than thrown.
@@ -312,20 +369,20 @@ export async function maybeSendAutoReply(input: {
   workspace: Workspace;
   ticket: Ticket;
   inboundPayload?: Record<string, unknown> | null;
-}): Promise<AutoReplyOutcome> {
+}, deps: AutoReplyDeps = realDeps()): Promise<AutoReplyOutcome> {
   try {
     const { workspace, ticket } = input;
-    const config = await getAutoReplyConfig(workspace.id);
+    const config = await deps.loadConfig(workspace.id);
     if (!config || !config.enabled) {
       return { sent: false, reason: config ? "disabled" : "not_configured" };
     }
 
     const [formName, outbound] = await Promise.all([
-      getFormName(workspace.id, ticket.formId),
-      ticketOutboundKinds(ticket.id),
+      deps.loadFormName(workspace.id, ticket.formId),
+      deps.loadOutboundKinds(ticket.id),
     ]);
 
-    const now = new Date();
+    const now = deps.now();
     const headers = extractHeaders(input.inboundPayload);
     const decision = decideAutoReply({
       config,
@@ -356,7 +413,7 @@ export async function maybeSendAutoReply(input: {
       if (decision.reason === "schedule") {
         const dueAt = planDeferral(config, now);
         if (dueAt) {
-          await enqueueDeferredAutoReply({
+          await deps.enqueueDeferred({
             workspaceId: workspace.id,
             ticketId: ticket.id,
             dueAt,
@@ -376,7 +433,7 @@ export async function maybeSendAutoReply(input: {
       return { sent: false, reason: decision.reason };
     }
 
-    return await deliverDecidedAutoReply(workspace, ticket, decision);
+    return await deps.deliver(workspace, ticket, decision);
   } catch (err) {
     console.error("[auto-reply] failed:", err);
     return { sent: false, reason: "send_failed" };
