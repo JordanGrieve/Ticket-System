@@ -1,0 +1,193 @@
+/*
+ * The feature grid. Every colour is a token, for the same reason as the
+ * product shot: this section sits below the hero, so it renders in whichever
+ * of the themes the visitor has.
+ */
+
+.pbento {
+  list-style: none;
+  margin: 32px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.pbento-cell {
+  display: flex;
+  flex-direction: column;
+  padding: 22px 22px 0;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  /* The fragment at the bottom of each cell runs to the edge and is clipped,
+     which is what makes it read as a piece of a larger interface rather than
+     as a small picture placed in a box. */
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* The dominant cell: two columns wide, so the eye lands on it first. */
+.pbento-cell--wide {
+  grid-column: span 2;
+}
+
+/*
+ * The closing cell spans the row.
+ *
+ * Six cells with one of them double-width is seven column-units in a three
+ * column grid, which leaves the last row holding one cell and two empty
+ * columns — a grid that visibly ran out rather than one that was composed.
+ * Spanning the last cell fills the row and gives the section a bottom edge.
+ */
+.pbento-cell--full {
+  grid-column: 1 / -1;
+}
+.pbento-cell--full .pbento-art {
+  /* Side by side: across a full row the stacked layout leaves a lot of empty
+     space to the right of three small avatars. */
+  flex-direction: row;
+  align-items: center;
+}
+
+.pbento-title {
+  margin: 0 0 8px;
+  font-size: 17px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.pbento-body {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+.pbento-body em {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/*
+ * The interface fragment. margin-top:auto pins it to the bottom of the cell so
+ * the cells in a row line up along their art even when their copy differs in
+ * length — ragged art is what makes a grid look assembled.
+ */
+.pbento-art {
+  margin-top: auto;
+  padding: 18px 0 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.pbento-art--row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+/* The wide cell has room for the two chips side by side at desktop width. */
+.pbento-art--hours {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.pbento-chip {
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-3);
+  color: var(--text-2);
+}
+.pbento-chip--muted {
+  color: var(--muted);
+}
+.pbento-chip--accent {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent-text);
+}
+
+.pbento-tag {
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.pbento-mini {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 14px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-soft);
+  font-size: 12.5px;
+}
+.pbento-mini-k {
+  color: var(--muted);
+  font-weight: 600;
+}
+.pbento-mini-v {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.pbento-face {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent-grad);
+  /* Overlapped, as an avatar stack reads. The ring is the cell's own surface,
+     so they separate on any theme without a hardcoded colour. */
+  box-shadow: 0 0 0 2px var(--surface);
+  margin-right: -8px;
+}
+.pbento-face--plus {
+  background: var(--surface-3);
+  color: var(--text-2);
+  border: 1px solid var(--border-soft);
+  margin-right: 0;
+}
+
+@media (max-width: 900px) {
+  .pbento {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .pbento-cell--wide {
+    grid-column: span 2;
+  }
+  .pbento-art--hours {
+    /* Two long chips side by side wrap into a mess at this width. */
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 620px) {
+  .pbento {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .pbento-cell--wide,
+  .pbento-cell--full {
+    grid-column: span 1;
+  }
+  .pbento-cell {
+    padding: 18px 18px 0;
+  }
+}

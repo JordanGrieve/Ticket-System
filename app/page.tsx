@@ -5,6 +5,7 @@ import { PostboxLockup } from "@/components/Logo";
 import { OPEN_SIGNUP } from "@/lib/config";
 import ProductShot from "@/components/marketing/ProductShot";
 import ThemeRow from "@/components/marketing/ThemeRow";
+import FeatureBento from "@/components/marketing/FeatureBento";
 import "./home.css";
 
 /**
@@ -118,34 +119,8 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        <section
-          className="home-section home-section--after-shot home-wrap"
-          id="features"
-        >
-          <p className="home-kicker">What you get</p>
-          <h2 className="home-h2">
-            One place for everything customers send you
-          </h2>
-          <p className="home-sub">
-            No forwarding rules, no shared password on a Gmail account, no
-            wondering whether somebody already replied.
-          </p>
-
-          <div className="home-grid">
-            {FEATURES.map((f) => (
-              <div className="home-card" key={f.title}>
-                <span className="home-card-icon" aria-hidden>
-                  {f.icon}
-                </span>
-                <h3 className="home-card-title">{f.title}</h3>
-                <p className="home-card-body">{f.body}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
         {/*
-          THE TWO LOAD-BEARING FEATURES, SHOWN.
+          THE THREE LOAD-BEARING FEATURES, SHOWN.
 
           The grid above states eight things in words. These two sections take
           the two that matter most and put the product next to the claim,
@@ -158,7 +133,10 @@ export default async function LandingPage() {
           picture of a product and becomes a diagram — and the ceiling is
           lower here than it looks, because these crops are narrow.
         */}
-        <section className="home-showcase home-wrap">
+        <section
+          className="home-showcase home-section--after-shot home-wrap"
+          id="features"
+        >
           <div className="home-show">
             <div className="home-show-copy">
               <p className="home-kicker">The inbox</p>
@@ -284,6 +262,27 @@ export default async function LandingPage() {
         </section>
 
         {/*
+          The rest of the product, at a glance.
+
+          A grid rather than more alternating sections, because these answer a
+          different question. The showcases are a sequence — mail arrives, you
+          answer it, you send a newsletter. This is a set, scanned in any order
+          by somebody looking for the one thing that matters to them.
+
+          Nothing here repeats the showcases above. Saying the same thing twice
+          in two different shapes reads as padding.
+        */}
+        <section className="home-section home-wrap">
+          <p className="home-kicker">What else it does</p>
+          <h2 className="home-h2">The small things that decide whether you keep using it</h2>
+          <p className="home-sub">
+            None of these are why anybody signs up. They are why nobody goes
+            back to a shared Gmail account three weeks later.
+          </p>
+          <FeatureBento />
+        </section>
+
+        {/*
           The palettes.
 
           Several themes is normally an awkward fact for a marketing page,
@@ -368,60 +367,21 @@ export default async function LandingPage() {
 }
 
 /*
- * Small inline glyphs. Deliberately NOT the app's Icon set: that lives in the
- * mail client's bundle and this page has no other reason to pull it in.
+ * The four newsletter compliance points, kept as text.
+ *
+ * The FEATURES array and the inline glyph helper that fed it were deleted
+ * when the showcases and the bento took over. Two of its four cards are now
+ * shown properly with product imagery, and the other two moved into the
+ * grid; leaving the array behind would have meant the page describing the
+ * same features twice in two different shapes.
+ *
+ * These four stay prose on purpose. They are claims about PROCESS -- what is
+ * recorded, what is refused, what happens to a bounce -- and there is no
+ * screen that shows a consent record being kept. Drawing one would be
+ * inventing an interface to illustrate a policy. See the note at the top of
+ * this file: an AWS reviewer may read this section while the SES case is
+ * open, and it is load-bearing exactly as written.
  */
-const stroke = {
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.7,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-};
-
-const FEATURES = [
-  {
-    title: "A shared inbox, not a mailbox",
-    body: "Your contact form and your support address land in the same place. Everyone on the team sees the same threads and replies as the business — customers never see individual names.",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" {...stroke}>
-        <path d="M3 7.5 12 13l9-5.5" />
-        <rect x="3" y="5" width="18" height="14" rx="2.5" />
-      </svg>
-    ),
-  },
-  {
-    title: "Replies that keep the thread",
-    body: "Answer from Postbox and it reaches the customer as a normal email from you. When they reply it comes back to the same thread, instead of starting a new one nobody connects to the last.",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" {...stroke}>
-        <path d="M9 10 4 15l5 5" />
-        <path d="M4 15h9a7 7 0 0 0 7-7V6" />
-      </svg>
-    ),
-  },
-  {
-    title: "Nobody waits until Monday",
-    body: "Set your opening hours and Postbox acknowledges enquiries that arrive out of hours — held until you open, so it never claims somebody is around at 2am when they are not.",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" {...stroke}>
-        <circle cx="12" cy="12" r="8.5" />
-        <path d="M12 7.5V12l3 2" />
-      </svg>
-    ),
-  },
-  {
-    title: "You know who you are talking to",
-    body: "Every thread shows when this person first got in touch and what they have asked before, so you are not starting from nothing on their third email.",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" {...stroke}>
-        <circle cx="12" cy="8.5" r="3.6" />
-        <path d="M5 19.5a7 7 0 0 1 14 0" />
-      </svg>
-    ),
-  },
-];
-
 const NEWSLETTER_POINTS = [
   {
     title: "Confirmed opt-in only",
