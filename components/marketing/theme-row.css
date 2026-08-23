@@ -18,6 +18,14 @@
 }
 
 .pthemes-swatch {
+  /* A button now, so the browser defaults have to go before anything else. */
+  appearance: none;
+  border: 1px solid var(--border-soft);
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  width: 100%;
+  transition: transform 140ms ease, box-shadow 140ms ease;
   display: grid;
   grid-template-columns: 22% 1fr;
   height: 92px;
@@ -26,7 +34,28 @@
   /* The swatch supplies its own surface, so it reads as a window onto a
      differently-themed app rather than as a tinted card on this page. */
   background: var(--surface);
-  border: 1px solid var(--border-soft);
+}
+
+.pthemes-swatch:hover {
+  transform: translateY(-2px);
+}
+/* The chosen one, and the keyboard ring. --accent-text comes from the PAGE,
+   not from the swatch, so the marker reads against the section around it
+   rather than disappearing into whichever palette the tile is painted in. */
+.pthemes-swatch[data-picked] {
+  box-shadow: 0 0 0 2px var(--accent-text);
+}
+.pthemes-swatch:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pthemes-swatch {
+    transition: none;
+  }
+  .pthemes-swatch:hover {
+    transform: none;
+  }
 }
 
 .pthemes-side {

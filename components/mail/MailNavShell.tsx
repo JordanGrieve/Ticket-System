@@ -84,6 +84,7 @@ export default function MailNavShell({
   isAdmin?: boolean;
 }) {
   const [navOpen, setNavOpen] = useState(false);
+  const [foldersOpen, setFoldersOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [labelsOpen, setLabelsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -147,6 +148,12 @@ export default function MailNavShell({
   // "any label at all", so only one of the two should ever look active.
   const activeFolder =
     onList && !activeLabel ? (searchParams.get("folder") ?? "inbox") : "";
+
+  /*
+   * The folders that stay visible when the list is collapsed: the three
+   * somebody works out of. Everything else is a place you look something up.
+   */
+  const PRIMARY_FOLDERS = ["inbox", "unread", "awaiting"];
 
   const folders: LiveFolder[] = [
     { key: "all", label: "All mail", icon: "mail", count: counts.all, href: "/inbox?folder=all" },
@@ -235,6 +242,18 @@ export default function MailNavShell({
     },
   ];
 
+  /*
+   * The collapsed set: the primaries, plus the active folder when it is not
+   * one of them. The order of `folders` is preserved rather than the order of
+   * PRIMARY_FOLDERS, so nothing jumps around as the list expands.
+   */
+  const shownFolders = foldersOpen
+    ? folders
+    : folders.filter(
+        (f) => PRIMARY_FOLDERS.includes(f.key) || f.key === activeFolder,
+      );
+  const hiddenFolderCount = folders.length - shownFolders.length;
+
   return (
     <>
       {/* Mobile top bar. Hidden above 768px by globals.css. Deliberately not
@@ -295,8 +314,22 @@ export default function MailNavShell({
           </Link>
         )}
 
+        {/*
+          THREE FOLDERS, THEN "MORE".
+
+          There are eleven, and a sidebar of eleven is a list you scan rather
+          than a set of places you go. The three kept are the ones somebody
+          working the inbox actually moves between during a shift — what is
+          open, what has not been read, what is waiting on us. The other eight
+          answer "where did that go?", which is a question you ask
+          occasionally, not a place you live.
+
+          The active folder is ALWAYS shown, even when it is one of the eight.
+          Collapsing the list while somebody is looking at Trash would hide the
+          only thing on screen explaining why the list looks the way it does.
+        */}
         <div className="pbm-folders">
-          {folders.map((f) => {
+          {shownFolders.map((f) => {
             const active = activeFolder === f.key;
             return (
               <Link
@@ -312,6 +345,23 @@ export default function MailNavShell({
               </Link>
             );
           })}
+          {hiddenFolderCount > 0 && (
+            <button
+              type="button"
+              className="pbm-folder pbm-folder--more"
+              data-open={foldersOpen || undefined}
+              onClick={() => setFoldersOpen((v) => !v)}
+              aria-expanded={foldersOpen}
+            >
+              {/* One glyph, rotated by CSS. A second near-identical
+                  chevron in the icon set is a thing that can drift out of
+                  step with this one. */}
+              <Icon name="chevronDown" size={18} />
+              <span className="pbm-folder-label">
+                {foldersOpen ? "Less" : "More"}
+              </span>
+            </button>
+          )}
         </div>
 
         <div className="pbm-nav-divider" />
@@ -396,17 +446,21 @@ export default function MailNavShell({
               about this workspace", so they are one entry here and tabs inside
               /settings. Three separate links made an already long sidebar
               longer and read as unrelated to each other. */}
-          {/* /search, lib/search.ts and /api/search were all built and
-              tested, and nothing linked here — the feature existed but was
-              reachable only by typing the URL. */}
-          <Link
-            href="/search"
-            className="pbm-folder"
-            data-active={pathname.startsWith("/search")}
-          >
-            <Icon name="search" size={18} />
-            <span className="pbm-folder-label">Search</span>
-          </Link>
+          {/*
+            NO SEARCH ENTRY HERE, as of 23 August 2026.
+
+            It was added because /search, lib/search.ts and /api/search were
+            built and nothing linked to them. That was the right problem and
+            the wrong fix: this sidebar already carries eleven folders plus
+            labels, and a twelfth row made the list longer without making
+            search easier to find. There is a search box at the top of the
+            message list, which is where somebody looks for one.
+
+            The route still exists and still works. If workspace-wide search
+            needs a way in from here later, it belongs in that box — as a
+            "search everything" affordance when the on-page filter finds
+            nothing — not as another row competing with the folders.
+          */}
           <Link
             href="/newsletters"
             className="pbm-folder"

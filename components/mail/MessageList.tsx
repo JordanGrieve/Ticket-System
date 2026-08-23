@@ -45,11 +45,23 @@ export default function MessageList({
   hideOnMobile?: boolean;
 }) {
   const [refine, setRefine] = useState<Refine>("all");
+  const [chipsOpen, setChipsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const router = useRouter();
 
   // "Unread" and "Starred" only exist for a viewer with an agent row; the rest
   // are properties of the ticket and always apply.
+  /*
+   * How many chips are shown before "More".
+   *
+   * The row used to hold up to eight and rely on `overflow-x: auto` with a
+   * hidden scrollbar. That works on a touchscreen and on a trackpad, and NOT
+   * with a mouse — there is no visible scrollbar to drag and no wheel axis for
+   * it, so on a desktop the chips past the edge were simply unreachable. They
+   * were not hard to find; they could not be got to at all.
+   */
+  const CHIPS_SHOWN = 3;
+
   const chips: { key: Refine; label: string }[] = [
     { key: "all", label: "All" },
     ...(canPersonalise
@@ -64,6 +76,17 @@ export default function MessageList({
     { key: "email", label: "Email" },
     { key: "order", label: "Order" },
   ];
+
+  /*
+   * The first three, PLUS the active one if it is not among them. Without that
+   * second half, choosing "Order" and then collapsing would leave a filtered
+   * list with nothing on screen saying it was filtered.
+   */
+  const head = chips.slice(0, CHIPS_SHOWN);
+  const shownChips = head.some((c) => c.key === refine)
+    ? head
+    : [...head, ...chips.filter((c) => c.key === refine)];
+  const hiddenCount = chips.length - shownChips.length;
 
   // Keep the list live: new tickets used to appear only on manual reload.
   // Skipped while a thread is open — Thread runs its own 30s refresh for the
@@ -125,8 +148,16 @@ export default function MessageList({
           />
         </div>
 
+        {/*
+          Three, then "More".
+
+          The active chip is ALWAYS shown, even when it lives past the cut:
+          collapsing the row while "Order" is the current filter would hide the
+          only thing explaining why the list is short, and the list would look
+          like it had lost mail.
+        */}
         <div className="pbm-chips" role="group" aria-label="Refine this page">
-          {chips.map((c) => (
+          {(chipsOpen ? chips : shownChips).map((c) => (
             <button
               key={c.key}
               type="button"
@@ -138,6 +169,16 @@ export default function MessageList({
               {c.label}
             </button>
           ))}
+          {hiddenCount > 0 && (
+            <button
+              type="button"
+              className="pbm-chip pbm-chip--more"
+              onClick={() => setChipsOpen((v) => !v)}
+              aria-expanded={chipsOpen}
+            >
+              {chipsOpen ? "Less" : `+${hiddenCount} more`}
+            </button>
+          )}
         </div>
 
         <p className="pbm-list-meta">
@@ -228,7 +269,7 @@ function MailCard({
     <div className="pbm-card-wrap">
       <Link
         href={`/tickets/${row.id}?folder=${folder}${labelQuery}&page=${page}`}
-        className="pbm-card pb-fade-up"
+        className="pbm-card"
         data-selected={selected || undefined}
         data-unread={row.unread || undefined}
         aria-current={selected ? "true" : undefined}

@@ -1,4 +1,5 @@
 import { SignIn } from "@clerk/nextjs";
+import { clerkAppearance } from "@/lib/clerk-appearance";
 import { PostboxLockup } from "@/components/Logo";
 
 export default function SignInPage() {
@@ -15,7 +16,7 @@ export default function SignInPage() {
     >
       <div style={{ textAlign: "center" }}>
         <Brand />
-        <SignIn />
+        <SignIn appearance={clerkAppearance} />
       </div>
     </div>
   );

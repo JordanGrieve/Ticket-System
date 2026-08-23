@@ -1,4 +1,5 @@
 import { SignUp } from "@clerk/nextjs";
+import { clerkAppearance } from "@/lib/clerk-appearance";
 import { PostboxLockup } from "@/components/Logo";
 
 export default function SignUpPage() {
@@ -25,7 +26,7 @@ export default function SignUpPage() {
         >
           <PostboxLockup color="var(--ink)" />
         </div>
-        <SignUp />
+        <SignUp appearance={clerkAppearance} />
       </div>
     </div>
   );

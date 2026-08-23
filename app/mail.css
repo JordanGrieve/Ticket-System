@@ -2376,3 +2376,53 @@
   font-size: 13px;
   line-height: 1.55;
 }
+
+/*
+ * The "+N more" chip.
+ *
+ * Visually distinct from the filters beside it: it is a disclosure, not a
+ * filter, and a reader who cannot tell them apart will press it expecting the
+ * list to change. Outlined rather than filled, and it never takes the "on"
+ * state the real chips use.
+ */
+.pbm-chip--more {
+  background: transparent;
+  color: var(--muted);
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+.pbm-chip--more:hover {
+  color: var(--text);
+}
+
+/*
+ * "More" in the folder list.
+ *
+ * A button among links, so it has to be reset to match them — and it must not
+ * be mistaken for a folder. It carries no count pill (there is nothing to
+ * count) and its label is muted, so the eye reads the folders as a set and
+ * this as the way to see the rest of them.
+ */
+.pbm-folder--more {
+  appearance: none;
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  color: var(--muted);
+}
+.pbm-folder--more:hover {
+  color: var(--text);
+}
+.pbm-folder--more svg {
+  transition: transform 160ms ease;
+}
+.pbm-folder--more[data-open] svg {
+  transform: rotate(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pbm-folder--more svg {
+    transition: none;
+  }
+}

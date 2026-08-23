@@ -285,7 +285,6 @@ function NavRow({
       href={hrefFor(query, { section: to, filter: "all" })}
       className={`pba-navrow${active ? " is-active" : ""}`}
     >
-      <span className="pba-dot" />
       <span className="pba-navlabel">{label}</span>
       {count !== undefined && <span className="pba-count">{count}</span>}
     </Link>
