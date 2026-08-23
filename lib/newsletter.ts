@@ -576,6 +576,29 @@ export function selectAudience(
  * token is the per-recipient secret from campaign_recipients; it is the ONLY
  * thing standing between a stranger and unsubscribing anybody, so it must come
  * from generateUnsubscribeToken() and never be derived from an id or address.
+ *
+ * ── PER-MESSAGE, NOT PER-SUBSCRIBER, AND THAT IS DELIBERATE ──
+ * Reviewed 23 August 2026 against a proposal to add a stable
+ * subscribers.unsubscribeToken and use it for List-Unsubscribe instead. That
+ * proposal was declined, and the reasoning is recorded here because it looks
+ * like an obvious tidy-up and is not:
+ *
+ *  - Nothing requires a stable URL. RFC 2369 and RFC 8058 say nothing about it
+ *    and neither do the bulk-sender rules Gmail and Yahoo introduced in 2024;
+ *    per-message tokens are what the large senders actually use.
+ *  - A per-message token is what makes ATTRIBUTION possible. unsubscribeByToken
+ *    resolves through campaign_recipients to the campaign, and writes "(campaign
+ *    #N)" into the suppression note. A subscriber-level token cannot say which
+ *    message somebody was reading when they left, and since one-click accounts
+ *    for most unsubscribes, switching would blind us to nearly all of it. The
+ *    evidence trail is the product here.
+ *  - It costs no storage. The token is a column on a campaign_recipients row
+ *    that has to exist anyway to record status, delivery and bounces — it is
+ *    not a table of its own that grows.
+ *
+ * A stable token would be worth adding for ONE thing this product does not
+ * have: a preferences page somebody can reach without a campaign email in
+ * front of them. If that is ever built, add it alongside — not instead of.
  */
 export function unsubscribeUrl(appUrl: string, token: string): string {
   return `${appUrl.replace(/\/$/, "")}/u/${encodeURIComponent(token)}`;

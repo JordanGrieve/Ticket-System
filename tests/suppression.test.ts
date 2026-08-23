@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   looksLikeUnsubscribeToken,
   normaliseEmail,
@@ -229,3 +231,54 @@ describe("address canonicalisation at the suppression boundary", () => {
  *    needs a DATABASE_URL, which CI does not have and must not need.
  *    Verifying them requires running the statements against a real Postgres.
  */
+
+describe("an unsubscribe records WHICH campaign it came from", () => {
+  /*
+   * Static assertions over lib/suppressions.ts, in the style of the other
+   * source-reading guards here: the statement needs a database and CI has no
+   * DATABASE_URL.
+   *
+   * ── WHY THIS IS PINNED ──
+   * PIVOT 21 proposed replacing the per-recipient unsubscribe token with a
+   * stable per-subscriber one and using that for List-Unsubscribe. It was
+   * declined (the reasoning is on unsubscribeUrl in lib/newsletter.ts), and
+   * this test exists because the proposal is a plausible-looking tidy-up that
+   * would quietly destroy something valuable.
+   *
+   * The attribution only works because the token resolves through
+   * campaign_recipients to a campaign. A subscriber-level token cannot say
+   * which message somebody was reading when they left — and since one-click
+   * is most unsubscribes, switching would blind us to nearly all of it.
+   *
+   * If somebody does make that change, this fails and they have to read why.
+   */
+  const SUPPRESSIONS = readFileSync(
+    join(process.cwd(), "lib/suppressions.ts"),
+    "utf8",
+  );
+
+  it("resolves the token through campaign_recipients, not subscribers", () => {
+    expect(SUPPRESSIONS).toMatch(/FROM campaign_recipients cr/);
+    expect(SUPPRESSIONS).toMatch(/cr\.unsubscribe_token = \$\{token\}/);
+  });
+
+  it("writes the campaign id into the suppression note", () => {
+    // Without this the note says only "unsubscribed", and a client asking
+    // "which email made them leave?" has no answer.
+    expect(SUPPRESSIONS).toMatch(/campaign #/);
+    expect(SUPPRESSIONS).toMatch(/campaign_id::text/);
+  });
+
+  it("distinguishes one-click from a footer click in the note", () => {
+    // Different provenance, and worth telling apart: a one-click unsubscribe
+    // is a mail client acting on somebody's behalf, a footer click is the
+    // person themselves.
+    expect(SUPPRESSIONS).toMatch(/RFC 8058/);
+    expect(SUPPRESSIONS).toMatch(/link in a campaign email/);
+  });
+
+  it("derives the workspace from the campaign, never from the request", () => {
+    expect(SUPPRESSIONS).toMatch(/JOIN campaigns c ON c\.id = cr\.campaign_id/);
+    expect(SUPPRESSIONS).toMatch(/c\.workspace_id\s+AS workspace_id/);
+  });
+});
