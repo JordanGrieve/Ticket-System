@@ -12,6 +12,15 @@ jobs:
       # Dummy values: the build only needs env vars to EXIST — every page is
       # dynamic, so nothing connects to real services at build time.
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?sslmode=disable
+      # Required by db/guard.ts, which refuses any database not declared as a
+      # development one. Next.js evaluates route modules while collecting page
+      # data during `next build`, so db/index.ts is imported and the guard runs
+      # even though nothing connects — CI went red for six commits before this
+      # was noticed. Vercel is unaffected: VERCEL_ENV is set there.
+      #
+      # Truthful, not a workaround: the CI database is a throwaway localhost
+      # instance that exists for the length of one job.
+      DATABASE_ENV: development
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2ktZHVtbXkuY2xlcmsuYWNjb3VudHMuZGV2JA
       CLERK_SECRET_KEY: sk_test_ci_dummy
       RESEND_API_KEY: re_placeholder
