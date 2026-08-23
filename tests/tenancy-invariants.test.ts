@@ -968,3 +968,236 @@ describe("the table lists cannot go stale", () => {
     expect(both).toEqual([]);
   });
 });
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────
+ * THE QUERY BUILDER, WHICH EVERYTHING ABOVE THIS LINE IS BLIND TO
+ * ─────────────────────────────────────────────────────────────────────────
+ *
+ * Every sweep above reads raw sql`` templates. That is a real guard and it has
+ * caught real problems — but raw SQL is the EXCEPTION in this repo, used where
+ * a CTE or a data-modifying statement is needed. The default way code here
+ * talks to the database is the Drizzle query builder, and none of it is
+ * inspected above. So the sweep covers the minority of access paths while
+ * reading, to anyone glancing at a green suite, as though it covered them all.
+ *
+ * Found 23 Aug 2026 while adding app/api/webhooks/resend/route.ts, which
+ * updates ticket_messages through the builder. The full suite went green
+ * having never looked at the file. The route is in fact correct — but that was
+ * established by reading it, which is precisely the work this file exists to
+ * stop anyone having to remember to do.
+ *
+ * ── WHAT THIS SECTION POLICES, AND WHAT IT DOES NOT ──
+ * UPDATE and DELETE through the builder, on tables that carry no workspace_id
+ * of their own. Those are the leak-shaped operations: the table cannot be
+ * filtered by workspace directly, so the predicate has to carry tenancy some
+ * other way, and getting that wrong writes across every client at once.
+ *
+ * INSERT is deliberately not policed. It cannot read another tenant's rows;
+ * the risk is attaching a row to the wrong parent, and the parent id is
+ * supplied by the caller rather than matched by a predicate — so there is
+ * nothing in the statement for a static check to look at. That is a real gap
+ * and it is named here rather than left for someone to discover the way this
+ * whole section was discovered.
+ *
+ * Builder READS are not policed either. There are ~90 of them across ~20
+ * files, and a guard demanding ninety rubber-stamped exemptions would be
+ * approved without being read — which is the false confidence being fixed, not
+ * a fix for it.
+ */
+
+/**
+ * Tables whose tenancy is inherited, DERIVED from db/schema.ts.
+ *
+ * A table with no `workspaceId` column cannot be filtered by workspace, so
+ * every write to it has to carry tenancy some other way. Deriving this instead
+ * of hand-listing it is the point: PARENTLESS above is hand-written, and
+ * hand-written table lists in this file have gone stale three times
+ * (contact_notes, auto_reply_queue, and the four tables the unused-table
+ * detector called dead). A table added to the schema tomorrow lands in here on
+ * its own.
+ */
+function inheritsTenancy(): Set<string> {
+  const schema = read("db/schema.ts");
+  const out = new Set<string>();
+  // Each pgTable("name", { … }) block, up to the start of the next export.
+  const re =
+    /export const (\w+)\s*=\s*pgTable\(\s*["'`]([a-z_]+)["'`]([\s\S]*?)(?=export const |$)/g;
+  for (const m of schema.matchAll(re)) {
+    if (!/\bworkspaceId\s*:/.test(m[3])) out.add(m[2]);
+  }
+  /*
+   * Platform tables also have no workspaceId, for the opposite reason: they
+   * hold no tenant data, so there is nothing to scope. `workspaces` IS the
+   * tenant; `admins` and `impersonation_sessions` are operator records,
+   * policed by tests/impersonation-invariants.test.ts instead.
+   *
+   * Without this the guard demanded a written exemption for deleting a
+   * workspace by its own id — noise that teaches people the exemption list is
+   * something to be silenced rather than read, which is how a list like this
+   * stops meaning anything. Deferring to NON_TENANT_TABLES also means one
+   * classification serves both sweeps, and that list is already kept honest by
+   * "every table in db/schema.ts is classified" above.
+   */
+  for (const t of NON_TENANT_TABLES) out.delete(t);
+  return out;
+}
+
+/** Drizzle export name → SQL table name, e.g. ticketMessages → ticket_messages. */
+function schemaExportNames(): Map<string, string> {
+  const schema = read("db/schema.ts");
+  const out = new Map<string, string>();
+  for (const m of schema.matchAll(
+    /export const (\w+)\s*=\s*pgTable\(\s*["'`]([a-z_]+)["'`]/g,
+  )) {
+    out.set(m[1], m[2]);
+  }
+  return out;
+}
+
+type BuilderWrite = { file: string; table: string; op: string; stmt: string };
+
+/**
+ * Every builder UPDATE/DELETE in lib/ and app/, with the statement text that
+ * follows it — which is where the predicate lives.
+ */
+function builderWrites(): BuilderWrite[] {
+  const names = schemaExportNames();
+  const out: BuilderWrite[] = [];
+  for (const file of [...sourcesUnder("lib"), ...sourcesUnder("app")]) {
+    const src = read(file);
+    const re = /\.(update|delete)\(\s*(\w+)\s*\)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(src)) !== null) {
+      const table = names.get(m[2]);
+      if (!table) continue;
+      // The statement runs to its terminating semicolon; that span contains
+      // the .set() and the .where() we need to look at.
+      const end = src.indexOf(";", m.index);
+      out.push({
+        file,
+        table,
+        op: m[1],
+        stmt: src.slice(m.index, end === -1 ? src.length : end),
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * Builder writes to an inheriting table whose predicate carries tenancy by
+ * some route a regex cannot confirm. Each needs a reason a person wrote down.
+ */
+const BUILDER_EXEMPT: Exemption[] = [
+  {
+    file: "lib/data.ts",
+    match: /\.set\(\{ messageId \}\)/,
+    why:
+      "backfillOutboundMessageId: updates by ticket_messages.id, and that id " +
+      "comes from the select immediately above it, which is constrained to " +
+      "one ticketId. The caller is the inbound webhook, which reaches this " +
+      "only after matching the ticket's replyToken — ids are guessable, " +
+      "tokens are not, so the token is what establishes tenancy and it is " +
+      "established before this is called.",
+  },
+  {
+    file: "lib/campaign-send.ts",
+    match: /providerMessageId: res\.id \?\? null/,
+    why:
+      "Stamps the provider's id on the recipient row just sent to. Keyed by " +
+      "campaign_recipients.id taken from the claim statement above, which is " +
+      "raw SQL, joins up to campaigns and IS policed by the sweep at the top " +
+      "of this file. The tenancy travels with the claimed row.",
+  },
+  {
+    file: "lib/campaign-send.ts",
+    match: /status: "failed"/,
+    why:
+      "The same claimed row as the entry above, on the failure branch. Keyed " +
+      "by the same campaign_recipients.id from the same policed claim.",
+  },
+  {
+    file: "app/api/webhooks/resend/route.ts",
+    match: /eq\(ticketMessages\.providerMessageId, providerId\)/,
+    why:
+      "Keyed by provider_message_id — the opaque id Resend issued for one " +
+      "send, unique platform-wide, arriving only from a signature-verified " +
+      "webhook. The key IS the tenancy and there is no caller-supplied " +
+      "workspace to filter by. Identical reasoning to noteProviderFeedback in " +
+      "lib/suppressions.ts, exempted above for the SES side of the same idea.",
+  },
+];
+
+describe("builder writes to tables with no workspace_id are scoped or exempted", () => {
+  const inheriting = inheritsTenancy();
+  const writes = builderWrites();
+
+  it("derives the inheriting tables from the schema, and finds them", () => {
+    // If this collapses the derivation has broken — most likely because the
+    // schema gained another way of spelling a table. Fix inheritsTenancy();
+    // do not lower this.
+    expect(inheriting.has("ticket_messages")).toBe(true);
+    expect(inheriting.has("ticket_labels")).toBe(true);
+    expect(inheriting.has("campaign_recipients")).toBe(true);
+    // …and tables that DO carry a workspace_id must not be in it, or the
+    // guard would demand exemptions for statements that are plainly scoped.
+    expect(inheriting.has("tickets")).toBe(false);
+    expect(inheriting.has("contact_notes")).toBe(false);
+    expect(inheriting.has("auto_reply_queue")).toBe(false);
+  });
+
+  it("the builder sweep is actually finding statements", () => {
+    expect(writes.length).toBeGreaterThanOrEqual(15);
+    const files = new Set(writes.map((w) => w.file));
+    expect(files).toContain("lib/data.ts");
+    expect(files).toContain("app/api/webhooks/resend/route.ts");
+  });
+
+  it("no builder write to an inheriting table is unaccounted for", () => {
+    const offenders: string[] = [];
+
+    for (const w of writes) {
+      if (!inheriting.has(w.table)) continue;
+      // A predicate naming workspaceId is scoped on its face.
+      if (/workspaceId/.test(w.stmt)) continue;
+      if (BUILDER_EXEMPT.some((e) => e.file === w.file && e.match.test(w.stmt)))
+        continue;
+
+      offenders.push(
+        `${w.file} [${w.op} ${w.table}]: ${w.stmt
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 140)}…`,
+      );
+    }
+
+    expect(
+      offenders,
+      `Builder ${offenders.length === 1 ? "write" : "writes"} to a table with ` +
+        `no workspace_id, with no workspace predicate and no recorded reason:` +
+        `\n  ${offenders.join("\n  ")}\n\n` +
+        `Either constrain the statement by workspace, or add an entry to ` +
+        `BUILDER_EXEMPT explaining what carries tenancy instead. Do not add ` +
+        `an entry you cannot justify in a sentence — the point of the list is ` +
+        `that somebody had to think, not that the suite went green.`,
+    ).toEqual([]);
+  });
+
+  it("every builder exemption still matches a real statement", () => {
+    // A stale exemption is worse than none: it reads as though somebody
+    // checked, while protecting nothing.
+    for (const e of BUILDER_EXEMPT) {
+      const hit = writes.some((w) => w.file === e.file && e.match.test(w.stmt));
+      expect(hit, `Stale BUILDER_EXEMPT entry for ${e.file}: ${e.match}`).toBe(
+        true,
+      );
+    }
+  });
+
+  it("every builder exemption gives a reason", () => {
+    for (const e of BUILDER_EXEMPT) {
+      expect(e.why.length, `${e.file} needs a real reason`).toBeGreaterThan(60);
+    }
+  });
+});
