@@ -4,7 +4,10 @@ import type {
   BusinessHours,
   TicketSource,
 } from "@/db/schema";
-import { DEFAULT_BUSINESS_HOURS } from "./business-hours";
+import {
+  DEFAULT_BUSINESS_HOURS,
+  isWithinBusinessHours,
+} from "./business-hours";
 
 /**
  * Auto-acknowledgement engine — the decision half.
@@ -212,6 +215,127 @@ export const DELAY_LABELS: Record<AutoReplyDelay, string> = {
   "5min": "After 5 minutes",
   "1hr": "After 1 hour",
 };
+
+// ── Deferral (out-of-hours) ──────────────────────────────────────
+
+/**
+ * How far ahead we are willing to hold an acknowledgement.
+ *
+ * Eight days rather than seven: a window on a single weekday must still be
+ * findable from any moment in the week, and seven days exactly makes the
+ * boundary case a coin toss. Anything that needs longer than this means the
+ * window is effectively "never", and holding a customer's acknowledgement for
+ * a fortnight is not deferral, it is loss with extra steps.
+ */
+export const DEFERRAL_HORIZON_DAYS = 8;
+
+/**
+ * A deferred acknowledgement that missed its window this badly is dropped
+ * rather than sent. Twelve hours means an ordinary outage of the sweep (which
+ * is best-effort GitHub Actions — see .github/workflows) still delivers, while
+ * a sweep that was dead for two days does not wake up and mail everybody an
+ * acknowledgement for enquiries they have long since had a human answer to.
+ */
+export const DEFERRAL_STALE_AFTER_MS = 12 * 60 * 60 * 1000;
+
+const MINUTE_MS = 60_000;
+/** Coarse scan step. Any window edge is found within this, then refined. */
+const COARSE_STEP_MINUTES = 15;
+
+/**
+ * The next instant at which `hours` is open, or null if there isn't one.
+ *
+ * ── WHY IT SCANS INSTEAD OF DOING ARITHMETIC ──
+ *
+ * The obvious implementation adds days and hours to a Date. That is wrong
+ * twice a year and wrong permanently for half-hour zones: 09:00 local is not
+ * a fixed number of milliseconds away from any given instant, because the
+ * offset in between may change. The evaluator we must agree with —
+ * `isWithinBusinessHours` — never does offset arithmetic either; it asks Intl
+ * what the wall clock reads in the zone.
+ *
+ * So this walks forward asking that same question. Fifteen-minute steps until
+ * the answer becomes "open" (at most ~770 checks over the horizon), then one
+ * minute at a time backwards to find the exact opening minute. The result is
+ * therefore consistent with the evaluator BY CONSTRUCTION, including across a
+ * DST transition and on a window that wraps midnight, rather than by a second
+ * implementation of the same rules that has to be kept in step.
+ *
+ * Returns null when: no usable window, `now` is already inside one (there is
+ * nothing to defer — send it), or nothing opens within the horizon.
+ */
+export function nextBusinessHoursOpening(
+  now: Date,
+  hours: BusinessHours | null | undefined,
+  timeZone: string,
+): Date | null {
+  if (!hours || !Array.isArray(hours.days) || hours.days.length === 0) {
+    return null;
+  }
+  if (isWithinBusinessHours(now, hours, timeZone)) return null;
+
+  // Start from the next whole minute: due times are minute-granular, and
+  // starting mid-minute would make the refinement below return a moment a few
+  // seconds before the window it claims to be the start of.
+  const startMs = Math.ceil(now.getTime() / MINUTE_MS) * MINUTE_MS;
+  const horizonMs = startMs + DEFERRAL_HORIZON_DAYS * 24 * 60 * MINUTE_MS;
+
+  for (
+    let ms = startMs;
+    ms <= horizonMs;
+    ms += COARSE_STEP_MINUTES * MINUTE_MS
+  ) {
+    if (!isWithinBusinessHours(new Date(ms), hours, timeZone)) continue;
+
+    // Inside. Walk back to the first minute that is still inside — never past
+    // `startMs`, and never more than one coarse step, because the previous
+    // coarse probe was outside.
+    let openAt = ms;
+    for (let i = 0; i < COARSE_STEP_MINUTES; i += 1) {
+      const earlier = openAt - MINUTE_MS;
+      if (earlier < startMs) break;
+      if (!isWithinBusinessHours(new Date(earlier), hours, timeZone)) break;
+      openAt = earlier;
+    }
+    return new Date(openAt);
+  }
+
+  return null;
+}
+
+/**
+ * Should an enquiry suppressed by the schedule be HELD, and until when?
+ *
+ * Only `business_hours` defers, and the asymmetry is the point:
+ *
+ *  • `business_hours` means "acknowledge people while we're open". An enquiry
+ *    at 21:00 is exactly the case the client had in mind, and dropping it is
+ *    the bug this function exists to fix. Held until 09:00.
+ *  • `out_of_hours` means "acknowledge people ONLY when we're closed" — an
+ *    after-hours "we're not here" notice. Suppression happens when we are
+ *    OPEN, i.e. when a human is available to answer properly. Holding that
+ *    message until the office closes so a customer receives "we're closed"
+ *    hours after they were already helped would be worse than silence.
+ *  • `always` never suppresses on schedule at all.
+ *
+ * Returns null when there is nothing to hold for: wrong mode, no usable
+ * window, or nothing opening inside the horizon. The caller must treat null as
+ * "this really is dropped" and say so.
+ *
+ * Pure, and shared with the settings screen on purpose: the sentence the
+ * client reads about what happens tonight is computed by the same code that
+ * decides it.
+ */
+export function planDeferral(
+  config: Pick<
+    AutoReplyConfig,
+    "scheduleMode" | "businessHours" | "timezone"
+  >,
+  now: Date,
+): Date | null {
+  if (config.scheduleMode !== "business_hours") return null;
+  return nextBusinessHoursOpening(now, config.businessHours, config.timezone);
+}
 
 export const SCHEDULE_LABELS: Record<AutoReplySchedule, string> = {
   always: "Always",

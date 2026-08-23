@@ -71,6 +71,13 @@
       "when": 1787479197593,
       "tag": "0009_familiar_luckman",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787480865709,
+      "tag": "0010_cool_lake",
+      "breakpoints": true
     }
   ]
 }

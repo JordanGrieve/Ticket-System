@@ -120,9 +120,13 @@ surfaced this to nobody, which is now tracked as a product gap.
   requires an open audit row, not merely a cookie.
 - **Notifications** — new tickets and customer replies email the workspace, with
   a loop guard so forwarded mailboxes can't create infinite ticket loops.
-- **Auto-reply engine** — business-hours aware, with loop guards. Only the
-  `immediate` delay is supported; `5min` and `1hr` need a general job scheduler
-  that still does not exist.
+- **Auto-reply engine** — business-hours aware, with loop guards. Enquiries
+  arriving outside a workspace's hours are HELD in `auto_reply_queue` and sent
+  shortly after it next opens, by `/api/cron/auto-replies`
+  (.github/workflows/auto-reply-sweep.yml); every guard and both rate limiters
+  re-run at send time, never at queue time. They used to be dropped silently.
+  Only the `immediate` delay is supported; `5min` and `1hr` are still unwired —
+  the queue could carry them, but nothing puts an in-hours reply into it.
 - **Security hardening (audits 1 & 2, plus a later pass over internet-reachable
   paths)** — per-ticket secret reply tokens, webhook idempotency by Message-ID,
   input length caps on all public surfaces, reply rate limiting, Clerk

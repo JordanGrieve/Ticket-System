@@ -9,6 +9,7 @@ import {
   SCHEDULE_LABELS,
   buildMergeValues,
   isDelaySupported,
+  planDeferral,
   renderTemplate,
   type AutoReplyConfig,
 } from "@/lib/auto-reply";
@@ -64,6 +65,23 @@ function timeZones(): string[] {
 }
 
 type FieldKey = "subject" | "body" | "outOfHoursBody";
+
+/** "Monday at 09:00", in the workspace's own zone — the clock its staff read. */
+function describeMoment(date: Date, timeZone: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone,
+      weekday: "long",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(date);
+    const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+    return `${get("weekday")} at ${get("hour")}:${get("minute")}`;
+  } catch {
+    return "the next time you're open";
+  }
+}
 
 export default function AutoReplySettings({
   initialConfig,
@@ -173,8 +191,12 @@ export default function AutoReplySettings({
     workspaceName,
   });
 
+  // Mirrors the send path's choice, including the mode in which the
+  // out-of-hours copy is never reached — see `outOfHoursBodyUsed` below.
   const previewBodyTemplate =
-    previewOutOfHours && config.outOfHoursBody?.trim()
+    previewOutOfHours &&
+    config.scheduleMode !== "business_hours" &&
+    config.outOfHoursBody?.trim()
       ? config.outOfHoursBody
       : config.body;
 
@@ -195,8 +217,29 @@ export default function AutoReplySettings({
     nowInZone.minute,
   ).padStart(2, "0")}`;
 
+  // The same function the send path calls. If this says a held reply goes out
+  // on Monday morning, that is because the sweep will compute exactly this.
+  // Null while the workspace is OPEN (there is nothing to hold), so it cannot
+  // stand in for "does this schedule defer at all" — that is `canDefer`.
+  const deferUntil = planDeferral(config, now);
+  const canDefer =
+    config.scheduleMode === "business_hours" &&
+    scheduleNow.reason !== "no_window_configured";
+  // What actually happens to an enquiry arriving this second.
+  const rightNow: "sends" | "held" | "dropped" = scheduleNow.allowed
+    ? "sends"
+    : deferUntil
+      ? "held"
+      : "dropped";
+
   const hoursNeeded =
     config.scheduleMode !== "always" || !!config.outOfHoursBody?.trim();
+
+  // In "During business hours only" the acknowledgement is never composed
+  // while the workspace is closed — a held one goes out after opening, in
+  // hours — so the out-of-hours copy below is dead text in that mode. Saying so
+  // is cheaper than letting someone write a message that is never sent.
+  const outOfHoursBodyUsed = config.scheduleMode !== "business_hours";
 
   return (
     <div className="st-wrap">
@@ -204,9 +247,10 @@ export default function AutoReplySettings({
         <div className="st-head-text">
           <h1 className="st-title">Auto-reply</h1>
           <p className="st-sub">
-            Send an instant acknowledgement so people know their message landed.
-            It goes out once per enquiry, never to a robot, and never on top of a
-            teammate&rsquo;s reply.
+            Send an acknowledgement so people know their message landed. It goes
+            out once per enquiry, never to a robot, and never on top of a
+            teammate&rsquo;s reply — immediately, or held until you open if
+            you&rsquo;ve limited it to business hours.
           </p>
         </div>
         <div className="st-head-actions">
@@ -285,7 +329,7 @@ export default function AutoReplySettings({
                       title={
                         supported
                           ? undefined
-                          : "Delayed sending isn't built — there's no queue or scheduled worker to wake up and send it."
+                          : "Delayed sending isn't built. Held out-of-hours replies use a queue, but nothing yet puts a fixed delay on an in-hours one."
                       }
                       onClick={() => patch({ delay: d })}
                     >
@@ -296,11 +340,11 @@ export default function AutoReplySettings({
                 })}
               </div>
               <p className="st-help st-help--warn">
-                Only immediate sending is available. A delayed acknowledgement
-                has to survive the HTTP response returning, and this app runs on
-                serverless functions with no job queue and no scheduled worker —
-                so there is nothing alive to send it later. Offering the option
-                would mean enabling auto-replies and silently sending nothing.
+                Only immediate sending is available. A fixed delay isn&rsquo;t
+                wired up: out-of-hours acknowledgements are now held in a queue
+                and released when you open, but nothing yet holds an in-hours
+                one back by five minutes or an hour. Offering the option would
+                mean switching auto-replies on and silently sending nothing.
               </p>
             </fieldset>
 
@@ -320,6 +364,35 @@ export default function AutoReplySettings({
                   </button>
                 ))}
               </div>
+              <p className="st-help">
+                {config.scheduleMode === "business_hours" && (
+                  <>
+                    Enquiries that arrive while you&rsquo;re closed are{" "}
+                    <b>held, not dropped</b>. The acknowledgement is sent
+                    shortly after you next open — usually within a few minutes
+                    of opening time, not on the dot. Nothing is held for longer
+                    than half a day past its due time; if it goes stale that
+                    long it is dropped rather than sent late.
+                  </>
+                )}
+                {config.scheduleMode === "out_of_hours" && (
+                  <>
+                    Only enquiries arriving while you&rsquo;re <b>closed</b> get
+                    an acknowledgement. One that arrives while you&rsquo;re open
+                    gets nothing and is <b>not</b> held for later — a
+                    &ldquo;we&rsquo;re closed&rdquo; message sent hours after
+                    one of your team has already replied would be worse than
+                    silence.
+                  </>
+                )}
+                {config.scheduleMode === "always" && (
+                  <>
+                    Every enquiry is acknowledged as it arrives, at any hour.
+                    Set an out-of-hours message below if the wording should
+                    change when you&rsquo;re closed.
+                  </>
+                )}
+              </p>
             </fieldset>
 
             {hoursNeeded && (
@@ -391,12 +464,38 @@ export default function AutoReplySettings({
                 </fieldset>
 
                 <p className="st-status" role="status">
-                  <span className="st-dot" data-on={scheduleNow.allowed} aria-hidden />
+                  <span
+                    className="st-dot"
+                    data-on={rightNow !== "dropped"}
+                    aria-hidden
+                  />
                   Right now it is <b>{clock}</b> in {config.timezone} —{" "}
                   {inHoursNow ? "inside" : "outside"} business hours, so an
                   enquiry arriving this second would{" "}
-                  <b>{scheduleNow.allowed ? "get" : "not get"}</b> an auto-reply.
+                  {rightNow === "sends" && <b>be acknowledged straight away</b>}
+                  {rightNow === "held" && deferUntil && (
+                    <>
+                      <b>be held</b> and acknowledged shortly after{" "}
+                      <b>{describeMoment(deferUntil, config.timezone)}</b>
+                    </>
+                  )}
+                  {rightNow === "dropped" && (
+                    <b>never be acknowledged at all</b>
+                  )}
+                  .
                 </p>
+
+                {rightNow === "dropped" &&
+                  config.scheduleMode === "business_hours" && (
+                    <p className="st-help st-help--warn">
+                      There are no open days set, so there is no next opening to
+                      hold an acknowledgement for. Every enquiry arriving while
+                      this is the case is dropped silently — the ticket is still
+                      created, but the customer hears nothing. Pick at least one
+                      day above, or switch the schedule to
+                      &ldquo;Always&rdquo;.
+                    </p>
+                  )}
               </>
             )}
           </section>
@@ -460,14 +559,27 @@ export default function AutoReplySettings({
                   patch({ outOfHoursBody: e.target.value || null })
                 }
               />
-              {!config.outOfHoursBody?.trim() && (
-                <button
-                  type="button"
-                  className="st-linkbtn"
-                  onClick={() => patch({ outOfHoursBody: DEFAULT_OUT_OF_HOURS_BODY })}
-                >
-                  Use a suggested out-of-hours message
-                </button>
+              {!outOfHoursBodyUsed ? (
+                <p className="st-help st-help--warn">
+                  Not used with this schedule. On &ldquo;During business hours
+                  only&rdquo; nothing is ever sent while you&rsquo;re closed —
+                  an enquiry from last night is acknowledged after you open, so
+                  it gets the message above, not this one. It applies on
+                  &ldquo;Always&rdquo; and on &ldquo;Outside business hours
+                  only&rdquo;.
+                </p>
+              ) : (
+                !config.outOfHoursBody?.trim() && (
+                  <button
+                    type="button"
+                    className="st-linkbtn"
+                    onClick={() =>
+                      patch({ outOfHoursBody: DEFAULT_OUT_OF_HOURS_BODY })
+                    }
+                  >
+                    Use a suggested out-of-hours message
+                  </button>
+                )
               )}
             </label>
           </section>
@@ -526,7 +638,7 @@ export default function AutoReplySettings({
               >
                 No name
               </button>
-              {config.outOfHoursBody?.trim() && (
+              {outOfHoursBodyUsed && config.outOfHoursBody?.trim() && (
                 <button
                   type="button"
                   className="st-chip"
@@ -584,6 +696,18 @@ export default function AutoReplySettings({
                 <dt>Hours</dt>
                 <dd>{describeBusinessHours(hours, config.timezone)}</dd>
               </div>
+              <div className="st-summary-row">
+                <dt>While closed</dt>
+                <dd>
+                  {config.scheduleMode === "always"
+                    ? "Acknowledged straight away"
+                    : config.scheduleMode === "out_of_hours"
+                      ? "Acknowledged straight away (in hours: nothing)"
+                      : canDefer
+                        ? "Held until you open"
+                        : "Nothing sent, ever"}
+                </dd>
+              </div>
             </dl>
           </section>
 
@@ -606,6 +730,12 @@ export default function AutoReplySettings({
                 hour.
               </li>
             </ul>
+            <p className="st-help">
+              A held out-of-hours acknowledgement is checked against every one
+              of these again at the moment it goes out — not when it was held.
+              If a teammate answered overnight, or the sender turns out to be
+              another robot, it is dropped in the morning rather than sent.
+            </p>
           </section>
         </div>
       </div>

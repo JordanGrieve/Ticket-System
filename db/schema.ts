@@ -507,6 +507,93 @@ export const autoReplies = pgTable(
   (t) => [uniqueIndex("auto_replies_workspace_idx").on(t.workspaceId)],
 );
 
+/**
+ * Lifecycle of one deferred acknowledgement.
+ *
+ * `sending` is a claim latch, not a state anyone waits in: the sweep flips
+ * `pending → sending` inside the claiming UPDATE, so two overlapping ticks
+ * cannot both pick up the same row. A row that dies in `sending` (function
+ * killed mid-flight) stays there rather than being retried, which is the safe
+ * direction — the cost is one acknowledgement not sent, not one sent twice.
+ */
+export type AutoReplyQueueStatus =
+  | "pending"
+  | "sending"
+  | "sent"
+  | "suppressed"
+  | "failed";
+
+/**
+ * Deferred auto-acknowledgements — the queue behind "hold it until we're open".
+ *
+ * ── WHY A TABLE AND NOT A DELAY ──
+ *
+ * Before this existed, an enquiry that arrived outside a workspace's business
+ * hours was simply DROPPED: `decideAutoReply` returned `schedule` and nothing
+ * ever revisited it. A customer emailing at 21:00 got the acknowledgement the
+ * workspace had configured, paid for and switched on — never. Nobody was told:
+ * not the customer, not the client.
+ *
+ * There is no in-process timer that could have fixed that. This app is
+ * serverless; the function that handled the enquiry is gone milliseconds later.
+ * A durable row plus the existing scheduled sweep is the only shape that works.
+ *
+ * ── ONE ROW PER TICKET, FOREVER ──
+ *
+ * `ticket_id` is UNIQUE, and terminal rows are never deleted by the sweep. That
+ * makes enqueueing idempotent (a retried webhook cannot queue a second
+ * acknowledgement) and makes "did we already handle this ticket?" answerable
+ * from this table alone. It mirrors the one-acknowledgement-per-ticket rule the
+ * guard chain already enforces against ticket_messages.
+ *
+ * ── WHAT IS AND IS NOT STORED ──
+ *
+ * `headers` is the normalised inbound header map, and it is here for one
+ * reason: the automated/bulk guard reads it, and the webhook payload it came
+ * from does not survive to the morning. Every OTHER guard input — the config,
+ * who has replied since, the rate-limit counters — is deliberately NOT stored,
+ * because those must be re-evaluated at SEND time rather than frozen at queue
+ * time. The rendered subject and body are not stored either, for the same
+ * reason: an edit to the template between 21:00 and 09:00 should be honoured.
+ */
+export const autoReplyQueue = pgTable(
+  "auto_reply_queue",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    ticketId: integer("ticket_id")
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    /** The next moment the workspace is open, computed in its own timezone. */
+    dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
+    status: text("status")
+      .$type<AutoReplyQueueStatus>()
+      .notNull()
+      .default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    /** Normalised inbound headers — the automated/bulk guard's only input. */
+    headers: jsonb("headers").$type<Record<string, string>>(),
+    /** Why a row ended where it did: a suppression reason, or a send error. */
+    reason: text("reason"),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // Idempotency: one queued acknowledgement per ticket, ever.
+    uniqueIndex("auto_reply_queue_ticket_idx").on(t.ticketId),
+    // The sweep's only query: pending rows that are due, oldest first.
+    index("auto_reply_queue_due_idx").on(t.status, t.dueAt),
+    index("auto_reply_queue_workspace_idx").on(t.workspaceId),
+  ],
+);
+
 // ── Mailer ───────────────────────────────────────────────────────
 
 export type SubscriberStatus =
@@ -938,6 +1025,7 @@ export type TicketRead = typeof ticketReads.$inferSelect;
 export type Attachment = typeof attachments.$inferSelect;
 export type Form = typeof forms.$inferSelect;
 export type AutoReply = typeof autoReplies.$inferSelect;
+export type AutoReplyQueueRow = typeof autoReplyQueue.$inferSelect;
 export type Subscriber = typeof subscribers.$inferSelect;
 export type List = typeof lists.$inferSelect;
 export type ListSubscriber = typeof listSubscribers.$inferSelect;

@@ -1,0 +1,121 @@
+name: Auto-reply sweep
+
+# Drives GET /api/cron/auto-replies — the deferred acknowledgement worker
+# (lib/auto-reply-send.ts, sweepAutoReplyQueue). One invocation claims at most
+# AUTO_REPLY_SWEEP_LIMIT (25) held acknowledgements that are now due and sends
+# them; the next run continues.
+#
+# ── WHY IT EXISTS ──
+#
+# A workspace set to "During business hours only" had its out-of-hours
+# acknowledgements dropped, not deferred. The enquiry at 21:00 got nothing,
+# ever, and nobody was told. The queue holds those until the next opening
+# minute; without this job the queue simply fills up, which would be the same
+# silence with a table behind it.
+#
+# ── WHY IT IS NOT VERCEL CRON ──
+#
+# Hobby plan: daily expressions only. "We got your message" delivered up to 24
+# hours later is not an acknowledgement.
+#
+# ── WHY IT IS A SEPARATE JOB FROM campaign-sweep.yml ──
+#
+# Different blast radius and different failure mode. The campaign sweep sends
+# marketing mail and is the noisier, riskier job; this one sends transactional
+# acknowledgements. Sharing a workflow would mean one failing step stops the
+# other, and a red run would not say which.
+#
+# ── SAME BEST-EFFORT CAVEATS AS THE OTHER SCHEDULES ──
+#
+# GitHub scheduled workflows are delayed under runner load, dropped entirely
+# under sustained load with no retry or backfill, and DISABLED AUTOMATICALLY
+# after 60 days without a commit. Observed cadence on the five-minute campaign
+# sweep in this repo is nearer twenty minutes. So a held acknowledgement is
+# "shortly after opening", never "at 09:00:00" — which is why the settings
+# screen says "shortly after" and not a precise time.
+#
+# If this job stops entirely, held acknowledgements go stale after twelve hours
+# and are then dropped by the sweep rather than delivered days late. The
+# enquiry itself is never affected: the ticket exists either way.
+
+on:
+  schedule:
+    # Every five minutes. See the caveats above: a request, not a guarantee.
+    - cron: '*/5 * * * *'
+  # So a human can force a drain from the Actions tab.
+  workflow_dispatch:
+
+# Two sweeps must never overlap. The claim latch tolerates it, but both runs
+# would spend the same per-tick budget on the same rows.
+#
+# cancel-in-progress is FALSE deliberately: killing a running sweep can land
+# between a row's claim UPDATE and its provider call, which loses that one
+# acknowledgement. A queued run waiting behind it costs nothing.
+concurrency:
+  group: auto-reply-sweep
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    # Comfortably above the route's own maxDuration of 60s.
+    timeout-minutes: 5
+    steps:
+      - name: Call the sweep endpoint
+        env:
+          # Repository VARIABLE — the origin is public. e.g. https://postbox.help
+          APP_URL: ${{ vars.APP_URL }}
+          # Repository SECRET, shared with the campaign and health jobs: one
+          # credential to rotate, not three. Must be byte-identical to the
+          # CRON_SECRET environment variable on the Vercel project or every
+          # tick 401s.
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        # Explicit, because the default `run` shell is `bash -e {0}` and would
+        # kill this step on curl's non-zero exit before the status and body are
+        # echoed — which is the whole point of printing them.
+        shell: bash
+        run: |
+          set -uo pipefail
+          set +e
+
+          if [ -z "${APP_URL}" ]; then
+            echo "::error::Repository variable APP_URL is not set. Set it to the deployed origin, e.g. https://postbox.help"
+            exit 1
+          fi
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "::error::Repository secret CRON_SECRET is not set. The sweep route refuses every caller without it and would 401 forever, silently."
+            exit 1
+          fi
+
+          URL="${APP_URL%/}/api/cron/auto-replies"
+          echo "Sweeping ${URL}"
+
+          # --fail-with-body so a 401 or 503 is diagnosable from the log without
+          # re-running by hand. The endpoint returns counts only, never
+          # customer addresses.
+          RAW=$(curl --fail-with-body -sS \
+                     --max-time 120 \
+                     -H "Authorization: Bearer ${CRON_SECRET}" \
+                     -w $'\n%{http_code}' \
+                     "${URL}")
+          CURL_EXIT=$?
+
+          STATUS=$(printf '%s' "${RAW}" | tail -n 1)
+          BODY=$(printf '%s' "${RAW}" | sed '$d')
+
+          echo "HTTP status: ${STATUS:-<none>}"
+          echo "Response body:"
+          echo "${BODY:-<empty>}"
+
+          if [ "${CURL_EXIT}" -ne 0 ]; then
+            # Loud and failing, on purpose. A cron that quietly 401s for weeks
+            # is how this project lost five weeks on another endpoint; a red
+            # run in the Actions tab is the cheapest possible alarm.
+            echo "::error::Auto-reply sweep failed (curl exit ${CURL_EXIT}, HTTP ${STATUS:-unknown}). No held acknowledgements were sent this tick."
+            exit 1
+          fi
+
+          echo "Sweep completed."
