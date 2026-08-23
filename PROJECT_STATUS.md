@@ -1,9 +1,49 @@
 # Postbox — Project Status
 
-**Date:** 22 August 2026 (rewritten; the previous version was dated 1 August and
-predated the newsletter pivot entirely)
+**Date:** 23 August 2026
 **Repo:** `JordanGrieve/Ticket-System` (public) · **Live:** https://postbox.help
-**Head:** `c711857` · updated late 22 August after the signup, CAN-SPAM and test-send work
+**Head:** `0e71257` · 24 commits on 23 August alone — see “What changed on 23 August” below
+
+## What changed on 23 August
+
+A long day. In rough order of how much they matter:
+
+**The goal moved and then stalled.** Newsletter signup was verified end to end
+in production (a real double opt-in, consent evidence written, an audience that
+finally selects non-empty). A real message was sent through Amazon SES and its
+headers inspected: SPF, DKIM and DMARC all pass, one-click unsubscribe present,
+CAN-SPAM footer carrying the postal address. Gmail filed it as Spam — reputation,
+not authentication, and expected for a subdomain that had never sent.
+
+Then **Amazon DENIED production access** (case 178747420600793). Enforcement is
+HEALTHY, so this is not a reputation problem. The eu-west-1 form has no
+free-text field, so the request is judged against the website — which described
+only the support-ticket product. The homepage now describes the newsletter side
+too. The case must be REPLIED to, not reopened as a new one.
+
+**Two silent failures were found, both of the same shape.** The tenancy guard —
+the control proving every raw SQL statement carries its workspace predicate —
+had been passing while blind to most of the code it policed: its extractor
+missed typed `sql<T>` fragments entirely and truncated any statement containing
+a nested template, including the INSERT that decides which tenant a campaign
+recipient belongs to. And CI had been red for six commits without anyone
+noticing, because Vercel kept deploying (it sets VERCEL_ENV, which the new
+database guard accepts) and the only signal was a tick nobody read.
+
+**Local development stopped running against production.** There was never a dev
+database; every dev server, seed script and ad-hoc query hit live customer
+records. There is now a schema-only Neon branch with fake data, and db/guard.ts
+refuses any database not declared as development. See docs/DEV-DATABASE.md.
+
+**Things that now notice when they break**: a quiet-workspace detector (the
+admin console showed Open Door Bakery as “No enquiries yet” for the six weeks its
+contact form was broken), rejected-ingestion logging, per-campaign stall
+diagnosis, and a daily Sentry sweep that pushes all of it.
+
+**Smaller, but real**: rate limits now hold across instances; impersonation
+access expires on the heartbeat without writing a false end time to the audit
+log; clients can invite a teammate; Settings gained Labels and Team; the Sent
+folder exists; bare links stopped failing contrast on four of six themes.
 
 ## Overview
 
@@ -146,11 +186,23 @@ Elsewhere:
 
 Human/dashboard actions, not code. Full detail in `HUMAN_ACTIONS.md`.
 
-1. **`CRON_SECRET` is probably unset, and now needs setting twice** — the
-   campaign sweep fails closed with 503 until it is. It is documented in
-   `.env.example` now, and the same value must go in both Vercel's env vars and
-   the GitHub Actions repository secrets, since Actions drives the sweep. A
-   `APP_URL` repository variable is needed alongside it. Three minutes to fix.
+1. **Reply to the DENIED SES case (178747420600793)** — this is the only thing
+   standing between the product and its stated goal. Reply on the SAME case;
+   opening a new one restarts the queue. `docs/SES-PRODUCTION-ACCESS.md` §3 is
+   the detailed use-case text the console form gave nowhere to put, and the
+   homepage now describes the newsletter side, which the original request was
+   judged against and did not mention.
+
+   ~~`CRON_SECRET` is probably unset~~ — DONE 23 Aug. Set in both Vercel and
+   the GitHub Actions **repository** secrets, with `APP_URL` as a repository
+   variable. Note the trap that cost time: they were first added as
+   *environment* secrets, which are invisible to a job that declares no
+   `environment:`, and resolve to empty strings with no error.
+
+1b. **Rotate the Neon `neondb_owner` password** — a dev-branch connection string
+   was pasted into a chat transcript on 23 Aug. Neon branches inherit role
+   passwords from the parent, so it is very likely the production password too.
+   The dev branch itself holds no customer data; the shared role is the risk.
 2. **Admin account 2FA** — the super-admin can read every client's data. Google
    2FA on the sign-in path is the free stand-in; Clerk MFA is a paid add-on and
    was deliberately deferred.
