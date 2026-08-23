@@ -178,6 +178,55 @@ export const tickets = pgTable(
      * somebody's message existed would defeat the erasure the purge performs.
      */
     deletedBy: text("deleted_by"),
+
+    // ── Archive ──────────────────────────────────────────────────────
+    //
+    // Distinct from `closed`, and the distinction is the point. Closing says
+    // something about the CONVERSATION — it is resolved, the customer got
+    // their answer. Archiving says something about the VIEW — get this off my
+    // inbox, I am done looking at it. A ticket can be archived and still open
+    // (a long-running wholesale negotiation nobody wants cluttering today's
+    // list) or closed and unarchived (resolved this morning, still on screen).
+    //
+    // Collapsing them into `status` would force a false choice: either
+    // archiving falsely marks a live conversation resolved, or closing
+    // falsely removes a resolved one from a view somebody wanted it in.
+    //
+    // NULL means not archived.
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+
+    // ── Snooze ───────────────────────────────────────────────────────
+    //
+    // The time it should come back. NULL means not snoozed.
+    //
+    // ── THERE IS NO UN-SNOOZE JOB, AND THAT IS DELIBERATE ──
+    // Snoozed is DERIVED, not stored: a ticket is snoozed while
+    // `snoozed_until > now()` and simply is not, one second later. The
+    // predicate is evaluated per query, so the ticket reappears in the inbox
+    // on its own with nothing having run.
+    //
+    // The board scoped this as needing a scheduler, sharing the cron
+    // dependency with delayed auto-reply and the impersonation reaper. It does
+    // not. A job that flips a boolean at wake time would add a moving part
+    // that can be down, be late, or run twice — and its only observable effect
+    // would be to reproduce what `snoozed_until > now()` already says. Every
+    // minute that job was broken, tickets would stay hidden past their time
+    // and nobody would know why.
+    //
+    // A scheduler DOES have a job here eventually, but a different one:
+    // NOTIFYING somebody that a snoozed ticket has woken. That is a message
+    // being sent, not a state being computed, and it is the kind of thing a
+    // sweep should own. It is not built.
+    //
+    // Same reasoning as shared links and the onboarding checklist: derive it,
+    // do not store a second copy of a fact the first copy already implies.
+    snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
+    /**
+     * Who snoozed it, as an email SNAPSHOT. Same reasoning as deletedBy: an
+     * agent id goes null when a teammate leaves, and "snoozed by nobody" is
+     * the wrong answer to "why did this vanish from our inbox for a week?".
+     */
+    snoozedBy: text("snoozed_by"),
   },
   (t) => [
     index("tickets_workspace_idx").on(t.workspaceId, t.updatedAt),
@@ -186,6 +235,11 @@ export const tickets = pgTable(
     // The purge sweep asks "what is past its 30 days?" across every workspace,
     // and every folder query asks "is this live?". Both are served by this.
     index("tickets_deleted_idx").on(t.deletedAt),
+    // Every inbox query now also asks "is this archived?" and "is this still
+    // snoozed?". Both are per-workspace questions, so they ride the workspace
+    // column rather than standing alone.
+    index("tickets_archived_idx").on(t.workspaceId, t.archivedAt),
+    index("tickets_snoozed_idx").on(t.workspaceId, t.snoozedUntil),
   ],
 );
 

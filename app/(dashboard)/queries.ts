@@ -80,7 +80,24 @@ export type MailFolder =
    * everywhere else from one place, so a new folder inherits the exclusion
    * rather than having to remember it.
    */
-  | "trash";
+  | "trash"
+  /**
+   * Off my inbox, but not resolved and not deleted.
+   *
+   * Deliberately NOT the same as `closed`. Closing is a claim about the
+   * conversation (the customer got their answer); archiving is a claim about
+   * the view (I am done looking at this). A ticket can be archived and open,
+   * or closed and unarchived. See db/schema.ts.
+   */
+  | "archived"
+  /**
+   * Hidden until a time that has not arrived yet.
+   *
+   * Derived from `snoozed_until > now()`, so a ticket leaves this folder and
+   * returns to the inbox on its own with nothing having run. There is no
+   * un-snooze job; see db/schema.ts for why there should not be one.
+   */
+  | "snoozed";
 
 export const MAIL_FOLDERS: MailFolder[] = [
   "all",
@@ -91,6 +108,8 @@ export const MAIL_FOLDERS: MailFolder[] = [
   "starred",
   "labeled",
   "sent",
+  "archived",
+  "snoozed",
   "trash",
 ];
 
@@ -232,6 +251,36 @@ export const notDeleted = sql`${tickets.deletedAt} IS NULL`;
 /** In the trash: soft-deleted and not yet purged. */
 const isDeleted = sql`${tickets.deletedAt} IS NOT NULL`;
 
+const notArchived = sql`${tickets.archivedAt} IS NULL`;
+const isArchived = sql`${tickets.archivedAt} IS NOT NULL`;
+
+/*
+ * Snoozed is a question about NOW, not a stored flag.
+ *
+ * `now()` is evaluated by Postgres per query, so a ticket whose time has
+ * passed stops matching `isSnoozed` and starts matching `notSnoozed` at the
+ * moment it should, with nothing having run. That is the whole reason there is
+ * no un-snooze job.
+ *
+ * Note `snoozed_until IS NULL OR …` in notSnoozed rather than a bare
+ * comparison: in SQL, NULL > now() is NULL, not false, so a never-snoozed
+ * ticket would fail a naive `snoozed_until <= now()` and vanish from every
+ * working folder. That is the entire inbox disappearing, from a three-valued
+ * logic slip.
+ */
+const isSnoozed = sql`${tickets.snoozedUntil} IS NOT NULL AND ${tickets.snoozedUntil} > now()`;
+const notSnoozed = sql`(${tickets.snoozedUntil} IS NULL OR ${tickets.snoozedUntil} <= now())`;
+
+/**
+ * The folders that answer "what needs attention now".
+ *
+ * Archived and still-snoozed tickets are hidden from these and ONLY these.
+ * They stay visible in All, Starred, Labelled, Sent and Closed, because those
+ * answer "where is that ticket?" — a folder that hides mail somebody is
+ * actively looking for is worse than one that shows too much.
+ */
+const WORKING_FOLDERS: MailFolder[] = ["inbox", "unread", "awaiting"];
+
 function folderWhere(
   workspaceId: number,
   agentId: number | null,
@@ -265,6 +314,16 @@ function folderWhere(
   // No status filter, unlike inbox/unread/awaiting: closing a ticket does not
   // unsend the reply we wrote on it.
   else if (folder === "sent") extra.push(sentExpr);
+  else if (folder === "archived") extra.push(isArchived);
+  else if (folder === "snoozed") extra.push(isSnoozed);
+
+  /*
+   * Applied AFTER the per-folder predicate and independently of it, so the two
+   * cannot be confused for each other. A ticket that is both archived and
+   * snoozed is hidden from the working folders once, and appears in both the
+   * Archived and Snoozed lists — which is true of it.
+   */
+  if (WORKING_FOLDERS.includes(folder)) extra.push(notArchived, notSnoozed);
 
   if (labelId !== undefined) extra.push(hasLabelExpr(workspaceId, labelId));
 
@@ -280,6 +339,10 @@ export type MailCounts = {
   starred: number;
   labeled: number;
   sent: number;
+  /** Off the inbox, but neither resolved nor deleted. */
+  archived: number;
+  /** Hidden until a time that has not arrived yet. */
+  snoozed: number;
   /** Soft-deleted and not yet purged. */
   trash: number;
 };
@@ -306,13 +369,15 @@ export const mailCounts = cache(
        */
       .select({
         all: sql<number>`(count(*) FILTER (WHERE ${notDeleted}))::int`,
-        inbox: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${notClosed}))::int`,
+        inbox: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${notClosed} AND ${notArchived} AND ${notSnoozed}))::int`,
         closed: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${tickets.status} = 'closed'))::int`,
-        awaiting: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${notClosed} AND ${lastDirection} = 'inbound'))::int`,
-        unread: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${notClosed} AND ${unreadExpr(agentId)}))::int`,
+        awaiting: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${notClosed} AND ${notArchived} AND ${notSnoozed} AND ${lastDirection} = 'inbound'))::int`,
+        unread: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${notClosed} AND ${notArchived} AND ${notSnoozed} AND ${unreadExpr(agentId)}))::int`,
         starred: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${starredExpr(agentId)}))::int`,
         labeled: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${labeledExpr(workspaceId)}))::int`,
         sent: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${sentExpr}))::int`,
+        archived: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${isArchived}))::int`,
+        snoozed: sql<number>`(count(*) FILTER (WHERE ${notDeleted} AND ${isSnoozed}))::int`,
         trash: sql<number>`(count(*) FILTER (WHERE ${isDeleted}))::int`,
       })
       .from(tickets)
@@ -327,6 +392,8 @@ export const mailCounts = cache(
       starred: row?.starred ?? 0,
       labeled: row?.labeled ?? 0,
       sent: row?.sent ?? 0,
+      archived: row?.archived ?? 0,
+      snoozed: row?.snoozed ?? 0,
       trash: row?.trash ?? 0,
     };
   },

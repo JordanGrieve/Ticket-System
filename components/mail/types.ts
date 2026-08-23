@@ -56,6 +56,17 @@ export type MailCountsDTO = {
   labeled: number;
   /** Tickets a person here has replied to at least once. */
   sent: number;
+  /** Off the inbox, but neither resolved nor deleted. */
+  archived: number;
+  /**
+   * Hidden until a future time.
+   *
+   * The one count that can change with nobody having done anything: the state
+   * is `snoozed_until > now()`, so a ticket leaves this the moment its time
+   * arrives. A cached render of the nav can therefore be stale in a way the
+   * others cannot — which is fine, because the next request recomputes it.
+   */
+  snoozed: number;
   /** Deleted, still recoverable, not yet purged. Every other count excludes these. */
   trash: number;
 };

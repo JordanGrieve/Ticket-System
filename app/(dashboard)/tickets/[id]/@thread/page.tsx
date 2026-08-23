@@ -23,6 +23,13 @@ import {
   trashTicketAction,
   restoreTicketAction,
 } from "../trash-actions";
+import {
+  archiveTicketAction,
+  unarchiveTicketAction,
+  snoozeTicketAction,
+  unsnoozeTicketAction,
+} from "../snooze-actions";
+import { isSnoozedNow, describeWakeIn } from "@/lib/snooze";
 
 /**
  * The `@thread` slot: the conversation, plus the contact rail that <Thread>
@@ -122,6 +129,31 @@ export default async function TicketThreadSlot({
       deletedBy={ticket.deletedBy}
       trashTicket={trashTicketAction}
       restoreTicket={restoreTicketAction}
+      archivedAt={
+        ticket.archivedAt ? new Date(ticket.archivedAt).toISOString() : null
+      }
+      /*
+        Passed only while the ticket is ACTUALLY still hidden.
+
+        The column keeps its value after the wake time — that is what lets a
+        ticket come back with nothing having run — so handing the raw value
+        down would have the thread claim "Snoozed" about a ticket that is
+        already back in the inbox. Deciding here also keeps the decision on one
+        side of the network: <Thread> does a null check, never a clock
+        comparison, so the banner cannot appear on the server and vanish on
+        hydration.
+      */
+      snoozedUntil={
+        isSnoozedNow(ticket.snoozedUntil, now)
+          ? (ticket.snoozedUntil as Date).toISOString()
+          : null
+      }
+      /* Relative, so it carries no timezone and is safe to compute here. */
+      wakeIn={describeWakeIn(ticket.snoozedUntil, now)}
+      archiveTicket={archiveTicketAction}
+      unarchiveTicket={unarchiveTicketAction}
+      snoozeTicket={snoozeTicketAction}
+      unsnoozeTicket={unsnoozeTicketAction}
       backHref={backHref}
       starred={personal.starred}
       unread={personal.unread}

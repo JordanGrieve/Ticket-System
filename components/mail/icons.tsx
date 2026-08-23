@@ -14,6 +14,14 @@ export const ICON_PATHS = {
   label: "M4 10.5V5.5a1.5 1.5 0 011.5-1.5h5l9 9-6.5 6.5-9-9z M8 8h.01",
   send: "M3.5 11.8L20 4.5l-7.3 16.5-2.2-6.6-7-2.6z",
   trash: "M4 7h16M9 7V4.8h6V7M6.5 7l1 12.5h9L17.5 7",
+  // A lidded box, deliberately NOT a variant of the trash glyph. Archive and
+  // delete are the two actions on this screen that both make a ticket vanish,
+  // and they mean opposite things about whether it is coming back — so they
+  // must not be told apart by a detail somebody has to look twice at.
+  archive: "M3.5 4.5h17v4h-17z M5 8.5v10.7h14V8.5 M9.5 12h5",
+  // A clock. Snooze is the only "later" concept in the product, so the hands
+  // carry it without needing a label at 18px.
+  clock: "M12 4.2a7.8 7.8 0 100 15.6 7.8 7.8 0 000-15.6z M12 7.8V12l2.9 1.9",
   news: "M4 5.5h13v13H5.5A1.5 1.5 0 014 17zM17 9h2.5A1.5 1.5 0 0121 10.5V17a1.5 1.5 0 01-1.5 1.5H17M7 9h7M7 12.5h7M7 15.5h4",
   settings:
     "M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 13.5l1.6 1-2 3.4-1.9-.6a7 7 0 01-1.7 1l-.4 2h-4l-.4-2a7 7 0 01-1.7-1l-1.9.6-2-3.4 1.6-1a7 7 0 010-2l-1.6-1 2-3.4 1.9.6a7 7 0 011.7-1l.4-2h4l.4 2a7 7 0 011.7 1l1.9-.6 2 3.4-1.6 1a7 7 0 010 2z",

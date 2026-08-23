@@ -13,6 +13,7 @@ import type { ContactNoteDTO } from "@/app/(dashboard)/queries";
 import type { SharedLink } from "@/lib/shared-links";
 import { describeRetention, describeDeletedBy } from "@/lib/trash";
 import { describeDeliveryStatus } from "@/lib/delivery-events";
+import { SNOOZE_OPTIONS } from "@/lib/snooze";
 import LabelPicker from "./LabelPicker";
 import StarButton from "./StarButton";
 import type { ContactCard, LabelChipDTO } from "./types";
@@ -39,6 +40,13 @@ export default function Thread({
   deletedBy,
   trashTicket,
   restoreTicket,
+  archivedAt,
+  snoozedUntil,
+  wakeIn,
+  archiveTicket,
+  unarchiveTicket,
+  snoozeTicket,
+  unsnoozeTicket,
   backHref,
   starred,
   unread,
@@ -75,6 +83,32 @@ export default function Thread({
   /** Server actions, passed down: this is a client file. */
   trashTicket: (formData: FormData) => void;
   restoreTicket: (formData: FormData) => void;
+  /** ISO timestamp if archived, else null. Drives the archive/unarchive toggle. */
+  archivedAt: string | null;
+  /**
+   * ISO timestamp this ticket is hidden until, or null if it is not snoozed.
+   *
+   * ── THE SERVER DECIDES WHETHER IT IS SNOOZED; THIS FILE ONLY FORMATS IT ──
+   * Non-null means "still snoozed as of the render". Re-testing the time here
+   * would make the BANNER'S EXISTENCE depend on the clock, and a server render
+   * either side of the wake time from its hydration would then be a mismatch
+   * React cannot reconcile. Deciding once, on the server, removes the class.
+   *
+   * The formatting stays here on purpose, for the opposite reason: a time
+   * formatted on the server renders UTC for everybody. Same rule as
+   * MessageDTO.sentAtIso.
+   */
+  snoozedUntil: string | null;
+  /**
+   * "in 3 hours" — computed on the SERVER, because a relative duration carries
+   * no timezone and so is safe to compute there, unlike the absolute time
+   * beside it.
+   */
+  wakeIn: string | null;
+  archiveTicket: (formData: FormData) => void;
+  unarchiveTicket: (formData: FormData) => void;
+  snoozeTicket: (formData: FormData) => void;
+  unsnoozeTicket: (formData: FormData) => void;
   backHref: string;
   /** Per-agent state. Both false when the viewer has no agent row here. */
   starred: boolean;
@@ -87,6 +121,7 @@ export default function Thread({
   const router = useRouter();
   const [status, setStatus] = useState<TicketStatus>(ticket.status);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [snoozeMenuOpen, setSnoozeMenuOpen] = useState(false);
   /**
    * Three states, not two. The rail should start open as a column on a wide
    * screen and closed as an overlay on a narrow one — a single boolean cannot
@@ -101,6 +136,7 @@ export default function Thread({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const statusRef = useRef<HTMLDivElement>(null);
+  const snoozeRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -120,6 +156,25 @@ export default function Thread({
       document.removeEventListener("pointerdown", onPointer);
     };
   }, [statusMenuOpen]);
+
+  // Esc / click-outside close the snooze menu. Same shape as the status menu
+  // above; kept as its own effect rather than merged so closing one cannot
+  // close the other by accident.
+  useEffect(() => {
+    if (!snoozeMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSnoozeMenuOpen(false);
+    };
+    const onPointer = (e: PointerEvent) => {
+      if (!snoozeRef.current?.contains(e.target as Node)) setSnoozeMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, [snoozeMenuOpen]);
 
   // Mirrors the mail.css breakpoint. Only used to keep aria-expanded truthful
   // while the rail is still in its "auto" state — layout is CSS's job.
@@ -282,6 +337,88 @@ export default function Thread({
               </button>
             )}
             {/*
+              Snooze and archive, hidden while the ticket is in the trash.
+
+              A deleted ticket is already out of every working folder, so
+              offering to hide it again would be offering an action with no
+              effect — and both buttons would compete with Restore, which is
+              the only thing anybody wants on that screen.
+            */}
+            {!deletedAt && (
+              <>
+                <div className="pbm-snooze" ref={snoozeRef}>
+                  {snoozedUntil ? (
+                    <form action={unsnoozeTicket}>
+                      <input type="hidden" name="ticketId" value={ticket.id} />
+                      <button
+                        className="pbm-icon-btn pbm-icon-btn--on"
+                        type="submit"
+                        aria-label="Wake this thread now"
+                        title="Snoozed — bring it back now"
+                      >
+                        <Icon name="clock" size={17} strokeWidth={1.8} />
+                      </button>
+                    </form>
+                  ) : (
+                    <>
+                      <button
+                        className="pbm-icon-btn"
+                        onClick={() => setSnoozeMenuOpen((v) => !v)}
+                        aria-haspopup="menu"
+                        aria-expanded={snoozeMenuOpen}
+                        aria-label="Snooze this thread"
+                        title="Snooze — it comes back to the inbox on its own"
+                      >
+                        <Icon name="clock" size={17} strokeWidth={1.8} />
+                      </button>
+                      {snoozeMenuOpen && (
+                        <div className="pbm-menu pbm-menu--snooze" role="menu">
+                          {SNOOZE_OPTIONS.map((o) => (
+                            <form
+                              key={o.minutes}
+                              action={snoozeTicket}
+                              onSubmit={() => setSnoozeMenuOpen(false)}
+                            >
+                              <input type="hidden" name="ticketId" value={ticket.id} />
+                              <input type="hidden" name="minutes" value={o.minutes} />
+                              <button
+                                role="menuitem"
+                                className="pbm-menu-item"
+                                type="submit"
+                              >
+                                {o.label}
+                              </button>
+                            </form>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+                <form action={archivedAt ? unarchiveTicket : archiveTicket}>
+                  <input type="hidden" name="ticketId" value={ticket.id} />
+                  <button
+                    className={
+                      archivedAt ? "pbm-icon-btn pbm-icon-btn--on" : "pbm-icon-btn"
+                    }
+                    type="submit"
+                    aria-label={
+                      archivedAt
+                        ? "Move this thread back to the inbox"
+                        : "Archive this thread"
+                    }
+                    title={
+                      archivedAt
+                        ? "Archived — put it back in the inbox"
+                        : "Archive — off your inbox, still open, still findable"
+                    }
+                  >
+                    <Icon name="archive" size={17} strokeWidth={1.8} />
+                  </button>
+                </form>
+              </>
+            )}
+            {/*
               Delete, or restore if this one is already in the trash.
 
               No confirmation dialog, deliberately. Deleting is reversible for
@@ -339,6 +476,36 @@ export default function Thread({
             {describeRetention(new Date(deletedAt), new Date())} Deleted by{" "}
             {describeDeletedBy(deletedBy)}. Restore it with the button above and
             it goes back where it was.
+          </p>
+        )}
+
+        {/*
+          Says what state the thread is in and how to leave it.
+
+          Archived and snoozed are both "why is this not in my inbox?", and a
+          thread that answers that on its own page is one nobody has to go and
+          check a folder for.
+
+          The condition is a plain null check, NOT a comparison against the
+          clock. The server has already decided — it sends `snoozedUntil` only
+          while the ticket is actually hidden. Re-testing the time here would
+          make this element's EXISTENCE depend on the moment it renders, and a
+          server render either side of the wake time from its hydration is a
+          mismatch React cannot reconcile. The absolute time inside is still
+          formatted in the browser, because a server-formatted time shows UTC
+          to everybody.
+        */}
+        {!deletedAt && snoozedUntil && (
+          <p className="pbm-snoozed" role="status" suppressHydrationWarning>
+            <b>Snoozed.</b> Hidden until {formatDateTime(snoozedUntil)}
+            {wakeIn ? ` (${wakeIn})` : ""}. It returns to the inbox on its own —
+            or press the clock above to bring it back now.
+          </p>
+        )}
+        {!deletedAt && !snoozedUntil && archivedAt && (
+          <p className="pbm-snoozed" role="status">
+            <b>Archived.</b> Off the inbox, but not closed and not deleted. It
+            still appears in All, Search and any label it carries.
           </p>
         )}
 

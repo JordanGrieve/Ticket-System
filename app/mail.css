@@ -2325,3 +2325,54 @@
   font-size: 12px;
   line-height: 1.5;
 }
+
+/* ──────────────────── archive and snooze ──────────────────── */
+
+/* The snooze menu's anchor. Needs its own positioned wrapper because the menu
+   is absolutely positioned and the action bar is not. */
+.pbm-snooze {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Opens DOWNWARD and right-aligned, unlike the status menu.
+   The trigger sits in the thread header at the top of the screen, so the
+   default upward menu would open off the top of the viewport, and it sits near
+   the right edge, so a left-aligned menu would run past it. */
+.pbm-menu--snooze {
+  top: calc(100% + 6px);
+  bottom: auto;
+  left: auto;
+  right: 0;
+  width: 150px;
+}
+/* The options are each their own <form> — a submit button cannot live outside
+   one — so the wrapper has to stop being a layout box or every item would sit
+   on its own line with the menu's padding doubled between them. */
+.pbm-menu--snooze form {
+  display: contents;
+}
+
+/* An icon button whose state is ON: snoozed, or archived.
+   Same treatment as a starred thread — an outline alone reads as off at 17px,
+   which on these two buttons would mean the screen showing "not archived"
+   about a ticket that is. */
+.pbm-icon-btn--on {
+  color: var(--accent-text);
+  background: var(--accent-soft);
+}
+
+/* Why this thread is not in the inbox.
+   Deliberately NOT the amber of .pbm-trashed. Amber there means "this is on a
+   countdown to being destroyed"; archived and snoozed are ordinary, reversible
+   filing, and borrowing the warning colour would make routine tidying look
+   like a problem. */
+.pbm-snoozed {
+  margin: 0;
+  padding: 10px 20px;
+  background: var(--surface-2);
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  line-height: 1.55;
+}

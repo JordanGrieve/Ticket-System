@@ -199,6 +199,29 @@ export default function MailNavShell({
       href: "/inbox?folder=labeled",
     },
     /*
+     * Snoozed sits above Archived, and both sit below the working folders.
+     *
+     * Snoozed is the one folder whose contents change with no one doing
+     * anything — a ticket leaves it when its time arrives, because the state
+     * is `snoozed_until > now()` rather than a stored flag. So its count is
+     * the count of things that WILL come back, and it belongs near the folders
+     * somebody actually works out of rather than down with Trash.
+     */
+    {
+      key: "snoozed",
+      label: "Snoozed",
+      icon: "clock",
+      count: counts.snoozed,
+      href: "/inbox?folder=snoozed",
+    },
+    {
+      key: "archived",
+      label: "Archived",
+      icon: "archive",
+      count: counts.archived,
+      href: "/inbox?folder=archived",
+    },
+    /*
      * Trash is a real folder as of 23 August 2026. It sits last because it is
      * where things go, not somewhere anybody works — and unlike the folders
      * above, its count going up is not progress.
