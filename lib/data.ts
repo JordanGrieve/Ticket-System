@@ -279,7 +279,26 @@ export async function listAgentEmails(workspaceId: number): Promise<string[]> {
   const rows = await db
     .select({ email: agents.email })
     .from(agents)
-    .where(eq(agents.workspaceId, workspaceId));
+    .where(
+      and(
+        eq(agents.workspaceId, workspaceId),
+        // ── Pending invites are EXCLUDED ──
+        // These notifications carry customer content: names, subjects, message
+        // bodies. A placeholder row means somebody was invited and has never
+        // signed in, so the address is unverified — nobody has proved they can
+        // read that mailbox. Mailing a client's customer correspondence to an
+        // address that might be a typo is a worse outcome than a notification
+        // nobody receives, and the invite email itself already tells the
+        // invitee there is an account waiting.
+        //
+        // This became load-bearing when clients gained a self-serve invite
+        // screen (app/(dashboard)/settings/team). Before that, every
+        // placeholder was created by an operator; now any client can type an
+        // address into a box and, without this predicate, immediately start
+        // forwarding their customers' messages to it.
+        sql`${agents.clerkUserId} NOT LIKE 'INVITE\\_%' AND ${agents.clerkUserId} NOT LIKE 'SEED\\_%'`,
+      ),
+    );
   return [...new Set(rows.map((r) => r.email.toLowerCase()))];
 }
 
