@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import { PostboxLockup } from "@/components/Logo";
+import MarketingNav from "@/components/marketing/MarketingNav";
 import { OPEN_SIGNUP } from "@/lib/config";
 import ProductShot from "@/components/marketing/ProductShot";
 import ThemeRow from "@/components/marketing/ThemeRow";
@@ -40,23 +40,7 @@ export default async function LandingPage() {
 
   return (
     <div className="home">
-      <header className="home-nav">
-        <PostboxLockup />
-        <nav className="home-nav-links">
-          <Link
-            className="home-nav-link home-nav-link--hide-sm"
-            href="#features"
-          >
-            Features
-          </Link>
-          <Link className="home-nav-link home-nav-link--hide-sm" href="/pricing">
-            Pricing
-          </Link>
-          <Link className="home-btn home-btn--sm home-btn--quiet" href="/sign-in">
-            Sign in
-          </Link>
-        </nav>
-      </header>
+      <MarketingNav current="home" />
 
       <main style={{ flex: 1 }}>
         <section className="home-hero">

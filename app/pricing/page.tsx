@@ -1,6 +1,6 @@
 import Link from "next/link";
+import MarketingNav from "@/components/marketing/MarketingNav";
 import type { Metadata } from "next";
-import { PostboxLockup } from "@/components/Logo";
 import { OPEN_SIGNUP } from "@/lib/config";
 import { PLANS, TRIAL_DAYS, TRIAL_LIMITS, formatPrice } from "@/lib/pricing";
 import "../home.css";
@@ -37,19 +37,7 @@ export const metadata: Metadata = {
 export default function PricingPage() {
   return (
     <div className="home">
-      <header className="home-nav">
-        <Link href="/">
-          <PostboxLockup />
-        </Link>
-        <nav className="home-nav-links">
-          <Link className="home-nav-link home-nav-link--hide-sm" href="/#features">
-            Features
-          </Link>
-          <Link className="home-btn home-btn--sm home-btn--quiet" href="/sign-in">
-            Sign in
-          </Link>
-        </nav>
-      </header>
+      <MarketingNav current="pricing" />
 
       <main style={{ flex: 1 }}>
         <section className="home-section home-wrap prc-head">
@@ -132,12 +120,35 @@ export default function PricingPage() {
 
         <section className="home-section home-wrap">
           <h2 className="home-h2">Questions people ask first</h2>
+          {/*
+            An accordion built from <details>, not from state.
+
+            The answers here are long and of wildly different lengths, and as a
+            multi-column grid that produced a page with holes in it — a
+            two-line answer beside a six-line one leaves a block of empty
+            space, and the eye reads the gap as something missing rather than
+            as an answer that happened to be short.
+
+            Native <details> rather than a React accordion: it needs no
+            JavaScript, so it works before hydration and if hydration never
+            happens; keyboard and screen-reader behaviour comes from the
+            browser rather than from ARIA somebody has to maintain; and
+            browsers open the relevant one for in-page find. A hand-built one
+            is more code that does less.
+
+            None is open by default. Every question here is one a specific
+            person is looking for, and opening one for everybody makes it look
+            like the most important answer rather than the first in the list.
+          */}
           <div className="prc-faq">
             {FAQ.map((item) => (
-              <div className="prc-faq-item" key={item.q}>
-                <h3 className="prc-faq-q">{item.q}</h3>
+              <details className="prc-faq-item" key={item.q}>
+                <summary className="prc-faq-q">
+                  {item.q}
+                  <span className="prc-faq-mark" aria-hidden />
+                </summary>
                 <p className="prc-faq-a">{item.a}</p>
-              </div>
+              </details>
             ))}
           </div>
         </section>

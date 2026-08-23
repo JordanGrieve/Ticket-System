@@ -140,24 +140,90 @@
 
 /* ── FAQ ─────────────────────────────────────────────────────── */
 
+/*
+ * An accordion, not a grid.
+ *
+ * These answers differ wildly in length — one is a single sentence, another is
+ * five — and in a multi-column grid that left visible holes: a short answer
+ * beside a long one produces a block of empty space, and the eye reads the gap
+ * as something missing rather than as an answer that happened to be short.
+ *
+ * One column, so the questions read as a list somebody scans for their own.
+ */
 .prc-faq {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 22px 32px;
+  display: flex;
+  flex-direction: column;
+  max-width: 760px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.prc-faq-item {
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .prc-faq-q {
+  /* The default disclosure triangle goes; the chevron below replaces it. Both
+     spellings are needed — WebKit still wants the pseudo-element form. */
+  list-style: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  /* The whole row is the hit target, not just the words. A summary that only
+     responds on its text is one people click beside and think is broken. */
+  padding: 17px 2px;
+  cursor: pointer;
   font-size: 15.5px;
   font-weight: 700;
-  margin: 0 0 7px;
   color: var(--text);
+  margin: 0;
+}
+.prc-faq-q::-webkit-details-marker {
+  display: none;
+}
+.prc-faq-q:hover {
+  color: var(--accent-text);
+}
+/* Keyboard focus must be visible: this is the control, and removing the
+   browser's ring without replacing it makes the list unusable by keyboard. */
+.prc-faq-q:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* A chevron drawn from two borders, so it needs no icon file and takes its
+   colour from the text it sits beside. */
+.prc-faq-mark {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 160ms ease;
+  opacity: 0.65;
+}
+.prc-faq-item[open] .prc-faq-mark {
+  transform: rotate(-135deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prc-faq-mark {
+    transition: none;
+  }
 }
 
 .prc-faq-a {
   font-size: 14.5px;
   line-height: 1.68;
   color: var(--text-4);
+  /* Indented from the chevron column so the answer aligns under the question
+     rather than under the whole row. */
   margin: 0;
+  padding: 0 40px 20px 2px;
+  max-width: 68ch;
 }
 
 @media (max-width: 720px) {

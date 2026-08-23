@@ -121,7 +121,21 @@
   overflow: hidden;
   background: linear-gradient(150deg, var(--nav), var(--nav-deep));
   border-radius: 28px;
-  margin: 8px 24px 0;
+  /*
+   * The same 1080px column as everything else on the page.
+   *
+   * This band used to be `margin: 8px 24px 0` with no max-width, so on a wide
+   * screen it ran to 1862px while the nav above it and every section below it
+   * sat in a 1080px column — the band's edges lined up with nothing, and the
+   * page read as two designs stacked.
+   *
+   * The width calc keeps the old behaviour on narrow screens, where 24px a
+   * side is what stops the band touching the edge, and centres it in the
+   * column once the viewport is wide enough for the max-width to bite.
+   */
+  width: calc(100% - 48px);
+  max-width: 1080px;
+  margin: 8px auto 0;
   padding: 76px 40px 80px;
 }
 
@@ -341,7 +355,19 @@
 
 @media (max-width: 720px) {
   .home-hero {
-    margin: 8px 14px 0;
+    /*
+     * auto, not a fixed side margin. The desktop rule sizes this with
+     * `width: calc(100% - 48px)`, and that inherits here — so a literal
+     * `margin: 8px 14px 0` left the band inset 14px on the left and 34px on
+     * the right. Visibly off-centre, and only on a phone.
+     *
+     * 32px total also matches the 16px that .home-wrap and .home-nav pad to at
+     * this width, so the band lines up with the nav above it exactly as it
+     * does on a wide screen. It was 14px before, which was 2px adrift of
+     * everything else for no reason anybody recorded.
+     */
+    width: calc(100% - 32px);
+    margin: 8px auto 0;
     padding: 52px 24px 56px;
     border-radius: 22px;
   }
