@@ -34,6 +34,21 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # FIRST, and on purpose.
+      #
+      # Both build breakages this repo has had were characters in a comment
+      # that terminated the thing the comment lived inside: a cron expression
+      # in a block comment, where the slash-star-slash ended it, and a stray
+      # backtick inside a sql`` template. Both are PARSE errors, so no lint
+      # rule can catch them — the file does not parse for the linter either.
+      # The only defence is a typecheck, and the only thing that makes a
+      # typecheck useful is running it before anything slower.
+      #
+      # It used to be reached only via `next build`, several minutes in, and it
+      # reported as a build failure rather than as the one-line syntax error it
+      # actually was.
+      - name: Typecheck
+        run: npm run typecheck
       - name: Lint
         run: npm run lint
       - name: Unit tests
