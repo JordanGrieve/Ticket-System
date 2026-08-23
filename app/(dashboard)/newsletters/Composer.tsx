@@ -49,10 +49,17 @@ import {
  *  - that sweep hands every message to the LOG-ONLY deliverer, because
  *    `CAMPAIGN_DELIVERY_MODE` is set in no environment. It writes a log line
  *    and transmits nothing;
- *  - the sweep runs ONCE A DAY (vercel.json `0 3 * * *`; the Hobby plan
- *    refuses a sub-daily expression), so throughput is ~75 recipients per DAY;
- *  - consent is still not enforced anywhere, and CAN-SPAM requires a physical
- *    postal address in every message that `workspaces` has no column for.
+ *  - the sweep runs about every five minutes
+ *    (.github/workflows/campaign-sweep.yml), best-effort: GitHub delays or
+ *    drops scheduled runs under load, and disables the workflow entirely after
+ *    60 days with no commits.
+ *
+ * Two things this comment used to list as blockers are now DONE, and are kept
+ * here named rather than deleted so nobody re-adds them: marketing consent IS
+ * enforced (selectAudience buckets `no_consent`), and the CAN-SPAM postal
+ * address IS captured and enforced — `workspaces.postal_address` exists,
+ * Settings writes it, and both this screen and the schedule route refuse to arm
+ * a campaign without one.
  *
  * So there are three actions, and each is named for exactly what it does.
  * "Queue recipients" writes `campaign_recipients` rows. "Remove queued
@@ -311,6 +318,17 @@ export default function Composer({
   const [queue, setQueue] = useState<QueueState>({ kind: "idle" });
 
   const [schedule, setSchedule] = useState<ScheduleState>({ kind: "idle" });
+  /**
+   * The test send. Separate state from `schedule` because it is not part of
+   * the draft→scheduled edge at all — it writes nothing and changes no status,
+   * so it must not be able to put the schedule UI into a working state.
+   */
+  const [testSend, setTestSend] = useState<
+    | { kind: "idle" }
+    | { kind: "working" }
+    | { kind: "ok"; transmitted: boolean }
+    | { kind: "error"; message: string }
+  >({ kind: "idle" });
   const [whenMode, setWhenMode] = useState<WhenMode>("asap");
   /** A `datetime-local` value — local wall clock, converted on submit. */
   const [whenLocal, setWhenLocal] = useState("");
@@ -617,6 +635,37 @@ export default function Composer({
    * no second endpoint that sends immediately, and there is nothing here that
    * reaches an email provider — see the panel this button sits in.
    */
+  /**
+   * Send this draft to the signed-in user's own address, once.
+   *
+   * Writes nothing and transitions nothing — see the route header. The
+   * recipient is fixed server-side to the session's address; there is no
+   * parameter here to change it, and adding one would turn this into a relay.
+   */
+  async function sendTestToMyself() {
+    if (savedId === null || testSend.kind === "working") return;
+    setTestSend({ kind: "working" });
+    try {
+      const res = await fetch(`/api/campaigns/${savedId}/test-send`, {
+        method: "POST",
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        transmitted?: boolean;
+      };
+      if (!res.ok) {
+        setTestSend({
+          kind: "error",
+          message: data.error ?? "That didn’t send.",
+        });
+        return;
+      }
+      setTestSend({ kind: "ok", transmitted: data.transmitted === true });
+    } catch {
+      setTestSend({ kind: "error", message: "That didn’t send." });
+    }
+  }
+
   async function armSchedule() {
     if (savedId === null || schedule.kind === "working") return;
 
@@ -760,6 +809,17 @@ export default function Composer({
       appUrl,
     ],
   );
+
+  /**
+   * Whether this workspace may lawfully send at all.
+   *
+   * Mirrors mailableSender() in lib/newsletter.ts, which is the authority —
+   * but that module is not importable here (it is reached through
+   * renderCampaign only, and this is a client component). The rule is one
+   * trimmed-string check, so restating it costs less than the indirection, and
+   * the server enforces it independently either way.
+   */
+  const canSendLegally = (postalAddress ?? "").trim().length > 0;
 
   const subjectLong = draft.subject.length > SUBJECT_DISPLAY_LIMIT;
   const canSave =
@@ -1347,7 +1407,7 @@ export default function Composer({
                   {schedule.kind === "armed" && (
                     <p className="nl-note" role="status">
                       {schedule.immediate
-                        ? "Scheduled for now, which means the next daily sweep."
+                        ? "Scheduled for now, which means the next sweep — they run about every five minutes."
                         : "Scheduled."}{" "}
                       Nothing has been emailed and nothing will be: the sweep’s
                       deliverer only writes to the log.
@@ -1419,11 +1479,75 @@ export default function Composer({
                       }}
                     />
                     <p className="nl-help">
-                      Your local time. Either way the campaign waits for the
-                      daily sweep, so “as soon as possible” means “at the next
-                      03:00 UTC run”, not immediately.
+                      Your local time. Either way the campaign waits for a
+                      sweep, so “as soon as possible” means “within about five
+                      minutes”, not instantly. Sweeps are best-effort and can
+                      be delayed when the scheduler is busy.
                     </p>
                   </fieldset>
+
+                  {!canSendLegally && (
+                    <p className="nl-warn" role="status">
+                      <b>Add your postal address before scheduling.</b> Marketing
+                      email has to carry a real physical address by law, so
+                      Postbox refuses the send rather than leaving it out. Add
+                      it under <b>Settings → Sender identity</b>, then come back.
+                    </p>
+                  )}
+
+                  {/*
+                    The test send. Above the Schedule button deliberately: it is
+                    the thing you should press first, and it is the only action
+                    on this screen that produces a real message without
+                    committing anything.
+                  */}
+                  <div className="nl-queue-row">
+                    <button
+                      type="button"
+                      className="nl-secondary"
+                      onClick={sendTestToMyself}
+                      disabled={
+                        savedId === null ||
+                        dirty ||
+                        !canSendLegally ||
+                        testSend.kind === "working"
+                      }
+                    >
+                      {testSend.kind === "working"
+                        ? "Sending…"
+                        : "Send a test to myself"}
+                    </button>
+                    <span className="nl-help">
+                      Goes to <b>{viewerEmail}</b> and nowhere else. Writes
+                      nothing, schedules nothing.
+                    </span>
+                  </div>
+
+                  {testSend.kind === "ok" && (
+                    <p className="nl-note" role="status">
+                      {testSend.transmitted ? (
+                        <>
+                          Sent to <b>{viewerEmail}</b>. Check the footer carries
+                          your postal address and that the unsubscribe link is
+                          there — the link in a test belongs to nobody, so
+                          pressing it does nothing.
+                        </>
+                      ) : (
+                        <>
+                          <b>Nothing was transmitted.</b> Delivery is still in
+                          log-only mode, so this was written to the server log
+                          instead of sent. Set{" "}
+                          <code>CAMPAIGN_DELIVERY_MODE=ses</code> to send for
+                          real.
+                        </>
+                      )}
+                    </p>
+                  )}
+                  {testSend.kind === "error" && (
+                    <p className="nl-error" role="status">
+                      {testSend.message}
+                    </p>
+                  )}
 
                   <div className="nl-queue-row">
                     <button
@@ -1436,6 +1560,12 @@ export default function Composer({
                         !canSchedule(draft.status) ||
                         dirty ||
                         draft.recipientCount === 0 ||
+                        // The server refuses this too (409 from the schedule
+                        // route). Disabling here is not the guard, it is the
+                        // explanation — a button that fails on press teaches
+                        // nothing, and the state it would have created is
+                        // unrecoverable from inside the product.
+                        !canSendLegally ||
                         schedule.kind === "working"
                       }
                     >

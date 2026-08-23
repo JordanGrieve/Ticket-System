@@ -3,6 +3,7 @@ import { json } from "@/lib/http";
 import { activeWorkspace } from "@/lib/viewer";
 import { cancelCampaignSchedule, scheduleCampaign } from "@/lib/campaign-send";
 import { parseScheduleTime } from "@/lib/campaign-schedule";
+import { mailableSender } from "@/lib/newsletter";
 
 /**
  * POST   /api/campaigns/:id/schedule  → arm the campaign  (draft → scheduled)
@@ -71,6 +72,34 @@ export async function POST(
   const workspace = await activeWorkspace();
   if (!workspace) {
     return json({ error: "Select a client workspace first." }, { status: 400 });
+  }
+
+  // ── The postal address gate ──
+  //
+  // sendCampaignBatch already refuses to send without one, and that refusal is
+  // correct where it sits — but by the time it fires the campaign is `sending`,
+  // and `sending` is a trap: not editable (isEditableStatus is draft|scheduled),
+  // not cancellable (cancelCampaignSchedule requires `scheduled`), recipients
+  // not discardable (canDiscardRecipients requires `draft`). The campaign would
+  // re-enter the sweep every five minutes forever, and the only explanation in
+  // existence is a console.warn the client cannot see.
+  //
+  // So the real fix is to never let it be armed. Refusing here costs one 409
+  // and leaves the campaign in `draft`, where it can still be fixed.
+  if (
+    !mailableSender({
+      workspaceName: workspace.name,
+      legalName: workspace.legalName,
+      postalAddress: workspace.postalAddress,
+    })
+  ) {
+    return json(
+      {
+        error:
+          "Add your postal address in Settings before sending. Marketing email must carry a real physical address by law, and Postbox refuses the send rather than leaving it out.",
+      },
+      { status: 409 },
+    );
   }
 
   const result = await scheduleCampaign(workspace.id, campaignId, when.when);
