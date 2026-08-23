@@ -3,7 +3,9 @@
 import { Icon } from "./icons";
 import type { ContactCard } from "./types";
 import ContactNotes from "./ContactNotes";
+import SharedLinks from "./SharedLinks";
 import type { ContactNoteDTO } from "@/app/(dashboard)/queries";
+import type { SharedLink } from "@/lib/shared-links";
 
 /**
  * The 290px contact rail — a bottom sheet below 768px.
@@ -15,12 +17,17 @@ import type { ContactNoteDTO } from "@/app/(dashboard)/queries";
  * rather than plausible-looking filler.
  */
 
-const UNBUILT_SECTIONS = [
-  "Additional info",
-  "Shared files",
-  "Shared links",
-  "Documentation",
-];
+/*
+ * "Shared links" left this list on 23 Aug 2026 — it is derived from message
+ * bodies now (lib/shared-links.ts) rather than waiting on a table.
+ *
+ * The three that remain are still honestly unbuilt. "Shared files" is blocked
+ * on the attachments subsystem and cannot be faked from anything; the other two
+ * are on the board with a recommendation to define them or delete them, because
+ * a disabled row promising something nobody can describe makes the rows beside
+ * it less believable.
+ */
+const UNBUILT_SECTIONS = ["Additional info", "Shared files", "Documentation"];
 
 function formatFirstSeen(iso: string | null): string | null {
   if (!iso) return null;
@@ -40,6 +47,7 @@ export default function ContactRail({
   notes,
   addNote,
   deleteNote,
+  links,
 }: {
   contact: ContactCard;
   /** "auto" = column on a wide screen, hidden below 1180px. See Thread.tsx. */
@@ -53,6 +61,8 @@ export default function ContactRail({
   notes?: ContactNoteDTO[];
   addNote?: (formData: FormData) => void;
   deleteNote?: (formData: FormData) => void;
+  /** Also omitted by the skeletons, which have no messages to derive from. */
+  links?: SharedLink[];
 }) {
   const firstSeen = formatFirstSeen(contact.firstSeenIso);
 
@@ -120,6 +130,8 @@ export default function ContactRail({
             </div>
           </>
         )}
+
+        {links && <SharedLinks links={links} />}
 
         <div className="pbm-rail-sections">
           {UNBUILT_SECTIONS.map((s) => (

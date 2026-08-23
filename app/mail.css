@@ -2215,3 +2215,69 @@
 .pbn-del:hover {
   color: var(--warn-fg);
 }
+
+/* ── Contact rail: shared links ──────────────────────────────────
+   The hostname leads. These URLs were typed by strangers into a public form
+   and are being shown to the business owner as things to click, so where a
+   link actually goes is the primary label, not whatever the message called it. */
+
+.pbl-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pbl-item {
+  padding: 9px 11px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.pbl-link {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-decoration: none;
+}
+
+.pbl-host {
+  font-size: 12.8px;
+  font-weight: 700;
+  color: var(--accent-text);
+  overflow-wrap: anywhere;
+}
+
+.pbl-link:hover .pbl-host {
+  text-decoration: underline;
+}
+
+/* The full URL, quiet and truncated. Present so the destination can be read
+   in full on hover (title) or by selecting it, without letting a long tracking
+   URL push the 290px rail out of shape. */
+.pbl-url {
+  font-size: 11.5px;
+  color: var(--muted-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pbl-meta {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  color: var(--muted-2);
+}
+
+.pbl-jump {
+  color: var(--muted-2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.pbl-jump:hover {
+  color: var(--text-4);
+}

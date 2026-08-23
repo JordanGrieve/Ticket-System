@@ -10,6 +10,7 @@ import { SOURCE_META, STATUS_META, STATUS_ORDER } from "@/lib/theme";
 import { Icon, OverflowIcon } from "./icons";
 import ContactRail from "./ContactRail";
 import type { ContactNoteDTO } from "@/app/(dashboard)/queries";
+import type { SharedLink } from "@/lib/shared-links";
 import LabelPicker from "./LabelPicker";
 import StarButton from "./StarButton";
 import type { ContactCard, LabelChipDTO } from "./types";
@@ -31,6 +32,7 @@ export default function Thread({
   notes,
   addNote,
   deleteNote,
+  links,
   backHref,
   starred,
   unread,
@@ -53,6 +55,8 @@ export default function Thread({
    */
   addNote: (formData: FormData) => void;
   deleteNote: (formData: FormData) => void;
+  /** Derived from message bodies at read time — see lib/shared-links.ts. */
+  links: SharedLink[];
   backHref: string;
   /** Per-agent state. Both false when the viewer has no agent row here. */
   starred: boolean;
@@ -430,6 +434,7 @@ export default function Thread({
         notes={notes}
         addNote={addNote}
         deleteNote={deleteNote}
+        links={links}
       />
     </>
   );

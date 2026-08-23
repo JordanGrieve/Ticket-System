@@ -7,12 +7,14 @@ import {
   tickets,
   contacts,
   contactNotes,
+  ticketMessages,
   type TicketSource,
   type TicketStatus,
 } from "@/db/schema";
 import { TICKETS_PAGE_SIZE, getWorkspaceAgentId } from "@/lib/data";
 import { labelsForTickets, type LabelChip } from "@/lib/labels";
 import { previewText, relativeTime } from "@/lib/tickets";
+import { extractSharedLinks, type SharedLink } from "@/lib/shared-links";
 import type { MailRow } from "@/components/mail/types";
 
 /**
@@ -564,4 +566,50 @@ export async function listContactNotes(
     authorLabel: r.authorLabel,
     createdAtIso: new Date(r.createdAt).toISOString(),
   }));
+}
+
+/**
+ * Links this contact has exchanged with us, newest first.
+ *
+ * Derived from message bodies at read time — see lib/shared-links.ts. There is
+ * no links table and nothing to backfill.
+ *
+ * Bounded twice on purpose: only this contact's tickets, and only the most
+ * recent messages across them. A contact with a thousand messages is a paging
+ * problem, not a reason for the rail to read a thousand rows.
+ */
+export async function listSharedLinks(
+  workspaceId: number,
+  email: string,
+): Promise<SharedLink[]> {
+  const address = email.trim().toLowerCase();
+
+  const rows = await db
+    .select({
+      ticketId: ticketMessages.ticketId,
+      body: ticketMessages.body,
+      direction: ticketMessages.direction,
+      sentAt: ticketMessages.sentAt,
+    })
+    .from(ticketMessages)
+    .innerJoin(tickets, eq(tickets.id, ticketMessages.ticketId))
+    // Tenancy on the JOINED table: ticket_messages has no workspace_id of its
+    // own, so the constraint has to come from the ticket it belongs to.
+    .where(
+      and(
+        eq(tickets.workspaceId, workspaceId),
+        sql`lower(${tickets.customerEmail}) = ${address}`,
+      ),
+    )
+    .orderBy(desc(ticketMessages.sentAt))
+    .limit(200);
+
+  return extractSharedLinks(
+    rows.map((r) => ({
+      ticketId: r.ticketId,
+      body: r.body,
+      direction: r.direction,
+      createdAtIso: new Date(r.sentAt).toISOString(),
+    })),
+  );
 }

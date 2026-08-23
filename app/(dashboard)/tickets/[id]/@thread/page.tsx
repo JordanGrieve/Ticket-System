@@ -8,6 +8,7 @@ import { EMAIL_FROM_ADDRESS } from "@/lib/config";
 import {
   getContactFacts,
   listContactNotes,
+  listSharedLinks,
   mailCounts,
   mailFolderTotal,
   parseFolder,
@@ -71,6 +72,7 @@ export default async function TicketThreadSlot({
     allLabels,
     agentId,
     notes,
+    links,
   ] = await Promise.all([
     getMessages(ticket.id),
     mailCounts(workspace.id),
@@ -82,6 +84,7 @@ export default async function TicketThreadSlot({
     // HTTP request, so awaiting this separately would add a round trip to
     // opening any thread.
     listContactNotes(workspace.id, ticket.customerEmail),
+    listSharedLinks(workspace.id, ticket.customerEmail),
   ]);
 
   const total =
@@ -110,6 +113,7 @@ export default async function TicketThreadSlot({
       // must not import the "use server" module itself.
       addNote={addContactNoteAction}
       deleteNote={deleteContactNoteAction}
+      links={links}
       backHref={backHref}
       starred={personal.starred}
       unread={personal.unread}
