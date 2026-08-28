@@ -2426,3 +2426,11 @@
     transition: none;
   }
 }
+
+/* Clear, and the way out to workspace-wide search, side by side. */
+.pbm-empty-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}

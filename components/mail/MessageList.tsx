@@ -191,6 +191,7 @@ export default function MessageList({
       <div className="pbm-list-scroll pb-scroll">
         {visible.length === 0 ? (
           <EmptyList
+            search={search}
             refined={refined}
             hasAny={total > 0}
             sentView={sentView}
@@ -336,11 +337,14 @@ function EmptyList({
   hasAny,
   sentView = false,
   onClear,
+  search,
 }: {
   refined: boolean;
   hasAny: boolean;
   sentView?: boolean;
   onClear: () => void;
+  /** What they typed in the box above, so "search everything" can carry it. */
+  search: string;
 }) {
   // An empty Sent folder has one cause and one cure, and neither is "connect
   // your form" — the tickets may well be sitting in the inbox already. It also
@@ -373,9 +377,35 @@ function EmptyList({
               : "When someone fills in your contact form or emails you, the thread appears here."}
       </p>
       {refined ? (
-        <button className="pbm-btn" onClick={onClear}>
-          Clear
-        </button>
+        <div className="pbm-empty-actions">
+          <button className="pbm-btn" onClick={onClear}>
+            Clear
+          </button>
+          {/*
+            THE WAY INTO WORKSPACE-WIDE SEARCH.
+
+            The box above filters THIS PAGE only, and this screen is the exact
+            moment somebody learns that — they typed a customer's name, found
+            nothing, and the honest next question is "so where is it?".
+
+            /search reads every ticket, message body, contact and label in the
+            workspace. It used to have a sidebar row, which was removed on 23
+            August because a twelfth row did not make search easier to find.
+            That left the route with no entry point at all, which was worse:
+            the feature existed and could only be reached by typing the URL,
+            which is precisely the complaint the sidebar row had been added to
+            fix. This is where it belongs — offered at the point the on-page
+            filter runs out, rather than competing with the folders.
+          */}
+          {search.trim() && (
+            <Link
+              className="pbm-btn pbm-btn--quiet"
+              href={`/search?q=${encodeURIComponent(search.trim())}`}
+            >
+              Search everything
+            </Link>
+          )}
+        </div>
       ) : (
         !hasAny &&
         !emptySent && (
