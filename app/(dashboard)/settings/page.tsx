@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { resolveViewer } from "@/lib/viewer";
 import { listAgentEmails } from "@/lib/data";
 import { getAutoReplyConfig } from "@/lib/auto-reply-send";
+import { listForms } from "@/lib/forms";
 import { EMAIL_FROM_ADDRESS } from "@/lib/config";
 import ThemePicker from "./ThemePicker";
 import SenderIdentityForm from "./SenderIdentityForm";
@@ -29,10 +30,15 @@ export default async function GeneralSettingsPage() {
   if (!viewer.workspace) redirect(viewer.isAdmin ? "/admin" : "/no-access");
   const workspace = viewer.workspace;
 
-  const [autoReply, notifyEmails] = await Promise.all([
+  // In the Promise.all rather than after it: neon-http gives every query its
+  // own HTTP request, so a third await here would be a third round trip on a
+  // page that already blocks on two.
+  const [autoReply, notifyEmails, forms] = await Promise.all([
     getAutoReplyConfig(workspace.id),
     listAgentEmails(workspace.id),
+    listForms(workspace.id),
   ]);
+  const formCount = forms.length;
 
   return (
     <div className="stg-wrap">
@@ -105,11 +111,17 @@ export default async function GeneralSettingsPage() {
             </span>
           </Row>
 
+          {/*
+            Was a NotBuilt note saying "naming individual forms was never wired
+            up". It is wired up now, so the row points at the screen rather
+            than apologising for its absence.
+          */}
           <Row label="Connected forms">
-            <NotBuilt>
-              Every submission arrives on one shared endpoint; naming individual
-              forms was never wired up
-            </NotBuilt>
+            <Link className="stg-link" href="/settings/forms">
+              {formCount === 0
+                ? "Add a named form"
+                : `${formCount} named ${formCount === 1 ? "form" : "forms"}`}
+            </Link>
           </Row>
 
           <Row label="Sending domain">

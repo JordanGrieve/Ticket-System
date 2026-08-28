@@ -2148,3 +2148,21 @@
 .stb-plan[data-current="true"] .stb-plan-cta {
   color: var(--text-4);
 }
+
+/*
+ * A link sitting where a settings value normally goes.
+ *
+ * Underlined rather than relying on colour alone: several of the five palettes
+ * put --accent-text close enough to --text that colour on its own is not a
+ * reliable signal that something is clickable, and this row sits in a list of
+ * values that are not.
+ */
+.stg-link {
+  color: var(--accent-text);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.stg-link:hover {
+  text-decoration-thickness: 2px;
+}

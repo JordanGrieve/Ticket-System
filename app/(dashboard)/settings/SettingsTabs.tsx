@@ -17,6 +17,7 @@ const TABS = [
   { href: "/settings/auto-reply", label: "Auto-reply" },
   { href: "/settings/contacts", label: "Contacts" },
   { href: "/settings/labels", label: "Labels" },
+  { href: "/settings/forms", label: "Forms" },
   { href: "/settings/team", label: "Team" },
   { href: "/settings/billing", label: "Billing" },
   { href: "/settings/install", label: "Install" },

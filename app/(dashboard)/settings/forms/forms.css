@@ -1,0 +1,199 @@
+/*
+ * The forms screen. Tokens only, like every other settings surface — this
+ * renders in whichever of the five palettes the viewer has chosen.
+ */
+
+.pbf-card {
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+
+/* The workspace key. Quieter than a real form: it is context, not a thing to
+   act on here. */
+.pbf-card--default {
+  background: var(--surface-2);
+}
+
+.pbf-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.pbf-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.pbf-name {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pbf-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.pbf-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 60ch;
+}
+.pbf-note--off {
+  flex: 1;
+}
+
+/* Tabular so the numbers line up down the column and a change in one is
+   visible rather than shuffling the others. */
+.pbf-count {
+  margin: 0;
+  flex: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.pbf-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pbf-input {
+  width: 100%;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+/* The name field is the heading. It has to read as a title first and as an
+   input second, or the list looks like a form to fill in. */
+.pbf-input--name {
+  font-size: 15px;
+  font-weight: 700;
+  background: transparent;
+  border-color: transparent;
+  padding-left: 0;
+}
+.pbf-input--name:hover,
+.pbf-input--name:focus {
+  background: var(--surface-2);
+  border-color: var(--border);
+  padding-left: 11px;
+}
+
+.pbf-keyrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+  flex-wrap: wrap;
+}
+
+.pbf-key {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-soft);
+  color: var(--text-2);
+  /* Keys are long and must not wrap into three lines or push the button off
+     the row; the whole string is still selectable. */
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.pbf-btn {
+  flex: none;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pbf-btn:hover {
+  border-color: var(--border-strong);
+}
+.pbf-btn--primary {
+  background: var(--accent-grad);
+  border-color: transparent;
+  color: #fff;
+}
+
+.pbf-new {
+  margin: 22px 0 26px;
+}
+.pbf-newform {
+  margin-top: 8px;
+}
+.pbf-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+  margin-bottom: 6px;
+}
+.pbf-newrow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.pbf-hint {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/*
+ * A live key with nothing on it. Amber rather than red: it is very often a
+ * form nobody has filled in yet, and shouting at somebody about a working
+ * install is how a warning gets ignored when it is real.
+ */
+.pbf-warn {
+  margin: 10px 0 0;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .pbf-row {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .pbf-newrow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

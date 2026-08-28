@@ -47,6 +47,14 @@ jobs:
       # It used to be reached only via `next build`, several minutes in, and it
       # reported as a build failure rather than as the one-line syntax error it
       # actually was.
+      #
+      # `npm run typecheck` runs `next typegen` first, and that is load-bearing
+      # rather than tidiness. RouteContext and friends are GENERATED into
+      # .next/types by the build, so a bare `tsc --noEmit` ahead of the build
+      # fails on every route handler with "Cannot find name RouteContext".
+      # Moving typecheck first without it broke CI on every commit for a day —
+      # and it passed locally the whole time, because a running `next dev`
+      # regenerates those types continuously.
       - name: Typecheck
         run: npm run typecheck
       - name: Lint
