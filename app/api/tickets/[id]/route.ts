@@ -3,11 +3,8 @@ import { rateLimitDurable } from "@/lib/rate-limit-store";
 import { isHoneypotTripped } from "@/lib/subscribe";
 import { recordIngestionFailure } from "@/lib/ingestion-log";
 import { previewText } from "@/lib/tickets";
-import {
-  getWorkspaceByApiKey,
-  upsertContact,
-  createTicket,
-} from "@/lib/data";
+import { upsertContact, createTicket } from "@/lib/data";
+import { resolveIngestKey } from "@/lib/forms";
 import { notifyWorkspace } from "@/lib/notify";
 import { maybeSendAutoReply } from "@/lib/auto-reply-send";
 
@@ -28,8 +25,15 @@ export async function POST(
 ) {
   const { id: apiKey } = await ctx.params;
 
-  const workspace = await getWorkspaceByApiKey(apiKey);
-  if (!workspace) {
+  /*
+    * The key is either the workspace-wide one or a named form's own key.
+    * resolveIngestKey tries the workspace key first, because that is what
+    * every installation in existence posts with today; a form key costs one
+    * extra query and only for the workspaces that have adopted them.
+    */
+   const target = await resolveIngestKey(apiKey);
+   const workspace = target?.workspace;
+   if (!target || !workspace) {
     // THE bakery case. Their site posted a key that no longer existed, every
     // day for six weeks, and this branch discarded the fact every time — so
     // the only way it could ever have been found was the client complaining.
@@ -125,6 +129,9 @@ export async function POST(
 
   const ticket = await createTicket({
     workspaceId: workspace.id,
+    // Null when the workspace-wide key was used, which is every form installed
+    // before named forms existed. The ticket is no less valid for it.
+    formId: target.form?.id ?? null,
     source: "contact_form",
     customerName: name,
     customerEmail: email,

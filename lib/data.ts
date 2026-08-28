@@ -555,11 +555,20 @@ export async function createTicket(input: {
   direction?: MessageDirection;
   /** Email Message-ID of the originating email, when the source is email. */
   messageId?: string | null;
+  /**
+   * Which named form this came through, when a per-form key was used.
+   *
+   * Null for email and order tickets, and for contact-form tickets taken on
+   * the workspace-wide key — which is every installation that predates named
+   * forms. See lib/forms.ts.
+   */
+  formId?: number | null;
 }): Promise<Ticket> {
   const [ticket] = await db
     .insert(tickets)
     .values({
       workspaceId: input.workspaceId,
+      formId: input.formId ?? null,
       source: input.source,
       replyToken: generateReplyToken(),
       orderId: input.orderId ?? null,

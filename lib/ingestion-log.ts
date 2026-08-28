@@ -34,8 +34,19 @@ const KEY_PREFIX_LENGTH = 16;
  * exists to make a real broken integration visible becomes the place that
  * signal hides. A stale or rotated key still looks like one of ours, which is
  * the case worth catching.
+ *
+ * ── BOTH PREFIXES, AND THE SECOND ONE WAS NEARLY MISSED ──
+ * cli_ is a workspace key; pbf_ is a named form key (lib/forms.ts). When form
+ * keys were added this pattern still only matched cli_, so a stale FORM key
+ * would have been dropped here without a trace — which is exactly the failure
+ * this whole file exists to prevent, reintroduced for the new key type and
+ * invisible until somebody complained.
+ *
+ * Caught by posting a junk pbf_ key at the running endpoint and finding the
+ * table still empty. Any future key prefix has to be added here at the same
+ * time, or it inherits the same silence.
  */
-const KEY_SHAPE = /^cli_[A-Za-z0-9_]{4,}$/;
+const KEY_SHAPE = /^(cli|pbf)_[A-Za-z0-9_]{4,}$/;
 
 function prefixOf(key: string): string | null {
   const trimmed = (key ?? "").trim();
