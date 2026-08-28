@@ -43,6 +43,7 @@ export default function Thread({
   archivedAt,
   snoozedUntil,
   wakeIn,
+  openInMailUrl,
   archiveTicket,
   unarchiveTicket,
   snoozeTicket,
@@ -105,6 +106,15 @@ export default function Thread({
    * beside it.
    */
   wakeIn: string | null;
+  /**
+   * A Gmail search for the original message, or null.
+   *
+   * Null far more often than not — see lib/mail-client-link.ts. The button is
+   * not rendered at all in that case rather than being disabled: a greyed-out
+   * control invites somebody to work out how to enable it, and for a
+   * contact-form ticket there is no answer.
+   */
+  openInMailUrl: string | null;
   archiveTicket: (formData: FormData) => void;
   unarchiveTicket: (formData: FormData) => void;
   snoozeTicket: (formData: FormData) => void;
@@ -344,6 +354,28 @@ export default function Thread({
               effect — and both buttons would compete with Restore, which is
               the only thing anybody wants on that screen.
             */}
+            {/*
+              Out to the customer's own mailbox.
+
+              Worded as a search, not as a promise. Postbox exists so a
+              business can stop working out of a shared Gmail account, and a
+              forwarding rule can be set to archive or delete the copy — so
+              this can be present, correct, and still land on "no results".
+              That is a true statement about their mailbox rather than a
+              broken link, and the wording should not claim otherwise.
+            */}
+            {!deletedAt && openInMailUrl && (
+              <a
+                className="pbm-icon-btn"
+                href={openInMailUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                aria-label="Find this message in Gmail"
+                title="Find the original in Gmail — opens in a new tab"
+              >
+                <Icon name="external" size={17} strokeWidth={1.8} />
+              </a>
+            )}
             {!deletedAt && (
               <>
                 <div className="pbm-snooze" ref={snoozeRef}>

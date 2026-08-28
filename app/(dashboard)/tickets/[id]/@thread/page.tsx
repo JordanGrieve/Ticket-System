@@ -30,6 +30,7 @@ import {
   unsnoozeTicketAction,
 } from "../snooze-actions";
 import { isSnoozedNow, describeWakeIn } from "@/lib/snooze";
+import { gmailSearchUrl, canOpenInMailClient } from "@/lib/mail-client-link";
 
 /**
  * The `@thread` slot: the conversation, plus the contact rail that <Thread>
@@ -150,6 +151,31 @@ export default async function TicketThreadSlot({
       }
       /* Relative, so it carries no timezone and is safe to compute here. */
       wakeIn={describeWakeIn(ticket.snoozedUntil, now)}
+      /*
+        The link out to the customer's own mailbox, or null.
+
+        Derived from the FIRST INBOUND message, because that is the one that
+        actually landed in their Gmail — a later reply in the same thread has
+        its own id, and ours have ids we minted rather than ones Gmail knows.
+
+        Null far more often than not, and deliberately so: contact-form tickets
+        were never emails, and every message in development has a null
+        message_id. <Thread> renders nothing when this is null rather than
+        showing a control that finds nothing.
+      */
+      openInMailUrl={(() => {
+        const firstInbound = messages.find((m) => m.direction === "inbound");
+        if (
+          !firstInbound ||
+          !canOpenInMailClient({
+            source: ticket.source,
+            messageId: firstInbound.messageId,
+          })
+        ) {
+          return null;
+        }
+        return gmailSearchUrl(firstInbound.messageId);
+      })()}
       archiveTicket={archiveTicketAction}
       unarchiveTicket={unarchiveTicketAction}
       snoozeTicket={snoozeTicketAction}

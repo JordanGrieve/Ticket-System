@@ -38,6 +38,10 @@ export const ICON_PATHS = {
   envelopeOpen:
     "M3.5 10.5L12 4.5l8.5 6v7a2.5 2.5 0 01-2.5 2.5H6a2.5 2.5 0 01-2.5-2.5z M3.5 10.5l7.4 4.9a2 2 0 002.2 0l7.4-4.9",
   pencil: "M4 20h4L19.5 8.5a2.1 2.1 0 00-3-3L5 17z",
+  // A box with an arrow leaving it — the convention for "this opens somewhere
+  // that is not here", which matters when the somewhere is a different
+  // application entirely.
+  external: "M14 4h6v6M20 4l-8.5 8.5M18 14v4.5A1.5 1.5 0 0116.5 20h-11A1.5 1.5 0 014 18.5v-11A1.5 1.5 0 015.5 6H10",
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;
