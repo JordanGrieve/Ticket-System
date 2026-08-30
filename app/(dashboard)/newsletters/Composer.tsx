@@ -5,6 +5,8 @@ import type { CampaignStatus } from "@/db/schema";
 import {
   AUDIENCE_SKIP_REASONS,
   CAMPAIGN_BODY_MAX,
+  STARTER_CAMPAIGN_BODY,
+  unfilledSlots,
   CAMPAIGN_NAME_MAX,
   CAMPAIGN_PREHEADER_MAX,
   CAMPAIGN_SUBJECT_MAX,
@@ -190,7 +192,10 @@ function emptyDraft(): Draft {
     subject: "",
     preheader: "",
     templateKey: "plain",
-    body: "",
+    // Not "". See STARTER_CAMPAIGN_BODY — a default turns writing into
+    // editing, and it is the only place the merge tokens are demonstrated
+    // rather than merely listed.
+    body: STARTER_CAMPAIGN_BODY,
     listId: null,
     status: "draft",
     recipientCount: 0,
@@ -949,6 +954,15 @@ export default function Composer({
    */
   const canSendLegally = (postalAddress ?? "").trim().length > 0;
 
+  /*
+    The bracketed slots from the starter body, still unfilled. A WARNING and
+    not a block: see unfilledSlots(). Introducing a default that contains
+    "[...]" creates a new way to mail placeholder text to a real list, so the
+    default and this check ship together — one without the other is a worse
+    screen than the blank box they replaced.
+  */
+  const slots = unfilledSlots(draft.body);
+
   const subjectLong = draft.subject.length > SUBJECT_DISPLAY_LIMIT;
   const canSave =
     editable &&
@@ -1672,6 +1686,19 @@ export default function Composer({
                       busy.
                     </p>
                   </fieldset>
+
+                  {slots.length > 0 && (
+                    <p className="nl-warn" role="status">
+                      <b>
+                        {slots.length === 1
+                          ? "One part of this is still a placeholder."
+                          : `${slots.length} parts of this are still placeholders.`}
+                      </b>{" "}
+                      {slots[0]} — these go out exactly as written, so replace
+                      them with your own words first. Square brackets you meant
+                      to send are fine; this is only a reminder.
+                    </p>
+                  )}
 
                   {!canSendLegally && (
                     <p className="nl-warn" role="status">

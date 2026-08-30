@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { LabelColor } from "@/db/schema";
 import { Icon } from "./icons";
 import type { LabelWithCountDTO } from "./types";
+import { STARTER_LABELS } from "@/lib/starter-labels";
 
 /**
  * Create, rename, recolour and delete a workspace's labels.
@@ -133,6 +134,63 @@ export default function LabelManager({
     router.refresh();
   }
 
+  /**
+   * Create the starter set in one press.
+   *
+   * ── SEQUENTIAL, AND 409 IS A SUCCESS ──
+   * Four separate POSTs rather than a batch endpoint, because the endpoint
+   * already exists and already enforces tenancy, naming and colour. A batch
+   * route would be a second place for all three to be got right.
+   *
+   * They run one at a time so a failure halfway leaves a comprehensible state
+   * rather than an arbitrary subset. And a 409 — "you already have a label
+   * called Orders" — is treated as done, not as an error: somebody who pressed
+   * this, renamed one, and pressed it again should end up with the set, not
+   * with a complaint about the one they kept.
+   */
+  async function createStarterSet() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+
+    const made: LabelWithCountDTO[] = [];
+    for (const starter of STARTER_LABELS) {
+      const res = await fetch("/api/labels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: starter.name, color: starter.color }),
+      });
+      if (res.status === 409) continue;
+      const data = (await res.json().catch(() => ({}))) as {
+        label?: LabelWithCountDTO;
+        error?: string;
+      };
+      if (!res.ok || !data.label) {
+        setBusy(false);
+        // Whatever was created before the failure is kept and shown. Rolling
+        // it back would mean four more requests to undo work nobody asked to
+        // undo, and this screen is already the place to delete one.
+        if (made.length > 0) {
+          setRows(
+            [...rows, ...made].sort((a, b) => a.name.localeCompare(b.name)),
+          );
+        }
+        setError(data.error ?? "Couldn't add the starter labels.");
+        return;
+      }
+      made.push(data.label);
+    }
+
+    setBusy(false);
+    setRows([...rows, ...made].sort((a, b) => a.name.localeCompare(b.name)));
+    setAnnouncement(
+      made.length > 0
+        ? `Added ${made.length} starter labels.`
+        : "You already have those labels.",
+    );
+    router.refresh();
+  }
+
   async function patch(
     id: number,
     body: { name?: string; color?: LabelColor; colorHex?: string | null },
@@ -235,9 +293,30 @@ export default function LabelManager({
           }
         >
           {rows.length === 0 && (
-            <p className="pbm-modal-note">
-              No labels yet. Labels are shared by everyone in this workspace.
-            </p>
+            <div className="pbm-label-empty">
+              <p className="pbm-modal-note">
+                No labels yet. Labels are shared by everyone in this workspace.
+              </p>
+              {/*
+                Offered, not imposed — and the wording has to say these are a
+                starting point rather than the right answer, because four names
+                invented by a stranger are not a filing system anybody asked
+                for. Somebody who already knows what they want has the field
+                below and loses nothing by ignoring this.
+              */}
+              <button
+                type="button"
+                className="pbm-starter-btn"
+                onClick={createStarterSet}
+                disabled={busy}
+              >
+                {busy ? "Adding…" : "Add a starter set"}
+              </button>
+              <p className="pbm-starter-hint">
+                {STARTER_LABELS.map((l) => l.name).join(", ")} — rename or
+                delete any of them afterwards.
+              </p>
+            </div>
           )}
 
           {rows.map((row) => (

@@ -2563,3 +2563,39 @@
   outline: 2px solid var(--accent-text);
   outline-offset: 2px;
 }
+
+/* ── The empty label screen's starter set ───────────────────────── */
+.pbm-label-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding-bottom: 4px;
+}
+.pbm-starter-btn {
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  border-radius: 11px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.pbm-starter-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.pbm-starter-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.pbm-starter-btn:focus-visible {
+  border-radius: 11px;
+}
+.pbm-starter-hint {
+  margin: 0;
+  color: var(--muted-2);
+  font-size: 11.5px;
+  line-height: 1.55;
+}

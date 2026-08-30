@@ -1000,6 +1000,54 @@ function normaliseLine(raw: unknown, max: number): string | null {
   return value || null;
 }
 
+/**
+ * What a brand new campaign starts with, instead of an empty box.
+ *
+ * ── WHY NOT A BLANK TEXTAREA ──
+ * From the onboarding research: a blank field asks a time-poor non-expert to
+ * do creative work at the moment they have the least context, and a default
+ * turns creation into editing, which is far cheaper work. This is also the
+ * only surface where the merge tokens are DEMONSTRATED rather than listed —
+ * somebody who has never seen {first_name} learns what it does by watching
+ * the preview beside them fill it in.
+ *
+ * ── THE SQUARE BRACKETS ARE THE POINT, AND THE RISK ──
+ * The slots are deliberately not writable-sounding filler. They name the
+ * decision the author has to make, which is the part a blank page makes hard.
+ *
+ * But shipping a default containing "[...]" invents a brand new way to mail
+ * placeholder text to a real list, so unfilledSlots() below exists and the
+ * composer surfaces it before anything can be scheduled. A default without
+ * that check would be a worse screen than the blank one it replaced.
+ */
+export const STARTER_CAMPAIGN_BODY = [
+  "Hi {first_name},",
+  "",
+  "[One or two sentences on what is new. The subject line got them to open it — this is where you tell them the thing.]",
+  "",
+  "[If there is one thing you would like them to do, say it here and put the link next to it.]",
+  "",
+  "Thanks for reading,",
+  "{company}",
+].join("\n");
+
+/**
+ * The bracketed slots somebody has not filled in yet.
+ *
+ * Matches a non-greedy run inside square brackets that contains no bracket of
+ * its own, so nested or stray brackets cannot make one match swallow the rest
+ * of the message. Returns the slots in order, for a warning that can quote
+ * them rather than saying "something is unfinished".
+ *
+ * Deliberately NOT a hard block. "[sic]", a citation, or a band called
+ * [redacted] are all legitimate things to send, and refusing to deliver
+ * somebody's finished newsletter over a square bracket is worse than the
+ * mistake it prevents. The composer shows this; the author decides.
+ */
+export function unfilledSlots(body: string): string[] {
+  return (body.match(/\[[^[\]]+\]/g) ?? []).map((s) => s.trim());
+}
+
 export type CampaignDraftInput = {
   name: string;
   subject: string;
