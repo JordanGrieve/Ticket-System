@@ -2,6 +2,7 @@ import Link from "next/link";
 import { recentIngestionFailures } from "@/lib/ingestion-log";
 import { recentFeedbackDrops } from "@/lib/feedback-log";
 import { recentAdminActions } from "@/lib/admin-audit";
+import { verifyImpersonationLog } from "@/lib/impersonation";
 // Not Clerk's <SignOutButton>: it runs only in the browser, so an operator
 // signing out from here left their impersonation row open forever.
 import AuditedSignOutButton from "@/components/AuditedSignOutButton";
@@ -176,6 +177,13 @@ export default async function AdminHomePage({
   const sessions = section === "access" ? await listImpersonationSessions() : [];
   // Same section, so the same condition. Two tables, one question.
   const adminActionRows = section === "access" ? await recentAdminActions() : [];
+  /*
+    The whole point of the hash chain. It is written on every impersonation and
+    until now NOTHING ever checked it — a tamper-evident log nobody verifies is
+    not tamper-evident, it is two extra columns. Same shape of gap as
+    suppressAddress having no callers and /search having no way in.
+  */
+  const chain = section === "access" ? await verifyImpersonationLog() : null;
   const recentAccess =
     section === "accounts" && selected
       ? await listImpersonationSessionsForWorkspace(selected.id, 5)
@@ -309,7 +317,11 @@ export default async function AdminHomePage({
                 <OverviewSection accounts={accounts} gates={gates} />
               )}
               {section === "access" && (
-                <AccessSection sessions={sessions} actions={adminActionRows} />
+                <AccessSection
+                  sessions={sessions}
+                  actions={adminActionRows}
+                  chain={chain}
+                />
               )}
               {section === "billing" && (
                 <BillingSection

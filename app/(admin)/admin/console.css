@@ -98,3 +98,29 @@
 .pba-root .pba-row-diag[data-destructive] {
   box-shadow: inset 3px 0 0 var(--pdf-fg);
 }
+
+/*
+  The impersonation chain's verification line.
+
+  Shown in both states on purpose. A check that only appears when something is
+  wrong cannot be told apart from a check that never ran, and this one is
+  making a claim about evidence somebody may one day rely on.
+*/
+.pba-root .pba-chain {
+  margin: 0 18px 14px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+.pba-root .pba-chain[data-state="ok"] b {
+  color: var(--ok-fg);
+}
+.pba-root .pba-chain[data-state="broken"] {
+  border-color: var(--pdf-fg);
+  background: var(--pdf-bg);
+  color: var(--pdf-fg);
+}

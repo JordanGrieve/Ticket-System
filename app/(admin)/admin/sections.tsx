@@ -9,6 +9,10 @@ import {
   type AdminActionRow,
 } from "@/lib/admin-audit";
 import {
+  describeChainVerification,
+  type ChainVerification,
+} from "@/lib/impersonation-chain";
+import {
   sessionState,
   sessionStates,
   type SessionState,
@@ -475,10 +479,16 @@ function duration(session: ImpersonationSession, state: SessionState): string {
 export function AccessSection({
   sessions,
   actions,
+  chain,
 }: {
   sessions: ImpersonationSession[];
   /** Platform-level operator actions. See lib/admin-audit.ts. */
   actions: AdminActionRow[];
+  /**
+   * Result of walking the impersonation hash chain. Null when the section is
+   * not being rendered.
+   */
+  chain: ChainVerification | null;
 }) {
   const states = sessionStates(sessions);
   const open = states.filter((s) => s === "active").length;
@@ -497,6 +507,34 @@ export function AccessSection({
             row, including your own.
           </p>
         </div>
+
+        {/*
+          The chain, actually checked.
+
+          "Append-only" above is a statement about this console. It is not a
+          statement about the database, where anyone holding DATABASE_URL can
+          still delete a row. What the hash chain adds is that they cannot do
+          it QUIETLY — and that guarantee is worth nothing unless somebody
+          walks the chain, which until now nothing ever did.
+
+          Deliberately shown whether it passes or fails. A verification that
+          only appears when something is wrong is one nobody trusts when it is
+          silent, because they cannot tell "checked and fine" from "not run".
+        */}
+        {chain && (
+          <p
+            className="pba-chain"
+            data-state={chain.ok ? "ok" : "broken"}
+            role="status"
+          >
+            <b>
+              {chain.ok
+                ? "Chain intact"
+                : "CHAIN BROKEN — a row has been deleted or edited"}
+            </b>{" "}
+            {describeChainVerification(chain)}
+          </p>
+        )}
 
         <div className="pba-tiles">
           <div className="pba-tile">
