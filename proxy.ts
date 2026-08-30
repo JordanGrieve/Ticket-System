@@ -20,6 +20,14 @@ const isPublicRoute = createRouteMatcher([
   // logged-out visitor to /sign-in, i.e. the pricing link on the homepage
   // would quietly become a sign-in wall for exactly the people it is for.
   "/pricing",
+  /*
+    The contact page. Public for the same reason as /pricing and with the same
+    failure mode if forgotten — it exists precisely for people who have no
+    account, so a 307 to /sign-in would make it useless to everybody it is for.
+    That is the third time this file has had to say this; tests/public-routes
+    now checks it rather than relying on the comment.
+  */
+  "/contact",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/(.*)",

@@ -34,12 +34,23 @@ export const metadata: Metadata = {
  * so confirming the prices is a one-file edit and cannot leave the page and
  * the enforcement disagreeing.
  *
- * ── NO CHECKOUT YET ──
- * Stripe is not wired up (SELF-SERVE 4). The buttons therefore do not pretend
- * to take money: with sign-up closed they point at sign-in, and with it open
- * they start a trial. A "Buy now" that 404s costs more trust than an honest
- * "start a trial" — and a checkout button that silently does nothing is the
- * single worst thing a pricing page can do.
+ * ── NO CHECKOUT ON THIS PAGE ──
+ * The buttons do not pretend to take money: with sign-up closed they go to
+ * /contact, and with it open they start a trial. A "Buy now" that 404s costs
+ * more trust than an honest "start a trial", and a checkout button that
+ * silently does nothing is the single worst thing a pricing page can do.
+ *
+ * (Stripe IS wired up now — checkout, the customer portal and the webhook all
+ * exist, and /settings/billing is where a signed-in workspace chooses a plan.
+ * This page predates that and still routes to a conversation, which is right
+ * while onboarding is one client at a time.)
+ *
+ * ── "GET IN TOUCH" USED TO GO TO /sign-in ──
+ * Which is to say: the only call to action on the page sent a prospect, who by
+ * definition has no account, to a Google sign-in wall. It was the single
+ * conversion path here and it was a dead end. It now goes to /contact, which
+ * is a real form posting into Postbox's own workspace through the same public
+ * ingestion endpoint every client uses.
  *
  * ── WHAT IS DELIBERATELY ABSENT ──
  * No annual toggle: annual pricing has not been decided, and a toggle that
@@ -88,7 +99,7 @@ export default function PricingPage() {
                       ? "home-btn home-btn--primary prc-cta"
                       : "home-btn home-btn--quiet prc-cta"
                   }
-                  href={OPEN_SIGNUP ? "/sign-up" : "/sign-in"}
+                  href={OPEN_SIGNUP ? "/sign-up" : "/contact"}
                 >
                   {OPEN_SIGNUP ? "Start free trial" : "Get in touch"}
                 </Link>
@@ -179,7 +190,7 @@ export default function PricingPage() {
             </div>
             <Link
               className="home-btn home-btn--primary"
-              href={OPEN_SIGNUP ? "/sign-up" : "/sign-in"}
+              href={OPEN_SIGNUP ? "/sign-up" : "/contact"}
             >
               {OPEN_SIGNUP ? "Start free trial" : "Get in touch"}
             </Link>

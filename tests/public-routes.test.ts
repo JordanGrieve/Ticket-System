@@ -72,6 +72,19 @@ function routeFiles(): string[] {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = join(dir, entry.name);
       if (entry.isDirectory()) {
+        /*
+         * The dashboard and admin consoles are skipped BY DIRECTORY, not by
+         * URL. They live in route groups, so /inbox and /pricing are
+         * indistinguishable once the group is stripped — the filesystem is the
+         * only thing that knows which is behind auth.
+         */
+        if (
+          entry.name === "(dashboard)" ||
+          entry.name === "(admin)" ||
+          entry.name === "api"
+        ) {
+          continue;
+        }
         // A (group) is organisational and contributes nothing to the URL.
         const segment = /^\(.*\)$/.test(entry.name) ? url : `${url}/${entry.name}`;
         walk(full, segment);
@@ -112,10 +125,19 @@ describe("public routes are actually reachable", () => {
     r.startsWith("/api") || r.startsWith("/monitoring");
 
   it("finds the app's routes at all", () => {
-    // If the walk breaks, every assertion below passes vacuously.
+    /*
+     * If the walk breaks, every assertion below passes vacuously. The count is
+     * lower than it looks because the walk now excludes the dashboard, the
+     * admin console and /api by directory — what is left is the public surface
+     * and nothing else, which is the point.
+     */
     const routes = routeFiles();
-    expect(routes.length).toBeGreaterThan(20);
+    expect(routes.length).toBeGreaterThan(10);
     expect(routes).toContain("/");
+    expect(routes).toContain("/contact");
+    expect(routes).toContain("/pricing");
+    // The walk must NOT be reaching into the dashboard any more.
+    expect(routes).not.toContain("/inbox");
   });
 
   it("reads the patterns out of proxy.ts", () => {
@@ -127,18 +149,22 @@ describe("public routes are actually reachable", () => {
 
   it("lets a stranger reach every page that is not behind the dashboard", () => {
     /*
-     * The dashboard and admin consoles live in route GROUPS, so their URLs are
-     * indistinguishable from public ones by path alone — /inbox and /pricing
-     * look the same to a matcher. The filesystem is what knows the difference,
-     * so the check is driven from the directory a file is in.
+     * ── DEFAULT PUBLIC, EXCEPTIONS DECLARED ──
+     * The first version of this listed the public directories by hand:
+     * ["(legal)", "s", "u", "sign-in", "sign-up", "pricing"]. It therefore
+     * checked only the pages somebody had remembered to add to the list, which
+     * is precisely the failure it exists to prevent — and it duly missed
+     * /contact on the day that page was written. Removing "/contact" from
+     * proxy.ts left the whole suite green.
+     *
+     * Now the walk excludes the dashboard and admin by directory, and
+     * everything remaining is REQUIRED to be reachable unless it appears in
+     * AUTHED_ON_PURPOSE with a reason. A new public page is covered the moment
+     * it exists; a new authed one has to be argued for in writing.
      */
-    const publicDirs = ["(legal)", "s", "u", "sign-in", "sign-up", "pricing"];
-    const shouldBePublic = routeFiles().filter((r) => {
-      if (dashboardish(r)) return false;
-      if (r === "/") return true;
-      const first = r.split("/")[1]!;
-      return publicDirs.includes(first);
-    });
+    const shouldBePublic = routeFiles().filter(
+      (r) => !dashboardish(r) && !(r in AUTHED_ON_PURPOSE),
+    );
 
     expect(shouldBePublic.length).toBeGreaterThan(5);
     const unreachable = shouldBePublic.filter(

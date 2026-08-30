@@ -85,3 +85,30 @@ export const EMAIL_FROM_ADDRESS =
 // auto-provisioning a workspace. Strangers must never get a workspace — it
 // would hand them outbound email from our domain.
 export const OPEN_SIGNUP = process.env.OPEN_SIGNUP === "true";
+
+/**
+ * The ingestion key of Postbox's OWN workspace, so /contact can post to it.
+ *
+ * ── WHY POSTBOX HAS A WORKSPACE ──
+ * Until this existed there was no way for anyone to contact Postbox at all.
+ * The pricing page's only call to action, "Get in touch", linked to /sign-in —
+ * a Google sign-in wall shown to a prospect who by definition has no account.
+ * It was the single conversion path on the page and it was a dead end.
+ *
+ * The fix is the product. /contact is an ordinary contact form posting to the
+ * ordinary public ingestion endpoint with an ordinary workspace key, exactly
+ * as a client's own site does. Nothing bespoke: if this path breaks, it breaks
+ * for every client too and somebody notices immediately.
+ *
+ * It is also what makes "Priority support from us" on the Business plan a
+ * thing the product can deliver rather than a promise with no channel behind
+ * it — the admin console records that gap under PIVOT 26.
+ *
+ * ── EMPTY IS A SUPPORTED STATE ──
+ * No orDefault and no fallback: a wrong key here would post real enquiries
+ * into the wrong workspace, which is worse than not accepting them. Unset
+ * means /contact says it is not configured yet rather than silently posting
+ * nowhere. Set it once the workspace exists — see HUMAN_ACTIONS.md.
+ */
+export const POSTBOX_CONTACT_KEY =
+  process.env.POSTBOX_CONTACT_KEY?.trim() || null;

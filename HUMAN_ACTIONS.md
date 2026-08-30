@@ -49,6 +49,22 @@ Tick as you go.
   (then Redeploy) and `.env.local` (edit the file directly — including the
   `CLERK_SECRET_KEY_PROD` line). Do at a calm moment; brief blips possible.
   **15 min.** (Asana: 🚧 Rotate secrets)
+- [ ] **Give Postbox its own workspace, so people can contact you** — added
+  30 August 2026. Until now there was no way for anyone to reach Postbox at
+  all: the pricing page's only call to action said "Get in touch" and linked to
+  `/sign-in`, i.e. it sent a prospect with no account to a Google sign-in wall.
+  `/contact` now exists and posts to the ordinary public ingestion endpoint —
+  the same one every client's website uses — but it needs a workspace to post
+  into. **How:** (1) in the admin console, create a client called *Postbox*
+  with your own email as the owner; (2) open it and copy its API key from
+  Settings → Install; (3) set it as a **Vercel** environment variable
+  `POSTBOX_CONTACT_KEY` (Production), then redeploy. Until it is set, `/contact`
+  says it is not connected rather than silently dropping messages — deliberately,
+  because a form that quietly discards a message is worse than no form. **5 min.**
+
+  *This is also what makes "Priority support from us" on the Business plan
+  something the product can deliver. It is currently sold with no channel
+  behind it — see PIVOT 26.*
 
 ## 1b · Newsletter pipeline — added 22 August 2026
 

@@ -34,6 +34,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
+      // The only page on the site somebody can act on without an account.
+      url: `${APP_URL}/contact`,
+      changeFrequency: "yearly",
+      priority: 0.7,
+    },
+    {
       url: `${APP_URL}/terms`,
       changeFrequency: "yearly",
       priority: 0.3,
