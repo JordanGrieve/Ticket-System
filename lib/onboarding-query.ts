@@ -61,6 +61,22 @@ export async function getOnboardingProgress(
         SELECT 1 FROM subscribers s
         WHERE s.workspace_id = ${workspaceId} AND s.status = 'subscribed'
       )`,
+      /*
+        A newsletter that reached somebody.
+
+        Per RECIPIENT, not per campaign. A campaign is marked sent when the
+        send finishes however it went, so every-recipient-failed is `sent`
+        too — see the fact's comment in lib/onboarding.ts. The statuses here
+        are the ones lib/campaign-requeue.ts calls "reached", minus bounced
+        and complained: those were handed over and came straight back, and a
+        newsletter nobody received is not a newsletter sent.
+      */
+      hasSentNewsletter: sql<boolean>`EXISTS (
+        SELECT 1 FROM campaign_recipients cr
+        JOIN campaigns c ON c.id = cr.campaign_id
+        WHERE c.workspace_id = ${workspaceId}
+          AND cr.status IN ('sent', 'delivered')
+      )`,
       // More than one agent row, INCLUDING pending invites: sending the invite
       // is the step, and holding the tick until the other person happens to
       // sign in would leave it looking undone for something already finished.
@@ -90,6 +106,7 @@ export async function getOnboardingProgress(
     autoReplyEnabled: Boolean(row.autoReplyEnabled),
     hasPostalAddress: Boolean(row.hasPostalAddress),
     hasSubscriber: Boolean(row.hasSubscriber),
+    hasSentNewsletter: Boolean(row.hasSentNewsletter),
     hasTeammate: Boolean(row.hasTeammate),
     newslettersAvailable,
   });

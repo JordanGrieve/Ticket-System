@@ -21,6 +21,7 @@ const none: OnboardingFacts = {
   autoReplyEnabled: false,
   hasPostalAddress: false,
   hasSubscriber: false,
+  hasSentNewsletter: false,
   hasTeammate: false,
   newslettersAvailable: true,
 };
@@ -32,6 +33,7 @@ const all: OnboardingFacts = {
   autoReplyEnabled: true,
   hasPostalAddress: true,
   hasSubscriber: true,
+  hasSentNewsletter: true,
   hasTeammate: true,
   newslettersAvailable: true,
 };
@@ -280,9 +282,10 @@ describe("a plan without newsletters", () => {
   // a plan boundary.
   const starter = { ...none, newslettersAvailable: false };
 
-  it("drops the two newsletter steps entirely", () => {
+  it("drops the newsletter steps entirely", () => {
     const ids = onboardingSteps(starter).map((s) => s.id);
     expect(ids).not.toContain("first_subscriber");
+    expect(ids).not.toContain("first_newsletter");
     expect(ids).not.toContain("postal_address");
     expect(ids).toContain("test_enquiry");
     expect(ids).toContain("auto_reply");
@@ -303,5 +306,63 @@ describe("a plan without newsletters", () => {
 
   it("still offers the optional team step", () => {
     expect(onboardingSteps(starter).some((s) => s.id === "invite_team")).toBe(true);
+  });
+});
+
+describe("the newsletter half is on the list at all", () => {
+  /*
+   * It was not. Every step was about the inbox, so a workspace could tick the
+   * lot, be told it was set up, and have never sent a newsletter — the one
+   * thing the newsletter half of the product exists to do, and the thing the
+   * pilot client was signed up for.
+   */
+  it("asks the workspace to send one", () => {
+    expect(onboardingSteps(none).map((s) => s.id)).toContain("first_newsletter");
+  });
+
+  it("comes after getting somebody to send to", () => {
+    // Collecting an address is setup; sending to it is the product doing
+    // something. In that order, and as two steps rather than one.
+    const ids = onboardingSteps(none).map((s) => s.id);
+    expect(ids.indexOf("first_subscriber")).toBeLessThan(
+      ids.indexOf("first_newsletter"),
+    );
+  });
+
+  it("does not tick off a campaign that reached nobody", () => {
+    // The fact is per recipient for exactly this reason: a campaign is marked
+    // sent when the send FINISHES, whatever the outcome, so every-recipient-
+    // failed is `sent` too. This asserts the step follows the fact and nothing
+    // looser.
+    const failedSend = { ...all, hasSentNewsletter: false };
+    expect(
+      onboardingSteps(failedSend).find((s) => s.id === "first_newsletter")?.done,
+    ).toBe(false);
+  });
+
+  it("is optional, because it needs a subscriber who is not ours to produce", () => {
+    // Same argument as "share your signup link": a bakery can do everything
+    // right and still have nobody to write to on any given day. Required, this
+    // would be a checklist they cannot finish.
+    const step = onboardingSteps(none).find((s) => s.id === "first_newsletter");
+    expect(step?.optional).toBe(true);
+    expect(onboardingProgress({ ...all, hasSentNewsletter: false }).complete).toBe(
+      true,
+    );
+  });
+
+  it("does not tell an empty list to go and write to it", () => {
+    // With no subscribers this is not an instruction, and pretending otherwise
+    // reads as the product not knowing what state it is in.
+    const empty = onboardingSteps({ ...none, hasSubscriber: false }).find(
+      (s) => s.id === "first_newsletter",
+    );
+    expect(empty?.detail).toMatch(/nothing to do yet/i);
+
+    const ready = onboardingSteps({ ...none, hasSubscriber: true }).find(
+      (s) => s.id === "first_newsletter",
+    );
+    expect(ready?.detail).not.toMatch(/nothing to do yet/i);
+    expect(ready?.detail).toMatch(/template/i);
   });
 });

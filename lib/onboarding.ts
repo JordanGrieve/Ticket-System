@@ -31,6 +31,7 @@ export type OnboardingStepId =
   | "auto_reply"
   | "postal_address"
   | "first_subscriber"
+  | "first_newsletter"
   | "invite_team";
 
 export type OnboardingStep = {
@@ -64,6 +65,20 @@ export type OnboardingFacts = {
   hasPostalAddress: boolean;
   /** At least one confirmed subscriber. */
   hasSubscriber: boolean;
+  /**
+   * A newsletter actually went out to somebody.
+   *
+   * Not "a campaign has status sent". That status is written when the send
+   * finishes, whatever the outcome, so a campaign every one of whose
+   * recipients failed is `sent` too — lib/campaign-health.ts raises exactly
+   * that case as `all_recipients_failed`. Ticking this step off a status that
+   * can mean "nothing left the building" would tell a bakery they had sent a
+   * newsletter on the day nobody received one.
+   *
+   * So the evidence is per recipient: at least one row handed to the provider
+   * and not rejected by it.
+   */
+  hasSentNewsletter: boolean;
   /** More than one person can sign in. */
   hasTeammate: boolean;
   /**
@@ -203,6 +218,48 @@ export function onboardingSteps(f: OnboardingFacts): OnboardingStep[] {
       optional: true,
     },
     {
+      /*
+       * ── THE OTHER HALF OF THE PRODUCT, AND IT WAS NOT ON THE LIST ──
+       *
+       * Postbox is an inbox AND a newsletter tool, and until now every step
+       * here was about the inbox. A workspace could tick everything, be told
+       * it was set up, and have never sent a newsletter — which is the one
+       * thing the whole newsletter half exists to do, and the thing the pilot
+       * client was signed up for.
+       *
+       * "Share your signup link" is not this step. Collecting an address is
+       * setup; sending to it is the product doing something. Two steps, and
+       * the second is the one worth reaching.
+       *
+       * ── OPTIONAL, FOR THE SAME REASON AS THE STEP ABOVE IT ──
+       * It cannot be done until a member of the public has confirmed an
+       * address, and no amount of doing the right thing makes that happen on
+       * any particular day. Required, it would be a checklist that a bakery
+       * doing everything correctly still cannot finish — the failure this
+       * file already refuses for plan-gated steps and for the subscriber one.
+       *
+       * The cost of that choice is honest and worth naming: "you're set up"
+       * can be true of a workspace that has never sent a newsletter. It says
+       * the setup is done, not that the product has been used, and every
+       * required step here is something the client alone can complete.
+       */
+      id: "first_newsletter",
+      title: "Send your first newsletter",
+      /*
+       * Two wordings, because with nobody to send to this is not an
+       * instruction — it is the step above it, again. Telling somebody to
+       * send a newsletter to an empty list reads as the product not knowing
+       * what state it is in, the same objection that split the first-reply
+       * wording.
+       */
+      detail: f.hasSubscriber
+        ? "You have someone to write to. Start from the template — it is already filled in, so the job is editing rather than staring at an empty page."
+        : "Nothing to do yet: this needs at least one confirmed subscriber. Once somebody has signed up, there is a template waiting with the wording already in it.",
+      done: f.hasSentNewsletter,
+      href: "/newsletters",
+      optional: true,
+    },
+    {
       id: "invite_team",
       title: "Invite your team",
       detail:
@@ -218,7 +275,10 @@ export function onboardingSteps(f: OnboardingFacts): OnboardingStep[] {
   return f.newslettersAvailable
     ? steps
     : steps.filter(
-        (s) => s.id !== "postal_address" && s.id !== "first_subscriber",
+        (s) =>
+          s.id !== "postal_address" &&
+          s.id !== "first_subscriber" &&
+          s.id !== "first_newsletter",
       );
 }
 
