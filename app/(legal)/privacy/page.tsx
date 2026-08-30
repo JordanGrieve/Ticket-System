@@ -16,7 +16,7 @@ export default function PrivacyPage() {
         Privacy Policy
       </h1>
       <p style={{ color: "var(--muted)", marginTop: 0 }}>
-        Last updated: 23 August 2026
+        Last updated: 30 August 2026
       </p>
 
       <h2 style={h2}>Who is responsible for what</h2>
@@ -105,6 +105,76 @@ export default function PrivacyPage() {
         contact into a mailing list.
       </p>
 
+      <h2 style={h2}>When we look inside a client&rsquo;s workspace</h2>
+      <p>
+        Someone at Postbox can open a client&rsquo;s workspace to investigate a
+        problem &mdash; a message that did not arrive, a form that is not
+        working. While they are in, they see what that client&rsquo;s own team
+        sees: the inbox, the contacts, and the content of their customers&rsquo;
+        messages. It is the most sensitive thing we do, so it is recorded and
+        the record is shown to the client rather than kept to ourselves.
+      </p>
+      <p>
+        Every entry writes a row: <strong>who</strong> went in,{" "}
+        <strong>when</strong> they entered, <strong>why</strong> if they gave a
+        reason (the field is free text and optional, and a blank one is shown as
+        blank), and when the visit ended. Since 30 August 2026 we also record{" "}
+        <strong>which conversations were opened</strong>{" "}
+        during the visit. That
+        record holds the conversation&rsquo;s reference number and nothing from
+        inside it &mdash; no subject line, no message text, no customer name.
+      </p>
+      <p>
+        Clients can read all of it themselves, for their own workspace, at
+        Settings &rarr; Access log. Three limits are stated there and are
+        repeated here because they change what the record can be relied on for:
+      </p>
+      <ul>
+        <li>
+          The list of conversations is a <strong>floor, not an inventory</strong>.
+          Writing it is allowed to fail rather than interrupt an operator
+          mid-investigation, so a visit showing no conversations means none were
+          recorded &mdash; which is not the same as none being opened.
+        </li>
+        <li>
+          It covers <strong>entry by us</strong>, and nothing else. It does not
+          record a client&rsquo;s own team signing in or what they read, it does
+          not cover data reached other than by opening a conversation (a
+          contact&rsquo;s details, a subscriber list, a campaign report), and it
+          cannot cover anything done directly against the database.
+        </li>
+        <li>
+          Visits before the dates these records began leave no row behind and
+          cannot be reconstructed. The log does not speak for the time before it
+          existed and does not pretend to.
+        </li>
+      </ul>
+      <p>
+        The entry records are chained to each other cryptographically, and a
+        check runs over that chain. What it catches is a row being{" "}
+        <strong>deleted</strong>, and the entry facts &mdash; who, which
+        workspace, when they went in, the reason given &mdash; being{" "}
+        <strong>changed</strong> after the fact. It does not cover how a visit
+        is recorded as having <em>ended</em>: that part is written after the
+        row, so it sits outside the chain and could be relabelled without the
+        check noticing.
+      </p>
+      <p>
+        Being straight about what that is worth: it makes tampering{" "}
+        <em>evident</em>, not impossible. It reliably catches the accidental
+        version &mdash; a stray delete, a bad migration, an update run against
+        the wrong row. It is an audit trail we keep about ourselves, in our own
+        database, and anyone with direct access to that database can still
+        destroy it. We do not present it as more than that.
+      </p>
+      <p>
+        This record is about our own staff, so we are its controller. It{" "}
+        <strong>outlives the workspace it refers to</strong>, on purpose:
+        deleting an account must not erase the evidence of who read what while
+        it existed. Once the workspace is gone the row keeps the operator, the
+        times and the reason, and the workspace it names is shown as deleted.
+      </p>
+
       <h2 style={h2}>Marketing email</h2>
       <div style={notBuilt}>
         <strong>Signup forms are live. Sending is not.</strong>{" "}
@@ -112,7 +182,8 @@ export default function PrivacyPage() {
         are asking about. The hosted signup form is live: people are confirming
         subscriptions today, and everything described in this section about
         collection, consent and unsubscribing applies to them now. Campaign{" "}
-        <em>delivery</em> is not yet available to clients. The composer,
+        <em>delivery</em>{" "}
+        is not yet available to clients. The composer,
         audience selection, the scheduler, the unsubscribe endpoint and the
         Amazon SES integration are all built and switched on, and on 23 August
         2026 we sent one test message through them &mdash; to our own operator
@@ -240,7 +311,8 @@ export default function PrivacyPage() {
         regions are named below where they differ.
       </p>
       <p>
-        <strong>Resend</strong> carries all transactional mail: ticket replies,
+        <strong>Resend</strong>{" "}
+        carries all transactional mail: ticket replies,
         auto-replies, notifications, workspace invitations, and the double
         opt-in confirmation email sent to someone who fills in a signup form.
         That last one is worth stating plainly &mdash; a prospective
@@ -249,7 +321,8 @@ export default function PrivacyPage() {
         our clients&rsquo; behalf.
       </p>
       <p>
-        <strong>Amazon Simple Email Service</strong> is the provider configured
+        <strong>Amazon Simple Email Service</strong>{" "}
+        is the provider configured
         to carry marketing campaigns, in the AWS Europe (Ireland) region. When a
         campaign sends, SES receives the recipient&rsquo;s email address and the
         full content of the message &mdash; including any personalised fields
@@ -326,7 +399,8 @@ export default function PrivacyPage() {
       <p>
         On export, specifically: clients can download their workspace data as a
         JSON file from within Postbox, and that file contains tickets, messages
-        and support contacts. It does <em>not</em> currently include
+        and support contacts. It does <em>not</em>{" "}
+        currently include
         subscribers, lists, campaigns or suppressions &mdash; the export was
         written before the mailing-list side existed and has not caught up. An
         export covering the newsletter data is produced on request in the
