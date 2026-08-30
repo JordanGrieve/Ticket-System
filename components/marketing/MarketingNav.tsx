@@ -31,7 +31,7 @@ export default function MarketingNav({
   current,
 }: {
   /** Marks the page you are on, so it is not offered as somewhere to go. */
-  current?: "home" | "pricing";
+  current?: "home" | "pricing" | "contact";
 }) {
   return (
     <header className="home-nav">
@@ -50,6 +50,13 @@ export default function MarketingNav({
           aria-current={current === "pricing" ? "page" : undefined}
         >
           Pricing
+        </Link>
+        <Link
+          className="home-nav-link home-nav-link--hide-sm"
+          href="/contact"
+          aria-current={current === "contact" ? "page" : undefined}
+        >
+          Contact
         </Link>
         <Link className="home-btn home-btn--sm home-btn--quiet" href="/sign-in">
           Sign in

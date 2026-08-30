@@ -14,6 +14,24 @@ export const metadata: Metadata = {
 };
 
 /**
+ * Rendered per request rather than prerendered.
+ *
+ * This page has no dynamic data, so Next statically prerenders it by default —
+ * which BAKES IN whatever POSTBOX_CONTACT_KEY was at BUILD time. Found the
+ * honest way: the variable was set locally, the server restarted with it
+ * present, and the page still showed "not connected yet".
+ *
+ * On Vercel the variable is available during the build, so the static version
+ * would usually be correct. What this removes is the confusing failure:
+ * somebody sets the key, does not rebuild, and the page silently keeps saying
+ * it is not configured with nothing to explain why. The whole point of this
+ * page is that it works once the key is set, so it reads the key when somebody
+ * asks for the page. It is a form and a paragraph; nothing here is worth
+ * caching.
+ */
+export const dynamic = "force-dynamic";
+
+/**
  * How anybody reaches Postbox.
  *
  * ── THE HOLE THIS FILLS ──
@@ -42,28 +60,10 @@ export const metadata: Metadata = {
  * scripting off, and the endpoint answers a form post with its own HTML
  * success page. Nothing here has to know what happens next.
  */
-/**
- * Rendered per request rather than prerendered.
- *
- * This page has no dynamic data, so Next statically prerenders it by default —
- * which BAKES IN whatever POSTBOX_CONTACT_KEY was at BUILD time. Found the
- * honest way: the form was set locally, the server restarted with the variable
- * present, and the page still showed "not connected yet".
- *
- * On Vercel the variable is available during the build, so the static version
- * would usually be correct. The failure it removes is the confusing one:
- * somebody sets the key, does not rebuild, and the page silently keeps saying
- * it is not configured with nothing to explain why. The whole point of this
- * page is that it works when the key is set, so it reads the key when somebody
- * asks for the page. It is a form and a paragraph; there is nothing here worth
- * caching.
- */
-export const dynamic = "force-dynamic";
-
 export default function ContactPage() {
   return (
     <div className="home">
-      <MarketingNav />
+      <MarketingNav current="contact" />
       <main className="ct-wrap">
         <div className="ct-col">
           <h1 className="ct-title">Get in touch</h1>

@@ -342,6 +342,11 @@ export default async function LandingPage() {
         <span>© 2026 Postbox · postbox.help</span>
         <span className="home-footer-links">
           <Link href="/pricing">Pricing</Link>
+          {/* The footer is where somebody looks for a way to reach a company
+              when the page has not offered them one. /contact exists but was
+              only reachable from the pricing page's buttons, which a visitor
+              reading the homepage never sees. */}
+          <Link href="/contact">Contact</Link>
           <Link href="/terms">Terms</Link>
           <Link href="/privacy">Privacy</Link>
         </span>
