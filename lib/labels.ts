@@ -218,6 +218,55 @@ export async function createLabel(
   return created ?? null;
 }
 
+/**
+ * The three labels a brand new workspace starts with.
+ *
+ * ── A BLANK FIELD ASKS FOR CREATIVE WORK AT THE MOMENT OF LEAST CONTEXT ──
+ * The onboarding research is blunt about this: a default converts creation
+ * into editing, which is far cheaper for a time-poor owner who has never used
+ * the product. An empty label picker offers no clue that labels are for
+ * sorting an inbox at all, so most people close it and never come back.
+ *
+ * ── WHY THREE, AND WHY THESE THREE ──
+ * The research suggested a fourth, "Wholesale". It is left out: it fits a
+ * bakery and not a plumber, and a default half our clients delete is the
+ * clutter that makes people distrust the other defaults. These three are
+ * unambiguous for any small business that answers its own email.
+ *
+ * Three also happens to be the number of colour tokens, so a new workspace
+ * shows each swatch exactly once. That is a demonstration of the picker, not a
+ * coincidence worth preserving if a fourth label is ever genuinely wanted —
+ * colours may repeat.
+ *
+ * These are ordinary labels. Nothing marks them as seeded, nothing restores
+ * them, and deleting one is final, which is the correct behaviour for a
+ * suggestion.
+ */
+export const STARTER_LABELS: { name: string; color: LabelColor }[] = [
+  { name: "Orders", color: "tag_a" },
+  { name: "Enquiries", color: "tag_b" },
+  { name: "Complaints", color: "tag_c" },
+];
+
+/**
+ * Give a new workspace its starter labels. One statement, not three.
+ *
+ * Best effort by contract: the caller is provisionWorkspace, and the workspace
+ * and its first agent are already committed by the time this runs. Losing a
+ * workspace over three decorative rows would be a far worse failure than
+ * starting without them, so the caller swallows the error rather than
+ * unwinding a half-created account it has no transaction to unwind with.
+ *
+ * onConflictDoNothing so it can never be the thing that fails: a workspace
+ * that somehow already has an "Orders" keeps the one it has.
+ */
+export async function seedStarterLabels(workspaceId: number): Promise<void> {
+  await db
+    .insert(labels)
+    .values(STARTER_LABELS.map((l) => ({ workspaceId, ...l })))
+    .onConflictDoNothing();
+}
+
 /** Rename / recolour. Null when the id isn't this workspace's. */
 export async function updateLabel(
   workspaceId: number,

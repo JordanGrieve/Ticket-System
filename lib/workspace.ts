@@ -4,6 +4,7 @@ import { eq, like, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { workspaces, agents, type Workspace, type Agent } from "@/db/schema";
 import { INBOUND_DOMAIN, OPEN_SIGNUP } from "./config";
+import { seedStarterLabels } from "./labels";
 
 /**
  * Placeholder clerkUserId prefixes for agents whose human hasn't signed in yet.
@@ -69,6 +70,24 @@ export async function provisionWorkspace(input: {
     .insert(agents)
     .values({ workspaceId: workspace.id, clerkUserId: input.clerkUserId, email })
     .returning();
+
+  /*
+    Starter labels — a suggestion, not part of the account.
+
+    Deliberately after the two inserts above and deliberately swallowed. Both
+    rows are already committed by this point and neon-http gives us no
+    transaction to unwind them with, so a throw here would leave a real
+    workspace behind an error screen. Three decorative rows are not worth that.
+
+    The consequence is stated rather than hidden: a workspace can exist with no
+    labels, which is exactly the state every workspace was in before this, and
+    the picker still works.
+  */
+  try {
+    await seedStarterLabels(workspace.id);
+  } catch (err) {
+    console.error("[workspace] starter labels not created:", err);
+  }
 
   return { workspace, agent };
 }
