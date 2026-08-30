@@ -86,3 +86,15 @@
   color: var(--muted-2);
   border-bottom: 1px solid var(--border-soft);
 }
+
+/*
+  A destructive entry in the operator action log.
+
+  Deleting a workspace and creating one are the same shape of row, and in a
+  list where they look identical somebody has to read every line to find the
+  one that mattered. The marker is a left edge rather than a background wash:
+  the row still has to be readable, and this table is scanned rather than read.
+*/
+.pba-root .pba-row-diag[data-destructive] {
+  box-shadow: inset 3px 0 0 var(--pdf-fg);
+}

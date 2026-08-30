@@ -155,6 +155,13 @@
       "when": 1788092291478,
       "tag": "0021_groovy_hellcat",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1788093961247,
+      "tag": "0022_nosy_thunderbolt_ross",
+      "breakpoints": true
     }
   ]
 }

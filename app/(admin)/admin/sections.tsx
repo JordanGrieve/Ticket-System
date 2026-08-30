@@ -4,6 +4,11 @@ import type { WorkspaceSummary } from "@/lib/data";
 import type { IngestionFailureRow } from "@/lib/ingestion-log";
 import { describeDropReason, type FeedbackDropRow } from "@/lib/feedback-log";
 import {
+  describeAdminAction,
+  isDestructiveAdminAction,
+  type AdminActionRow,
+} from "@/lib/admin-audit";
+import {
   sessionState,
   sessionStates,
   type SessionState,
@@ -467,7 +472,14 @@ function duration(session: ImpersonationSession, state: SessionState): string {
   return `${formatDuration(session.startedAt, session.lastSeenAt)}+`;
 }
 
-export function AccessSection({ sessions }: { sessions: ImpersonationSession[] }) {
+export function AccessSection({
+  sessions,
+  actions,
+}: {
+  sessions: ImpersonationSession[];
+  /** Platform-level operator actions. See lib/admin-audit.ts. */
+  actions: AdminActionRow[];
+}) {
   const states = sessionStates(sessions);
   const open = states.filter((s) => s === "active").length;
   const abandoned = states.filter((s) => s === "abandoned").length;
@@ -567,12 +579,65 @@ export function AccessSection({ sessions }: { sessions: ImpersonationSession[] }
         between &ldquo;last seen&rdquo; and &ldquo;actually stopped looking&rdquo;
         is not measurable and is not guessed at here.
       </p>
+      {/*
+        A second table, not a second page. "Who went into a client" and "who
+        deleted a client" are the same question asked by the same person on the
+        same bad afternoon, and splitting them across two screens means one of
+        them gets missed.
+      */}
+      <div className="pba-card">
+        <div className="pba-card-head">
+          <h2 className="pba-card-title">Operator actions on the platform</h2>
+          <p className="pba-card-sub">
+            Creating and deleting workspaces, and granting or revoking
+            super-admin. Recorded <b>before</b> each action runs, so a deletion
+            that fails halfway still leaves a trace &mdash; and kept with no
+            link to the workspace it names, because a cascade would delete the
+            record of its own deletion.
+          </p>
+        </div>
+        {actions.length === 0 ? (
+          <p className="pba-card-sub" style={{ padding: "0 18px 18px" }}>
+            Nothing recorded. No workspace has been created or deleted, and no
+            super-admin granted or revoked, since this started being kept.
+          </p>
+        ) : (
+          <div className="pba-table">
+            <div className="pba-scroll">
+              <div className="pba-row pba-row-head">
+                <span>Action</span>
+                <span>Operator</span>
+                <span>Target</span>
+                <span>When</span>
+                <span>Detail</span>
+              </div>
+              {actions.map((a) => (
+                <div
+                  className="pba-row pba-row-diag"
+                  key={a.id}
+                  data-destructive={
+                    isDestructiveAdminAction(a.action) || undefined
+                  }
+                >
+                  <span>{describeAdminAction(a.action)}</span>
+                  <span>{a.actorEmail}</span>
+                  <span>{a.targetLabel ?? "—"}</span>
+                  <span>{formatDateTime(a.createdAt)}</span>
+                  <span className="pba-mono">{a.detail ?? "—"}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       <p className="pba-note">
-        This log records <b>entry into a workspace</b>, not individual reads. It
-        cannot tell you which tickets were opened or which customer&rsquo;s
-        details were on screen — no per-record access is captured anywhere in
-        Postbox. It also does not cover sign-ins, API-key traffic or anything
-        done directly against the database.
+        Together these record <b>entry into a workspace</b> and{" "}
+        <b>changes to the platform</b> — not individual reads. Neither can tell
+        you which tickets were opened or which customer&rsquo;s details were on
+        screen; no per-record access is captured anywhere in Postbox. Sign-ins,
+        API-key traffic and anything done directly against the database are
+        still uncovered.
       </p>
     </div>
   );

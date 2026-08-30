@@ -1398,6 +1398,64 @@ export const feedbackDrops = pgTable(
 export type FeedbackDropReason = "no_message_id" | "unmapped_message_id";
 
 /**
+ * What operators DID, as distinct from where they went.
+ *
+ * `impersonation_sessions` records an operator entering a client's workspace.
+ * It records nothing about the four actions that change the platform itself:
+ * creating a workspace, DELETING one, and granting or revoking super-admin.
+ * Until this table existed an operator could delete a client — cascading away
+ * every ticket, message and subscriber they had — and nothing anywhere said
+ * who, when, or that it had happened at all.
+ *
+ * ── NO FOREIGN KEY TO workspaces, AND THAT IS THE WHOLE POINT ──
+ * `targetId` is a plain integer. A references() with the cascade this schema
+ * uses elsewhere would mean deleting a workspace also deleted the record OF
+ * that deletion — an audit log that erases exactly the entry somebody would
+ * come looking for. `targetLabel` is a SNAPSHOT of the name at the time, for
+ * the same reason: after the delete there is no row left to join to.
+ *
+ * ── A ROW MEANS "ATTEMPTED AND AUTHORISED", NOT "COMPLETED" ──
+ * The write happens BEFORE the mutation and is fail-closed: if the log cannot
+ * be written, the action does not proceed. That asymmetry is deliberate. A
+ * recorded action that then failed is discoverable and confusing for five
+ * minutes; an unrecorded deletion is undiscoverable forever. Recording after
+ * the fact would lose precisely the case that matters most — the one where
+ * something went wrong midway.
+ */
+export const adminActions = pgTable(
+  "admin_actions",
+  {
+    id: serial("id").primaryKey(),
+    /** The operator. Nullable so revoking an admin cannot erase their history. */
+    actorAdminId: integer("actor_admin_id"),
+    /** Snapshot of who they were, kept readable if the admin row goes. */
+    actorEmail: text("actor_email").notNull(),
+    action: text("action").$type<AdminActionKind>().notNull(),
+    /** Id of the workspace or admin acted on. Not a foreign key — see above. */
+    targetId: integer("target_id"),
+    /** Name or email of the target AS IT WAS. Never resolved at read time. */
+    targetLabel: text("target_label"),
+    /** Free-text context, e.g. the typed confirmation. Optional. */
+    detail: text("detail"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("admin_actions_created_idx").on(t.createdAt)],
+);
+
+/**
+ * The four platform-level actions. Deliberately a closed set: an open one
+ * would let a caller invent a verb, and a log whose vocabulary drifts is one
+ * nobody can query.
+ */
+export type AdminActionKind =
+  | "workspace_created"
+  | "workspace_deleted"
+  | "admin_granted"
+  | "admin_revoked";
+
+/**
  * Cross-invocation rate limiting.
  *
  * lib/rate-limit.ts is an in-memory Map, which is correct within ONE serverless

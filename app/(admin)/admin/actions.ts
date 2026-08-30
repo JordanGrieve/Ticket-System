@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireAdmin, requireAdminRow, ADMIN_WS_COOKIE } from "@/lib/viewer";
+import { recordAdminAction } from "@/lib/admin-audit";
 import { addAdmin, findAdminByEmail, getAdminById, removeAdmin } from "@/lib/admin";
 import {
   ADMIN_IMP_COOKIE,
@@ -116,7 +117,10 @@ export async function stopImpersonatingAction(): Promise<void> {
  * connects them to this workspace (instead of provisioning a blank one).
  */
 export async function createClientAction(formData: FormData): Promise<void> {
-  const adminEmail = await requireAdmin();
+  // The row, not just the email: an audit entry has to name a specific
+  // operator id rather than whatever address was on the session.
+  const actor = await requireAdminRow();
+  const adminEmail = actor.email;
 
   const name = String(formData.get("name") ?? "").trim().slice(0, 80);
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -131,6 +135,21 @@ export async function createClientAction(formData: FormData): Promise<void> {
   if (await getAgentByEmail(email)) {
     redirect("/admin?error=That email is already linked to a workspace.");
   }
+
+  /*
+    Logged BEFORE the mutation and fail-closed — see lib/admin-audit.ts. For a
+    creation the asymmetry barely matters; it is written this way so all four
+    actions read the same, because the one where it matters enormously is the
+    delete below and a log with two different conventions is one somebody
+    reasons about wrongly under pressure.
+  */
+  await recordAdminAction({
+    action: "workspace_created",
+    actorAdminId: actor.id,
+    actorEmail: actor.email,
+    targetLabel: name,
+    detail: `owner ${email}`,
+  });
 
   await provisionWorkspace({ name, ownerEmail: email, clerkUserId: inviteToken() });
 
@@ -155,7 +174,8 @@ export async function createClientAction(formData: FormData): Promise<void> {
  * guarantees at least one admin always remains.
  */
 export async function removeAdminAction(formData: FormData): Promise<void> {
-  const selfEmail = await requireAdmin();
+  const actor = await requireAdminRow();
+  const selfEmail = actor.email;
 
   const id = Number(formData.get("adminId"));
   if (!Number.isInteger(id)) redirect("/admin?error=Invalid admin.");
@@ -170,6 +190,14 @@ export async function removeAdminAction(formData: FormData): Promise<void> {
   // click, so the audit row has to end here too — a moment later the admins row
   // is gone and nothing points at their open session any more. The log rows
   // survive the delete (admin_id goes null, admin_email is frozen).
+  await recordAdminAction({
+    action: "admin_revoked",
+    actorAdminId: actor.id,
+    actorEmail: actor.email,
+    targetId: target.id,
+    targetLabel: target.email,
+  });
+
   await endOpenSessionsForAdmin(id, "admin_removed");
   await removeAdmin(id);
   revalidatePath("/admin");
@@ -212,7 +240,7 @@ export async function resendInviteAction(formData: FormData): Promise<void> {
  * in again they'd start a fresh blank workspace.
  */
 export async function deleteClientAction(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const actor = await requireAdminRow();
 
   const id = Number(formData.get("workspaceId"));
   const confirmName = String(formData.get("confirmName") ?? "").trim();
@@ -229,6 +257,26 @@ export async function deleteClientAction(formData: FormData): Promise<void> {
       )}`,
     );
   }
+
+  /*
+    The row this whole table exists for. Written BEFORE the delete and
+    fail-closed, because deleteWorkspace cascades away every ticket, message,
+    label and subscriber this client had, and once it has run there is no
+    workspace row left to name.
+
+    targetLabel is a snapshot for that reason, and admin_actions deliberately
+    has NO foreign key to workspaces — the cascade this schema uses elsewhere
+    would delete the record OF the deletion, which is precisely the entry
+    somebody would come looking for.
+  */
+  await recordAdminAction({
+    action: "workspace_deleted",
+    actorAdminId: actor.id,
+    actorEmail: actor.email,
+    targetId: workspace.id,
+    targetLabel: workspace.name,
+    detail: workspace.inboundEmail,
+  });
 
   // Before the delete, not after: the audit rows' workspace_id is "set null"
   // so they outlive the workspace, and once it is null there is nothing left
@@ -250,11 +298,20 @@ export async function deleteClientAction(formData: FormData): Promise<void> {
 
 /** Grant super-admin to another email (a collaborator who can help clients). */
 export async function addAdminAction(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const actor = await requireAdminRow();
   const email = String(formData.get("email") ?? "")
     .trim()
     .toLowerCase();
   if (isValidEmail(email)) {
+    // Inside the guard on purpose: an invalid address grants nothing, and
+    // logging the attempt would fill the record with typos and bury the
+    // entries that actually changed who can reach every client's data.
+    await recordAdminAction({
+      action: "admin_granted",
+      actorAdminId: actor.id,
+      actorEmail: actor.email,
+      targetLabel: email,
+    });
     await addAdmin(email);
   }
   revalidatePath("/admin");

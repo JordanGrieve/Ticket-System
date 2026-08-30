@@ -420,6 +420,14 @@ const NON_TENANT_TABLES = [
    * tenant's subscriber.
    */
   "feedback_drops",
+  /*
+   * admin_actions records what an OPERATOR did to the platform. A row about
+   * deleting a workspace is not owned by that workspace — if it were, the
+   * cascade would delete the record of its own deletion. It deliberately has
+   * no foreign key and no workspace_id at all; `target_id` is a plain integer
+   * and `target_label` is a snapshot. See db/schema.ts.
+   */
+  "admin_actions",
   "workspaces",
   "admins",
   "impersonation_sessions",
