@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { labelChipProps } from "./label-style";
 import { useRouter } from "next/navigation";
 import type { LabelColor } from "@/db/schema";
 import { Icon } from "./icons";
@@ -14,9 +15,19 @@ import type { LabelWithCountDTO } from "./types";
  * dialog traps nothing (there is nowhere else to tab to inside the shell while
  * it is open) but does move focus to the name field on open.
  *
- * Colour is picked from three swatches, never a colour wheel — the column
- * stores a token key, and offering a wheel would promise a fidelity the schema
- * cannot keep.
+ * Colour is three preset swatches PLUS a wheel, as of 28 August.
+ *
+ * The three presets store a token key, which is why they still exist: a token
+ * resolves to a different hue in each palette, so a label coloured that way
+ * reads correctly in all five without a write. This file used to say a wheel
+ * would "promise a fidelity the schema cannot keep", and against a plain hex
+ * column that was true — a dark navy pick would be unreadable on Ocean.
+ *
+ * The wheel writes labels.color_hex alongside the token, and the chip mixes
+ * that colour into the theme's own surface and ink rather than painting it
+ * flat. So the hue is the user's and the contrast stays the theme's, which is
+ * what the old objection was actually protecting. See the data-custom rules in
+ * mail.css.
  *
  * Deletion confirms IN the modal, on the row being deleted. It used to call
  * `window.confirm`: unstyleable, unthemeable across the six themes, impossible
@@ -56,6 +67,12 @@ export default function LabelManager({
   const [rows, setRows] = useState<LabelWithCountDTO[]>(labels);
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState<LabelColor>("tag_a");
+  /*
+   * Null means "use the preset". The two controls are mutually exclusive by
+   * design — picking a preset clears this, picking a colour sets it — so the
+   * row can never be showing one colour while storing another.
+   */
+  const [newHex, setNewHex] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -97,7 +114,7 @@ export default function LabelManager({
     const res = await fetch("/api/labels", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, color: newColor }),
+      body: JSON.stringify({ name, color: newColor, colorHex: newHex }),
     });
     setBusy(false);
     const data = (await res.json().catch(() => ({}))) as {
@@ -116,7 +133,10 @@ export default function LabelManager({
     router.refresh();
   }
 
-  async function patch(id: number, body: { name?: string; color?: LabelColor }) {
+  async function patch(
+    id: number,
+    body: { name?: string; color?: LabelColor; colorHex?: string | null },
+  ) {
     if (busy) return;
     setBusy(true);
     setError(null);
@@ -288,7 +308,7 @@ export default function LabelManager({
                 </>
               ) : (
                 <>
-                  <span className="pbm-label" data-color={row.color}>
+                  <span className="pbm-label" {...labelChipProps(row)}>
                     <span className="pbm-label-name">{row.name}</span>
                   </span>
                   <span className="pbm-label-count">
@@ -310,9 +330,27 @@ export default function LabelManager({
                         className="pbm-label-swatch pbm-label-swatch--pick"
                         data-color={c}
                         data-on={row.color === c || undefined}
-                        onClick={() => void patch(row.id, { color: c })}
+                        onClick={() =>
+                          void patch(row.id, { color: c, colorHex: null })
+                        }
                       />
                     ))}
+                    {/*
+                      Choosing a preset clears the hex above, so the two
+                      controls cannot disagree about which colour is in force.
+                      A native input rather than a drawn wheel: it is the
+                      platform's own picker, keyboard-operable and translated,
+                      and on a phone it opens the system one.
+                    */}
+                    <input
+                      type="color"
+                      className="pbm-label-pick"
+                      aria-label={`Pick any colour for ${row.name}`}
+                      value={row.colorHex ?? "#8b6bff"}
+                      onChange={(e) =>
+                        void patch(row.id, { colorHex: e.target.value })
+                      }
+                    />
                   </div>
                   <button
                     className="pbm-label-icon"
@@ -373,9 +411,19 @@ export default function LabelManager({
                   className="pbm-label-swatch pbm-label-swatch--pick"
                   data-color={c}
                   data-on={newColor === c || undefined}
-                  onClick={() => setNewColor(c)}
+                  onClick={() => {
+                    setNewColor(c);
+                    setNewHex(null);
+                  }}
                 />
               ))}
+              <input
+                type="color"
+                className="pbm-label-pick"
+                aria-label="Pick any colour for the new label"
+                value={newHex ?? "#8b6bff"}
+                onChange={(e) => setNewHex(e.target.value)}
+              />
             </div>
             <button
               className="pbm-label-create"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { labelChipProps } from "./label-style";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 // Not Clerk's <SignOutButton>: an operator signing out from inside a client
@@ -460,7 +461,7 @@ export default function MailNavShell({
                     data-active={active}
                     aria-current={active ? "page" : undefined}
                   >
-                    <span className="pbm-label-swatch" data-color={l.color} aria-hidden />
+                    <span className="pbm-label-swatch" {...labelChipProps(l)} aria-hidden />
                     <span className="pbm-folder-label">{l.name}</span>
                     <span className="pbm-folder-count">{l.ticketCount}</span>
                   </Link>

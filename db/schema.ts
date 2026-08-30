@@ -553,6 +553,29 @@ export const labels = pgTable(
       .references(() => workspaces.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     color: text("color").$type<LabelColor>().notNull().default("tag_a"),
+    /**
+     * A colour the user picked, as #rrggbb, or null to use the token above.
+     *
+     * ── WHY BOTH COLUMNS ──
+     * `color` stores a TOKEN KEY, and that is deliberate: the token resolves to
+     * a different hue in each of the five palettes, so one row renders legibly
+     * everywhere without a write. lib/labels.ts used to say a colour wheel
+     * "would promise a fidelity the schema cannot keep", and against a plain
+     * hex column that was true — somebody picking dark navy would produce a
+     * label nobody could read on the Ocean theme.
+     *
+     * This is additive rather than a replacement. Every existing label keeps
+     * its token and stays theme-adaptive; only a label somebody has explicitly
+     * recoloured carries a hex. Nothing had to be migrated and nothing lost
+     * its per-theme behaviour.
+     *
+     * The readability problem is solved at RENDER rather than by restricting
+     * the choice: the chip mixes this colour into the theme's own surface and
+     * ink with color-mix, so a dark navy becomes a pale navy tint with dark
+     * navy text on a light theme, and a dark navy ground with light navy text
+     * on a dark one. The hue is theirs; the contrast is ours.
+     */
+    colorHex: text("color_hex"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

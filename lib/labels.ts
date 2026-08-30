@@ -50,6 +50,29 @@ export function isLabelColor(value: unknown): value is LabelColor {
 }
 
 /** Trim and cap. Returns null when nothing usable is left. */
+/**
+ * A colour the user picked, normalised to #rrggbb, or null.
+ *
+ * ── STRICT ON PURPOSE ──
+ * This value is interpolated into a CSS custom property on the element, so it
+ * is the one place a label could carry something that is not a colour into a
+ * style attribute. Only six hex digits are accepted: no named colours, no
+ * rgb(), no var(), no url(). A rejected value falls back to the token, which
+ * always renders.
+ *
+ * Three-digit hex is expanded rather than refused — every native colour input
+ * emits six, but a hand-written #f00 is a reasonable thing to mean.
+ */
+export function normaliseLabelHex(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const v = raw.trim().toLowerCase();
+  if (/^#[0-9a-f]{6}$/.test(v)) return v;
+  if (/^#[0-9a-f]{3}$/.test(v)) {
+    return "#" + v.slice(1).split("").map((c) => c + c).join("");
+  }
+  return null;
+}
+
 export function normaliseLabelName(raw: unknown): string | null {
   const name = String(raw ?? "")
     .replace(/\s+/g, " ")
@@ -63,6 +86,8 @@ export type LabelChip = {
   id: number;
   name: string;
   color: LabelColor;
+  /** A picked colour, or null to use the theme token in `color`. */
+  colorHex: string | null;
 };
 
 export type LabelWithCount = LabelChip & {
@@ -75,7 +100,12 @@ export type LabelWithCount = LabelChip & {
 /** A workspace's labels, alphabetical (the sidebar and picker order). */
 export async function listLabels(workspaceId: number): Promise<LabelChip[]> {
   return db
-    .select({ id: labels.id, name: labels.name, color: labels.color })
+    .select({
+      id: labels.id,
+      name: labels.name,
+      color: labels.color,
+      colorHex: labels.colorHex,
+    })
     .from(labels)
     .where(eq(labels.workspaceId, workspaceId))
     .orderBy(asc(labels.name));
@@ -96,6 +126,7 @@ export async function listLabelsWithCounts(
       id: labels.id,
       name: labels.name,
       color: labels.color,
+      colorHex: labels.colorHex,
       // `labels.id` is written out rather than interpolated as a Drizzle
       // column: in a plain single-table select Drizzle renders the column
       // UNQUALIFIED ("id"), and inside this subquery an unqualified "id" binds
@@ -135,6 +166,7 @@ export async function labelsForTickets(
       id: labels.id,
       name: labels.name,
       color: labels.color,
+      colorHex: labels.colorHex,
     })
     .from(ticketLabels)
     .innerJoin(tickets, eq(tickets.id, ticketLabels.ticketId))
@@ -150,7 +182,7 @@ export async function labelsForTickets(
 
   for (const r of rows) {
     const list = out.get(r.ticketId) ?? [];
-    list.push({ id: r.id, name: r.name, color: r.color });
+    list.push({ id: r.id, name: r.name, color: r.color, colorHex: r.colorHex });
     out.set(r.ticketId, list);
   }
   return out;
@@ -176,10 +208,11 @@ export async function createLabel(
   workspaceId: number,
   name: string,
   color: LabelColor,
+  colorHex: string | null = null,
 ): Promise<Label | null> {
   const [created] = await db
     .insert(labels)
-    .values({ workspaceId, name, color })
+    .values({ workspaceId, name, color, colorHex })
     .onConflictDoNothing()
     .returning();
   return created ?? null;
@@ -189,9 +222,15 @@ export async function createLabel(
 export async function updateLabel(
   workspaceId: number,
   labelId: number,
-  patch: { name?: string; color?: LabelColor },
+  patch: { name?: string; color?: LabelColor; colorHex?: string | null },
 ): Promise<Label | null> {
-  if (patch.name === undefined && patch.color === undefined) return null;
+  if (
+    patch.name === undefined &&
+    patch.color === undefined &&
+    patch.colorHex === undefined
+  ) {
+    return null;
+  }
   const [updated] = await db
     .update(labels)
     .set(patch)

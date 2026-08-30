@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { labelChipProps } from "./label-style";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SOURCE_META } from "@/lib/theme";
@@ -276,7 +277,7 @@ function MailCard({
             {src.label}
           </span>
           {row.labels.map((l) => (
-            <span key={l.id} className="pbm-label pbm-label--sm" data-color={l.color}>
+            <span key={l.id} className="pbm-label pbm-label--sm" {...labelChipProps(l)}>
               <span className="pbm-label-name">{l.name}</span>
             </span>
           ))}

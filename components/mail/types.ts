@@ -5,6 +5,8 @@ export type LabelChipDTO = {
   id: number;
   name: string;
   color: LabelColor;
+  /** A picked colour, or null to use the theme token in `color`. */
+  colorHex: string | null;
 };
 
 /** One row in the message list. Every field here is backed by a real column. */

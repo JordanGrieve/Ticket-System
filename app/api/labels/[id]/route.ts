@@ -4,6 +4,7 @@ import { activeWorkspace } from "@/lib/viewer";
 import {
   deleteLabel,
   isLabelColor,
+  normaliseLabelHex,
   normaliseLabelName,
   updateLabel,
 } from "@/lib/labels";
@@ -29,14 +30,22 @@ export async function PATCH(
     return json({ error: "Invalid label id" }, { status: 400 });
   }
 
-  let body: { name?: unknown; color?: unknown };
+  let body: { name?: unknown; color?: unknown; colorHex?: unknown };
   try {
-    body = (await req.json()) as { name?: unknown; color?: unknown };
+    body = (await req.json()) as {
+      name?: unknown;
+      color?: unknown;
+      colorHex?: unknown;
+    };
   } catch {
     body = {};
   }
 
-  const patch: { name?: string; color?: "tag_a" | "tag_b" | "tag_c" } = {};
+  const patch: {
+    name?: string;
+    color?: "tag_a" | "tag_b" | "tag_c";
+    colorHex?: string | null;
+  } = {};
   if (body.name !== undefined) {
     const name = normaliseLabelName(body.name);
     if (!name) return json({ error: "A label needs a name." }, { status: 400 });
@@ -48,7 +57,20 @@ export async function PATCH(
     }
     patch.color = body.color;
   }
-  if (patch.name === undefined && patch.color === undefined) {
+  /*
+   * Explicit null CLEARS the picked colour and returns the label to its theme
+   * token — that is what pressing one of the three presets sends. Undefined
+   * leaves it alone. The two are different requests and must not collapse into
+   * each other, or choosing a preset would appear to do nothing.
+   */
+  if (body.colorHex !== undefined) {
+    patch.colorHex = body.colorHex === null ? null : normaliseLabelHex(body.colorHex);
+  }
+  if (
+    patch.name === undefined &&
+    patch.color === undefined &&
+    patch.colorHex === undefined
+  ) {
     return json({ error: "Nothing to change." }, { status: 400 });
   }
 
@@ -62,7 +84,12 @@ export async function PATCH(
     if (!updated) return json({ error: "Not found" }, { status: 404 });
     return json({
       ok: true,
-      label: { id: updated.id, name: updated.name, color: updated.color },
+      label: {
+        id: updated.id,
+        name: updated.name,
+        color: updated.color,
+        colorHex: updated.colorHex,
+      },
     });
   } catch {
     // The only constraint that can bite is labels_workspace_name_idx.

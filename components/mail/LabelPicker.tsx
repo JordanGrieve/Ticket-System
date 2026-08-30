@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { labelChipProps } from "./label-style";
 import { useRouter } from "next/navigation";
 import type { LabelColor } from "@/db/schema";
 import { Icon } from "./icons";
@@ -131,7 +132,7 @@ export default function LabelPicker({
       </span>
 
       {current.map((l) => (
-        <span key={l.id} className="pbm-label" data-color={l.color}>
+        <span key={l.id} className="pbm-label" {...labelChipProps(l)}>
           <span className="pbm-label-name">{l.name}</span>
           <button
             type="button"
@@ -174,7 +175,7 @@ export default function LabelPicker({
                 className="pbm-menu-item"
                 onClick={() => void toggle(l, !on)}
               >
-                <span className="pbm-label-swatch" data-color={l.color} />
+                <span className="pbm-label-swatch" {...labelChipProps(l)} />
                 <span className="pbm-menu-text">{l.name}</span>
                 {on && <span className="pbm-menu-check">✓</span>}
               </button>

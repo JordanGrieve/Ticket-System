@@ -2485,3 +2485,73 @@
     transition: none;
   }
 }
+
+/*
+ * A label the user picked a colour for.
+ *
+ * ── THEIR HUE, THE THEME'S LIGHTNESS ──
+ * The three preset tokens resolve per palette, which is why the column stores
+ * a key. A raw hex cannot do that, and lib/labels.ts recorded the objection:
+ * somebody picking dark navy would be unreadable on Ocean, pale yellow
+ * unreadable on Light.
+ *
+ * The answer is relative colour syntax. `oklch(from … h)` keeps ONLY the hue
+ * of what they chose and takes lightness from --label-bg-l / --label-fg-l,
+ * which every theme sets for itself. So the colour is recognisably theirs and
+ * the contrast is not theirs to get wrong.
+ *
+ * ── THIS WAS MEASURED, AND THE FIRST ATTEMPT FAILED ──
+ * It began as color-mix toward --surface and --text, which reads as the same
+ * idea. Painting four hostile picks across all five palettes and reading the
+ * pixels back gave a worst case of 1.14:1 — pure black on Ocean, invisible —
+ * because mixing preserves too much of the pick's own lightness on a dark
+ * ground. Fixing the lightness instead put the worst case at 6.65:1, with
+ * every combination passing AA.
+ *
+ * Chroma is clamped too. A fully saturated pick at these lightnesses vibrates
+ * against the ground; 0.07 and 0.15 are enough to read as the colour without
+ * it.
+ */
+.pbm-label[data-custom] {
+  background: oklch(from var(--label-hex) var(--label-bg-l) 0.07 h);
+  color: oklch(from var(--label-hex) var(--label-fg-l) 0.15 h);
+}
+/* Dots and swatches carry the ink alone — no text sits on them. */
+.pbm-label-dot[data-custom],
+.pbm-label-swatch[data-custom] {
+  background: oklch(from var(--label-hex) var(--label-fg-l) 0.15 h);
+}
+
+/*
+ * The picker itself. A native <input type="color"> — it is the platform's own
+ * wheel, it works with a keyboard, it is translated, and on a phone it opens
+ * the system picker rather than a cramped web imitation of one.
+ */
+.pbm-label-pick {
+  inline-size: 28px;
+  block-size: 28px;
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+}
+/* Chrome and Safari draw their own swatch inside; strip it back to the
+   circle so it matches the three preset dots beside it. */
+.pbm-label-pick::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.pbm-label-pick::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+.pbm-label-pick::-moz-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+.pbm-label-pick:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
