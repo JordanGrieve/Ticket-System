@@ -13,6 +13,7 @@ import {
   type ChainVerification,
 } from "@/lib/impersonation-chain";
 import { describeAdminChain } from "@/lib/admin-actions-chain";
+import type { ImpersonationReadRow } from "@/lib/impersonation-reads";
 import {
   sessionState,
   sessionStates,
@@ -477,11 +478,45 @@ function duration(session: ImpersonationSession, state: SessionState): string {
   return `${formatDuration(session.startedAt, session.lastSeenAt)}+`;
 }
 
+/**
+ * Which tickets an operator opened during one visit.
+ *
+ * Ticket NUMBERS, never subjects or customer names. The point of this column
+ * is to let a client check what we touched — reprinting the contents of their
+ * customers&rsquo; messages into our own console to prove we read them would be
+ * the same disclosure over again, on a screen no client can see. The numbers
+ * are enough: the client can look each one up in their own inbox.
+ *
+ * An empty list renders as an em dash rather than a zero. Zero looks like a
+ * measurement; the dash reads as "nothing recorded", which is the honest claim
+ * for a best-effort log.
+ */
+function ReadList({ rows }: { rows: ImpersonationReadRow[] }) {
+  if (rows.length === 0) return <span className="pba-unset">&mdash;</span>;
+  return (
+    <details className="pba-reads">
+      <summary>
+        {rows.length} {rows.length === 1 ? "record" : "records"}
+      </summary>
+      <ul className="pba-reads-list">
+        {rows.map((r) => (
+          <li key={r.ticketId}>
+            #{r.ticketId}
+            {r.count > 1 && <span className="pba-reads-n"> &times;{r.count}</span>}{" "}
+            <span className="pba-reads-when">{formatDateTime(r.lastAt)}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 export function AccessSection({
   sessions,
   actions,
   chain,
   actionChain,
+  reads,
 }: {
   sessions: ImpersonationSession[];
   /** Platform-level operator actions. See lib/admin-audit.ts. */
@@ -493,6 +528,12 @@ export function AccessSection({
   chain: ChainVerification | null;
   /** Same, for the operator action log. See lib/admin-actions-chain.ts. */
   actionChain: ChainVerification | null;
+  /**
+   * Records opened during each visit, keyed by session id. A session missing
+   * from the map has no recorded reads, which is NOT the same as no reads —
+   * see the wording under the table.
+   */
+  reads: Map<number, ImpersonationReadRow[]>;
 }) {
   const states = sessionStates(sessions);
   const open = states.filter((s) => s === "active").length;
@@ -566,6 +607,7 @@ export function AccessSection({
                 <div>Started</div>
                 <div>Duration</div>
                 <div>Reason given</div>
+                <div>Records opened</div>
                 <div>State</div>
               </div>
             </div>
@@ -602,6 +644,9 @@ export function AccessSection({
                     <div className="pba-td">
                       {s.reason ?? <span className="pba-unset">none given</span>}
                     </div>
+                    <div className="pba-td">
+                      <ReadList rows={reads.get(s.id) ?? []} />
+                    </div>
                     <div>
                       <StatePill state={state} session={s} />
                     </div>
@@ -620,6 +665,17 @@ export function AccessSection({
         saw from it, and marked <b>Abandoned</b> once that goes quiet. The gap
         between &ldquo;last seen&rdquo; and &ldquo;actually stopped looking&rdquo;
         is not measurable and is not guessed at here.
+      </p>
+      <p className="pba-note">
+        <b>Records opened</b> lists the ticket numbers an operator actually
+        opened during a visit, with a count where they came back to one. Read it
+        as a floor, not an inventory: the write that records a read is allowed to
+        fail without stopping the page, because a client mid-problem should not
+        lose their thread to our audit trail. So an empty cell means{" "}
+        <b>nothing was recorded</b>, which is not the same as nothing was read —
+        and visits made before this column existed have nothing to show at all.
+        Numbers only, deliberately: proving we read a customer&rsquo;s message by
+        reprinting it here would be the same disclosure over again.
       </p>
       {/*
         A second table, not a second page. "Who went into a client" and "who
@@ -1276,6 +1332,7 @@ export function AccountDrawer({
   teamSize,
   query,
   recentAccess,
+  reads,
   usage,
 }: {
   account: WorkspaceSummary | null;
@@ -1284,6 +1341,8 @@ export function AccountDrawer({
   query: AdminQuery;
   /** This workspace's slice of the access log, newest first. */
   recentAccess: ImpersonationSession[];
+  /** Records opened during those visits, keyed by session id. */
+  reads: Map<number, ImpersonationReadRow[]>;
   /** This workspace's confirmed subscribers and trial-window tickets. */
   usage: WorkspaceUsage | null;
 }) {
@@ -1418,6 +1477,7 @@ export function AccountDrawer({
           <div>
             {recentAccess.map((s) => {
               const state = sessionState(s);
+              const opened = reads.get(s.id)?.length ?? 0;
               return (
                 <div key={s.id} className="pba-log-entry">
                   <div className="pba-log-who">{s.adminEmail}</div>
@@ -1432,6 +1492,11 @@ export function AccountDrawer({
                         : "never closed"}
                   </div>
                   {s.reason && <div className="pba-log-when">{s.reason}</div>}
+                  <div className="pba-log-when">
+                    {opened === 0
+                      ? "no records recorded as opened"
+                      : `${opened} ${opened === 1 ? "record" : "records"} opened`}
+                  </div>
                 </div>
               );
             })}

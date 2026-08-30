@@ -169,6 +169,13 @@
       "when": 1788095971810,
       "tag": "0023_flat_randall_flagg",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788115280384,
+      "tag": "0024_gigantic_wallflower",
+      "breakpoints": true
     }
   ]
 }

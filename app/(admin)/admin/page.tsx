@@ -13,6 +13,7 @@ import {
   listImpersonationSessions,
   listImpersonationSessionsForWorkspace,
 } from "@/lib/impersonation";
+import { readsForSessions } from "@/lib/impersonation-reads";
 import { stripeConfigured, stripePriceId } from "@/lib/stripe";
 import { PLANS } from "@/lib/pricing";
 import {
@@ -190,6 +191,20 @@ export default async function AdminHomePage({
       ? await listImpersonationSessionsForWorkspace(selected.id, 5)
       : [];
 
+  /*
+    Which client records were opened during each of those visits.
+
+    One query covering BOTH lists, because the two are never non-empty at the
+    same time — the access pane fills `sessions` and the accounts drawer fills
+    `recentAccess` — so the concatenation is only ever as long as whichever
+    one is being shown. See lib/impersonation-reads.ts for why an absent
+    session means "none recorded" rather than "none happened".
+  */
+  const reads = await readsForSessions([
+    ...sessions.map((s) => s.id),
+    ...recentAccess.map((s) => s.id),
+  ]);
+
   // Two grouped counts, fetched only for the pane that shows them. Unlike the
   // reads above these are aggregates over the two biggest tables in the
   // product, so they are worth not doing on every tab.
@@ -323,6 +338,7 @@ export default async function AdminHomePage({
                   actions={adminActionRows}
                   chain={chain}
                   actionChain={actionChain}
+                  reads={reads}
                 />
               )}
               {section === "billing" && (
@@ -353,6 +369,7 @@ export default async function AdminHomePage({
                 teamSize={teamSize}
                 query={query}
                 recentAccess={recentAccess}
+                reads={reads}
                 usage={selected ? (usage.get(selected.id) ?? null) : null}
               />
             )}

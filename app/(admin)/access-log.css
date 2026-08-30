@@ -6,14 +6,41 @@
   no colours invented here.
 */
 
-/* Operator · Workspace · Started · Duration · Reason · State */
+/* Operator · Workspace · Started · Duration · Reason · Records · State */
 .pba-root .pba-row-access {
-  grid-template-columns: 1.5fr 1.4fr 1.3fr 0.9fr 1.6fr 1.2fr;
+  grid-template-columns: 1.4fr 1.3fr 1.2fr 0.8fr 1.5fr 1fr 1.1fr;
 }
 
-/* The log is wider than the 700px the other tables get away with. */
+/* The log is wider than the 700px the other tables get away with, and wider
+   again since the records column joined it. Both numbers live here rather than
+   beside the markup so the column count and the width cannot drift apart. */
 .pba-root .pba-grid-access {
-  min-width: 980px;
+  min-width: 1120px;
+}
+
+/* The per-visit record list. Collapsed by default: the count is the answer
+   most of the time, and a session that opened twenty threads should not push
+   every other row down the page. */
+.pba-root .pba-reads > summary {
+  cursor: pointer;
+  color: var(--text-2);
+}
+
+.pba-root .pba-reads-list {
+  margin: 6px 0 0;
+  padding-left: 16px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.pba-root .pba-reads-n {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.pba-root .pba-reads-when {
+  color: var(--muted-2);
+  white-space: nowrap;
 }
 
 /* A reason nobody typed. Distinct from a reason we failed to store — this is

@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Thread from "@/components/mail/Thread";
-import { resolveViewer } from "@/lib/viewer";
+import { currentImpersonation, resolveViewer } from "@/lib/viewer";
+import { recordImpersonationRead } from "@/lib/impersonation-reads";
 import { getTicket, getMessages, TICKETS_PAGE_SIZE } from "@/lib/data";
 import { listLabels } from "@/lib/labels";
 import { toTicketDTO, toMessageDTO } from "@/lib/serialize";
@@ -75,6 +76,26 @@ export default async function TicketThreadSlot({
 
   const ticket = await getTicket(workspace.id, ticketId);
   if (!ticket) notFound();
+
+  /*
+    If a Postbox operator is reading this, record WHICH record they opened.
+
+    After the notFound() above, deliberately: a request for a ticket that does
+    not exist in this workspace is not access to anything, and logging it would
+    fill a client's access log with entries for records they never had.
+
+    Only ever fires during an impersonation — currentImpersonation() is null
+    for a client's own staff, and logging their reads of their own inbox is a
+    separate question nobody has asked for. See db/schema.ts.
+
+    Not awaited in a way that can break the page: recordImpersonationRead
+    swallows its own errors, because a failure to log must not stop an operator
+    seeing the ticket they are in the middle of helping somebody with.
+  */
+  const impersonation = await currentImpersonation();
+  if (impersonation?.session) {
+    await recordImpersonationRead(impersonation.session.id, ticket.id);
+  }
 
   const [
     { messages, hasMore },

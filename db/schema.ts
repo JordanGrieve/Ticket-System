@@ -1482,6 +1482,75 @@ export type AdminActionKind =
   | "admin_revoked";
 
 /**
+ * WHICH client records an operator actually opened, during an impersonation.
+ *
+ * ── THE DIFFERENCE THIS MAKES ──
+ * impersonation_sessions answers "somebody from Postbox was in your workspace
+ * for forty minutes". A client asking who read their customers' messages is
+ * not asking that. They are asking whether anyone opened Jane Doe's complaint,
+ * and that is the question Article 30 and any breach-scoping exercise actually
+ * turn on. PIVOT 33 lists it first among the things still unlogged.
+ *
+ * ── OPERATOR ACCESS ONLY, AND THAT IS THE DECISION MADE HERE ──
+ * This records reads by a POSTBOX OPERATOR inside a client's workspace. It does
+ * NOT record a client's own staff reading their own tickets.
+ *
+ * Those are different questions with different answers. Operator access is
+ * rare, externally accountable — we are the processor, they are the controller
+ * — and bounded by how often anyone impersonates, so recording all of it costs
+ * almost nothing. Logging every agent opening every ticket in their own inbox
+ * is a different proposition: high volume, and surveillance of a client's own
+ * employees that no one has asked for. That half stays unbuilt and undecided.
+ *
+ * ── IDS, NOT CONTENT ──
+ * `ticket_id` and nothing else. No subject, no customer name, no preview. An
+ * access log that copies the records it describes has duplicated the personal
+ * data into a second table, which is the opposite of what it is for.
+ *
+ * AGGREGATED per (session, ticket): opening the same thread eleven times while
+ * working is one row with a count, not eleven rows. Bounds the table by
+ * distinct records touched rather than by clicking.
+ */
+export const impersonationReads = pgTable(
+  "impersonation_reads",
+  {
+    id: serial("id").primaryKey(),
+    /**
+     * The visit this read belongs to. Cascades: a session row and its reads are
+     * one record of one visit, and deleting the session is itself detectable
+     * because impersonation_sessions is hash-chained.
+     */
+    sessionId: integer("session_id")
+      .notNull()
+      .references(() => impersonationSessions.id, { onDelete: "cascade" }),
+    /**
+     * Plain integer, deliberately not a foreign key to `tickets`. The evidence
+     * "operator X opened ticket 4821 on this date" stays true and stays useful
+     * after the ticket is deleted, and a cascade there would erase the record
+     * of access to exactly the material somebody is asking about.
+     */
+    ticketId: integer("ticket_id").notNull(),
+    count: integer("count").notNull().default(1),
+    firstAt: timestamp("first_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastAt: timestamp("last_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("impersonation_reads_session_ticket_idx").on(
+      t.sessionId,
+      t.ticketId,
+    ),
+    /*
+      No separate index on session_id. The unique index above already leads
+      with it, so "every read in this session" — the only lookup this table
+      has — uses that one. A second index would be maintained on every write
+      and read by nothing.
+    */
+  ],
+);
+
+/**
  * Cross-invocation rate limiting.
  *
  * lib/rate-limit.ts is an in-memory Map, which is correct within ONE serverless

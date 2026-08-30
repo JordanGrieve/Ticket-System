@@ -428,6 +428,14 @@ const NON_TENANT_TABLES = [
    * and `target_label` is a snapshot. See db/schema.ts.
    */
   "admin_actions",
+  /*
+   * impersonation_reads records which client tickets a POSTBOX OPERATOR opened
+   * during a visit. It has no workspace_id and inherits tenancy from its
+   * session, the same way the session inherits it from the workspace it names.
+   * Every read of it is scoped by session_id, and a session belongs to exactly
+   * one workspace — so there is no query shape here that could span tenants.
+   */
+  "impersonation_reads",
   "workspaces",
   "admins",
   "impersonation_sessions",
