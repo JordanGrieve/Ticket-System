@@ -103,6 +103,18 @@
   --nav-deep: #15122a;
   --nav-active-bg: rgba(124, 92, 255, 0.18);
   --nav-active-fg: #c7b6ff;
+  /*
+   * The dot beside an active nav row. It was USED by app/admin.css and defined
+   * nowhere, which does not fail loudly: an undefined var() makes the whole
+   * declaration invalid at computed-value time, so the rule resolved to
+   * nothing and the active dot kept the muted grey of an inactive one. The
+   * "you are here" marker simply did not mark anything.
+   *
+   * An indirection rather than a literal, same as --pro-grad below:
+   * --nav-active-fg is per-theme, so one line follows all six, and the dot
+   * matching the label it sits beside is what it always should have been.
+   */
+  --nav-active-dot: var(--nav-active-fg);
   --nav-badge-on: rgba(124, 92, 255, 0.32);
   --nav-badge-fg: #dcd1ff;
 
@@ -116,6 +128,17 @@
      "Delivered" and "Saved", which are the words somebody looks for when
      they want to know an action worked. */
   --ok-fg: #278557;
+  /*
+   * The success GROUND. Same story as --nav-active-dot: used by .pba-pill-ok
+   * and .pba-banner-ok in app/admin.css, defined nowhere, so both rendered
+   * their background as nothing at all while the ink beside it worked — the
+   * silent half of an invalid var().
+   *
+   * Points at --tag-a-bg because that is the green wash every theme already
+   * defines and already pairs with green ink, so this cannot drift from the
+   * palette it belongs to.
+   */
+  --ok-bg: var(--tag-a-bg);
   --warn-bg: #fff3e2;
   /* Deepened 30 Aug. On --warn-bg these measured 2.68:1 and 2.52:1 — roughly
      half the 4.5 AA needs, in the LIGHT theme only. They carry every warning
