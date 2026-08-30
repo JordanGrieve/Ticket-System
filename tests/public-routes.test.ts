@@ -1,121 +1,182 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Every public page segment must be in the auth matcher.
+ * Every page a stranger must be able to reach is reachable.
  *
- * This exists because the newsletter signup pages shipped unreachable. The
- * routes under app/s/ need no session — a stranger pressing a confirmation
- * link in their email has no Clerk account and never will — but /s/ was not
- * added to isPublicRoute, so clerkMiddleware protected them and the public got
- * a 404. Everything else was green: 371 unit tests, tsc, lint. The endpoints
- * under /api/ were reachable because "/api/(.*)" already matched, so the half
- * with tests worked and the half without did not.
+ * ── THIS BUG HAS SHIPPED TWICE ──
+ * proxy.ts protects everything not listed in `isPublicRoute`, so a page added
+ * outside the dashboard without a matching line does not 404 and does not
+ * throw. It 307s a logged-out visitor to /sign-in. The page is fine, the tests
+ * are green, and the feature is simply unreachable by the only people it is
+ * for.
  *
- * The same mistake had already been made once, for the unsubscribe pages,
- * where it is a legal breach rather than a broken page — app/u/layout.tsx and
- * the comment in proxy.ts both say so at length. Documenting a trap twice did
- * not stop it happening a third time, so here it is as a test.
+ * proxy.ts records both times in its own comments. /pricing: "the pricing link
+ * on the homepage would quietly become a sign-in wall for exactly the people
+ * it is for." And /s/: the API endpoints underneath matched "/api/(.*)" so
+ * every unit test passed while "a stranger clicking a confirmation link in
+ * their email" could never record their consent.
  *
- * Parsing the source rather than importing it is deliberate: importing
- * proxy.ts pulls in Clerk and its environment, which is exactly the machinery
- * this needs to run without. tests/campaign-schedule.test.ts reads vercel.json
- * the same way and for the same reason.
+ * Both were found by a person clicking. Nothing else could find them, because
+ * the failure is a redirect rather than an error — which is exactly the shape
+ * a test can check and a type cannot.
+ *
+ * ── HOW IT WORKS ──
+ * Reads the route patterns out of proxy.ts as SOURCE rather than importing it.
+ * Importing pulls in @clerk/nextjs/server and the whole middleware runtime for
+ * what is a question about a list of strings; and the source is the artefact
+ * that has to be right.
  */
 
 const PROXY = readFileSync(join(process.cwd(), "proxy.ts"), "utf8");
 
+/** The literals inside createRouteMatcher([...]). */
+function publicPatterns(): string[] {
+  const start = PROXY.indexOf("createRouteMatcher([");
+  expect(start).toBeGreaterThan(-1);
+  const end = PROXY.indexOf("]);", start);
+  expect(end).toBeGreaterThan(start);
+  const block = PROXY.slice(start, end);
+  return [...block.matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
+}
+
 /**
- * Page segments that must never require a session, and why. Adding a public
- * area to app/ without adding it here is the failure this file catches — so
- * the list is the contract, not a mirror of the implementation.
+ * Clerk's matcher accepts path-to-regexp syntax; the only forms this codebase
+ * uses are a literal and a trailing "(.*)" group, plus "/:path*" once. Handling
+ * exactly those keeps the conversion honest — anything else throws rather than
+ * silently matching nothing, which would make this test pass by accident.
  */
-const PUBLIC_SEGMENTS: Array<{ dir: string; pattern: string; why: string }> = [
-  {
-    dir: "u",
-    pattern: "/u/(.*)",
-    why: "Unsubscribe. An unattended RFC 8058 POST from Gmail carries no cookies; failing to opt someone out is a legal breach.",
-  },
-  {
-    dir: "s",
-    pattern: "/s/(.*)",
-    why: "Newsletter signup and double opt-in confirmation. The person pressing the link has no account here.",
-  },
-];
+function toRegExp(pattern: string): RegExp {
+  if (/[:{}+?[\]]/.test(pattern.replace("(.*)", ""))) {
+    if (pattern.endsWith("/:path*")) {
+      return new RegExp(`^${escape(pattern.slice(0, -"/:path*".length))}(/.*)?$`);
+    }
+    throw new Error(`Unhandled route pattern syntax: ${pattern}`);
+  }
+  return new RegExp(`^${escape(pattern).replace("\\(\\.\\*\\)", ".*")}$`);
+}
 
-describe("public route matcher", () => {
-  it.each(PUBLIC_SEGMENTS)(
-    "app/$dir is declared public in proxy.ts ($why)",
-    ({ dir, pattern }) => {
-      // Guard against the list going stale in the other direction: if the
-      // directory is gone, this test should be updated, not silently passing.
-      expect(
-        existsSync(join(process.cwd(), "app", dir)),
-        `app/${dir} does not exist — update PUBLIC_SEGMENTS`,
-      ).toBe(true);
+function escape(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
-      expect(PROXY).toContain(`"${pattern}"`);
-    },
-  );
+function isPublic(path: string): boolean {
+  return publicPatterns().some((p) => toRegExp(p).test(path));
+}
 
-  it("declares every app segment as either public or deliberately protected", () => {
-    // Catches a NEW public area being added without a decision being made
-    // about it.
-    //
-    // Route groups in parentheses are layout-only and never appear in a URL,
-    // so the GROUP is not a segment — but what is inside it is. This used to
-    // skip them entirely, which left a blind spot precisely where it mattered:
-    // app/(legal)/ holds /terms and /privacy, both of which must be public, so
-    // the next public page added there would have gone unnoticed. It did, when
-    // /pricing was added. Now the groups are flattened into the segments they
-    // actually produce.
-    // Every one of these requires a session, and that is the point of them.
-    // They were invisible to this test until route groups were flattened —
-    // they live under app/(dashboard) and app/(admin) — so listing them here
-    // is not bookkeeping: it is the first time the guard has actually asserted
-    // that the inbox and the operator console are not public.
-    const KNOWN_PROTECTED = [
-      "no-access",
-      "admin",
-      "inbox",
-      "newsletters",
-      "search",
-      "settings",
-      "subscribers",
-      "tickets",
-    ];
-    const appDir = join(process.cwd(), "app");
-
-    const dirsIn = (p: string) =>
-      readdirSync(p, { withFileTypes: true })
-        .filter((e) => e.isDirectory())
-        .map((e) => e.name);
-
-    const segments = dirsIn(appDir).flatMap((name) => {
-      if (name.startsWith("_") || name === "api") return [];
-      // A route group contributes its children's names, not its own.
-      if (name.startsWith("(")) {
-        return dirsIn(join(appDir, name)).filter(
-          (child) => !child.startsWith("_") && !child.startsWith("("),
-        );
+/** Every page.tsx / route.ts under app/, as the URL it serves. */
+function routeFiles(): string[] {
+  const found: string[] = [];
+  const walk = (dir: string, url: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        // A (group) is organisational and contributes nothing to the URL.
+        const segment = /^\(.*\)$/.test(entry.name) ? url : `${url}/${entry.name}`;
+        walk(full, segment);
+      } else if (entry.name === "page.tsx" || entry.name === "route.ts") {
+        found.push(url === "" ? "/" : url);
       }
-      return [name];
+    }
+  };
+  walk(join(process.cwd(), "app"), "");
+  return [...new Set(found)];
+}
+
+/**
+ * Dynamic segments become something a real request could look like, so the
+ * pattern is tested against a URL rather than against a template.
+ */
+function asRequestPath(route: string): string {
+  return route
+    .replace(/\[\[\.\.\.[^\]]+\]\]/g, "anything/at/all")
+    .replace(/\[\.\.\.[^\]]+\]/g, "anything/at/all")
+    .replace(/\[[^\]]+\]/g, "sample-value");
+}
+
+/**
+ * Routes outside the dashboard that STILL require a session, with the reason.
+ *
+ * An allowlist rather than a rule, because "outside (dashboard) therefore
+ * public" is not true and pretending it is would make this test wrong in the
+ * quiet direction. Anything added here is a decision somebody wrote down.
+ */
+const AUTHED_ON_PURPOSE: Record<string, string> = {
+  "/no-access":
+    "Shown to somebody who IS signed in but has no workspace. A signed-out visitor has nothing to be told here.",
+};
+
+describe("public routes are actually reachable", () => {
+  const dashboardish = (r: string) =>
+    r.startsWith("/api") || r.startsWith("/monitoring");
+
+  it("finds the app's routes at all", () => {
+    // If the walk breaks, every assertion below passes vacuously.
+    const routes = routeFiles();
+    expect(routes.length).toBeGreaterThan(20);
+    expect(routes).toContain("/");
+  });
+
+  it("reads the patterns out of proxy.ts", () => {
+    const patterns = publicPatterns();
+    expect(patterns).toContain("/");
+    expect(patterns).toContain("/u/(.*)");
+    expect(patterns).toContain("/s/(.*)");
+  });
+
+  it("lets a stranger reach every page that is not behind the dashboard", () => {
+    /*
+     * The dashboard and admin consoles live in route GROUPS, so their URLs are
+     * indistinguishable from public ones by path alone — /inbox and /pricing
+     * look the same to a matcher. The filesystem is what knows the difference,
+     * so the check is driven from the directory a file is in.
+     */
+    const publicDirs = ["(legal)", "s", "u", "sign-in", "sign-up", "pricing"];
+    const shouldBePublic = routeFiles().filter((r) => {
+      if (dashboardish(r)) return false;
+      if (r === "/") return true;
+      const first = r.split("/")[1]!;
+      return publicDirs.includes(first);
     });
 
-    const undeclared = segments.filter(
-      (n) =>
-        !PUBLIC_SEGMENTS.some((p) => p.dir === n) &&
-        !KNOWN_PROTECTED.includes(n) &&
-        // Anything already named in the matcher — sign-in, sign-up, etc.
-        !PROXY.includes(`"/${n}`),
+    expect(shouldBePublic.length).toBeGreaterThan(5);
+    const unreachable = shouldBePublic.filter(
+      (r) => !isPublic(asRequestPath(r)),
     );
-
     expect(
-      undeclared,
-      `New app segment(s) with no auth decision: ${undeclared.join(", ")}. ` +
-        "Add to PUBLIC_SEGMENTS and proxy.ts if strangers must reach them, " +
-        "or to KNOWN_PROTECTED if they require a session.",
+      unreachable,
+      "These pages 307 a logged-out visitor to /sign-in. Add a line to " +
+        "isPublicRoute in proxy.ts, or record why they are authed.",
     ).toEqual([]);
+  });
+
+  it("keeps the dashboard and the admin console protected", () => {
+    /*
+     * The other direction, and the more dangerous one. A pattern like "/(.*)"
+     * would make every test above pass and the entire product public.
+     */
+    for (const path of [
+      "/inbox",
+      "/settings",
+      "/settings/billing",
+      "/newsletters",
+      "/subscribers",
+      "/tickets/12",
+      "/admin",
+      "/search",
+    ]) {
+      expect(isPublic(path), `${path} must require a session`).toBe(false);
+    }
+  });
+
+  it("documents every route outside the dashboard that stays authed", () => {
+    // Keeps AUTHED_ON_PURPOSE honest: an entry that stops being true, or a new
+    // authed public-looking route, both surface here.
+    for (const [route, reason] of Object.entries(AUTHED_ON_PURPOSE)) {
+      expect(routeFiles()).toContain(route);
+      expect(isPublic(route)).toBe(false);
+      expect(reason.length).toBeGreaterThan(20);
+    }
   });
 });
