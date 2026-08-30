@@ -1230,3 +1230,75 @@ describe("builder writes to tables with no workspace_id are scoped or exempted",
     }
   });
 });
+
+/**
+ * The operator console's cross-tenant reads stay inside the operator console.
+ *
+ * ── WHY THIS NEEDS ENFORCING RATHER THAN DOCUMENTING ──
+ * app/(admin)/admin/queries.ts holds reads that are deliberately PLATFORM-WIDE
+ * — counts across every workspace at once. Its own header explains why they do
+ * not live in lib/data.ts: "a function that is correct here and catastrophic
+ * there should not sit in the same file as the ones a dashboard page imports",
+ * and keeping them under app/(admin) means "the blast radius of somebody
+ * importing the wrong helper is a file only the admin console can reach".
+ *
+ * That last sentence is a convention, not a boundary. Nothing stopped a
+ * tenant-facing server component importing the module and rendering one
+ * client a number computed from every client's data. `server-only` does not
+ * help: it stops a CLIENT bundle, and the dangerous import would be a server
+ * one.
+ *
+ * The dashboard genuinely does reach into (admin) for one thing — the
+ * impersonation banner and the stop action behind it — so a blanket ban would
+ * be wrong and would be deleted by the next person who needed it. This bans
+ * the one module whose functions are unscoped by design.
+ */
+describe("cross-tenant reads cannot escape the admin console", () => {
+  const CROSS_TENANT_MODULE = "admin/queries";
+
+  /** Every .ts/.tsx under app/, with its path relative to the repo. */
+  function appSources(): { file: string; source: string }[] {
+    const out: { file: string; source: string }[] = [];
+    const walk = (dir: string, rel: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        const next = rel ? `${rel}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) walk(full, next);
+        else if (/\.tsx?$/.test(entry.name)) {
+          out.push({ file: next, source: readFileSync(full, "utf8") });
+        }
+      }
+    };
+    walk(join(process.cwd(), "app"), "");
+    return out;
+  }
+
+  it("finds the app sources at all", () => {
+    // Otherwise the assertion below passes by looking at nothing.
+    const files = appSources();
+    expect(files.length).toBeGreaterThan(20);
+    expect(files.some((f) => f.file.includes("(admin)/admin/queries"))).toBe(
+      true,
+    );
+  });
+
+  it("nothing outside app/(admin) imports the platform-wide reads", () => {
+    const offenders = appSources()
+      .filter((f) => !f.file.startsWith("(admin)/"))
+      .filter((f) => {
+        // Import statements only — a mention in a comment is somebody
+        // explaining the rule, not breaking it. Same trap the impersonation
+        // delete-guard fell into and documented.
+        const imports = f.source.match(/^\s*import[^;]+;/gm) ?? [];
+        return imports.some((line) => line.includes(CROSS_TENANT_MODULE));
+      })
+      .map((f) => f.file);
+
+    expect(
+      offenders,
+      "These files import app/(admin)/admin/queries.ts, whose functions read " +
+        "across EVERY workspace. Rendering one of those numbers on a tenant " +
+        "page shows one client a figure computed from every client's data.",
+    ).toEqual([]);
+  });
+});
