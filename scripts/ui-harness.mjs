@@ -23,6 +23,22 @@ import { readFileSync, writeFileSync } from "node:fs";
  * honest limitation: it proves the CSS, not that the component still emits
  * that markup. Pair it with a test that pins the class names when that matters.
  *
+ * ── THE TRAP: A CASE MUST CARRY THE COMPONENT'S REAL ANCESTRY ──
+ * This bit me within an hour of writing it. The sidebar plan card was rendered
+ * without its `.pbm` wrapper, which is where --pbm-on-dark is defined. An
+ * undefined var() makes the WHOLE declaration invalid at computed-value time,
+ * so `box-shadow: 0 8px 18px var(--pro-shadow), inset 0 0 0 2px
+ * var(--pbm-on-dark)` resolved to `none` — and the harness reported that the
+ * urgent card had lost its shadow entirely.
+ *
+ * It had not. The real card lives inside `<div className="pb-shell pbm">` and
+ * resolves fine. The bug was in the CASE, and I nearly "fixed" working code
+ * because of it.
+ *
+ * So: give every case the ancestor classes that carry its tokens, and when
+ * this harness reports a failure, confirm it against the real markup before
+ * changing anything. A verification tool trusted blindly is worse than none.
+ *
  * It cannot check behaviour, focus order or anything requiring React. For a
  * confirmation panel — is it readable, does the destructive option look
  * destructive, does it fit — that is the whole question.
@@ -80,12 +96,61 @@ const CASES = [
   </div>
 </div>`,
   },
+  {
+    /*
+     * The two diagnostic tables in the operator console. Both render
+     * `.pba-row`, which app/admin.css declares as display:grid with NO
+     * grid-template-columns — a grid with no template is ONE column, so these
+     * were stacking every cell vertically. Fixed by reasoning about the CSS
+     * and shipped unverified, because the console needs an admin login. This
+     * case is what actually checks it.
+     *
+     * The console is always dark (.pba-root carries data-theme="dark"), so the
+     * question here is layout rather than palette.
+     */
+    name: "Admin — diagnostic tables (were stacking as one column)",
+    css: ["app/admin.css", "app/(admin)/admin/console.css"],
+    wrap: (inner) => `<div class="pba-root" data-theme="dark" style="padding:14px">${inner}</div>`,
+    html: `
+<div class="pba-card">
+  <div class="pba-table"><div class="pba-scroll">
+    <div class="pba-row pba-row-head"><span>Reason</span><span>Event</span><span>Count</span><span>Last seen</span><span>Example message</span></div>
+    <div class="pba-row pba-row-diag" data-destructive><span>Unmatched message id</span><span>Bounce</span><span>12</span><span>30 Aug 2026</span><span class="pba-mono">0100018f2a…</span></div>
+    <div class="pba-row pba-row-diag"><span>No message id</span><span>Complaint</span><span>3</span><span>29 Aug 2026</span><span class="pba-mono">—</span></div>
+  </div></div>
+</div>`,
+  },
+  {
+    name: "Admin — chain verification, intact and broken",
+    css: ["app/admin.css", "app/(admin)/admin/console.css"],
+    wrap: (inner) => `<div class="pba-root" data-theme="dark" style="padding:14px">${inner}</div>`,
+    html: `
+<div class="pba-card">
+  <p class="pba-chain" data-state="ok"><b>Chain intact</b> 9 chained sessions verify against each other (unkeyed: this detects accidents and careless edits, not a deliberate rewrite). 4 older rows predate the chain and cannot be verified either way.</p>
+  <p class="pba-chain" data-state="broken"><b>CHAIN BROKEN — a row has been deleted or edited</b> 3 of 9 verified, then: Session #14 points at a row that is not the row before it. At least one session between it and the previous row has been deleted.</p>
+</div>`,
+  },
+  {
+    /* The sidebar billing card, rewritten from a dead hard-coded button. It
+       renders inside the TENANT dashboard, so unlike the console it really
+       does have to survive all six palettes. */
+    name: "Sidebar — plan card (urgent and normal)",
+    css: ["app/mail.css"],
+    // MUST carry .pbm. That class is where --pbm-on-dark is defined, and the
+    // real dashboard shell is <div className="pb-shell pbm">. Rendering the
+    // card without it left the token undefined — see the note at the top.
+    wrap: (inner) => `<div class="pbm" style="padding:14px;max-width:280px">${inner}</div>`,
+    html: `
+<aside class="pbm-pro"><p class="pbm-pro-title">Free trial</p><p class="pbm-pro-body">9 days left. Your inbox keeps working either way.</p><a class="pbm-pro-btn" href="#">See plans</a></aside>
+<div style="height:12px"></div>
+<aside class="pbm-pro" data-urgent><p class="pbm-pro-title">Trial ended</p><p class="pbm-pro-body">Choose a plan to send newsletters again. Your inbox is unaffected.</p><a class="pbm-pro-btn" href="#">Choose a plan</a></aside>`,
+  },
 ];
 
 const panel = (theme, c) => `
   <figure class="panel">
     <figcaption>${theme ?? "system default"}</figcaption>
-    <div class="stage"${theme ? ` data-theme="${theme}"` : ""}>${c.html}</div>
+    <div class="stage"${theme ? ` data-theme="${theme}"` : ""}>${c.wrap ? c.wrap(c.html) : c.html}</div>
   </figure>`;
 
 const section = (c) => `
