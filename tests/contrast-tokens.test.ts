@@ -167,6 +167,73 @@ describe("muted text clears AA in every theme", () => {
     }
   }
 
+  /*
+   * --surface-3 is a TRANSLUCENT overlay in four of the five palettes, e.g.
+   * rgba(255, 255, 255, 0.05). parseHex cannot read it, so the assertions
+   * above skipped it — and it is the ground with the least contrast, because
+   * a white wash over a dark panel lifts the background toward the text.
+   *
+   * That gap was real: --muted measured 3.93:1 (dark), 3.99:1 (ocean) and
+   * 4.01:1 (slate) on chips and inputs, while passing every opaque surface.
+   * Skipping a ground because it is awkward to parse is how a test reports
+   * green on the exact pairing that fails, so it is composited here instead.
+   */
+  function composite(overlay: string, base: NonNullable<ReturnType<typeof parseHex>>) {
+    const m =
+      /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,/\s]+([\d.]+))?\s*\)/.exec(
+        overlay,
+      );
+    if (!m) return null;
+    const a = m[4] === undefined ? 1 : Number(m[4]);
+    const mix = (c: number, b: number) => c * a + b * (1 - a);
+    return {
+      r: mix(Number(m[1]), base.r),
+      g: mix(Number(m[2]), base.g),
+      b: mix(Number(m[3]), base.b),
+    };
+  }
+
+  /** Raw declaration text, so an rgba() value survives to be composited. */
+  function rawToken(selector: string, name: string): string | null {
+    const at = CSS.indexOf(selector);
+    if (at === -1) return null;
+    const block = CSS.slice(at, CSS.indexOf("\n}", at));
+    const m = new RegExp(`${name}:\\s*([^;]+);`).exec(block);
+    return m ? m[1]!.trim() : null;
+  }
+
+  for (const palette of PALETTES) {
+    it(`${palette.name} --muted on the translucent --surface-3`, () => {
+      const raw = rawToken(palette.selector, "--surface-3");
+      if (!raw) return; // palette inherits one already checked
+
+      // The panel the overlay is painted over.
+      const base =
+        parseHex(rawToken(palette.selector, "--panel") ?? "") ??
+        parseHex(rawToken(palette.selector, "--surface") ?? "");
+      expect(base, "no opaque base to composite over").not.toBeNull();
+
+      /*
+       * Throws rather than returning. The first version of this file used
+       * `if (!ground) return`, and a mangled regex made composite() return
+       * null for every palette — so the whole check passed green while
+       * measuring nothing at all. A ground that cannot be read is a broken
+       * test, not an absent problem, and it has to say so.
+       */
+      const ground = raw.startsWith("#") ? parseHex(raw) : composite(raw, base!);
+      expect(ground, `could not resolve --surface-3 ("${raw}")`).not.toBeNull();
+
+      const fg = parseHex(rawToken(palette.selector, "--muted") ?? "");
+      expect(fg, "could not resolve --muted").not.toBeNull();
+
+      const ratio = contrastRatio(fg!, ground!);
+      expect(
+        ratio,
+        `${palette.name} --muted measures ${ratio.toFixed(2)}:1 on --surface-3 — AA needs ${MIN_CONTRAST}`,
+      ).toBeGreaterThanOrEqual(MIN_CONTRAST);
+    });
+  }
+
   it("still measures something rather than passing on an empty set", () => {
     // If token() ever started returning nothing, every assertion above would
     // vacuously pass. This is the canary for that.

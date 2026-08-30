@@ -189,7 +189,7 @@
   --text-2: #cfc8e6;
   --text-3: #bdb6d6;
   --text-4: #a9a2c4;
-  --muted: #8c86a5;
+  --muted: #9893ae;
   --muted-2: #8e88a8;
   --accent-text: #b9a6ff;
   /* Deeper sibling of --accent, same as forest/slate/ocean do it. Dark inherits
@@ -233,7 +233,7 @@
     --text-2: #cfc8e6;
     --text-3: #bdb6d6;
     --text-4: #a9a2c4;
-    --muted: #8c86a5;
+    --muted: #9893ae;
     --muted-2: #8e88a8;
     --accent-text: #b9a6ff;
     --accent-strong: #5636e0;
@@ -323,7 +323,7 @@
   --text-2: #d8d4cc;
   --text-3: #c8c4bb;
   --text-4: #b0aca3;
-  --muted: #8f8b83;
+  --muted: #99968f;
   --muted-2: #96928a;
   --accent: #c08a4e;
   --accent-text: #e7b478;
@@ -371,7 +371,7 @@
   --text-2: #c9d8f0;
   --text-3: #b8cae6;
   --text-4: #a1b5d4;
-  --muted: #7f90ad;
+  --muted: #8c9bb5;
   --muted-2: #8797b3;
   --accent: #2e6be6;
   --accent-text: #9cc4ff;
