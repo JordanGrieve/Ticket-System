@@ -353,6 +353,63 @@ describe("the writer and the schema hold up their end", () => {
     }
   });
 
+  /*
+   * ── CHAINED_FIELDS MUST NOT DRIFT FROM WHAT IS ACTUALLY HASHED ──
+   *
+   * Found by review, not by the original suite. `payload()` lists the covered
+   * fields POSITIONALLY, so CHAINED_FIELDS is a parallel declaration rather
+   * than the thing the hash is built from — and deleting "reason" from it left
+   * all 25 tests green.
+   *
+   * That matters because CHAINED_FIELDS is exported for exactly one purpose:
+   * so the admin console can tell a client what the chain does and does not
+   * seal. A drift here does not weaken the chain — it makes the product
+   * MISDESCRIBE the chain to the person relying on it, which is the same class
+   * of failure as the sidebar that said billing was not built.
+   *
+   * Two assertions, because either alone is escapable: the list is pinned
+   * literally (catches a field being added or removed), and every field on it
+   * is proved to change the hash (catches a field being listed but not
+   * actually covered).
+   */
+  it("declares exactly the fields it hashes", () => {
+    expect([...CHAINED_FIELDS]).toEqual([
+      "adminId",
+      "adminEmail",
+      "adminClerkUserId",
+      "workspaceId",
+      "workspaceName",
+      "reason",
+      "startedAt",
+    ]);
+  });
+
+  it("every declared field genuinely changes the hash", () => {
+    const base = content(1);
+    const prev = impersonationGenesisHash(null);
+    const baseline = impersonationRowHash(base, prev, null);
+
+    // A distinct value per field, chosen so none collides with the baseline.
+    const altered: Record<string, unknown> = {
+      adminId: 999,
+      adminEmail: "someone-else@postbox.help",
+      adminClerkUserId: "user_zzz",
+      workspaceId: 4242,
+      workspaceName: "A Different Client",
+      reason: "a completely different reason",
+      startedAt: new Date(Date.UTC(2027, 0, 1, 0, 0, 0)),
+    };
+
+    for (const field of CHAINED_FIELDS) {
+      const mutated = { ...base, [field]: altered[field] };
+      expect(
+        impersonationRowHash(mutated, prev, null),
+        `changing ${field} did not change the row hash, so the chain does ` +
+          `not actually cover it even though CHAINED_FIELDS says it does`,
+      ).not.toBe(baseline);
+    }
+  });
+
   it("nothing in the app deletes from this table", () => {
     // The chain makes a deletion detectable; it is still worth nothing being
     // able to do one from inside the product.
