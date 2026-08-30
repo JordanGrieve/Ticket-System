@@ -2028,6 +2028,35 @@
   color: var(--muted-2);
 }
 
+/* The conversations opened during one visit.
+
+   A plain list rather than a disclosure, unlike the operator console's version
+   of the same data. There the column is one of seven and a session that opened
+   twenty threads would push every other row off the screen; here the client is
+   reading one visit at a time and asked for exactly this. Hiding it behind a
+   click on the page that exists to show it would be the wrong default. */
+.stg-al-reads {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stg-al-reads > li + li {
+  margin-top: 8px;
+}
+
+/* The conversation link itself reuses .stg-link, defined further down — it is
+   already "a link sitting where a settings value normally goes", which is
+   exactly what this is. A second class would be a second answer to one
+   question, and the first thing to drift. */
+
+/* "opened 4 times". Normal weight beside the bold link, because the count is a
+   qualifier on the conversation, not a second heading. */
+.stg-al-read-n {
+  font-weight: 500;
+  color: var(--muted-2);
+}
+
 /* "None given" — a stated fact, so it is legible rather than greyed to nothing,
    but visibly not something the operator typed. */
 .stg-al-unset {

@@ -22,18 +22,19 @@ const TABS = [
   { href: "/settings/billing", label: "Billing" },
   { href: "/settings/install", label: "Install" },
   /*
-   * NO ACCESS LOG TAB, removed 28 August on Jordan's call.
+   * BACK, 30 August, on Jordan's call — off on the 28th, on again now.
    *
-   * It showed a client every time somebody at Postbox opened their workspace.
-   * The RECORDING has not changed — impersonation_sessions is still written on
-   * every entry and exit, the operator is still asked why they are going in,
-   * and the admin console still shows all of it. What is gone is the
-   * client-facing page.
+   * The two days it was gone changed what it can say. When it came off, the
+   * page could only tell a client that somebody entered; it now also names the
+   * tickets they opened, because impersonation_reads exists. That is the
+   * difference between "someone was in your inbox for 40 minutes" and "someone
+   * opened these three conversations", and it is the version of the page worth
+   * having.
    *
-   * Worth knowing if this is ever reconsidered: the privacy policy does not
-   * promise this page, so removing it did not make that document untrue. If it
-   * comes back, the data to fill it was never dropped.
+   * The recording never stopped while the page was away, which is why there is
+   * a log to show rather than two days of silence.
    */
+  { href: "/settings/access-log", label: "Access log" },
 ] as const;
 
 export default function SettingsTabs() {

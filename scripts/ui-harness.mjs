@@ -174,6 +174,57 @@ const CASES = [
 </div></div></div>`,
   },
   {
+    /*
+     * A visit on the client's own access log, with the conversations it opened.
+     *
+     * Unlike the operator console this page renders in the TENANT dashboard, so
+     * it really does have to survive all six palettes — and the new part of it
+     * borrows `.stg-link`, whose own comment says several palettes put
+     * --accent-text close enough to --text that colour alone will not read as
+     * clickable. That claim is worth looking at rather than trusting, because
+     * the link now sits inside a <dd> of 600-weight text rather than in the
+     * settings row it was written for.
+     *
+     * Both states are here: reads recorded, and none recorded.
+     */
+    name: "Settings → Access log — a visit and what was opened",
+    css: ["app/settings.css"],
+    wrap: (inner) =>
+      `<div class="pbm" style="padding:14px"><div class="stg-wrap">${inner}</div></div>`,
+    html: `
+<ol class="stg-al-list">
+  <li class="stg-al-visit">
+    <div class="stg-al-visit-head">
+      <div class="stg-al-who"><span class="stg-al-who-email">jordangrieve.dev@gmail.com</span></div>
+      <span class="stg-al-pill" data-state="ended">Ended — the operator left</span>
+    </div>
+    <dl class="stg-al-facts">
+      <div class="stg-al-fact"><dt class="stg-al-key">Entered</dt><dd class="stg-al-val">30 Aug 2026, 14:02</dd></div>
+      <div class="stg-al-fact"><dt class="stg-al-key">In for</dt><dd class="stg-al-val">6m<span class="stg-al-sub">left at 30 Aug 2026, 14:08</span></dd></div>
+      <div class="stg-al-fact stg-al-fact-wide"><dt class="stg-al-key">Reason given</dt><dd class="stg-al-val">Checking a bounced newsletter</dd></div>
+      <div class="stg-al-fact stg-al-fact-wide"><dt class="stg-al-key">Conversations opened</dt><dd class="stg-al-val">
+        <ul class="stg-al-reads">
+          <li><a class="stg-link" href="#">Conversation #142</a><span class="stg-al-read-n"> opened 4 times</span><span class="stg-al-sub">last opened 30 Aug 2026, 14:06</span></li>
+          <li><a class="stg-link" href="#">Conversation #139</a><span class="stg-al-sub">last opened 30 Aug 2026, 14:04</span></li>
+        </ul>
+      </dd></div>
+    </dl>
+  </li>
+  <li class="stg-al-visit">
+    <div class="stg-al-visit-head">
+      <div class="stg-al-who"><span class="stg-al-who-email">someone@postbox.help</span><span class="stg-al-who-note">this account no longer has operator access</span></div>
+      <span class="stg-al-pill" data-state="abandoned">Never observed to end</span>
+    </div>
+    <dl class="stg-al-facts">
+      <div class="stg-al-fact"><dt class="stg-al-key">Entered</dt><dd class="stg-al-val">28 Aug 2026, 09:11</dd></div>
+      <div class="stg-al-fact"><dt class="stg-al-key">In for</dt><dd class="stg-al-val">at least 41m<span class="stg-al-sub">last seen 28 Aug 2026, 09:52; never seen to leave</span></dd></div>
+      <div class="stg-al-fact stg-al-fact-wide"><dt class="stg-al-key">Reason given</dt><dd class="stg-al-val"><span class="stg-al-unset">None given</span></dd></div>
+      <div class="stg-al-fact stg-al-fact-wide"><dt class="stg-al-key">Conversations opened</dt><dd class="stg-al-val"><span class="stg-al-unset">None recorded</span></dd></div>
+    </dl>
+  </li>
+</ol>`,
+  },
+  {
     /* The sidebar billing card, rewritten from a dead hard-coded button. It
        renders inside the TENANT dashboard, so unlike the console it really
        does have to survive all six palettes. */
