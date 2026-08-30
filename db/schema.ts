@@ -544,6 +544,34 @@ export const impersonationSessions = pgTable(
     // Null = never closed cleanly. Read it with lastSeenAt, not instead of it.
     endedAt: timestamp("ended_at", { withTimezone: true }),
     endedReason: text("ended_reason").$type<ImpersonationEnd>(),
+    /*
+     * ── The hash chain: see lib/impersonation-chain.ts ──
+     *
+     * chainHash is a hash over this row's ENTRY facts (admin, workspace,
+     * reason, startedAt) together with chainPrevHash, which is the chainHash
+     * of the row appended before it. That makes the table a linked list:
+     * delete a row and its successor points at a hash that is not there any
+     * more, edit a row and its own hash stops matching it. Neither is visible
+     * in the row — lib/impersonation.ts:verifyImpersonationLog walks the whole
+     * chain and reports the first place it stops holding together.
+     *
+     * This is tamper-EVIDENCE, not tamper-resistance. A DATABASE_URL holder
+     * can still delete from this table; what changes is that they cannot do it
+     * quietly. And only if IMPERSONATION_CHAIN_SECRET is set can they not
+     * simply recompute the chain afterwards — the reasoning is in the module.
+     *
+     * NULL on both columns means the row predates the chain. Those rows are
+     * NOT retro-hashed: a backfilled hash would only prove the row says what
+     * it says today, which is the one thing in question. Verification counts
+     * them and reports them as unverifiable rather than pretending.
+     *
+     * The mutable columns above (lastSeenAt, endedAt, endedReason) are NOT
+     * covered, because a hash cannot cover a value that legitimately changes
+     * after the row is written — every heartbeat would invalidate the rest of
+     * the chain. Sealing exits needs an event table, and that is not built.
+     */
+    chainPrevHash: text("chain_prev_hash"),
+    chainHash: text("chain_hash"),
   },
   (t) => [
     // The question a client asks: "who has been in my workspace?"
@@ -553,6 +581,31 @@ export const impersonationSessions = pgTable(
     index("impersonation_sessions_admin_idx").on(t.adminId, t.startedAt),
     // The console's log view, newest first across every workspace.
     index("impersonation_sessions_started_idx").on(t.startedAt),
+    /*
+     * These two uniques are not a lookup optimisation — they are what makes
+     * the chain a chain rather than a tree, and they are enforced by Postgres
+     * rather than by the writer remembering to.
+     *
+     * The append is read-then-write (read the current head hash, insert a row
+     * pointing at it), and two operators entering workspaces at the same
+     * moment can both read the same head. Without the unique on
+     * chain_prev_hash, both would commit and the chain would FORK: two rows
+     * claiming the same predecessor, and verification would report a break
+     * that nobody caused. With it, the second insert fails on a constraint,
+     * retries against the new head, and — because the retry draws a fresh
+     * sequence value — lands with both a later id and a later chain position.
+     * That is what lets verification walk the chain in id order at all.
+     *
+     * The unique on chain_hash is the same guard from the other end: two rows
+     * with identical hashes would make "which row does this one follow"
+     * ambiguous. It is also a cheap trip-wire for the laziest forgery there
+     * is, copying an existing row's hashes onto an edited row.
+     *
+     * Both are nullable-friendly: Postgres does not consider NULLs equal, so
+     * every pre-chain row is exempt without any special case.
+     */
+    uniqueIndex("impersonation_sessions_chain_prev_idx").on(t.chainPrevHash),
+    uniqueIndex("impersonation_sessions_chain_hash_idx").on(t.chainHash),
   ],
 );
 
