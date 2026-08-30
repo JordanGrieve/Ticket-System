@@ -1,4 +1,5 @@
 import { json } from "@/lib/http";
+import { recordFeedbackDrop } from "@/lib/feedback-log";
 import {
   classifySesNotification,
   isAllowedSnsUrl,
@@ -193,6 +194,16 @@ async function handleNotification(msg: SnsEnvelope): Promise<Response> {
       feedback.eventType,
       "— cannot attribute it to a workspace; dropped.",
     );
+    /*
+      Counted as well as logged. Dropping is correct — see the block comment
+      above — but a drop that only reaches console.warn makes a systematic
+      attribution failure look identical to clean sending, which is the whole
+      reason lib/feedback-log.ts exists.
+    */
+    await recordFeedbackDrop({
+      reason: "no_message_id",
+      eventType: feedback.eventType,
+    });
     return json({ ok: true, ignored: true, reason: "no_message_id" });
   }
 
@@ -231,6 +242,15 @@ async function handleNotification(msg: SnsEnvelope): Promise<Response> {
           "matched no campaign_recipients row — not a campaign send, or the " +
           "message id was never recorded. Nothing suppressed.",
       );
+      /*
+        The id is carried so one real example can be traced through CloudWatch.
+        A percentage is not something an operator can act on; a message id is.
+      */
+      await recordFeedbackDrop({
+        reason: "unmapped_message_id",
+        eventType: feedback.eventType,
+        messageId: feedback.messageId,
+      });
       continue;
     }
 

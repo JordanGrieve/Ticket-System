@@ -1285,6 +1285,66 @@ export type IngestionFailureReason =
   | "honeypot";
 
 /**
+ * Bounces and complaints that could not be attributed to a workspace.
+ *
+ * WHY: app/api/webhooks/ses drops feedback it cannot map to a
+ * `campaign_recipients` row, and dropping is the CORRECT behaviour — the
+ * alternative is suppressing globally, which would let one tenant's bounce
+ * silence an address for every other tenant. But the drop only reached
+ * `console.warn`, and nobody reads the platform logs on a normal day. So a
+ * systematic attribution failure — a deploy that stops recording message ids,
+ * a configuration set wired to the wrong topic — looks exactly like clean
+ * sending. That is the sentence from the task this table exists to answer:
+ * the RATE of drops has to be visible.
+ *
+ * NO workspace_id, and that is the point rather than an omission. These are
+ * the events for which no workspace could be determined; a column here would
+ * invite somebody to guess one, and a guessed attribution is how a bounce ends
+ * up suppressing the wrong tenant's subscriber.
+ *
+ * AGGREGATED, one row per (reason, event_type), same shape as
+ * ingestion_failures above. Here the growth bound is stronger still: both
+ * columns come from closed sets, so the table has a fixed maximum size of a
+ * handful of rows no matter how much feedback arrives.
+ *
+ * `last_message_id` is the one unaggregated field. It is kept because "0.4% of
+ * bounces are unattributable" is a number you cannot act on, whereas one real
+ * SES message id can be traced through CloudWatch to the send that produced
+ * it. One per row, overwritten, so it does not affect the size bound.
+ */
+export const feedbackDrops = pgTable(
+  "feedback_drops",
+  {
+    id: serial("id").primaryKey(),
+    /** no_message_id | unmapped_message_id */
+    reason: text("reason").$type<FeedbackDropReason>().notNull(),
+    /** SES's notificationType, e.g. "Bounce" or "Complaint". */
+    eventType: text("event_type").notNull(),
+    /** Newest SES message id seen for this pairing, for tracing one example. */
+    lastMessageId: text("last_message_id"),
+    count: integer("count").notNull().default(1),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("feedback_drops_reason_event_idx").on(t.reason, t.eventType),
+    index("feedback_drops_last_seen_idx").on(t.lastSeenAt),
+  ],
+);
+
+/**
+ * 'no_message_id' — SES sent feedback with no message id at all, so there is
+ * nothing to match on. 'unmapped_message_id' — there was an id and it matched
+ * no recipient row, which is legitimate for transactional ticket mail sharing
+ * the configuration set, and a red flag in volume for a campaign.
+ */
+export type FeedbackDropReason = "no_message_id" | "unmapped_message_id";
+
+/**
  * Cross-invocation rate limiting.
  *
  * lib/rate-limit.ts is an in-memory Map, which is correct within ONE serverless

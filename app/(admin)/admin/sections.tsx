@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Admin, ImpersonationEnd, ImpersonationSession } from "@/db/schema";
 import type { WorkspaceSummary } from "@/lib/data";
 import type { IngestionFailureRow } from "@/lib/ingestion-log";
+import { describeDropReason, type FeedbackDropRow } from "@/lib/feedback-log";
 import {
   sessionState,
   sessionStates,
@@ -465,10 +466,13 @@ const REJECTION_LABELS: Record<string, string> = {
 export function DeliverabilitySection({
   accounts,
   rejections,
+  drops,
 }: {
   accounts: WorkspaceSummary[];
   /** Aggregated rejected ingestion attempts. See lib/ingestion-log.ts. */
   rejections: IngestionFailureRow[];
+  /** Feedback that could not be attributed. See lib/feedback-log.ts. */
+  drops: FeedbackDropRow[];
 }) {
   const byWorkspace = new Map(accounts.map((w) => [w.id, w.name]));
   return (
@@ -515,6 +519,65 @@ export function DeliverabilitySection({
                   </span>
                   <span>{r.count}</span>
                   <span>{formatDate(r.lastSeenAt)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/*
+        Second, and for the same reason as the card above it: this is a real
+        measurement of a real silence. The SES webhook drops feedback it cannot
+        attribute — correctly, because suppressing globally would let one
+        tenant's bounce silence an address for every other tenant — and until
+        this card existed the drop went only to console.warn.
+
+        Which meant a systematic attribution failure looked exactly like clean
+        sending. Empty is the expected state, so the empty text has to say what
+        it means rather than reading as "not built".
+      */}
+      <div className="pba-card">
+        <div className="pba-card-head">
+          <h2 className="pba-card-title">Bounces we couldn&rsquo;t attribute</h2>
+          <p className="pba-card-sub">
+            Feedback from SES that matched no campaign recipient, so nothing
+            was suppressed. A low background rate is normal &mdash; ticket mail
+            shares the configuration set and has no recipient row. A jump means
+            sends have stopped recording their provider ids, and no bounce is
+            suppressing anybody.
+          </p>
+        </div>
+        {drops.length === 0 ? (
+          <p className="pba-card-sub" style={{ padding: "0 18px 18px" }}>
+            Nothing dropped. Every bounce and complaint that has arrived was
+            matched to a recipient and acted on.
+          </p>
+        ) : (
+          <div className="pba-table">
+            <div className="pba-scroll">
+              <div className="pba-row pba-row-head">
+                <span>Reason</span>
+                <span>Event</span>
+                <span>Count</span>
+                <span>Last seen</span>
+                <span>Example message</span>
+              </div>
+              {drops.map((d) => (
+                <div className="pba-row" key={`${d.reason}:${d.eventType}`}>
+                  {/* The explanation is the title, so an operator gets the
+                      "so what" on hover without a second screen. */}
+                  <span title={describeDropReason(d.reason)}>
+                    {d.reason === "no_message_id"
+                      ? "No message id"
+                      : "Unmatched message id"}
+                  </span>
+                  <span>{d.eventType}</span>
+                  <span>{d.count}</span>
+                  <span>{formatDate(d.lastSeenAt)}</span>
+                  <span className="pba-mono">
+                    {d.lastMessageId ?? "—"}
+                  </span>
                 </div>
               ))}
             </div>

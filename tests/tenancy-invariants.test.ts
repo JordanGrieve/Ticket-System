@@ -411,6 +411,15 @@ const TENANT_TABLES = [
 const NON_TENANT_TABLES = [
   "rate_limits",
   "ingestion_failures",
+  /*
+   * feedback_drops holds the bounces and complaints for which NO workspace
+   * could be determined — that is the definition of a row in it. It is the one
+   * table here whose exemption is not merely "these rows happen to be global"
+   * but "attributing these rows is the specific mistake being avoided": a
+   * guessed attribution is how one tenant's bounce ends up suppressing another
+   * tenant's subscriber.
+   */
+  "feedback_drops",
   "workspaces",
   "admins",
   "impersonation_sessions",
@@ -641,6 +650,18 @@ describe("every raw statement touching tenant data is scoped or exempted", () =>
         );
       }
     }
+    /*
+     * feedback_drops is exempt because it has no workspace column AT ALL, not
+     * because its column is nullable. Adding one would not be a schema tweak —
+     * it would be an invitation to fill it in, and a guessed attribution is
+     * the exact outcome dropping the bounce exists to prevent.
+     */
+    const drops = schema.indexOf('"feedback_drops",');
+    expect(drops, "feedback_drops missing from schema").toBeGreaterThan(0);
+    const dropBlock = schema.slice(drops, schema.indexOf("\n);", drops));
+    expect(dropBlock).not.toMatch(/workspaceId:/);
+    expect(dropBlock).not.toMatch(/workspace_id/);
+
     // Nothing may be on both lists.
     for (const t of NON_TENANT_TABLES) expect(TENANT_TABLES).not.toContain(t);
   });

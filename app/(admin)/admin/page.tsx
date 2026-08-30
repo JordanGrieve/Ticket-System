@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { recentIngestionFailures } from "@/lib/ingestion-log";
+import { recentFeedbackDrops } from "@/lib/feedback-log";
 // Not Clerk's <SignOutButton>: it runs only in the browser, so an operator
 // signing out from here left their impersonation row open forever.
 import AuditedSignOutButton from "@/components/AuditedSignOutButton";
@@ -98,13 +99,16 @@ export default async function AdminHomePage({
 }) {
   const params = await searchParams;
   const viewer = await resolveViewer();
-  const [accounts, admins, rejections] = await Promise.all([
+  const [accounts, admins, rejections, drops] = await Promise.all([
     listWorkspaceSummaries(),
     listAdmins(),
     // Fetched for every section rather than only Deliverability: it is three
     // aggregated rows, and a conditional read here would mean the console's
     // data shape changed with the tab, which is a bug waiting to be written.
     recentIngestionFailures(),
+    // Same reasoning, and an even smaller read: the unique index bounds
+    // feedback_drops to one row per (reason, event type).
+    recentFeedbackDrops(),
   ]);
 
   const section = parseSection(params.section);
@@ -246,6 +250,7 @@ export default async function AdminHomePage({
                 <DeliverabilitySection
                   accounts={accounts}
                   rejections={rejections}
+                  drops={drops}
                 />
               )}
               {section === "support" && (

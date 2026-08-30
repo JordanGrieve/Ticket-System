@@ -141,6 +141,13 @@
       "when": 1788084596383,
       "tag": "0019_aspiring_network",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1788091231632,
+      "tag": "0020_cooing_wendell_rand",
+      "breakpoints": true
     }
   ]
 }
