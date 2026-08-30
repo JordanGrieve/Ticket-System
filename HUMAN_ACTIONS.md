@@ -52,13 +52,17 @@ Tick as you go.
 
 ## 1b · Newsletter pipeline — added 22 August 2026
 
-Commit `7900a5c` shipped a worker, a nightly cron and an SES integration. The
+Commit `7900a5c` shipped a worker, a scheduled sweep and an SES integration. The
 switches below are yours; the code side is mine. **Do not set
 `CAMPAIGN_DELIVERY_MODE` yet** — see the last item.
 
 - [ ] **Set `CRON_SECRET` in TWO places, or the sweep does nothing** — the
   sweep is now driven by GitHub Actions, not Vercel Cron
-  (`.github/workflows/campaign-sweep.yml`, every ~5 min). Generate one value —
+  (`.github/workflows/campaign-sweep.yml`). It runs **hourly** during
+  development, not every five minutes — deliberately, to keep the Neon compute
+  allowance down while nothing can send; the workflow's own comment explains
+  it, and `SWEEP_CADENCE` in `lib/campaign-schedule.ts` derives the English
+  from the schedule so the two cannot drift. Generate one value —
   `openssl rand -hex 32` — and set it as:
   1. a **Vercel** environment variable `CRON_SECRET` (Production), then
      redeploy; env edits do nothing until the next deploy;
@@ -154,12 +158,14 @@ switches below are yours; the code side is mine. **Do not set
 - [ ] **Upgrade Vercel to Pro (~$20/mo)** — the Hobby plan's terms prohibit
   commercial use, and Postbox now has a real business client on it. Also lifts
   build/function limits. **How:** Vercel → Settings → Billing → Pro.
-  *Third reason as of 22 Aug: Hobby caps cron at once a day, which is why the
-  campaign sweep runs nightly. At 75 recipients per campaign per tick, a
-  1,000-person newsletter would take a fortnight to go out. Pro allows a
-  per-minute schedule and a 300s function, which is roughly a 400× improvement
-  on that. Not urgent while nothing can send, but it becomes the throughput
-  ceiling the day something can.*
+  *~~Third reason as of 22 Aug: Hobby caps cron at once a day, which is why
+  the campaign sweep runs nightly.~~ **NO LONGER TRUE, corrected 30 Aug.**
+  Scheduling moved off Vercel Cron to GitHub Actions, which has no such cap —
+  `.github/workflows/campaign-sweep.yml` runs hourly and
+  `auto-reply-sweep.yml` every fifteen minutes. Vercel's cron limit is
+  therefore not a reason to upgrade and the throughput ceiling it described
+  does not exist. The two reasons above — the Hobby plan's terms prohibiting
+  commercial use, and build/function limits — still stand on their own.*
 - [ ] **Check provider limits & domain renewal** — (a) Resend free tier is
   100 emails/day / 3k/month — fine for the pilot, will need the $20/mo tier as
   clients grow (watch usage at resend.com/metrics); (b) postbox.help was $1.99
