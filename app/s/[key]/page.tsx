@@ -4,7 +4,17 @@ import { getWorkspaceByApiKey } from "@/lib/data";
 import { HONEYPOT_FIELDS, SUBSCRIBER_NAME_MAX } from "@/lib/subscribe";
 
 export const metadata: Metadata = {
-  title: "Subscribe — Postbox",
+  title: "Subscribe",
+  /*
+    Not indexed, matching every other page under /s and app/robots.ts.
+    The URL carries the workspace ingestion key, so an indexed copy is a
+    harvestable list of live keys. The key is public by design — it sits in
+    the page source wherever the snippet is pasted — but "readable in one
+    client's HTML" and "enumerable from a search engine" are different
+    exposures, and indexing buys the client nothing: the page would rank on
+    Postbox's domain, not on their brand.
+  */
+  robots: { index: false, follow: false },
 };
 
 /**

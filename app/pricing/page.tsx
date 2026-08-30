@@ -7,7 +7,7 @@ import "../home.css";
 import "./pricing.css";
 
 export const metadata: Metadata = {
-  title: "Pricing — Postbox",
+  title: "Pricing",
   description:
     "What Postbox costs: a shared support inbox and confirmed opt-in newsletters for small businesses.",
 };

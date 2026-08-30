@@ -38,7 +38,27 @@ const isPublicRoute = createRouteMatcher([
   // confirmation link in their email has no Clerk session and never will;
   // without this line they get a 404 and their consent is never recorded.
   "/s/(.*)",
-  // Sentry's tunnelRoute — browser error/trace events POST here and are
+  /*
+    Metadata routes: robots.txt, the sitemap, and the generated Open Graph
+    card.
+
+    These are FILES to a crawler and pages to Next, which is what makes them
+    easy to lose. The matcher below skips anything ending in a known asset
+    extension — that is why /manifest.webmanifest, /icon.svg and
+    /apple-icon.png need no line here — but ".txt" and ".xml" are not on that
+    list, and /opengraph-image has no extension at all. So all three reached
+    clerkMiddleware and 307d to /sign-in.
+
+    The failure is silent in the way this file has now seen three times: the
+    build succeeds, the pages exist, and the only symptom is that Google is
+    told nothing and every link pasted into Slack previews blank. It was found
+    by curling a production build, not by any test — so tests/seo.test.ts now
+    covers metadata routes too, and tests/public-routes.test.ts covers pages.
+  */
+  "/robots.txt",
+  "/sitemap.xml",
+  "/opengraph-image",
+    // Sentry's tunnelRoute — browser error/trace events POST here and are
   // forwarded to Sentry. Must not require a session.
   "/monitoring(.*)",
 ]);

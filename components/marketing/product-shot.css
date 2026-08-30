@@ -586,3 +586,20 @@
     display: none;
   }
 }
+
+/*
+  The selected row's muted text.
+
+  --sel is a lighter ground than the panel the other rows sit on, so the same
+  --muted that measures 4.54:1 elsewhere drops to 4.15:1 here — under the 4.5
+  AA floor, on the one row a reader's eye is drawn to.
+
+  Fixed with --text-4 rather than a new colour: it is already in every palette,
+  already one step brighter than --muted, and measures 5.91:1 on --sel. A
+  bespoke hex would have been a fifth value to keep in step across five themes
+  for no gain.
+*/
+.pshot-row[data-active] .pshot-row-preview,
+.pshot-row[data-active] .pshot-row-when {
+  color: var(--text-4);
+}

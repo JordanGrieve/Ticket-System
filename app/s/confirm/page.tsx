@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Confirm your subscription — Postbox",
+  title: "Confirm your subscription",
   // The URL carries a signed token. It must never reach an index.
   robots: { index: false, follow: false },
 };

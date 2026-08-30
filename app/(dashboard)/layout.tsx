@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import AuthProvider from "@/components/AuthProvider";
 import MailNav from "@/components/mail/MailNav";
 import { resolveViewer } from "@/lib/viewer";
 import { ThemeApplier } from "@/components/ThemeApplier";
@@ -22,7 +23,7 @@ export default async function DashboardLayout({
   const counts = await mailCounts(workspace.id);
 
   return (
-    <>
+    <AuthProvider>
       {/* Renders null for tenants. Must be a SIBLING immediately before the
           shell: its CSS uses a `~` selector to buy back its own height from
           .pb-shell, which is height:100dvh with overflow hidden. */}
@@ -47,6 +48,6 @@ export default async function DashboardLayout({
         />
         <main className="pb-main pbm-main">{children}</main>
       </div>
-    </>
+    </AuthProvider>
   );
 }

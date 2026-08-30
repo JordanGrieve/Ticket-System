@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "This signup link doesn’t work — Postbox",
+  title: "This signup link doesn’t work",
 };
 
 /**

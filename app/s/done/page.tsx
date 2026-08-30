@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "You're subscribed — Postbox",
+  title: "You're subscribed",
   robots: { index: false, follow: false },
 };
 

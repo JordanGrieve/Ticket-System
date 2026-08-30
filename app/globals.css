@@ -57,8 +57,15 @@
   --text-2: #3a3350;
   --text-3: #4b4363;
   --text-4: #6b6483;
-  --muted: #a49fba;
-  --muted-2: #8b85a3;
+  /* Raised to clear WCAG AA (4.5:1) on the PALEST ground these sit on.
+     Measured, not adjusted by eye: the old values rendered muted text at
+     2.21:1 on the bento panel and 2.55:1 on white — the marketing page's
+     preview text and timestamps were close to unreadable in the light
+     theme. The floor is set against #f1edf9, the palest surface, so the
+     commoner white ground has margin (5.25:1) rather than sitting exactly
+     on the line. Forest, slate and ocean already passed and are untouched. */
+  --muted: #6d6a7c;
+  --muted-2: #6e6981;
 
   /* accent */
   --accent: #6d4aff;
@@ -158,7 +165,7 @@
   --text-2: #cfc8e6;
   --text-3: #bdb6d6;
   --text-4: #a9a2c4;
-  --muted: #8a84a4;
+  --muted: #8c86a5;
   --muted-2: #8e88a8;
   --accent-text: #b9a6ff;
   /* Deeper sibling of --accent, same as forest/slate/ocean do it. Dark inherits
@@ -202,7 +209,7 @@
     --text-2: #cfc8e6;
     --text-3: #bdb6d6;
     --text-4: #a9a2c4;
-    --muted: #8a84a4;
+    --muted: #8c86a5;
     --muted-2: #8e88a8;
     --accent-text: #b9a6ff;
     --accent-strong: #5636e0;

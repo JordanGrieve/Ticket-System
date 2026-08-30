@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Unsubscribe — Postbox",
+  title: "Unsubscribe",
   // A URL containing a per-recipient secret must never reach an index.
   robots: { index: false, follow: false },
 };

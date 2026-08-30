@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/viewer";
+import AuthProvider from "@/components/AuthProvider";
 import "../admin.css";
 
 /**
@@ -18,8 +19,10 @@ export default async function AdminLayout({
   await requireAdmin();
 
   return (
-    <div className="pba-root" data-theme="dark">
-      {children}
-    </div>
+    <AuthProvider>
+      <div className="pba-root" data-theme="dark">
+        {children}
+      </div>
+    </AuthProvider>
   );
 }
