@@ -1216,8 +1216,17 @@
   width: 100%;
   min-width: 0;
   flex: 1;
-  height: 32px;
-  padding: 0 10px;
+  /*
+   * 36px tall with 12px of side padding, up from 32 and 10.
+   *
+   * It sits in a row beside three 22px colour swatches and an Add button, and
+   * at 32/10 the placeholder sat tight against the border while the controls
+   * next to it had room — the field looked like the cramped one in a row of
+   * comfortable ones. 36px also matches the swatch row height, so the whole
+   * line shares one baseline instead of three.
+   */
+  height: 36px;
+  padding: 0 12px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface-2);
@@ -1589,20 +1598,13 @@
     height: 38px;
     flex: none;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
     border-radius: 12px;
     border: 1px solid var(--border);
     background: var(--surface);
+    color: var(--text-2);
     cursor: pointer;
-  }
-  .pbm-burger span {
-    width: 15px;
-    height: 1.8px;
-    border-radius: 2px;
-    background: var(--text-2);
   }
   .pbm-topbar-text {
     min-width: 0;

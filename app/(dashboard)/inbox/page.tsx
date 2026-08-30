@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import MessageList from "@/components/mail/MessageList";
 import MobileTabs from "@/components/mail/MobileTabs";
 import OnboardingChecklist from "@/components/mail/OnboardingChecklist";
+import OnboardingDismiss from "@/components/mail/OnboardingDismiss";
 import { getOnboardingProgress } from "@/lib/onboarding-query";
 import { resolveViewer } from "@/lib/viewer";
 import { TICKETS_PAGE_SIZE } from "@/lib/data";
@@ -76,8 +77,12 @@ export default async function InboxPage({
         reverts to the placeholder once the required steps are done.
       */}
       <section className="pbm-thread pbm-thread--empty" data-hide-mobile>
+        {/* OnboardingDismiss owns the whole block rather than just a button,
+            so dismissing leaves no empty container behind. */}
         {onboarding && !onboarding.complete ? (
-          <OnboardingChecklist progress={onboarding} />
+          <OnboardingDismiss>
+            <OnboardingChecklist progress={onboarding} />
+          </OnboardingDismiss>
         ) : (
           <>
             <p className="pbm-placeholder-title">No thread open</p>

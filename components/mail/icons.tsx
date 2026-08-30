@@ -10,6 +10,12 @@
 export const ICON_PATHS = {
   mail: "M3.5 7a3 3 0 013-3h11a3 3 0 013 3v10a3 3 0 01-3 3h-11a3 3 0 01-3-3z M4.5 7.5l6.4 4.2a2 2 0 002.2 0l6.4-4.2",
   lines: "M4 6.5h16M4 12h16M4 17.5h10",
+  /*
+   * The drawer button. Three EQUAL bars — `lines` above has a short third
+   * bar because it means "awaiting reply", and using it as a burger produced
+   * a menu icon with one stubby line that looked like a rendering fault.
+   */
+  menu: "M4 7h16M4 12h16M4 17h16",
   star: "M12 3.8l2.5 5.1 5.6.8-4.1 4 1 5.6-5-2.6-5 2.6 1-5.6-4.1-4 5.6-.8z",
   label: "M4 10.5V5.5a1.5 1.5 0 011.5-1.5h5l9 9-6.5 6.5-9-9z M8 8h.01",
   send: "M3.5 11.8L20 4.5l-7.3 16.5-2.2-6.6-7-2.6z",
@@ -23,13 +29,26 @@ export const ICON_PATHS = {
   // carry it without needing a label at 18px.
   clock: "M12 4.2a7.8 7.8 0 100 15.6 7.8 7.8 0 000-15.6z M12 7.8V12l2.9 1.9",
   news: "M4 5.5h13v13H5.5A1.5 1.5 0 014 17zM17 9h2.5A1.5 1.5 0 0121 10.5V17a1.5 1.5 0 01-1.5 1.5H17M7 9h7M7 12.5h7M7 15.5h4",
+  /*
+   * Both subpaths start 1 left and 0.5 up of where they used to.
+   *
+   * Measured, not guessed: rendering every icon and reading getBBox put this
+   * gear's centre at (13, 12.5) in a 24x24 box — a whole pixel right and half
+   * a pixel low. On its own that is nothing; sitting in a column of folder
+   * rows whose icons are centred to within a tenth of a pixel, it is the one
+   * that looks wrong, and Jordan spotted it.
+   *
+   * Only the two M commands move, because everything after each one is
+   * relative, so shifting the start shifts the whole shape.
+   */
   settings:
-    "M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 13.5l1.6 1-2 3.4-1.9-.6a7 7 0 01-1.7 1l-.4 2h-4l-.4-2a7 7 0 01-1.7-1l-1.9.6-2-3.4 1.6-1a7 7 0 010-2l-1.6-1 2-3.4 1.9.6a7 7 0 011.7-1l.4-2h4l.4 2a7 7 0 011.7 1l1.9-.6 2 3.4-1.6 1a7 7 0 010 2z",
+    "M11 14.5a3 3 0 100-6 3 3 0 000 6z M18.4 13l1.6 1-2 3.4-1.9-.6a7 7 0 01-1.7 1l-.4 2h-4l-.4-2a7 7 0 01-1.7-1l-1.9.6-2-3.4 1.6-1a7 7 0 010-2l-1.6-1 2-3.4 1.9.6a7 7 0 011.7-1l.4-2h4l.4 2a7 7 0 011.7 1l1.9-.6 2 3.4-1.6 1a7 7 0 010 2z",
   people:
     "M12 12a4 4 0 100-8 4 4 0 000 8z M4.5 20a7.5 7.5 0 0115 0",
   search: "M16 16l4 4",
   check: "M5 12.5l4.5 4.5L19 7",
-  clip: "M20 12.5l-7.6 7.6a4.5 4.5 0 01-6.4-6.4l8-8a3 3 0 014.3 4.3l-8 8a1.5 1.5 0 01-2.1-2.1l7.3-7.3",
+  /* Same measurement, same fix: this sat 1.1px low and 0.34px right. */
+  clip: "M19.66 11.38l-7.6 7.6a4.5 4.5 0 01-6.4-6.4l8-8a3 3 0 014.3 4.3l-8 8a1.5 1.5 0 01-2.1-2.1l7.3-7.3",
   back: "M14.5 5l-7 7 7 7",
   chevronDown: "M7 10l5 5 5-5",
   close: "M5 5l14 14M19 5L5 19",

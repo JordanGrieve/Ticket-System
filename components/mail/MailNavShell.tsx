@@ -272,15 +272,19 @@ export default function MailNavShell({
           button, and 56px of extra chrome is a lot of a 390px screen. */}
       {!pathname.startsWith("/tickets/") && (
         <header className="pb-topbar pbm-topbar">
+          {/*
+            Three divs used to draw this: 15px wide, 1.8px tall, stacked with
+            a gap. At that size a CSS box lands on fractional device pixels and
+            the bars render at inconsistent weights — which is what made it
+            look wrong next to icons that are all stroked SVG.
+          */}
           <button
             className="pbm-burger"
             onClick={() => setNavOpen(true)}
             aria-label="Open navigation"
             aria-expanded={navOpen}
           >
-            <span />
-            <span />
-            <span />
+            <Icon name="menu" size={18} strokeWidth={2} />
           </button>
           <div className="pbm-topbar-text">
             <div className="pbm-topbar-name">{workspaceName}</div>
@@ -304,14 +308,16 @@ export default function MailNavShell({
           if ((e.target as HTMLElement).closest("a")) setNavOpen(false);
         }}
       >
-        <button
-          className="pb-drawer-close pbm-drawer-close"
-          onClick={() => setNavOpen(false)}
-          aria-label="Close navigation"
-        >
-          <Icon name="close" size={15} strokeWidth={2.4} />
-        </button>
+        {/*
+          NO CLOSE BUTTON. Tapping anywhere outside the drawer closes it, and
+          so does Escape, and so does following any link inside it — three ways
+          out already.
 
+          It also looked wrong, which is what surfaced it: the button is
+          inline-flex inside a flex column, so it stretched to the full width
+          of the drawer and rendered as a long empty bar with a small cross at
+          its left end. It read as a broken input rather than as a control.
+        */}
         <div className="pbm-brand">
           <span className="pbm-brand-mark">
             <BrandMark size={20} />

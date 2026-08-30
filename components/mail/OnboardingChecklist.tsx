@@ -16,11 +16,17 @@ import "./onboarding.css";
  * checklist there costs no space that was being used, and it disappears the
  * moment somebody opens a thread — which is to say, the moment they are busy.
  *
- * ── NO DISMISS BUTTON ──
- * Deliberate. It occupies dead space, it cannot cover anything, and it removes
- * itself when the required steps are done. A dismiss control here would only
- * let somebody hide the list of things standing between them and a working
- * product, and then wonder why the product does not work.
+ * ── IT CAN NOW BE DISMISSED FOR GOOD ──
+ * This said the opposite until 28 August, and the old argument is worth
+ * keeping in view: the list occupies dead space, covers nothing, and removes
+ * itself once the required steps are done, so hiding it can only hide the
+ * things standing between somebody and a working product.
+ *
+ * What that misses is the reader who has decided they are never turning on an
+ * auto-reply. They are shown an unfinishable list every time they open an
+ * empty thread pane and given no way to say so, and making that decision for
+ * them is the part that does not hold. The dismissal lives in
+ * OnboardingDismiss, which explains the rest.
  *
  * Steps are derived from the database, never ticked by hand — see
  * lib/onboarding.ts.
