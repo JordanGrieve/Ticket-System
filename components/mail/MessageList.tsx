@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { TicketSource } from "@/db/schema";
 import { SOURCE_META } from "@/lib/theme";
 import { Icon, SearchIcon } from "./icons";
 import StarButton from "./StarButton";
@@ -17,7 +16,22 @@ import type { MailRow } from "./types";
  * its own — a chip count would contradict the nav's real totals.
  */
 
-type Refine = "all" | "unread" | "awaiting" | "starred" | "tagged" | TicketSource;
+/*
+ * Three filters, and that is the whole set.
+ *
+ * There used to be eight — awaiting, tagged, and one per source on top of
+ * these — sitting in a horizontally scrolling row with a hidden scrollbar.
+ * That row could not be reached with a mouse at all, so the extras were not
+ * merely cluttered, they were unusable on a desktop. A "+N more" disclosure
+ * fixed the reachability and left the real question standing: whether eight
+ * ways to filter one page of results were worth having.
+ *
+ * They were not. The folders already answer "awaiting reply" and "labelled",
+ * the source is visible as a chip on every card, and the search box above
+ * covers the rest. These three are the ones that say something the list does
+ * not already show.
+ */
+type Refine = "all" | "unread" | "starred";
 
 export default function MessageList({
   rows,
@@ -45,23 +59,16 @@ export default function MessageList({
   hideOnMobile?: boolean;
 }) {
   const [refine, setRefine] = useState<Refine>("all");
-  const [chipsOpen, setChipsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const router = useRouter();
 
   // "Unread" and "Starred" only exist for a viewer with an agent row; the rest
   // are properties of the ticket and always apply.
   /*
-   * How many chips are shown before "More".
-   *
-   * The row used to hold up to eight and rely on `overflow-x: auto` with a
-   * hidden scrollbar. That works on a touchscreen and on a trackpad, and NOT
-   * with a mouse — there is no visible scrollbar to drag and no wheel axis for
-   * it, so on a desktop the chips past the edge were simply unreachable. They
-   * were not hard to find; they could not be got to at all.
+   * Unread and Starred are per-agent, so an operator viewing a client sees
+   * only "All" — the other two would read zero for somebody who has no agent
+   * row here, which is a fact about them rather than about the mail.
    */
-  const CHIPS_SHOWN = 3;
-
   const chips: { key: Refine; label: string }[] = [
     { key: "all", label: "All" },
     ...(canPersonalise
@@ -70,23 +77,7 @@ export default function MessageList({
           { key: "starred", label: "Starred" },
         ] as { key: Refine; label: string }[])
       : []),
-    { key: "awaiting", label: "Awaiting" },
-    { key: "tagged", label: "Tagged" },
-    { key: "contact_form", label: "Contact form" },
-    { key: "email", label: "Email" },
-    { key: "order", label: "Order" },
   ];
-
-  /*
-   * The first three, PLUS the active one if it is not among them. Without that
-   * second half, choosing "Order" and then collapsing would leave a filtered
-   * list with nothing on screen saying it was filtered.
-   */
-  const head = chips.slice(0, CHIPS_SHOWN);
-  const shownChips = head.some((c) => c.key === refine)
-    ? head
-    : [...head, ...chips.filter((c) => c.key === refine)];
-  const hiddenCount = chips.length - shownChips.length;
 
   // Keep the list live: new tickets used to appear only on manual reload.
   // Skipped while a thread is open — Thread runs its own 30s refresh for the
@@ -105,11 +96,6 @@ export default function MessageList({
     return rows.filter((r) => {
       if (refine === "unread" && !r.unread) return false;
       if (refine === "starred" && !r.starred) return false;
-      if (refine === "awaiting" && !r.awaitingReply) return false;
-      if (refine === "tagged" && r.labels.length === 0) return false;
-      const isSource =
-        refine === "contact_form" || refine === "email" || refine === "order";
-      if (isSource && r.source !== refine) return false;
       if (!q) return true;
       return (
         r.name.toLowerCase().includes(q) ||
@@ -148,16 +134,8 @@ export default function MessageList({
           />
         </div>
 
-        {/*
-          Three, then "More".
-
-          The active chip is ALWAYS shown, even when it lives past the cut:
-          collapsing the row while "Order" is the current filter would hide the
-          only thing explaining why the list is short, and the list would look
-          like it had lost mail.
-        */}
         <div className="pbm-chips" role="group" aria-label="Refine this page">
-          {(chipsOpen ? chips : shownChips).map((c) => (
+          {chips.map((c) => (
             <button
               key={c.key}
               type="button"
@@ -169,16 +147,6 @@ export default function MessageList({
               {c.label}
             </button>
           ))}
-          {hiddenCount > 0 && (
-            <button
-              type="button"
-              className="pbm-chip pbm-chip--more"
-              onClick={() => setChipsOpen((v) => !v)}
-              aria-expanded={chipsOpen}
-            >
-              {chipsOpen ? "Less" : `+${hiddenCount} more`}
-            </button>
-          )}
         </div>
 
         <p className="pbm-list-meta">

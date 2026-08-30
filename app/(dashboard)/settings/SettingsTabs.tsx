@@ -21,7 +21,19 @@ const TABS = [
   { href: "/settings/team", label: "Team" },
   { href: "/settings/billing", label: "Billing" },
   { href: "/settings/install", label: "Install" },
-  { href: "/settings/access-log", label: "Access log" },
+  /*
+   * NO ACCESS LOG TAB, removed 28 August on Jordan's call.
+   *
+   * It showed a client every time somebody at Postbox opened their workspace.
+   * The RECORDING has not changed — impersonation_sessions is still written on
+   * every entry and exit, the operator is still asked why they are going in,
+   * and the admin console still shows all of it. What is gone is the
+   * client-facing page.
+   *
+   * Worth knowing if this is ever reconsidered: the privacy policy does not
+   * promise this page, so removing it did not make that document untrue. If it
+   * comes back, the data to fill it was never dropped.
+   */
 ] as const;
 
 export default function SettingsTabs() {

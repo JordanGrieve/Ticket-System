@@ -2123,8 +2123,15 @@
      hides rows with no visible cue. */
   overflow: visible;
   max-height: none;
-  padding-left: 0;
-  padding-right: 0;
+  /*
+   * The side padding STAYS inline. It was zeroed here on the assumption that
+   * the settings card around it supplies its own, and it does not — so every
+   * label chip sat 2px from the card edge and the edit and delete buttons ran
+   * into the other one. The rows only carry 2px of their own, which is right
+   * inside a dialog that already has 18px, and wrong on a bare card.
+   */
+  padding-left: 18px;
+  padding-right: 18px;
 }
 
 /* ── Contact rail: internal notes ────────────────────────────────
