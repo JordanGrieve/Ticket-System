@@ -7,6 +7,7 @@ import { listForms } from "@/lib/forms";
 import { EMAIL_FROM_ADDRESS } from "@/lib/config";
 import ThemePicker from "./ThemePicker";
 import SenderIdentityForm from "./SenderIdentityForm";
+import NewsletterBrandForm from "./NewsletterBrandForm";
 
 export const metadata = { title: "General · Settings · Postbox" };
 
@@ -62,6 +63,19 @@ export default async function GeneralSettingsPage() {
         <SenderIdentityForm
           legalName={workspace.legalName}
           postalAddress={workspace.postalAddress}
+          workspaceName={workspace.name}
+        />
+      </section>
+
+      {/* ── Newsletter branding ────────────────────────────────────
+          Its own section, NOT folded into Sender identity above. The
+          address there stops a send when it is missing; nothing here
+          ever does, and one card would blur that. */}
+      <section className="stg-section">
+        <h2 className="stg-section-title">Newsletter branding</h2>
+        <NewsletterBrandForm
+          brandAccentHex={workspace.brandAccentHex}
+          brandSignOff={workspace.brandSignOff}
           workspaceName={workspace.name}
         />
       </section>

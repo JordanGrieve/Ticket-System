@@ -134,6 +134,13 @@
       "when": 1788083058379,
       "tag": "0018_majestic_the_order",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788084596383,
+      "tag": "0019_aspiring_network",
+      "breakpoints": true
     }
   ]
 }

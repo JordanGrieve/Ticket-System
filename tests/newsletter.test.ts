@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  NO_BRAND,
   buildCampaignMergeValues,
   firstNameFrom,
   fullNameFrom,
@@ -146,6 +147,7 @@ describe("campaign rendering", () => {
     recipient: { email: "alex@example.com", name: "Alex Fenton" },
     workspaceName: "Bramble Bakery",
     unsubscribeUrl: "https://postbox.help/u/tok123",
+    brand: NO_BRAND,
     sender: SENDER,
   });
 
@@ -168,6 +170,7 @@ describe("campaign rendering", () => {
       recipient: { email: "a@b.co", name: null },
       workspaceName: "W",
       unsubscribeUrl: "https://postbox.help/u/zzz",
+      brand: NO_BRAND,
       sender: SENDER,
     });
     expect(bare.text).toContain("https://postbox.help/u/zzz");
@@ -188,6 +191,7 @@ describe("campaign rendering", () => {
       },
       workspaceName: "<b>Bakery</b>",
       unsubscribeUrl: "https://postbox.help/u/x",
+      brand: NO_BRAND,
       sender: SENDER,
     });
     expect(nasty.html).not.toContain("<script>");
@@ -201,6 +205,7 @@ describe("campaign rendering", () => {
       recipient: { email: "alex@example.com", name: "Alex Fenton" },
       workspaceName: "Bramble Bakery",
       unsubscribeUrl: "https://postbox.help/u/tok123",
+      brand: NO_BRAND,
       sender: SENDER,
     });
     expect(again).toEqual(rendered);
@@ -332,6 +337,7 @@ describe("sender identity", () => {
       recipient: { email: "a@b.co", name: "Alex" },
       workspaceName: sender.workspaceName,
       unsubscribeUrl: "https://postbox.help/u/t",
+      brand: NO_BRAND,
       sender,
     });
 

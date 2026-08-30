@@ -136,6 +136,13 @@ export async function GET(req: Request) {
           legalName: campaign.legalName,
           postalAddress: campaign.postalAddress,
         },
+        // Carried on the claimed row alongside the identity, so a campaign
+        // renders with the branding its own workspace chose even when the
+        // sweep is working through several workspaces in one tick.
+        brand: {
+          accentHex: campaign.brandAccentHex,
+          signOff: campaign.brandSignOff,
+        },
       });
       const settled = await settleCampaign(campaign.workspaceId, campaign.id);
       outcomes.push({

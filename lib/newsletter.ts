@@ -1,4 +1,5 @@
 import type { SubscriberStatus, SuppressionReason } from "@/db/schema";
+import { darkenToContrast, parseHex, toHex } from "./email-colour";
 
 /**
  * Newsletter engine — the PURE half.
@@ -683,6 +684,66 @@ export type SenderIdentity = {
 };
 
 /**
+ * The look of the message, as the client chose it.
+ *
+ * Separate from SenderIdentity because the two answer different questions and
+ * have opposite failure modes. Identity is a legal requirement whose absence
+ * must STOP a send; brand is decoration whose absence must not. Nothing here
+ * can ever refuse to render.
+ *
+ * The logo the design also calls for is not here. It needs object storage,
+ * which does not exist yet, and putting a nullable `logoUrl` in now would be a
+ * field nothing can ever fill.
+ *
+ * (Said without naming the table that work will use: tests/unused-tables.ts
+ * greps source for the names of tables declared unused, so writing one here
+ * turns a prose reference into a failing guard. Mentioning it cost twenty
+ * minutes once; this note is cheaper than a second time.)
+ */
+export type Brand = {
+  /** Picked hex, or null for the Postbox default. Never trusted as authored. */
+  accentHex: string | null;
+  /** e.g. "— Emma, Open Door Bakery". Null to append nothing. */
+  signOff: string | null;
+};
+
+/** No brand chosen. A workspace that has never opened the setting sends this. */
+export const NO_BRAND: Brand = { accentHex: null, signOff: null };
+
+/**
+ * The accent Postbox uses when a client has not picked one. Measured 4.83:1 on
+ * white, so it passes the same bar every client colour is held to.
+ */
+export const DEFAULT_EMAIL_ACCENT = "#c14a22";
+
+export const SIGN_OFF_MAX = 120;
+
+/**
+ * The hex actually written into the message.
+ *
+ * ── NOTHING TRUSTS THE STORED VALUE ──
+ * Three separate reasons, and only the first is about legibility:
+ *
+ *  1. A brand colour is picked to look good on a shopfront, not to be legible
+ *     as 14px link text. darkenToContrast fixes the ones that are not, and
+ *     leaves the ones that are exactly as authored.
+ *  2. This string is interpolated into a `style` attribute. Re-parsing it and
+ *     re-emitting a canonical `#rrggbb` means nothing else can survive the
+ *     round trip — a stored value of `red;x:url(y)` becomes the default, not
+ *     an injection.
+ *  3. The column is nullable and the rows predate the setting, so null is the
+ *     common case rather than the edge one.
+ */
+export function emailAccent(
+  accentHex: string | null,
+  backgroundHex: string,
+): string {
+  const picked = parseHex(accentHex) ?? parseHex(DEFAULT_EMAIL_ACCENT)!;
+  const ground = parseHex(backgroundHex) ?? parseHex("#ffffff")!;
+  return toHex(darkenToContrast(picked, ground));
+}
+
+/**
  * The gate. Returns the identity when it is lawful to send, or null.
  *
  * Callers must check this BEFORE claiming recipient rows — claim-before-send
@@ -711,16 +772,45 @@ export function mailableSender(
  * That is the correct trade: a duplicated link is untidy, a missing one is
  * unlawful.
  */
+/**
+ * The client's sign-off, between their words and the legal footer.
+ *
+ * Deliberately NOT part of the body. Somebody writing a newsletter should not
+ * have to remember to sign it, and a sign-off typed into the body once is a
+ * sign-off missing from every campaign after the first. It also sits ABOVE the
+ * unsubscribe block, so the message ends with a person rather than with a
+ * compliance paragraph.
+ */
+function signOffText(brand: Brand): string {
+  const line = (brand.signOff ?? "").trim();
+  return line ? `
+
+${line}` : "";
+}
+
+function signOffHtml(brand: Brand): string {
+  const line = (brand.signOff ?? "").trim();
+  if (!line) return "";
+  // Escaped like everything else: this is client-authored text reaching a
+  // stranger's mail client.
+  const safe = escapeHtml(line).replace(/\n/g, "<br />");
+  return `<p style="margin:22px 0 0;font:400 14.5px/1.65 Arial,sans-serif;color:#3c372f;">${safe}</p>`;
+}
+
 function unsubscribeFooterText(url: string, sender: SenderIdentity): string {
   return `\n\n—\nDon't want these emails? Unsubscribe: ${url}\n\n${senderBlockText(
     sender,
   )}`;
 }
 
-function unsubscribeFooterHtml(url: string, sender: SenderIdentity): string {
+function unsubscribeFooterHtml(
+  url: string,
+  sender: SenderIdentity,
+  accent: string,
+): string {
   const safe = escapeHtml(url);
   const identity = escapeHtml(senderBlockText(sender)).replace(/\n/g, "<br />");
-  return `<p style="margin:28px 0 0;font:400 12px/1.6 Arial,sans-serif;color:#a49a89;">Don&rsquo;t want these emails? <a href="${safe}" style="color:#a49a89;">Unsubscribe</a>.</p>
+  return `<p style="margin:28px 0 0;font:400 12px/1.6 Arial,sans-serif;color:#a49a89;">Don&rsquo;t want these emails? <a href="${safe}" style="color:${accent};text-decoration:underline;">Unsubscribe</a>.</p>
 <p style="margin:10px 0 0;font:400 12px/1.6 Arial,sans-serif;color:#a49a89;">${identity}</p>`;
 }
 
@@ -766,14 +856,14 @@ function senderBlockText(sender: SenderIdentity): string {
  * AFTER escaping, so the href can only ever contain characters that survived
  * the escape.
  */
-function textToHtmlParagraphs(text: string): string {
+function textToHtmlParagraphs(text: string, accent: string): string {
   return text
     .split(/\n{2,}/)
     .map((block) => {
       const escaped = escapeHtml(block).replace(/\n/g, "<br />");
       const linked = escaped.replace(
         /(https?:\/\/[^\s<]+)/g,
-        (url) => `<a href="${url}" style="color:#d6552f;">${url}</a>`,
+        (url) => `<a href="${url}" style="color:${accent};">${url}</a>`,
       );
       return `<p style="margin:0 0 16px;font:400 14.5px/1.65 Arial,sans-serif;color:#3c372f;">${linked}</p>`;
     })
@@ -801,6 +891,14 @@ export function renderCampaign(input: {
    * Callers gate with mailableSender() before claiming any recipient row.
    */
   sender: SenderIdentity;
+  /**
+   * Required, not optional-with-a-default. Every call site has to say what
+   * branding it is rendering with — the composer preview above all, because a
+   * preview that quietly used the default while the send used the client's
+   * colour is precisely the lie this file's purity note exists to prevent.
+   * Pass NO_BRAND to mean "none chosen".
+   */
+  brand: Brand;
 }): RenderedEmail {
   const values = buildCampaignMergeValues({
     name: input.recipient.name,
@@ -820,19 +918,32 @@ export function renderCampaign(input: {
     workspaceName: input.workspaceName,
   };
 
-  const text = bodyText + unsubscribeFooterText(input.unsubscribeUrl, sender);
+  const text =
+    bodyText +
+    signOffText(input.brand) +
+    unsubscribeFooterText(input.unsubscribeUrl, sender);
+
+  /*
+    Resolved against white, because white is what the accent is READ on in
+    both shells: the plain one has no card, and the branded one puts its body
+    on a white card inside the #faf8f4 page. The masthead rule is the single
+    element sitting on the darker ground, and it is a block rather than text —
+    a colour cleared for 4.5:1 on white still measures above 4.3:1 there.
+  */
+  const accent = emailAccent(input.brand.accentHex, "#ffffff");
+  const branded = input.campaign.templateKey === "branded";
 
   const hiddenPreheader = preheader
     ? `<div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(preheader)}</div>\n`
     : "";
   const inner =
-    textToHtmlParagraphs(bodyText) +
-    unsubscribeFooterHtml(input.unsubscribeUrl, sender);
+    textToHtmlParagraphs(bodyText, accent) +
+    signOffHtml(input.brand) +
+    unsubscribeFooterHtml(input.unsubscribeUrl, sender, accent);
 
-  const html =
-    input.campaign.templateKey === "branded"
-      ? brandedShell(hiddenPreheader, inner, input.workspaceName)
-      : plainShell(hiddenPreheader, inner);
+  const html = branded
+    ? brandedShell(hiddenPreheader, inner, input.workspaceName, accent)
+    : plainShell(hiddenPreheader, inner);
 
   return { subject, text, html };
 }
@@ -852,6 +963,7 @@ function brandedShell(
   preheader: string,
   inner: string,
   workspaceName: string,
+  accent: string,
 ): string {
   const name = escapeHtml(workspaceName);
   return `<!doctype html>
@@ -860,7 +972,13 @@ function brandedShell(
     ${preheader}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf8f4;padding:32px 16px;">
       <tr><td align="center">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
-          <tr><td style="padding:0 8px 18px;font:700 17px Arial,sans-serif;color:#26221d;">${name}</td></tr>
+          <tr><td style="padding:0 8px 10px;font:700 17px Arial,sans-serif;color:#26221d;">${name}</td></tr>
+          <!-- The masthead rule, and the only place the accent appears as a
+               block rather than as text. Drawn with a background on a table
+               cell, not a border-top or an image: borders on empty elements
+               collapse in Outlook, and an image would vanish for the majority
+               of readers who have them blocked. -->
+          <tr><td style="padding:0 8px 18px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td height="3" style="height:3px;line-height:3px;font-size:0;background:${accent};border-radius:2px;">&nbsp;</td></tr></table></td></tr>
           <tr><td style="background:#ffffff;border:1px solid #e7e1d7;border-radius:16px;padding:32px;">
 ${inner}
           </td></tr>

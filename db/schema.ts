@@ -76,6 +76,27 @@ export const workspaces = pgTable("workspaces", {
   // in this table means blocking a lawful send.
   postalAddress: text("postal_address"),
 
+  // ── Newsletter branding (PIVOT 42). Cosmetic, and that is a rule ──
+  //
+  // The two columns above stop a send when they are empty. These two must
+  // NEVER do that, and they sit next to each other so the difference is read
+  // rather than remembered: identity is a legal duty, branding is decoration.
+  // A workspace that has never opened the setting sends a correctly branded
+  // Postbox-default newsletter, and lib/newsletter.ts has no code path where
+  // an absent colour or sign-off can refuse to render.
+  //
+  // brandAccentHex is NOT trusted as stored. It reaches a `style` attribute in
+  // an email, where there is no cascade to lean on and no fixing it after it
+  // is sent, so lib/email-colour.ts re-parses it, forces 4.5:1 against the
+  // background it will actually be read on, and re-emits a canonical hex.
+  // Anything unparseable becomes the default rather than an error.
+  //
+  // The header LOGO the design also calls for is deliberately absent. It needs
+  // object storage, which does not exist yet; a nullable url column now would
+  // be a field nothing could ever fill.
+  brandAccentHex: text("brand_accent_hex"),
+  brandSignOff: text("brand_sign_off"),
+
   // ── Billing ──────────────────────────────────────────────────────────
   //
   // Every workspace starts on 'trial'. There is no 'none' and no null: a

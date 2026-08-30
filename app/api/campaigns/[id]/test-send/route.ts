@@ -158,6 +158,13 @@ export async function POST(
     recipient: { email: to, name: null },
     workspaceName: workspace.name,
     unsubscribeUrl: url,
+    // The test send is for checking what real recipients get, so it must use
+    // the real branding. Defaulting here would make the one feature this
+    // endpoint exists to verify the one thing it could not show.
+    brand: {
+      accentHex: workspace.brandAccentHex,
+      signOff: workspace.brandSignOff,
+    },
     sender,
   });
 

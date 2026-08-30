@@ -2176,3 +2176,82 @@
 .stg-link:hover {
   text-decoration-thickness: 2px;
 }
+
+/* ── Newsletter branding ─────────────────────────────────────────
+   The colour input is a native <input type="color">. Browsers give it a
+   default border and inner padding that no amount of `border-radius` tidies,
+   so the padding is zeroed and the swatch is clipped by overflow instead —
+   the two vendor pseudo-elements below are the only way to reach the inside
+   of that control. */
+.stg-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.stg-colour {
+  flex: none;
+  width: 52px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  cursor: pointer;
+  overflow: hidden;
+}
+.stg-colour::-webkit-color-swatch-wrapper {
+  padding: 3px;
+}
+.stg-colour::-webkit-color-swatch {
+  border: none;
+  border-radius: 7px;
+}
+.stg-colour::-moz-color-swatch {
+  border: none;
+  border-radius: 7px;
+}
+.stg-colour:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.stg-colour:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Painted on white rather than on --surface, because white is the ground the
+   email itself uses. Showing this sample on the app's own surface would make
+   a colour look fine here and fail there, which is the entire failure the
+   contrast work exists to prevent. */
+.stg-brand-sample {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.stg-brand-reset {
+  flex: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted-2);
+  font: inherit;
+  font-size: 12.5px;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.stg-brand-reset:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.stg-brand-reset:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

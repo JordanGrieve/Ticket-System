@@ -33,7 +33,13 @@ export async function updateWorkspace(
   patch: Partial<
     Pick<
       typeof workspaces.$inferInsert,
-      "name" | "sendingEmail" | "accent" | "legalName" | "postalAddress"
+      | "name"
+      | "sendingEmail"
+      | "accent"
+      | "legalName"
+      | "postalAddress"
+      | "brandAccentHex"
+      | "brandSignOff"
     >
   >,
 ) {

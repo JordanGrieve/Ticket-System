@@ -282,6 +282,8 @@ export default function Composer({
   workspaceName,
   legalName,
   postalAddress,
+  brandAccentHex,
+  brandSignOff,
   appUrl,
   viewerEmail,
   recipientsPerSweep,
@@ -296,6 +298,17 @@ export default function Composer({
    */
   legalName: string | null;
   postalAddress: string | null;
+  /**
+   * Branding, passed in for the same reason the identity is: the preview runs
+   * the REAL renderer, so it must run it with the REAL inputs. A preview that
+   * fell back to the Postbox default while the send used the client's colour
+   * would be the exact failure lib/newsletter.ts's purity note is about.
+   *
+   * Unlike postalAddress there is no placeholder branch below — null branding
+   * renders the default, which is precisely what the send would do too.
+   */
+  brandAccentHex: string | null;
+  brandSignOff: string | null;
   /** From lib/config, on the server. NEVER imported here — see page.tsx. */
   appUrl: string;
   viewerEmail: string;
@@ -896,6 +909,7 @@ export default function Composer({
         recipient: SAMPLE_RECIPIENT,
         workspaceName,
         unsubscribeUrl: unsubscribeUrl(appUrl, SAMPLE_TOKEN),
+        brand: { accentHex: brandAccentHex, signOff: brandSignOff },
         sender: {
           workspaceName,
           legalName,
@@ -918,6 +932,8 @@ export default function Composer({
       workspaceName,
       legalName,
       postalAddress,
+      brandAccentHex,
+      brandSignOff,
       appUrl,
     ],
   );

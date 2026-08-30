@@ -76,6 +76,8 @@ export default async function NewslettersPage() {
         workspaceName={workspace.name}
         legalName={workspace.legalName}
         postalAddress={workspace.postalAddress}
+        brandAccentHex={workspace.brandAccentHex}
+        brandSignOff={workspace.brandSignOff}
         appUrl={APP_URL}
         viewerEmail={viewer.email}
         recipientsPerSweep={RECIPIENTS_PER_SWEEP}

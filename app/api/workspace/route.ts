@@ -3,6 +3,8 @@ import { json } from "@/lib/http";
 import { activeWorkspace } from "@/lib/viewer";
 import { updateWorkspace } from "@/lib/data";
 import { THEMES } from "@/lib/theme";
+import { SIGN_OFF_MAX } from "@/lib/newsletter";
+import { parseHex, toHex } from "@/lib/email-colour";
 
 /**
  * PATCH /api/workspace  (authed)
@@ -18,6 +20,8 @@ export async function PATCH(req: Request) {
     accent?: string;
     legalName?: string;
     postalAddress?: string;
+    brandAccentHex?: string;
+    brandSignOff?: string;
   };
   try {
     body = await req.json();
@@ -30,6 +34,8 @@ export async function PATCH(req: Request) {
     accent?: string;
     legalName?: string | null;
     postalAddress?: string | null;
+    brandAccentHex?: string | null;
+    brandSignOff?: string | null;
   } = {};
 
   if (typeof body.name === "string" && body.name.trim()) {
@@ -50,6 +56,42 @@ export async function PATCH(req: Request) {
     const trimmed = body.postalAddress.trim().slice(0, 500);
     patch.postalAddress = trimmed || null;
   }
+  /*
+    Newsletter branding. Same "" means clear rule as the identity above, and
+    for a gentler version of the same reason: somebody who picked a colour they
+    dislike must be able to go back to the default.
+
+    The hex is canonicalised on the way IN as well as on the way out. The
+    renderer already refuses to trust the stored value, so this is not what
+    makes the email safe — it is what stops the settings screen reading back a
+    value the email will never use, which is how a client ends up certain the
+    feature is broken.
+  */
+  if (typeof body.brandAccentHex === "string") {
+    const raw = body.brandAccentHex.trim();
+    if (!raw) {
+      patch.brandAccentHex = null;
+    } else {
+      const parsed = parseHex(raw);
+      if (!parsed) {
+        return json(
+          { error: "That is not a colour. Pick one, or clear the field." },
+          { status: 400 },
+        );
+      }
+      patch.brandAccentHex = toHex(parsed);
+    }
+  }
+  if (typeof body.brandSignOff === "string") {
+    // Single line: newlines here would become <br /> in every campaign footer,
+    // and a sign-off is a sign-off, not a second body.
+    const trimmed = body.brandSignOff
+      .replace(/s+/g, " ")
+      .trim()
+      .slice(0, SIGN_OFF_MAX);
+    patch.brandSignOff = trimmed || null;
+  }
+
   if (typeof body.accent === "string") {
     // The column is still named `accent`; since the pivot it stores a theme key.
     // Renaming it needs a migration — tracked with the design-system task.

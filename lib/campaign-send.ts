@@ -37,6 +37,7 @@ import {
   type AudienceSelection,
   type CampaignDraftInput,
   type SenderIdentity,
+  type Brand,
 } from "./newsletter";
 
 /**
@@ -1003,6 +1004,11 @@ export async function sendCampaignBatch(input: {
    * the address is absent.
    */
   sender: SenderIdentity;
+  /**
+   * Accent colour and sign-off. Unlike `sender`, this can never refuse a batch
+   * — an unbranded newsletter is a newsletter, an unidentified one is unlawful.
+   */
+  brand: Brand;
 }): Promise<SendBatchResult> {
   const campaign = await getCampaign(input.workspaceId, input.campaignId);
   if (!campaign) throw new Error("Campaign not found in this workspace");
@@ -1133,6 +1139,7 @@ export async function sendCampaignBatch(input: {
       },
       workspaceName: input.workspaceName,
       unsubscribeUrl: url,
+      brand: input.brand,
       sender,
     });
 
@@ -1192,6 +1199,9 @@ export type DueCampaign = {
   /** CAN-SPAM identity, carried from the owning workspace. Both nullable. */
   legalName: string | null;
   postalAddress: string | null;
+  /** Branding, carried the same way. Nullable, and never a reason to refuse. */
+  brandAccentHex: string | null;
+  brandSignOff: string | null;
 };
 
 /**
@@ -1262,6 +1272,8 @@ export async function claimDueCampaigns(limit: number): Promise<DueCampaign[]> {
       // batch when the address is absent.
       legalName: workspaces.legalName,
       postalAddress: workspaces.postalAddress,
+      brandAccentHex: workspaces.brandAccentHex,
+      brandSignOff: workspaces.brandSignOff,
     })
     .from(campaigns)
     .innerJoin(workspaces, eq(workspaces.id, campaigns.workspaceId))
