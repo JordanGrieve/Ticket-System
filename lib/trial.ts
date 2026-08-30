@@ -188,3 +188,86 @@ export function trialNotice(
         : `${e.daysLeft} days left of your free trial.`,
   };
 }
+
+/**
+ * The sidebar's plan card.
+ *
+ * ── THIS REPLACES A CARD THAT WAS LYING ──
+ * It used to be a fixed block reading "Plans and billing aren't built yet, so
+ * there is nothing to upgrade to", above a permanently disabled button. That
+ * was true when it was written and had been false for some time: checkout, the
+ * customer portal, the Stripe webhook, the `plan` column and /settings/billing
+ * all exist. So the one component every signed-in person sees on every screen
+ * was telling them they could not pay for a product they may already be paying
+ * for — and the control that would have taken them to billing was dead.
+ *
+ * Hard-coded copy about what does not exist yet is a claim with an expiry date
+ * and nothing to remind anybody when it passes. Deriving the card from
+ * entitlement means it cannot go stale again: if the plan changes, this
+ * changes.
+ *
+ * ── QUIET, BECAUSE THE BANNER IS THE LOUD ONE ──
+ * TrialBanner already interrupts across the top when a trial is nearly out or
+ * sending has stopped. This card is permanent furniture, so it states the plan
+ * and offers a way to billing without arguing. The one case it raises its
+ * voice for is a lapsed subscription, because that is somebody's card having
+ * failed — they want to see it wherever they are, not only on the days the
+ * banner happens to fire.
+ */
+export function planCard(e: Entitlement): {
+  title: string;
+  body: string;
+  cta: string;
+  /** Draws attention. Only ever set when there is something to act on. */
+  urgent: boolean;
+} {
+  if (e.comped) {
+    return {
+      title: "Postbox",
+      body: "Your workspace has full access with nothing to pay.",
+      cta: "See plans",
+      urgent: false,
+    };
+  }
+
+  if (e.plan === "trial") {
+    // daysLeft is null only when the trial is over, so onTrial carries it.
+    if (e.onTrial) {
+      const days = e.daysLeft ?? 0;
+      return {
+        title: "Free trial",
+        body:
+          days === 1
+            ? "Last day of your trial. Your inbox keeps working either way."
+            : `${days} days left. Your inbox keeps working either way.`,
+        cta: "See plans",
+        urgent: false,
+      };
+    }
+    return {
+      title: "Trial ended",
+      body: "Choose a plan to send newsletters again. Your inbox is unaffected.",
+      cta: "Choose a plan",
+      urgent: true,
+    };
+  }
+
+  const plan = planById(e.plan);
+  if (e.blockedReason === "subscription_lapsed") {
+    return {
+      title: plan ? `Postbox ${plan.name}` : "Postbox",
+      body: "We could not take your last payment, so sending is paused.",
+      cta: "Update your card",
+      urgent: true,
+    };
+  }
+
+  return {
+    title: plan ? `Postbox ${plan.name}` : "Postbox",
+    body: plan
+      ? plan.tagline
+      : "Your subscription is active.",
+    cta: "Manage billing",
+    urgent: false,
+  };
+}

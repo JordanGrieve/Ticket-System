@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { workspaces } from "@/db/schema";
@@ -21,8 +22,26 @@ import { entitlement, type Entitlement } from "./trial";
  * OPEN here means the worst case is one send that should have been refused,
  * rather than every send in the product stopping because a query changed shape.
  * Same fail-open reasoning as the rate limiter.
+ *
+ * ── REQUEST-CACHED, AND WHY THAT IS NOT AN OPTIMISATION ──
+ * Two components in app/(dashboard)/layout.tsx call this on every dashboard
+ * page: TrialBanner and, through MailNav, the sidebar plan card. Over
+ * neon-http each call is its own HTTP round trip — two for a trial workspace,
+ * since the usage counts are a second query — so an uncached version would
+ * double that on every navigation to render one banner and one card that must
+ * agree with each other anyway.
+ *
+ * Agreement is the real reason. The two surfaces state the same billing fact
+ * in the same viewport. Reading it twice leaves room for them to disagree if
+ * a webhook lands between the two calls, and "your trial has ended" beside
+ * "9 days left" is the kind of thing somebody screenshots.
+ *
+ * Same mechanism as resolveViewer in lib/viewer.ts: per-request, so it never
+ * outlives a render and no stale plan is ever shown.
  */
-export async function getWorkspaceEntitlement(
+export const getWorkspaceEntitlement = cache(_getWorkspaceEntitlement);
+
+async function _getWorkspaceEntitlement(
   workspaceId: number,
 ): Promise<Entitlement | null> {
   const [ws] = await db

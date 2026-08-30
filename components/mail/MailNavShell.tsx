@@ -62,14 +62,13 @@ type LiveFolder = {
  * design asks for before its data exists has somewhere honest to sit. Deleting
  * the mechanism is how the next one ends up as a link that goes nowhere.
  */
-const UNBUILT_FOLDERS: { label: string; icon: IconName }[] = [];
-
 export default function MailNavShell({
   workspaceName,
   userLabel,
   counts,
   labels,
   canPersonalise,
+  billing,
   isAdmin = false,
 }: {
   workspaceName: string;
@@ -82,6 +81,16 @@ export default function MailNavShell({
    * folders are hidden rather than shown reading zero.
    */
   canPersonalise: boolean;
+  /**
+   * The plan card, already worded by lib/trial.ts. Null when entitlement could
+   * not be read, in which case no card is drawn — see MailNav.
+   */
+  billing: {
+    title: string;
+    body: string;
+    cta: string;
+    urgent: boolean;
+  } | null;
   isAdmin?: boolean;
 }) {
   const [navOpen, setNavOpen] = useState(false);
@@ -473,35 +482,6 @@ export default function MailNavShell({
           </>
         )}
 
-        {/*
-          Guarded on length. UNBUILT_FOLDERS is empty now that Trash is real,
-          and an unguarded map would leave the "Not built yet" heading sitting
-          above nothing — a section announcing an absence, which reads as a
-          rendering fault rather than as an empty list.
-        */}
-        {UNBUILT_FOLDERS.length > 0 && (
-          <>
-            <p className="pbm-nav-heading">Not built yet</p>
-            <div className="pbm-folders">
-              {UNBUILT_FOLDERS.map((f) => (
-                <button
-                  key={f.label}
-                  type="button"
-                  className="pbm-folder pbm-folder--dead"
-                  disabled
-                  title={`${f.label} isn't available yet — there's no data behind it.`}
-                >
-                  <Icon name={f.icon} size={18} />
-                  <span className="pbm-folder-label">{f.label}</span>
-                  <span className="pbm-folder-soon">soon</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="pbm-nav-divider" />
-          </>
-        )}
-
         <div className="pbm-folders">
           {/* Contacts, Auto-reply and Install are all "things you configure
               about this workspace", so they are one entry here and tabs inside
@@ -593,19 +573,28 @@ export default function MailNavShell({
           )}
         </div>
 
-        {/* Plans are not modelled anywhere — no table, no price, no entitlement.
-            The card keeps its place in the layout and says exactly that instead
-            of quoting the design's "$18/mo". */}
-        <aside className="pbm-pro">
-          <p className="pbm-pro-title">Postbox Pro</p>
-          <p className="pbm-pro-body">
-            Shared inboxes, newsletters and segments. Plans and billing aren&rsquo;t
-            built yet, so there is nothing to upgrade to.
-          </p>
-          <button className="pbm-pro-btn" disabled title="Billing isn't available yet.">
-            Not available yet
-          </button>
-        </aside>
+        {/*
+          Every word of this comes from lib/trial.ts planCard(), which reads
+          the workspace's actual entitlement. Nothing about plans is written
+          here, because the version that was hard-coded went stale — it spent
+          weeks telling people billing did not exist while /settings/billing,
+          checkout and the Stripe webhook all worked.
+
+          Omitted entirely when entitlement could not be read. A billing card
+          that has to guess is worse than no billing card.
+        */}
+        {billing && (
+          <aside className="pbm-pro" data-urgent={billing.urgent || undefined}>
+            <p className="pbm-pro-title">{billing.title}</p>
+            <p className="pbm-pro-body">{billing.body}</p>
+            {/* A link, not a button. The old one was a disabled <button> with
+                nowhere to go; this is the same destination the trial banner
+                sends people to, so the two cannot disagree. */}
+            <Link className="pbm-pro-btn" href="/settings/billing">
+              {billing.cta}
+            </Link>
+          </aside>
+        )}
       </nav>
 
       {labelsOpen && (

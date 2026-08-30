@@ -224,20 +224,6 @@
 
 /* A folder the schema cannot answer. Genuinely disabled, never a dead link,
    and carrying no count — a "0" would read as a fact we do not have. */
-.pbm-folder--dead {
-  opacity: 0.42;
-  cursor: not-allowed;
-}
-.pbm-folder-soon {
-  flex: none;
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 3px 7px;
-  border-radius: 7px;
-  border: 1px dashed currentColor;
-}
 
 .pbm-nav-divider {
   height: 1px;
@@ -333,7 +319,15 @@
   opacity: 0.78;
   margin-top: 6px;
 }
+/*
+  An anchor now, not a disabled button — so it needs the centring a button did
+  for free, and must lose the opacity and not-allowed cursor that used to
+  announce it was dead.
+*/
 .pbm-pro-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-top: 12px;
   width: 100%;
   height: 36px;
@@ -343,8 +337,22 @@
   color: var(--pbm-on-dark);
   font-size: 12px;
   font-weight: 700;
-  opacity: 0.6;
-  cursor: not-allowed;
+  text-decoration: none;
+  cursor: pointer;
+}
+.pbm-pro-btn:hover {
+  filter: brightness(1.12);
+}
+
+/*
+  A failed card or an ended trial. The ring is drawn with an inset shadow
+  rather than a border so the card does not change size when it appears —
+  a 2px border would move every folder row above it by a pixel.
+*/
+.pbm-pro[data-urgent] {
+  box-shadow:
+    0 8px 18px var(--pro-shadow),
+    inset 0 0 0 2px var(--pbm-on-dark);
 }
 
 /* ───────────────────────────── menus ───────────────────────────── */
