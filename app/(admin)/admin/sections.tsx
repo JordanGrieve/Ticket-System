@@ -8,7 +8,12 @@ import {
   sessionStates,
   type SessionState,
 } from "@/lib/impersonation";
+import { formatPrice, TRIAL_LIMITS } from "@/lib/pricing";
+import { entitlement, trialEndsAt } from "@/lib/trial";
+import { billingState, describePlan, planRollup } from "./billing-rollup";
+import type { CampaignTotals, TransactionalTotals, WorkspaceUsage } from "./queries";
 import "../access-log.css";
+import "./console.css";
 import {
   addAdminAction,
   createClientAction,
@@ -32,6 +37,43 @@ import {
   type Filter,
   type PillTone,
 } from "./ui";
+
+/* ────────────────────────────────────────────────────────────────────────
+   ENVIRONMENT GATES
+   ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The environment answers, read by the caller and passed in.
+ *
+ * Same arrangement as lib/campaign-health.ts, and for the same reason: these
+ * sections have to say things like "that zero means nothing, because the
+ * webhook that would move it off zero is not configured", and a component
+ * that reaches into `process.env` itself cannot be reasoned about from its
+ * props. page.tsx reads them; everything here just renders what it is told.
+ *
+ * Each one is the difference between a number that means something and a
+ * number that means nothing, which is why they are on screen rather than in a
+ * README.
+ */
+export type ConsoleGates = {
+  /** STRIPE_SECRET_KEY is set, so checkout can run at all. */
+  stripeConfigured: boolean;
+  /** Every plan in lib/pricing.ts has a Stripe price id behind it. */
+  allPricesConfigured: boolean;
+  /** RESEND_API_KEY is set, so transactional mail actually leaves. */
+  transactionalSending: boolean;
+  /**
+   * A Resend webhook signing secret is set. Without it that endpoint refuses
+   * every request, so no ticket message can ever advance past the status the
+   * send path wrote — "delivered: 0" would then be a statement about our
+   * configuration, not about anybody's mail.
+   */
+  transactionalFeedback: boolean;
+  /** CAMPAIGN_DELIVERY_MODE is exactly "ses". False means nothing transmits. */
+  campaignDeliveryLive: boolean;
+  /** SES_SNS_TOPIC_ARN is set, so bounce and complaint feedback is accepted. */
+  campaignFeedback: boolean;
+};
 
 /* ────────────────────────────────────────────────────────────────────────
    ACCOUNTS
@@ -67,6 +109,10 @@ export function AccountsSection({
     return accounts.filter((w) => accountStatus(w) === f).length;
   };
 
+  // One clock for the whole table. Read per row, two workspaces either side of
+  // a period boundary could be judged against different instants.
+  const now = new Date();
+
   return (
     <>
       {deleteTarget && <DeletePanel target={deleteTarget} />}
@@ -88,11 +134,12 @@ export function AccountsSection({
 
       <div className="pba-table">
         <div className="pba-scroll">
-          <div className="pba-grid">
+          <div className="pba-grid pba-grid-accounts">
             <div className="pba-thead">
               <div className="pba-row pba-row-accounts pba-th">
                 <div>Company</div>
                 <div>Owner</div>
+                <div>Plan</div>
                 <div>Enquiries</div>
                 <div>Open</div>
                 <div>Created</div>
@@ -121,6 +168,7 @@ export function AccountsSection({
                       <div className="pba-cell-sub">{w.inboundEmail}</div>
                     </div>
                     <div className="pba-td">{w.ownerEmail ?? "—"}</div>
+                    <div className="pba-td">{describePlan(w, now)}</div>
                     <div className="pba-num">{w.totalCount}</div>
                     <div className="pba-num">{w.openCount}</div>
                     <div className="pba-td">{formatDate(w.createdAt)}</div>
@@ -136,13 +184,17 @@ export function AccountsSection({
       </div>
 
       <p className="pba-note">
-        The design for this table asked for <b>Plan</b>, <b>Subscribers</b> and{" "}
-        <b>MRR</b> columns. <b>Plan</b> and <b>MRR</b> have nothing behind them:
-        there is no billing and no subscription record anywhere in the schema.{" "}
-        <b>Subscribers</b> is different &mdash; a per-workspace{" "}
-        <code>subscribers</code> table exists, with lists and campaigns beside
-        it, so the count is computable. It is simply not queried here yet.
-        Those columns are replaced above by figures that are actually measured.
+        The design asked for <b>Plan</b>, <b>Subscribers</b> and <b>MRR</b>{" "}
+        columns, and for a long time none of the three had anything behind them.
+        Two now do. <b>Plan</b> is above, from the workspace&rsquo;s own billing
+        state &mdash; every workspace is on exactly one, starting at Trial, and
+        only the Stripe webhook ever moves it. <b>Subscribers</b> is counted per
+        account in the drawer and in Billing, where there is room to say which
+        subscribers are being counted: confirmed ones only, because somebody who
+        filled in a form and never clicked the link is not stored at all.{" "}
+        <b>MRR</b> is deliberately not a column here &mdash; a per-row money
+        figure invites adding it up, and the sum has caveats that do not fit in
+        a cell. It is on <b>Overview</b>, with them.
       </p>
 
       <div className="pba-card" id="new-account">
@@ -215,10 +267,22 @@ function DeletePanel({ target }: { target: WorkspaceSummary }) {
    OVERVIEW
    ──────────────────────────────────────────────────────────────────────── */
 
-export function OverviewSection({ accounts }: { accounts: WorkspaceSummary[] }) {
+export function OverviewSection({
+  accounts,
+  gates,
+}: {
+  accounts: WorkspaceSummary[];
+  gates: ConsoleGates;
+}) {
   const newest = [...accounts]
     .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
     .slice(0, 6);
+
+  const now = new Date();
+  // WorkspaceSummary is a superset of BillingRow — it IS the workspace row —
+  // so this needs no mapping. The rollup only ever reads the three billing
+  // columns it declares.
+  const rollup = planRollup(accounts, now);
 
   return (
     <>
@@ -227,16 +291,102 @@ export function OverviewSection({ accounts }: { accounts: WorkspaceSummary[] }) 
         <div className="pba-col-main">
           <div className="pba-card">
             <div className="pba-card-head">
-              <h2 className="pba-card-title">Revenue by plan</h2>
+              <h2 className="pba-card-title">Subscriptions by plan</h2>
               <p className="pba-card-sub">
-                What every account is worth, broken down by the plan it is on.
+                The design called this &ldquo;Revenue by plan&rdquo;. It is
+                renamed because it is not revenue: it is the list price of what
+                each account is currently entitled to. Postbox stores no
+                invoices &mdash; those live in Stripe &mdash; so nothing here
+                knows about a discount, a proration, a refund or tax.
               </p>
             </div>
-            <NotBuilt
-              title="Postbox does not charge anyone yet"
-              text="There are no plans, no prices and no payment provider connected, so there is no revenue to break down. This card stays empty until billing is built — it will not estimate."
-              missing={["Plans", "Prices", "Subscriptions", "Payment provider"]}
-            />
+            <div className="pba-table">
+              <div className="pba-scroll">
+                <div className="pba-grid">
+                  <div className="pba-thead">
+                    <div className="pba-row pba-row-plans pba-th">
+                      <div>Plan</div>
+                      <div>Price</div>
+                      <div>Workspaces</div>
+                      <div>Of those, paying</div>
+                      <div>Monthly</div>
+                    </div>
+                  </div>
+                  <div className="pba-tbody">
+                    {rollup.rows.map((r) => (
+                      <div key={r.plan} className="pba-row pba-row-plans">
+                        <div className="pba-cell-main">{r.label}</div>
+                        <div className="pba-td">
+                          {r.price === null ? "—" : `${formatPrice(r.price)}/mo`}
+                        </div>
+                        <div className="pba-num">{r.workspaces}</div>
+                        <div className="pba-td">
+                          {r.paying}
+                          {(r.comped > 0 || r.lapsed > 0) && (
+                            <div className="pba-cell-sub">
+                              {[
+                                r.comped > 0 ? `${r.comped} comped` : null,
+                                r.lapsed > 0 ? `${r.lapsed} lapsed` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </div>
+                          )}
+                        </div>
+                        <div className="pba-num">
+                          {r.mrr === 0 ? "—" : formatPrice(r.mrr)}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="pba-row pba-row-plans pba-row-plans-total">
+                      <div>Total</div>
+                      <div />
+                      <div className="pba-num">{accounts.length}</div>
+                      <div className="pba-num">{rollup.paying}</div>
+                      <div className="pba-num">{formatPrice(rollup.mrr)}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p className="pba-note">
+              Only a workspace with a Stripe subscription whose paid period has
+              not ended contributes to the total. A <b>comped</b> account is on a
+              paid plan with no subscription behind it &mdash; the pilot client,
+              anything predating billing, or a deliberate grant &mdash; and is
+              worth £0 by decision, not by accident. A <b>lapsed</b> one paid
+              once and its period has run out; it keeps its access until
+              somebody downgrades it, so it is counted as an account and not as
+              money.
+              {rollup.trials === accounts.length && accounts.length > 0 && (
+                <>
+                  {" "}
+                  Every workspace is currently on trial, so this total is £0 and
+                  that is the true figure rather than a missing one.
+                </>
+              )}
+            </p>
+            {!gates.stripeConfigured && (
+              <p className="pba-note">
+                <b>No Stripe key is set in this deployment.</b> Nobody can reach
+                checkout from here, so any paid plan above was granted some other
+                way. Treat the total as a statement about entitlements, not
+                about a card ever having been charged.
+              </p>
+            )}
+            {gates.stripeConfigured && !gates.allPricesConfigured && (
+              <p className="pba-note">
+                Stripe is connected but at least one plan has no price id set,
+                so that tier cannot be bought. A tier nobody can buy will sit at
+                zero here forever and look like a tier nobody wants.
+              </p>
+            )}
+            <p className="pba-note">
+              The prices come from <code>lib/pricing.ts</code>, where they are
+              recorded as a proposal Jordan has not signed off. They are real
+              enough to charge with once a Stripe price exists for them, and not
+              yet a promise anybody has made.
+            </p>
           </div>
         </div>
         <div className="pba-col-side">
@@ -432,19 +582,134 @@ export function AccessSection({ sessions }: { sessions: ImpersonationSession[] }
    BILLING
    ──────────────────────────────────────────────────────────────────────── */
 
-export function BillingSection() {
+export function BillingSection({
+  accounts,
+  usage,
+  gates,
+}: {
+  accounts: WorkspaceSummary[];
+  /** Confirmed subscribers and trial-window tickets, per workspace id. */
+  usage: Map<number, WorkspaceUsage>;
+  gates: ConsoleGates;
+}) {
+  const now = new Date();
+
   return (
-    <NotBuilt
-      title="There is no billing system"
-      text="No invoices exist to list, because nothing has ever been charged. Postbox has no plans, no prices, no payment provider and no invoice records. Anything this pane showed would be invented."
-      missing={[
-        "Invoices",
-        "Plans & prices",
-        "Payment provider",
-        "Tax / VAT records",
-        "Dunning state",
-      ]}
-    />
+    <div className="pba-stack">
+      <div className="pba-card">
+        <div className="pba-card-head">
+          <h2 className="pba-card-title">Where every account stands</h2>
+          <p className="pba-card-sub">
+            The billing state of each workspace, as Postbox understands it. Two
+            different facts sit side by side here on purpose:{" "}
+            <b>Plan</b> is what the workspace is entitled to, and{" "}
+            <b>Stripe says</b> is the last thing the payment provider told us.
+            They are allowed to disagree &mdash; a card retrying for four days
+            reads <code>past_due</code> against a period that is still paid for,
+            and locking somebody out of their customer mail that afternoon would
+            be taking something they bought.
+          </p>
+        </div>
+        <div className="pba-table">
+          <div className="pba-scroll">
+            <div className="pba-grid pba-grid-billing">
+              <div className="pba-thead">
+                <div className="pba-row pba-row-billing pba-th">
+                  <div>Workspace</div>
+                  <div>Plan</div>
+                  <div>Stripe says</div>
+                  <div>Paid / trial through</div>
+                  <div>Subscribers</div>
+                  <div>Enquiries</div>
+                </div>
+              </div>
+              <div className="pba-tbody">
+                {accounts.length === 0 && (
+                  <div className="pba-row">
+                    <div className="pba-td">No workspaces yet.</div>
+                  </div>
+                )}
+                {accounts.map((w) => {
+                  const u = usage.get(w.id);
+                  const state = billingState(w, now);
+                  // Real usage, so a trial that has hit its ceiling reads as
+                  // blocked rather than as "9 days left". The rules are
+                  // lib/trial.ts's, not restated here.
+                  const e = entitlement(
+                    w,
+                    {
+                      tickets: u?.ticketsSinceTrialStart ?? 0,
+                      subscribers: u?.subscribers ?? 0,
+                    },
+                    now,
+                  );
+                  return (
+                    <div key={w.id} className="pba-row pba-row-billing">
+                      <div>
+                        <div className="pba-cell-main">{w.name}</div>
+                        <div className="pba-cell-sub">
+                          {w.ownerEmail ?? w.inboundEmail}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="pba-td">{describePlan(w, now)}</div>
+                        {e.blockedReason && (
+                          <div className="pba-cell-sub">
+                            newsletters blocked
+                          </div>
+                        )}
+                      </div>
+                      <div className="pba-td">
+                        {w.subscriptionStatus ?? (
+                          <span className="pba-withheld">never asked</span>
+                        )}
+                      </div>
+                      <div className="pba-td">
+                        {state === "trial"
+                          ? formatDate(trialEndsAt(w.trialStartedAt))
+                          : w.currentPeriodEnd
+                            ? formatDate(w.currentPeriodEnd)
+                            : "—"}
+                      </div>
+                      <div className="pba-num">{u?.subscribers ?? 0}</div>
+                      <div className="pba-num">{w.totalCount}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+        <p className="pba-note">
+          <b>Never asked</b> in the Stripe column means this workspace has never
+          reached checkout, which is the expected state for a trial and for a
+          comped account. It is not an error and it is not a missing read.{" "}
+          <b>Subscribers</b> counts confirmed opt-ins only. A trial is measured
+          against {TRIAL_LIMITS.tickets} enquiries and{" "}
+          {TRIAL_LIMITS.subscribers} subscribers as well as against its dates,
+          and whichever runs out first ends it &mdash; so a trial can be
+          blocked with days still on the clock.
+        </p>
+        {!gates.stripeConfigured && (
+          <p className="pba-note">
+            <b>Stripe is not configured in this deployment.</b> Checkout and the
+            billing portal both refuse, and no webhook can arrive, so nothing in
+            the Stripe column will ever change here.
+          </p>
+        )}
+      </div>
+
+      <NotBuilt
+        title="Postbox keeps no invoices of its own"
+        text="Checkout, the billing portal and the subscription webhook all exist, and the table above is the state they produce. What does not exist is any record of the money: no invoice, receipt, tax line, refund or dunning attempt is stored in this database. All of it lives in the Stripe dashboard, and this console does not call the Stripe API to fetch it — an operator answering “what did they actually pay in July?” has to open Stripe. That is a deliberate stopping point rather than an oversight: mirroring invoices means storing tax and payment records with the retention and accuracy duties that come with them, and a half-mirrored ledger that disagrees with Stripe is worse than no ledger at all."
+        missing={[
+          "Invoices & receipts",
+          "Tax / VAT records",
+          "Refunds & credit notes",
+          "Dunning attempts",
+        ]}
+      />
+    </div>
   );
 }
 
@@ -467,12 +732,20 @@ export function DeliverabilitySection({
   accounts,
   rejections,
   drops,
+  transactional,
+  campaignTotals,
+  gates,
 }: {
   accounts: WorkspaceSummary[];
   /** Aggregated rejected ingestion attempts. See lib/ingestion-log.ts. */
   rejections: IngestionFailureRow[];
   /** Feedback that could not be attributed. See lib/feedback-log.ts. */
   drops: FeedbackDropRow[];
+  /** Outbound ticket mail by delivery status. See ./queries.ts. */
+  transactional: TransactionalTotals;
+  /** Newsletter sends by recipient and campaign status. See ./queries.ts. */
+  campaignTotals: CampaignTotals;
+  gates: ConsoleGates;
 }) {
   const byWorkspace = new Map(accounts.map((w) => [w.id, w.name]));
   return (
@@ -585,14 +858,157 @@ export function DeliverabilitySection({
         )}
       </div>
 
+      {/*
+        Third: ticket replies. This card could not have existed before 23
+        August 2026 — the provider's id for a send was thrown away, so a bounce
+        notification had nothing to match against and every transactional
+        failure was unattributable by construction. It is measured now, so it
+        is shown, and the gate lines below say exactly how far to trust it.
+      */}
+      <div className="pba-card">
+        <div className="pba-card-head">
+          <h2 className="pba-card-title">Ticket replies</h2>
+          <p className="pba-card-sub">
+            Every outbound message on a ticket &mdash; a teammate&rsquo;s reply
+            or an out-of-hours acknowledgement &mdash; by what we last heard
+            about it. Counts, not rates: see the note under them for why there
+            is no percentage here.
+          </p>
+        </div>
+        <div className="pba-tiles">
+          <div className="pba-tile">
+            <div className="pba-tile-value">{transactional.total}</div>
+            <div className="pba-tile-label">Sent, all time</div>
+          </div>
+          <div className="pba-tile">
+            <div className="pba-tile-value">
+              {transactional.byStatus.delivered}
+            </div>
+            <div className="pba-tile-label">Confirmed delivered</div>
+          </div>
+          <div className="pba-tile">
+            <div className="pba-tile-value">
+              {transactional.byStatus.bounced}
+            </div>
+            <div className="pba-tile-label">Bounced</div>
+          </div>
+          <div className="pba-tile">
+            <div className="pba-tile-value">{transactional.byStatus.failed}</div>
+            <div className="pba-tile-label">Never left</div>
+          </div>
+        </div>
+        <p className="pba-note">
+          <b>Never left</b> is a send the provider refused or that we never
+          attempted &mdash; including every reply written while email sending
+          was unconfigured, which is written as a failure rather than as a
+          success nobody checked. Of the {transactional.total} outbound
+          messages, {transactional.byStatus.queued + transactional.unrecorded}{" "}
+          carry no outcome: {transactional.unrecorded} predate the outcome being
+          recorded at all.
+        </p>
+        {!gates.transactionalFeedback && (
+          <p className="pba-note">
+            <b>No delivery webhook is configured for transactional mail.</b> The
+            endpoint fails closed without its signing secret, so nothing can
+            advance a message past what the send path wrote.{" "}
+            <b>Confirmed delivered</b> and <b>Bounced</b> above can therefore
+            only be zero, and their zero says nothing about whether anybody
+            received their reply.
+          </p>
+        )}
+        {!gates.transactionalSending && (
+          <p className="pba-note">
+            <b>Transactional sending is not configured in this deployment.</b>{" "}
+            Replies are stored and shown to the client as sent from their side,
+            and no email leaves the building.
+          </p>
+        )}
+        <p className="pba-note">
+          No delivery <i>rate</i> is shown, and that is deliberate. A percentage
+          needs a denominator everybody agrees on, and here it would be computed
+          over messages whose status was never confirmed by anyone &mdash;
+          &ldquo;98% delivered&rdquo; would mostly be measuring our own
+          optimism at send time.
+        </p>
+      </div>
+
+      {/*
+        Fourth: newsletters. Deliberately separate from the card above, because
+        they are a different provider with a different reputation and a
+        different set of gates — merging them would let a healthy transactional
+        record hide a newsletter pipeline that has never transmitted anything.
+      */}
+      <div className="pba-card">
+        <div className="pba-card-head">
+          <h2 className="pba-card-title">Newsletter sends</h2>
+          <p className="pba-card-sub">
+            Per-recipient rows across every campaign on the platform.{" "}
+            {campaignTotals.campaigns.sent} campaign
+            {campaignTotals.campaigns.sent === 1 ? " has" : "s have"} been
+            marked finished, {campaignTotals.campaigns.sending} are sending and{" "}
+            {campaignTotals.campaigns.scheduled} are waiting on the clock.
+          </p>
+        </div>
+        <div className="pba-tiles">
+          <div className="pba-tile">
+            <div className="pba-tile-value">
+              {campaignTotals.recipients.queued}
+            </div>
+            <div className="pba-tile-label">Queued</div>
+          </div>
+          <div className="pba-tile">
+            <div className="pba-tile-value">
+              {campaignTotals.recipients.sent +
+                campaignTotals.recipients.delivered}
+            </div>
+            <div className="pba-tile-label">Handed to the provider</div>
+          </div>
+          <div className="pba-tile">
+            <div className="pba-tile-value">
+              {campaignTotals.recipients.bounced}
+            </div>
+            <div className="pba-tile-label">Bounced</div>
+          </div>
+          <div className="pba-tile">
+            <div className="pba-tile-value">
+              {campaignTotals.recipients.complained}
+            </div>
+            <div className="pba-tile-label">Complained</div>
+          </div>
+        </div>
+        {gates.campaignDeliveryLive ? (
+          <p className="pba-note">
+            Newsletter delivery is live, so these rows describe real mail.{" "}
+            {campaignTotals.recipients.failed} send
+            {campaignTotals.recipients.failed === 1 ? "" : "s"} failed outright.
+          </p>
+        ) : (
+          <p className="pba-note">
+            <b>Nothing here has reached anybody.</b> Campaign delivery is in
+            log-only mode: the sweep runs, claims each recipient row and marks
+            it sent, and the deliverer writes a log line instead of calling a
+            provider. Every figure above is therefore a count of the pipeline
+            working, not of mail arriving, and it stays that way until SES
+            production access comes through and the mode is switched
+            deliberately.
+          </p>
+        )}
+        {!gates.campaignFeedback && (
+          <p className="pba-note">
+            The SES feedback endpoint has no topic configured, so bounces and
+            complaints cannot be accepted. Those two tiles can only read zero.
+          </p>
+        )}
+      </div>
+
       <NotBuilt
-        title="Nothing about delivery is measured yet"
-        text="The tables exist and almost nothing fills them. campaign_recipients holds a per-send row with status, sent_at, delivered_at, provider_message_id and error, and sending_domains holds per-workspace SPF/DKIM/DMARC state. A bounce and complaint webhook DOES now exist and is live — SES publishes to SNS and the endpoint verifies the signature and pins the topic — so the suppression path is real. What is still missing is the sending: the campaign sweep has never run against a live provider, because SES production access is still pending, so no delivery column has ever been filled by an actual send. No row has ever been written to sending_domains at all. Transactional ticket replies are still not logged: they go out through one shared provider and nothing records the result. So the four headline numbers this pane was designed around are unavailable because nothing populates the schema, not because the schema is missing."
+        title="No account has a sending domain of its own"
+        text="Both send paths are measured now — the two cards above are counted from real rows — but every workspace still sends from the platform's own verified subdomain, so one reputation carries every tenant's mail and one client's bounce rate is everybody's problem. sending_domains is the table that would fix that: per-workspace SPF, DKIM and DMARC state, checked against DNS. Not one row has ever been written to it and nothing reads it. It is unbuilt rather than abandoned, and it is not blocked on code: verifying a client's domain against a sandboxed SES account would prove nothing, so it waits on production access with everything else. Until then this pane cannot answer per-account deliverability questions at all — only platform-wide ones."
         missing={[
-          "Delivered / bounced counts",
-          "Spam complaints",
-          "SPF & DKIM records",
           "Per-account sending domains",
+          "SPF / DKIM / DMARC checks",
+          "Per-account reputation",
+          "Open & click tracking",
         ]}
       />
 
@@ -652,9 +1068,29 @@ export function SupportSection({
     <div className="pba-stack">
       <NotBuilt
         title="Operators have no support queue"
-        text="The designed ticket cards need a priority, an assignee and a ticket that belongs to Postbox rather than to a client. None of those exist — tickets are tenant-owned, have no priority field, and there is no channel for a client to raise anything with us."
+        text="Still true, and unchanged by everything else that has been built. The designed ticket cards need a priority, an assignee and a ticket that belongs to Postbox rather than to a client. None of those exist: tickets are tenant-owned, nothing anywhere has a priority or an assignee column, and there is no channel through which a client can raise anything with us. A client with a problem emails somebody, or does not."
         missing={["Operator tickets", "Priority", "Assignment", "SLA / response times"]}
       />
+
+      {/*
+        Not a placeholder — a real conflict between two things that are both
+        shipped. The pricing page sells it; nothing behind it exists. Worth
+        saying on the operator's screen rather than in a task nobody reads.
+      */}
+      <div className="pba-card">
+        <div className="pba-card-head">
+          <h2 className="pba-card-title">We are selling this</h2>
+          <p className="pba-card-sub">
+            The Business plan on the public pricing page lists{" "}
+            <b>&ldquo;Priority support from us&rdquo;</b> among its features.
+            There is no queue, no priority and no channel, so nothing
+            distinguishes a Business customer&rsquo;s request from anybody
+            else&rsquo;s &mdash; it arrives, if it arrives at all, in somebody&rsquo;s
+            personal inbox. That is a promise the product cannot currently keep,
+            and the gap widens with every Business subscription sold.
+          </p>
+        </div>
+      </div>
 
       <div className="pba-card">
         <div className="pba-card-head">
@@ -713,6 +1149,7 @@ export function AccountDrawer({
   teamSize,
   query,
   recentAccess,
+  usage,
 }: {
   account: WorkspaceSummary | null;
   /** Agents attached to this workspace — real, from listAgentEmails. */
@@ -720,6 +1157,8 @@ export function AccountDrawer({
   query: AdminQuery;
   /** This workspace's slice of the access log, newest first. */
   recentAccess: ImpersonationSession[];
+  /** This workspace's confirmed subscribers and trial-window tickets. */
+  usage: WorkspaceUsage | null;
 }) {
   if (!account) {
     return (
@@ -733,6 +1172,8 @@ export function AccountDrawer({
 
   const status = accountStatus(account);
   const closed = account.totalCount - account.openCount;
+  const now = new Date();
+  const state = billingState(account, now);
 
   return (
     <aside className="pba-drawer">
@@ -762,7 +1203,23 @@ export function AccountDrawer({
           </div>
           <div>
             <dt className="pba-dt">Plan</dt>
-            <dd className="pba-dd">No plans exist — nothing is billed.</dd>
+            <dd className="pba-dd">{describePlan(account, now)}</dd>
+          </div>
+          <div>
+            <dt className="pba-dt">
+              {state === "trial" ? "Trial ends" : "Paid through"}
+            </dt>
+            <dd className="pba-dd">
+              {state === "trial" ? (
+                formatDate(trialEndsAt(account.trialStartedAt))
+              ) : account.currentPeriodEnd ? (
+                formatDate(account.currentPeriodEnd)
+              ) : (
+                // A comped account has no period and never will. Saying so
+                // beats an em-dash that reads as a failed lookup.
+                <span className="pba-withheld">no period — not charged</span>
+              )}
+            </dd>
           </div>
           <div>
             <dt className="pba-dt">Customer since</dt>
@@ -803,7 +1260,17 @@ export function AccountDrawer({
             <div className="pba-tile-value">{teamSize}</div>
             <div className="pba-tile-label">Team members</div>
           </div>
+          <div className="pba-tile">
+            <div className="pba-tile-value">{usage?.subscribers ?? 0}</div>
+            <div className="pba-tile-label">Subscribers</div>
+          </div>
         </div>
+        <p className="pba-note">
+          Subscribers are confirmed opt-ins only. Somebody who filled in a
+          signup form and never clicked the confirmation link is not stored at
+          all, so this can never be inflated by a stranger typing addresses into
+          a client&rsquo;s public form.
+        </p>
       </div>
 
       <div className="pba-card">
