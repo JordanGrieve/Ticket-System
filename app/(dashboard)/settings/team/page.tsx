@@ -13,7 +13,8 @@ export const metadata = { title: "Team · Settings · Postbox" };
  * Who else can get into this workspace.
  *
  * ── WHY IT LOOKS LIKE A WARNING ──
- * There are no roles in this product. An invite grants total access: read every
+ * There is ONE role distinction and it is narrow: only the owner can remove
+ * people. Everything else an invite grants is total access — read every
  * customer message, reply as the business, change the settings, send campaigns.
  * And it is claimed by EMAIL MATCH, with no token — so a mistyped address does
  * not fail, it hands a stranger the inbox.
@@ -35,6 +36,17 @@ export default async function TeamSettingsPage({
 
   const { error, notice } = await searchParams;
   const team = sortTeam(await listTeam(workspace.id));
+
+  /*
+   * Derived from the SAME list the server action re-reads, matched by email
+   * rather than trusted from anywhere else. This only decides what to render;
+   * checkRevoke makes the real decision on every request.
+   */
+  const viewerIsOwner = team.some(
+    (m) =>
+      m.role === "owner" &&
+      m.email.toLowerCase() === viewer.email.toLowerCase(),
+  );
   // Seats follow the PLAN. On trial they follow Starter — the trial proves
   // the product, it is not a free Business account for a fortnight.
   const ent = await getWorkspaceEntitlement(workspace.id);
@@ -77,6 +89,17 @@ export default async function TeamSettingsPage({
         <h2 className="stg-section-title">
           {team.length} {team.length === 1 ? "person" : "people"}
         </h2>
+        {!viewerIsOwner && (
+          /*
+            Said once, at the top, rather than as a disabled button on every
+            row. A member is not missing a control they should have — the rule
+            is deliberate, so it is explained rather than implied by absence.
+          */
+          <p className="stg-notice" role="note">
+            Only the owner can remove people from this team. You can do
+            everything else.
+          </p>
+        )}
 
         <ul className="stc-list">
           {team.map((m) => {
@@ -117,7 +140,12 @@ export default async function TeamSettingsPage({
                     checkRevoke refuses both server-side. Hiding the buttons
                     only removes the temptation and the pointless round trip.
                   */}
-                  {!isSelf && m.role !== "owner" && team.length > 1 && (
+                  {/*
+                    Only the owner. checkRevoke refuses anybody else
+                    server-side, so this is not the security boundary — it is
+                    there so a member is not shown a button that always fails.
+                  */}
+                  {viewerIsOwner && !isSelf && m.role !== "owner" && team.length > 1 && (
                     <form action={revokeTeammateAction}>
                       <input type="hidden" name="agentId" value={m.id} />
                       <button className="stg-remove" type="submit">

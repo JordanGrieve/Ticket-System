@@ -81,14 +81,39 @@ describe("who may be invited", () => {
 });
 
 describe("who may be removed", () => {
-  const emma = member({ id: 1, email: "emma@opendoorbakery.com" });
+  const emma = member({ id: 1, email: "emma@opendoorbakery.com", role: "owner" });
   const staff = member({ id: 2, email: "staff@opendoorbakery.com" });
+  const second = member({ id: 3, email: "second@opendoorbakery.com" });
 
-  it("removes a teammate", () => {
+  it("the owner removes a teammate", () => {
     expect(checkRevoke({ targetId: 2, selfId: 1, team: [emma, staff] }).ok).toBe(true);
   });
 
-  it("refuses to let you remove yourself", () => {
+  it("a MEMBER cannot remove anybody", () => {
+    /*
+     * Changed on 28 August. Removal used to be open to everyone and 'owner'
+     * meant only "cannot be removed" — so somebody invited an hour ago could
+     * remove the person who invited them, and every colleague besides.
+     *
+     * Everything else is still identical between the roles: a member reads
+     * every message, replies as the business, changes settings and sends
+     * newsletters. Removal is the one exception.
+     */
+    const r = checkRevoke({ targetId: 3, selfId: 2, team: [emma, staff, second] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/only the owner/i);
+  });
+
+  it("tells a member it is a permission problem, not a social one", () => {
+    // A member removing themselves must not be told to "ask someone else on
+    // the team to do it" — nobody below owner can, so that advice sends them
+    // to a colleague who will also fail.
+    const r = checkRevoke({ targetId: 2, selfId: 2, team: [emma, staff] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/only the owner/i);
+  });
+
+  it("refuses to let the OWNER remove themselves", () => {
     // The row could be deleted — this is not a technical limit. But somebody
     // who removes themselves is one click from no way back in, and the
     // recovery path is "email the operator", which is not a feature.
@@ -97,12 +122,20 @@ describe("who may be removed", () => {
     if (!r.ok) expect(r.error).toMatch(/can’t remove yourself/i);
   });
 
-  it("refuses to empty the team", () => {
-    // Belt and braces with the self-removal rule: a workspace nobody can enter
-    // still holds the customer data, and there is no path back in from the UI.
-    const r = checkRevoke({ targetId: 2, selfId: 99, team: [staff] });
+  it("keeps the empty-team guard even though nothing can now reach it", () => {
+    /*
+     * With removal restricted to the owner, and an owner able to remove
+     * neither themselves nor another owner, every removal leaves at least the
+     * owner behind — so team.length <= 1 is unreachable through the product.
+     *
+     * The check stays because it is free and because the thing it prevents is
+     * a workspace holding customer mail that nobody can open. If roles ever
+     * change again it is already there. Reached here by calling the rule with
+     * a caller the new permission check lets through.
+     */
+    const soleOwner = member({ id: 1, role: "owner" });
+    const r = checkRevoke({ targetId: 1, selfId: 1, team: [soleOwner] });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toMatch(/Somebody has to be able to get in/i);
   });
 
   it("refuses an id that isn’t on this team", () => {
@@ -298,8 +331,12 @@ describe("seats follow the plan, not one global constant", () => {
 
     // Everyone already there can still be removed deliberately by a human,
     // and nothing about the plan changes that.
+    // The caller has to be the owner now; see "who may be removed".
+    const overWithOwner = over.map((m, i) =>
+      i === 0 ? { ...m, role: "owner" as const } : m,
+    );
     expect(
-      checkRevoke({ targetId: 2, selfId: 1, team: over }).ok,
+      checkRevoke({ targetId: 2, selfId: 1, team: overWithOwner }).ok,
     ).toBe(true);
   });
 });

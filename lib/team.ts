@@ -34,8 +34,18 @@ export type TeamMember = {
   /** Placeholder clerk id — invited, never signed in. */
   pending: boolean;
   /**
-   * 'owner' means "cannot be removed by anyone else", NOT "can do more".
-   * Capability is identical; see the note on checkRevoke.
+   * 'owner' now means BOTH "cannot be removed" and "the only one who can
+   * remove anybody".
+   *
+   * It used to mean only the first, and this comment used to say so — that
+   * capability was identical and owner was purely a protection. Changed on
+   * Jordan's instruction on 28 August: a member who has just been invited
+   * should not be able to remove the people who invited them.
+   *
+   * Everything ELSE is still identical between the two roles — a member reads
+   * every message, replies as the business, changes settings and sends
+   * newsletters. Removal is the single exception, and the invite screen says
+   * as much.
    */
   role: AgentRole;
 };
@@ -171,6 +181,28 @@ export function checkRevoke(input: {
 }): RevokeCheck {
   const target = input.team.find((m) => m.id === input.targetId);
   if (!target) return { ok: false, error: "That person isn’t on your team." };
+
+  /*
+   * ── ONLY THE OWNER REMOVES ANYBODY ──
+   *
+   * Checked FIRST, before the friendlier messages below, because it is the
+   * reason that applies regardless of who the target is. A member trying to
+   * remove themselves should be told they lack the permission, not given
+   * advice about asking a colleague to do it for them — which would be wrong,
+   * since no colleague below owner can either.
+   *
+   * The caller's role is read from the team list rather than passed in, so it
+   * cannot be asserted by whoever is calling. The server action re-reads that
+   * list from the database on every request.
+   */
+  const self = input.team.find((m) => m.id === input.selfId);
+  if (self?.role !== "owner") {
+    return {
+      ok: false,
+      error:
+        "Only the owner of this workspace can remove people from the team.",
+    };
+  }
 
   if (target.id === input.selfId) {
     // Not a technical limit — the row could be deleted. But somebody who

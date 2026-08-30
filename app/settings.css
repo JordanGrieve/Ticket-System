@@ -1687,7 +1687,17 @@
   font-size: 13.5px;
   line-height: 1.6;
   margin: 0 0 18px;
-  padding: 12px 14px;
+  /*
+   * 16/18, not 12/14. This box holds two paragraphs about handing somebody
+   * access to every customer message in the workspace, and at the old padding
+   * the text sat almost against its own border — the most consequential thing
+   * on the screen, presented as the most cramped.
+   */
+  padding: 16px 18px;
+}
+/* The paragraphs inside had nothing between them. */
+.stg-identity-warn > * + * {
+  margin-top: 10px;
 }
 
 .stg-field {

@@ -546,7 +546,20 @@ textarea:focus-visible {
     align-items: center;
     gap: 12px;
     padding: 0 14px;
-    background: var(--sidebar-bg);
+    /*
+     * --nav, not --sidebar-bg.
+     *
+     * --sidebar-bg is a compatibility alias for --surface-3, and --surface-3
+     * is rgba(255,255,255,0.05) in the dark themes — very nearly transparent.
+     * This bar is position:fixed, so the page scrolled straight through it and
+     * the workspace name collided with whatever happened to be passing
+     * underneath.
+     *
+     * --nav is the navigation surface: opaque, and defined in all six themes.
+     * The bar now matches the drawer it opens instead of being a window onto
+     * the content.
+     */
+    background: var(--nav);
     border-bottom: 1px solid var(--border);
   }
 

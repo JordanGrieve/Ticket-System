@@ -609,6 +609,44 @@ export default function AutoReplySettings({
               </button>
             </div>
           </section>
+          {/*
+            ── IN THE LEFT COLUMN SO THE PREVIEW CAN STICK ──
+            The right column's preview card is position:sticky. A sticky
+            element keeps its space in the flow and then translates down as the
+            page scrolls, so anything below it in the SAME column gets covered
+            — this card was being scrolled under the pinned preview.
+
+            Sticky only behaves when it is the last thing in its column. Moving
+            this here makes that true, rather than giving up the sticky
+            preview, which is the whole point of the split: you edit the
+            message on the left and watch it change on the right.
+          */}
+          <section className="st-card st-guards">
+            <h2 className="st-card-title">Never sent to</h2>
+            <ul className="st-list">
+              <li>Our own sending, inbound or per-ticket reply addresses.</li>
+              <li>
+                <code>noreply@</code>, <code>mailer-daemon@</code>,{" "}
+                <code>postmaster@</code> and other role or bounce addresses.
+              </li>
+              <li>
+                Mail carrying <code>Auto-Submitted</code>, <code>Precedence: bulk</code>{" "}
+                or any <code>List-*</code> header — mailing lists and other
+                autoresponders.
+              </li>
+              <li>A ticket that already has any outbound message.</li>
+              <li>
+                The same address more than once in ten minutes, or three times an
+                hour.
+              </li>
+            </ul>
+            <p className="st-help">
+              A held out-of-hours acknowledgement is checked against every one
+              of these again at the moment it goes out — not when it was held.
+              If a teammate answered overnight, or the sender turns out to be
+              another robot, it is dropped in the morning rather than sent.
+            </p>
+          </section>
         </div>
 
         {/* ── Right: live preview ────────────────────────────── */}
@@ -711,32 +749,6 @@ export default function AutoReplySettings({
             </dl>
           </section>
 
-          <section className="st-card st-guards">
-            <h2 className="st-card-title">Never sent to</h2>
-            <ul className="st-list">
-              <li>Our own sending, inbound or per-ticket reply addresses.</li>
-              <li>
-                <code>noreply@</code>, <code>mailer-daemon@</code>,{" "}
-                <code>postmaster@</code> and other role or bounce addresses.
-              </li>
-              <li>
-                Mail carrying <code>Auto-Submitted</code>, <code>Precedence: bulk</code>{" "}
-                or any <code>List-*</code> header — mailing lists and other
-                autoresponders.
-              </li>
-              <li>A ticket that already has any outbound message.</li>
-              <li>
-                The same address more than once in ten minutes, or three times an
-                hour.
-              </li>
-            </ul>
-            <p className="st-help">
-              A held out-of-hours acknowledgement is checked against every one
-              of these again at the moment it goes out — not when it was held.
-              If a teammate answered overnight, or the sender turns out to be
-              another robot, it is dropped in the morning rather than sent.
-            </p>
-          </section>
         </div>
       </div>
     </div>
