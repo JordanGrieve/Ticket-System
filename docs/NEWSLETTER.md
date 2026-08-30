@@ -106,10 +106,21 @@ the section most likely to drift, so check it before trusting it.
 7. **No bounce/complaint webhook.** §6. `campaign_recipients` has the columns
    and the `provider_message_id` index to receive one, and `lib/suppressions.ts`
    can write the suppression; the receiving route does not exist, so a hard
-   bounce is re-mailed next campaign.
+   bounce is re-mailed next campaign. **RESOLVED.**
+   `app/api/webhooks/ses/route.ts` exists, verifies the SNS signature and pins
+   the topic, and `applyProviderFeedback` writes the suppression. Feedback it
+   cannot attribute to a workspace is dropped — correctly, since suppressing
+   globally would let one tenant's bounce silence an address for every other
+   tenant — and the RATE of those drops is now counted in `feedback_drops` and
+   shown in the admin console, so a systematic attribution failure no longer
+   looks identical to clean sending.
 8. **No cross-invocation rate limiter.** `lib/rate-limit.ts` is still an
    in-memory fixed-window Map, correct only within a single instance. Two
-   overlapping sweeps each permit the full rate.
+   overlapping sweeps each permit the full rate. **RESOLVED.**
+   `lib/rate-limit-store.ts` counts in Postgres, so the limits hold across
+   serverless instances. It degrades back to the in-memory Map if the database
+   is unreachable, rather than returning 429 to a client's real customers for
+   the length of an outage.
 9. **The schedule is nightly, and the batch arithmetic assumes per-minute.**
    `vercel.json` sets `0 3 * * *`. `RECIPIENTS_PER_SWEEP` is 75 and the comment
    deriving it reasons in terms of "75/minute is 4,500/hour". At one tick a day
@@ -118,13 +129,21 @@ the section most likely to drift, so check it before trusting it.
    the nine hours the comment quotes. A daily cron is what the Hobby plan
    allows; sub-daily needs Pro (`NEWSLETTER-BUILDER-PLAN.md` §5.8). **RESOLVED,
    and not by upgrading the plan.** The sweep was moved off Vercel Cron onto
-   `.github/workflows/campaign-sweep.yml`, which GitHub schedules every five
-   minutes for free; the `crons` entry was removed from `vercel.json` so only
-   one thing drives it. `SWEEPS_PER_DAY` is now 288 and every on-screen
-   estimate divides by it. The remaining caveat is honesty about the cadence,
+   `.github/workflows/campaign-sweep.yml`, which GitHub schedules for free; the
+   `crons` entry was removed from `vercel.json` so only one thing drives it.
+   Every on-screen estimate divides by `SWEEPS_PER_DAY`.
+
+   *Corrected 30 Aug 2026: this paragraph said "every five minutes" and
+   "`SWEEPS_PER_DAY` is now 288". Both were true when written and stopped being
+   true on 23 August, when the sweep was slowed to HOURLY to stay inside the
+   Neon Free compute allowance while SES access is pending — see the note at
+   the top of this file. `SWEEPS_PER_DAY` is 24. The number is not repeated
+   here any more: `SWEEP_CADENCE` derives the wording from the constant, so
+   quoting a figure in prose is how the two drift apart again.* The remaining caveat is honesty about the cadence,
    not the cadence itself: Actions schedules are best effort — delayed under
    runner load, dropped with no backfill, and auto-disabled after 60 days
-   without a commit — so 288 is a ceiling and the estimates read as floors.
+   without a commit — so the scheduled rate is a CEILING and every estimate
+   derived from it reads as a floor.
 10. **No verified marketing sending domain in the repo's own record.** A
     verified SES identity for `news.postbox.help` in `eu-west-1` is reported to
     exist and `.env.example` corroborates the region and configuration-set name,
@@ -369,8 +388,10 @@ Concretely, as of 22 August 2026:
 - `vercel.json` defines regions and a build command. It briefly also defined a
   cron (`/api/cron/campaigns` at `0 3 * * *`, added in `7900a5c`); that entry
   has since been removed and the sweep is scheduled by
-  `.github/workflows/campaign-sweep.yml` every five minutes instead, because
-  the Hobby plan rejects sub-daily expressions.
+  `.github/workflows/campaign-sweep.yml` instead, because the Hobby plan
+  rejects sub-daily expressions. It ran every five minutes at first and has
+  been HOURLY since 23 Aug 2026, to stay inside the Neon Free compute
+  allowance while SES production access is pending.
 - There is still no Redis and no SQS, and none was added. **`campaign_recipients`
   is the queue** — it already had the claim latch, the unique index, the
   `attempts` counter and the `error` column, and a second queue beside it would

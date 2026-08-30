@@ -210,7 +210,7 @@ subscribers, and the send column assumes roughly 1 send each per month.
 | Line item | 1k subs | 10k subs | 50k subs | Source / date |
 |---|---|---|---|---|
 | Vercel Pro (platform fee, 1 seat, incl. $20 usage credit) | $20 | $20 | $20 | vercel.com/docs/plans/pro-plan, 2026-08-17 |
-| Vercel Cron + function invocations for the sweep | $0 | $0 | $0 | Included on all plans; ~43,200 invocations/mo ≈ 1.2 CPU-hours, inside the credit |
+| ~~Vercel Cron~~ GitHub Actions + function invocations for the sweep | $0 | $0 | $0 | Sweep moved off Vercel Cron 30 Aug 2026; Actions schedules are free on public and included on private repos. Invocation cost unchanged and still inside the credit |
 | Resend transactional (tickets, test sends) — Free tier | $0 | $0 | $0 | resend.com/pricing, 2026-08-17: 3,000/mo, 100/day |
 | Resend transactional — Pro, if the 100/day cap bites | $20 | $20 | $20 | resend.com/pricing, 2026-08-17: 50,000/mo |
 | **Bulk send** — owned by the other workstream | see note | see note | see note | `docs/NEWSLETTER.md` records an SES target of ~$5/mo at 50k emails |
@@ -330,10 +330,21 @@ Nothing here is optional. **A real newsletter cannot go out until all of these e
    user is a lie.
 8. **Vercel Pro.** Still outstanding, 22 Aug 2026. Required twice over: Hobby prohibits
    commercial use, and Hobby cron cannot run more than once a day (±59 minutes). The sweep that
-   shipped works within that limit rather than around it — `0 3 * * *` — so the constraint has
+   shipped works within that limit rather than around it — so the constraint has
    become a throughput ceiling rather than a blocker: 75 recipients per campaign per night.
-9. ~~**The cron sweep itself.**~~ **Done (`7900a5c`), 22 Aug 2026.** `vercel.json` now has a
-   `crons` key with one entry, `/api/cron/campaigns` at `0 3 * * *`.
+
+   *Corrected 30 Aug 2026: the CRON half of this is no longer a reason to upgrade. Scheduling
+   moved off Vercel Cron to GitHub Actions, which has no daily cap, so the throughput ceiling
+   described here does not exist. The first reason — Hobby prohibiting commercial use — stands on
+   its own and is why the item is still open.*
+9. ~~**The cron sweep itself.**~~ **Done (`7900a5c`), 22 Aug 2026.** `vercel.json` gained a
+   `crons` key with one entry.
+
+   *Corrected 30 Aug 2026: that entry was REMOVED when scheduling moved to
+   `.github/workflows/campaign-sweep.yml`, so that only one thing drives the sweep. `vercel.json`
+   has no `crons` key today. The cadence in words comes from `SWEEP_CADENCE`, derived from
+   `SWEEPS_PER_DAY`, rather than from a figure written down anywhere — which is how this
+   paragraph came to be wrong in the first place.*
 10. **Honouring unsubscribes within 48 hours** (Gmail) / **2 days** (Yahoo, "any method offered").
     Trivially met by a synchronous DB write in the `/u` route — do it in real time, do not defer
     it to the queue.
