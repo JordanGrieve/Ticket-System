@@ -56,17 +56,48 @@ export default function InstallView({
   // wired up one should not have the other silently switch tab underneath them.
   const [nlMode, setNlMode] = useState<"form" | "ai" | "link">("form");
   const [rotating, setRotating] = useState(false);
+  /** The rotate control has become its own "are you sure?". */
+  const [confirming, setConfirming] = useState(false);
+  /** Replaces window.alert. Null when there is nothing to say. */
+  const [rotateError, setRotateError] = useState<string | null>(null);
 
+  /**
+   * Rotating the key, with the question asked in the page rather than by the
+   * browser.
+   *
+   * ── WHY NOT window.confirm ──
+   * The same reasons components/mail/LabelManager.tsx sets out at length, and
+   * they apply harder here: it is unstyleable and unthemeable across the six
+   * themes, it cannot be asserted on in a test, and being modal to the whole
+   * browser it steals focus out of whatever the person was doing.
+   *
+   * The one that matters most for THIS control is placement. A system dialog
+   * puts the consequence somewhere other than the thing it applies to, and the
+   * consequence here is severe and easy to under-read: every form on the
+   * client's website stops working the moment the key changes, and stays
+   * broken until somebody edits their site. That sentence belongs next to the
+   * button, not in a grey box at the top of the screen.
+   *
+   * window.alert on the failure path had the same problem in reverse — the one
+   * place an error message must not be is a modal the person dismisses before
+   * they have read it.
+   */
   async function rotateKey() {
-    const sure = window.confirm(
-      "Rotate the API key?\n\nThe current key stops working immediately — any form using it will fail until you update the snippet on your site. Continue?",
-    );
-    if (!sure || rotating) return;
+    if (rotating) return;
+    setConfirming(false);
+    setRotateError(null);
     setRotating(true);
-    const res = await fetch("/api/workspace/rotate-key", { method: "POST" });
-    setRotating(false);
-    if (res.ok) router.refresh();
-    else window.alert("Couldn't rotate the key — please try again.");
+    try {
+      const res = await fetch("/api/workspace/rotate-key", { method: "POST" });
+      if (!res.ok) throw new Error(String(res.status));
+      router.refresh();
+    } catch {
+      setRotateError(
+        "Couldn't rotate the key — nothing has changed, so your forms are still working. Try again in a moment.",
+      );
+    } finally {
+      setRotating(false);
+    }
   }
 
   const endpoint = `${appUrl}/api/tickets/${apiKey}`;
@@ -316,9 +347,63 @@ human mailbox).
         <Section title="Settings">
           <Label>Workspace API key</Label>
           <Field value={apiKey} copyLabel="Copy key" mono />
-          <button className="sti-danger" onClick={rotateKey} disabled={rotating}>
-            {rotating ? "Rotating…" : "Rotate key… (old snippets stop working)"}
-          </button>
+          {confirming ? (
+            /* The control becomes the question, so the consequence sits beside
+               the thing it applies to. Same shape as LabelManager's delete
+               row. */
+            <div
+              className="sti-confirm"
+              role="alertdialog"
+              aria-label="Rotate the API key"
+              aria-describedby="sti-confirm-q"
+            >
+              <p className="sti-confirm-q" id="sti-confirm-q">
+                Rotate the API key? The current key stops working{" "}
+                <b>immediately</b> — every form on your site using it will fail
+                until you paste the new snippet in. There is no undo.
+              </p>
+              <div className="sti-confirm-acts">
+                {/*
+                  Cancel first and autofocused. The button that was under the
+                  pointer a moment ago has just been replaced, so whatever the
+                  keyboard was on has unmounted; focus has to go somewhere, and
+                  the safe choice is the one that changes nothing.
+                */}
+                <button
+                  type="button"
+                  className="sti-confirm-btn"
+                  autoFocus
+                  onClick={() => setConfirming(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="sti-confirm-btn sti-confirm-btn--danger"
+                  onClick={rotateKey}
+                >
+                  Rotate the key
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              className="sti-danger"
+              onClick={() => {
+                setRotateError(null);
+                setConfirming(true);
+              }}
+              disabled={rotating}
+            >
+              {rotating ? "Rotating…" : "Rotate key… (old snippets stop working)"}
+            </button>
+          )}
+
+          {rotateError && (
+            <p className="sti-rotate-error" role="alert">
+              {rotateError}
+            </p>
+          )}
 
           <div className="sti-gap" />
           <Label>Replies send from</Label>

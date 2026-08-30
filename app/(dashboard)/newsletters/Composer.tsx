@@ -352,6 +352,8 @@ export default function Composer({
     result: { ok: true; data: AudienceJson } | { ok: false; message: string };
   } | null>(null);
   const [queue, setQueue] = useState<QueueState>({ kind: "idle" });
+  /** The unqueue button has become its own "are you sure?" — see below. */
+  const [confirmingUnqueue, setConfirmingUnqueue] = useState(false);
 
   const [schedule, setSchedule] = useState<ScheduleState>({ kind: "idle" });
   /**
@@ -467,6 +469,26 @@ export default function Composer({
    * Nothing on this page autosaves, so switching away from unsaved edits would
    * silently bin them. One browser confirm is ugly and is still the cheapest
    * honest answer; a draft-recovery buffer is not Phase 1 work.
+   *
+   * ── DELIBERATE EXCEPTION TO THE NO-window.confirm RULE ──
+   * The InstallView task asks whoever moves that view off browser dialogs to
+   * decide whether this file follows, and to write down which. It does, for
+   * two of the three, and this is the one that does NOT.
+   *
+   * The reason is not that a browser dialog is nice here. It is that this is a
+   * SYNCHRONOUS gate on a NAVIGATION, called from two places — starting a new
+   * draft, and selecting a different campaign — and it has to answer before
+   * either proceeds. An inline panel cannot: it would mean deferring both
+   * callers behind a promise and restructuring the control flow of the whole
+   * component, to replace an interruption with a different interruption.
+   *
+   * "You clicked away from unsaved work" is also the one moment a modal is
+   * genuinely the right shape. The others are actions with their own button,
+   * where the consequence belongs beside the control.
+   *
+   * The honest cost: like every window.confirm it renders in the operating
+   * system's palette rather than the workspace's, and cannot be asserted on in
+   * a test. That is the trade, not a claim it is better in every way.
    */
   function confirmDiscard(): boolean {
     if (!dirty) return true;
@@ -648,17 +670,18 @@ export default function Composer({
    * server refuses it for anything other than a `draft` campaign regardless of
    * what this function believes.
    */
+  /**
+   * Converted off window.confirm, unlike confirmDiscard above.
+   *
+   * This one qualifies where that one does not: it is asynchronous, it has a
+   * single call site, and it is triggered by its own button — so the question
+   * can be asked in the place the answer applies to, which is the whole
+   * argument. Same pattern as LabelManager's delete row and InstallView's key
+   * rotation.
+   */
   async function discardRecipients() {
     if (savedId === null || queue.kind === "working") return;
-    const n = draft.recipientCount;
-    const ok = window.confirm(
-      n > 0
-        ? `Remove ${n.toLocaleString()} queued recipient ${
-            n === 1 ? "row" : "rows"
-          } from this campaign? The rows are deleted; you can queue the list again afterwards.`
-        : "Remove this campaign's queued recipients?",
-    );
-    if (!ok) return;
+    setConfirmingUnqueue(false);
 
     setQueue({ kind: "working" });
     try {
@@ -1402,20 +1425,62 @@ export default function Composer({
                   point is that somebody who has just queued the wrong list can
                   see the way back without going looking for it.
                 */}
-                <button
-                  type="button"
-                  className="nl-unqueue"
-                  onClick={discardRecipients}
-                  disabled={
-                    savedId === null ||
-                    !canDiscardRecipients(draft.status) ||
-                    draft.recipientCount === 0 ||
-                    queue.kind === "working"
-                  }
-                  aria-describedby="nl-unqueue-why"
-                >
-                  Remove queued recipients
-                </button>
+                {confirmingUnqueue ? (
+                  /* The control becomes the question. The count is the whole
+                     point of asking — "remove 47 rows" is a different decision
+                     from "remove 4000". */
+                  <div
+                    className="nl-confirm"
+                    role="alertdialog"
+                    aria-label="Remove queued recipients"
+                    aria-describedby="nl-unqueue-q"
+                  >
+                    <p className="nl-confirm-q" id="nl-unqueue-q">
+                      {draft.recipientCount > 0
+                        ? `Remove ${draft.recipientCount.toLocaleString()} queued recipient ${
+                            draft.recipientCount === 1 ? "row" : "rows"
+                          }?`
+                        : "Remove this campaign's queued recipients?"}{" "}
+                      The rows are deleted; you can queue the list again
+                      afterwards.
+                    </p>
+                    <div className="nl-confirm-acts">
+                      {/* Cancel first and focused: the button that was under
+                          the pointer has just unmounted, so focus has to land
+                          somewhere and the safe choice changes nothing. */}
+                      <button
+                        type="button"
+                        className="nl-confirm-btn"
+                        autoFocus
+                        onClick={() => setConfirmingUnqueue(false)}
+                      >
+                        Keep them
+                      </button>
+                      <button
+                        type="button"
+                        className="nl-confirm-btn nl-confirm-btn--danger"
+                        onClick={discardRecipients}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="nl-unqueue"
+                    onClick={() => setConfirmingUnqueue(true)}
+                    disabled={
+                      savedId === null ||
+                      !canDiscardRecipients(draft.status) ||
+                      draft.recipientCount === 0 ||
+                      queue.kind === "working"
+                    }
+                    aria-describedby="nl-unqueue-why"
+                  >
+                    Remove queued recipients
+                  </button>
+                )}
               </div>
 
               <p className="nl-help" id="nl-unqueue-why">

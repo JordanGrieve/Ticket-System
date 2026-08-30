@@ -2255,3 +2255,72 @@
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* ── The rotate-key confirmation ─────────────────────────────────
+   Replaces window.confirm and window.alert in components/InstallView.tsx.
+   Tokens only, so it follows all six themes — which is the whole reason the
+   browser dialogs had to go: they render in exactly one palette, the operating
+   system's, and look like a fault in the other five. */
+.sti-confirm {
+  border: 1px solid var(--warn-fg);
+  background: var(--warn-bg);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.sti-confirm-q {
+  margin: 0 0 12px;
+  color: var(--warn-fg);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+.sti-confirm-q b {
+  font-weight: 800;
+}
+.sti-confirm-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sti-confirm-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  border-radius: 9px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+.sti-confirm-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.sti-confirm-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* The destructive choice is the one that has to look different, not the one
+   that has to look inviting. */
+.sti-confirm-btn--danger {
+  border-color: var(--pdf-fg);
+  background: var(--pdf-bg);
+  color: var(--pdf-fg);
+}
+.sti-confirm-btn--danger:hover {
+  border-color: var(--pdf-fg);
+  color: var(--pdf-fg);
+  filter: brightness(1.08);
+}
+
+/* The failure message that used to be a window.alert. */
+.sti-rotate-error {
+  margin: 10px 0 0;
+  padding: 10px 13px;
+  border: 1px solid var(--pdf-fg);
+  border-radius: 10px;
+  background: var(--pdf-bg);
+  color: var(--pdf-fg);
+  font-size: 12.5px;
+  line-height: 1.55;
+}

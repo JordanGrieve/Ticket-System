@@ -898,3 +898,55 @@
     transition: none;
   }
 }
+
+/* ── Inline confirmation, replacing window.confirm ───────────────
+   Tokens only, so it follows all six themes — which is the point: a browser
+   dialog renders in the operating system's palette and looks like a fault in
+   five of them. Same shape as .sti-confirm in app/settings.css and the delete
+   row in components/mail/LabelManager.tsx.
+
+   Only the UNQUEUE control uses it. The unsaved-changes guard and the abort
+   confirmation deliberately stay on window.confirm — the reasons are recorded
+   at their call sites in Composer.tsx. */
+.nl-confirm {
+  border: 1px solid var(--warn-fg);
+  background: var(--warn-bg);
+  border-radius: 12px;
+  padding: 13px 15px;
+}
+.nl-confirm-q {
+  margin: 0 0 11px;
+  color: var(--warn-fg);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.nl-confirm-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.nl-confirm-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  border-radius: 9px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+.nl-confirm-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.nl-confirm-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* The destructive choice looks different, not inviting. */
+.nl-confirm-btn--danger {
+  border-color: var(--pdf-fg);
+  background: var(--pdf-bg);
+  color: var(--pdf-fg);
+}

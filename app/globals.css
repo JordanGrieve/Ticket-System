@@ -117,9 +117,15 @@
      they want to know an action worked. */
   --ok-fg: #278557;
   --warn-bg: #fff3e2;
-  --warn-fg: #d08700;
+  /* Deepened 30 Aug. On --warn-bg these measured 2.68:1 and 2.52:1 — roughly
+     half the 4.5 AA needs, in the LIGHT theme only. They carry every warning
+     and every destructive confirmation in the product: the trial banner when
+     sending has stopped, the "you cannot send until this is filled in" notice
+     on Sender identity, the rotate-key confirmation, and the CHAIN BROKEN line
+     in the operator console. All five other palettes already passed. */
+  --warn-fg: #996300;
   --pdf-bg: #ffe9ee;
-  --pdf-fg: #ff5f7e;
+  --pdf-fg: #b54359;
   --star: #ffb627;
   --star-off: #cfc9e0;
 

@@ -144,6 +144,15 @@ describe("muted text clears AA in every theme", () => {
   const ON_TINT: [string, string][] = [
     ["--accent-text", "--accent-soft"],
     ["--ok-fg", "--surface"],
+    /*
+     * The warning and danger pairs, added 30 Aug after the UI harness
+     * (scripts/ui-harness.mjs) rendered the rotate-key confirmation in all six
+     * themes and found the light one failing at 2.68:1 and 2.52:1 — roughly
+     * half of AA, on every warning and every destructive confirmation in the
+     * product. Five palettes passed, which is exactly why nobody noticed.
+     */
+    ["--warn-fg", "--warn-bg"],
+    ["--pdf-fg", "--pdf-bg"],
   ];
 
   for (const palette of PALETTES) {
