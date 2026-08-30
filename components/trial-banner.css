@@ -13,16 +13,21 @@
  * and a banner in there becomes a fourth COLUMN — a vertical strip between the
  * sidebar and the ticket list rather than a bar across the top.
  *
- * ── COMPOSING WITH THE IMPERSONATION BANNER ──
+ * ── COMPOSING WITH THE IMPERSONATION PILL ──
  * Both can be on screen at once (a Postbox operator working inside a client
- * that is on a trial). The offsets do compose, because a compound sibling
- * selector is more specific than either single one:
+ * that is on a trial), and this used to need three stacked offset rules so the
+ * two full-width bars could sit above each other and the shell could pay for
+ * both.
  *
- *   .pbi-banner ~ .pb-shell               → 46px          (impersonation only)
- *   .pbt-slot   ~ .pb-shell               → 46px          (trial only)
- *   .pbi-banner ~ .pbt-slot ~ .pb-shell   → 92px          (both; 3 classes wins)
+ * It does not any more. The impersonation banner became a floating PILL in the
+ * top-right corner (see app/(admin)/impersonation-banner.css) and occupies no
+ * layout space at all, so this banner is the only thing the shell buys height
+ * back for and `.pbt-slot ~ .pb-shell` is the whole of the arrangement.
  *
- * and the trial banner drops below the impersonation one rather than under it.
+ * The one remaining interaction runs the other way: the pill moves itself down
+ * by `--pbt-h` when this banner is present, so it does not land on the dismiss
+ * control. That rule lives with the pill, using `:has()`, so this file does
+ * not have to know the pill exists.
  *
  * Three tones, all from theme tokens so they work across the six themes:
  *   info  — quiet, dismissible, a week or less to go
@@ -74,14 +79,11 @@
   padding-top: var(--pbt-h, 46px);
 }
 
-/* Both banners: stack them, and pay for both. */
-.pbi-banner ~ .pbt-slot {
-  top: var(--pbi-h, 46px);
-}
-
-.pbi-banner ~ .pbt-slot ~ .pb-shell {
-  padding-top: calc(var(--pbi-h, 46px) + var(--pbt-h, 46px));
-}
+/*
+  The two rules that used to stack this under the impersonation bar are gone.
+  The impersonation banner is a floating pill now and takes no layout space, so
+  there is nothing to stack under and nothing extra for the shell to pay for.
+*/
 
 .pbt-banner {
   box-sizing: border-box;

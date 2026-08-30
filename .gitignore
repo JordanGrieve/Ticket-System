@@ -47,3 +47,9 @@ next-env.d.ts
 
 # Scratch reproductions and throwaway worktrees
 .tmp-*/
+
+# Throwaway output of scripts/pill-harness.mjs. The impersonation pill only
+# renders while an operator is inside a client workspace, so it cannot be seen
+# in the preview browser; the harness paints it from the real stylesheet. The
+# script is worth keeping, the generated page is not.
+public/_pill.html

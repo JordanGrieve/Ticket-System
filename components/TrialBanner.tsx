@@ -10,15 +10,18 @@ import "./trial-banner.css";
  *
  * ── WHERE THIS BELONGS, AND THE MISTAKE THAT GOT HERE ──
  * It is rendered immediately BEFORE `<div className="pb-shell">` in
- * app/(dashboard)/layout.tsx, as a sibling — the same place and the same
- * mechanism as ImpersonationBanner: fixed to the top of the viewport, with the
- * shell buying its height back through a `~` rule.
+ * app/(dashboard)/layout.tsx, as a sibling: fixed to the top of the viewport,
+ * with the shell buying its height back through a `~` rule. It is now the ONLY
+ * thing that does this — ImpersonationBanner used the same mechanism until it
+ * became a floating pill, which takes no layout space.
  *
  * It was first put inside `<main className="pb-main">` instead, on the
  * reasoning that two `~ .pb-shell` padding rules would not compose. That was
- * wrong twice over. They compose fine — `.pbi-banner ~ .pbt-slot ~ .pb-shell`
- * is three classes and beats either single rule, so the combined offset can be
- * stated explicitly. And `.pbm .pb-main` is `flex-direction: row`, because the
+ * wrong twice over. They composed fine — a compound sibling selector beats
+ * either single rule, so the combined offset could be stated explicitly. (That
+ * arrangement has since been retired with the bar it composed with, but the
+ * reasoning was sound and is worth not re-litigating.) And `.pbm .pb-main` is
+ * `flex-direction: row`, because the
  * mail client puts its three panes side by side: a banner placed in there does
  * not span the top at all, it becomes a FOURTH COLUMN, a vertical strip
  * squeezed between the sidebar and the ticket list. Which is exactly how it
