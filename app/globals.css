@@ -63,7 +63,15 @@
   --accent-grad: linear-gradient(145deg, #8b6bff, #6d4aff);
   --glow: rgba(109, 74, 255, 0.18);
   --hero-grad: linear-gradient(140deg, #e9e1ff, #d6ccff);
-  --pro-grad: linear-gradient(150deg, #7c5cff, #5b39d6);
+  /*
+   * The Postbox Pro card. Points at the accent rather than carrying its own
+   * purple: this was the ONE gradient in the product defined only here and
+   * never overridden per theme, so the card stayed violet while somebody on
+   * Ocean or Forest watched every other surface change around it.
+   *
+   * --accent-grad is per-theme, so one indirection fixes all five.
+   */
+  --pro-grad: var(--accent-grad);
   --pro-shadow: rgba(70, 40, 180, 0.28);
 
   /* navigation — the sidebar stays near-black indigo in every light theme */

@@ -34,6 +34,21 @@
 /* ── nav ─────────────────────────────────────────────────────── */
 
 .home-nav {
+  /*
+   * Sticky, so Pricing and Sign in are reachable from anywhere on a page that
+   * is now nearly 5,000px tall. Scrolling back to the top to find the button
+   * that starts a trial is the kind of friction nobody reports and everybody
+   * feels.
+   *
+   * The blur and the translucent ground are what stop content sliding under it
+   * as a jumble. --glass is a theme token, so the bar tints with the palette
+   * rather than being a fixed dark slab on a light theme.
+   */
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--glass);
+  backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -216,8 +231,23 @@
 
 /* ── section furniture ───────────────────────────────────────── */
 
+/*
+ * padding-TOP only.
+ *
+ * This was `padding: 76px 0 0`, which sits after .home-wrap's `padding: 0 24px`
+ * with the same specificity and therefore zeroed the sides. On a wide screen
+ * the 1080px max-width leaves a margin either side so nothing showed; between
+ * about 768px and 1128px the column fills the viewport and every heading and
+ * paragraph ran flush into the edge of the screen. Desktop looked right, phones
+ * looked right — a tablet was the only place it was visible, which is why it
+ * survived this long.
+ *
+ * It also settles an inconsistency: the showcases inset their content by 24px
+ * and the bento, themes and newsletters did not, because only some sections
+ * carried both classes in a way that mattered. All of them inset now.
+ */
 .home-section {
-  padding: 76px 0 0;
+  padding-top: 76px;
 }
 
 .home-section--last {
@@ -505,7 +535,11 @@
 @media (max-width: 900px) {
   .home-showcase {
     gap: 64px;
-    padding: 64px 20px;
+    /* 24px, matching .home-wrap. It was 20px, which put the showcase eyebrow
+       4px left of every other section on the page — invisible on its own and
+       exactly the kind of drift that makes a column look untidy without
+       anybody being able to say why. */
+    padding: 64px 24px;
   }
   .home-show {
     grid-template-columns: 1fr;

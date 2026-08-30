@@ -247,12 +247,23 @@ export default function MailNavShell({
    * one of them. The order of `folders` is preserved rather than the order of
    * PRIMARY_FOLDERS, so nothing jumps around as the list expands.
    */
-  const shownFolders = foldersOpen
-    ? folders
-    : folders.filter(
-        (f) => PRIMARY_FOLDERS.includes(f.key) || f.key === activeFolder,
-      );
-  const hiddenFolderCount = folders.length - shownFolders.length;
+  const alwaysShown = folders.filter(
+    (f) => PRIMARY_FOLDERS.includes(f.key) || f.key === activeFolder,
+  );
+  const extraFolders = folders.filter((f) => !alwaysShown.includes(f));
+
+  /*
+   * ── COUNTED FROM THE COLLAPSED SET, NOT THE CURRENT ONE ──
+   * This used to be `folders.length - shownFolders.length`, which is zero
+   * while the list is OPEN — so the button that says "Less" unmounted the
+   * moment it was pressed and there was no way to collapse the list again.
+   * A disclosure that can only be opened is not a disclosure.
+   *
+   * The number of hidden folders is a property of the collapsed layout, so it
+   * has to be computed from that rather than from whatever state the list
+   * happens to be in.
+   */
+  const collapsibleCount = extraFolders.length;
 
   return (
     <>
@@ -329,7 +340,7 @@ export default function MailNavShell({
           only thing on screen explaining why the list looks the way it does.
         */}
         <div className="pbm-folders">
-          {shownFolders.map((f) => {
+          {alwaysShown.map((f) => {
             const active = activeFolder === f.key;
             return (
               <Link
@@ -345,7 +356,50 @@ export default function MailNavShell({
               </Link>
             );
           })}
-          {hiddenFolderCount > 0 && (
+
+          {/*
+            The rest, in a container that animates its own height.
+
+            The 0fr-to-1fr grid trick rather than a max-height guess: the
+            number of extra folders varies with the plan and with whether the
+            viewer has an agent row, so there is no height to hard-code. A
+            max-height large enough for the longest case makes the short case
+            animate at the wrong speed and then sit still.
+
+            They stay in the DOM and are hidden with inert + aria-hidden, so
+            the height has something to animate FROM and TO. Rendering them
+            conditionally would snap.
+          */}
+          {collapsibleCount > 0 && (
+            <div
+              className="pbm-folders-extra"
+              data-open={foldersOpen || undefined}
+              inert={!foldersOpen}
+              aria-hidden={!foldersOpen}
+            >
+              <div className="pbm-folders-extra-inner">
+                {extraFolders.map((f) => {
+                  const active = activeFolder === f.key;
+                  return (
+                    <Link
+                      key={f.key}
+                      href={f.href}
+                      className="pbm-folder"
+                      data-active={active}
+                      aria-current={active ? "page" : undefined}
+                      tabIndex={foldersOpen ? undefined : -1}
+                    >
+                      <Icon name={f.icon} size={18} />
+                      <span className="pbm-folder-label">{f.label}</span>
+                      <span className="pbm-folder-count">{f.count}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {collapsibleCount > 0 && (
             <button
               type="button"
               className="pbm-folder pbm-folder--more"
