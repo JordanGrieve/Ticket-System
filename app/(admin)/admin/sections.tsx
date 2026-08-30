@@ -12,6 +12,7 @@ import {
   describeChainVerification,
   type ChainVerification,
 } from "@/lib/impersonation-chain";
+import { describeAdminChain } from "@/lib/admin-actions-chain";
 import {
   sessionState,
   sessionStates,
@@ -480,6 +481,7 @@ export function AccessSection({
   sessions,
   actions,
   chain,
+  actionChain,
 }: {
   sessions: ImpersonationSession[];
   /** Platform-level operator actions. See lib/admin-audit.ts. */
@@ -489,6 +491,8 @@ export function AccessSection({
    * not being rendered.
    */
   chain: ChainVerification | null;
+  /** Same, for the operator action log. See lib/admin-actions-chain.ts. */
+  actionChain: ChainVerification | null;
 }) {
   const states = sessionStates(sessions);
   const open = states.filter((s) => s === "active").length;
@@ -634,6 +638,26 @@ export function AccessSection({
             record of its own deletion.
           </p>
         </div>
+
+        {/*
+          The same check as the access log above it. This chain covers EVERY
+          column, which the impersonation one cannot — nothing here is written
+          after the insert, so there is no mutable tail to leave out.
+        */}
+        {actionChain && (
+          <p
+            className="pba-chain"
+            data-state={actionChain.ok ? "ok" : "broken"}
+            role="status"
+          >
+            <b>
+              {actionChain.ok
+                ? "Chain intact"
+                : "CHAIN BROKEN — a recorded action has been deleted or edited"}
+            </b>{" "}
+            {describeAdminChain(actionChain)}
+          </p>
+        )}
         {actions.length === 0 ? (
           <p className="pba-card-sub" style={{ padding: "0 18px 18px" }}>
             Nothing recorded. No workspace has been created or deleted, and no

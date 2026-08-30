@@ -1,8 +1,16 @@
 import "server-only";
-import { desc } from "drizzle-orm";
+import { desc, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { adminActions } from "@/db/schema";
 import type { AdminActionKind } from "@/db/schema";
+import {
+  ADMIN_CHAIN_SECRET_ENV,
+  adminActionGenesisHash,
+  adminActionRowHash,
+  verifyAdminActionChain,
+  type AdminActionChainContent,
+} from "./admin-actions-chain";
+import type { ChainVerification } from "./hash-chain";
 
 /**
  * The operator action log.
@@ -41,7 +49,8 @@ export async function recordAdminAction(input: {
   targetLabel?: string | null;
   detail?: string | null;
 }): Promise<void> {
-  await db.insert(adminActions).values({
+  const secret = chainSecret();
+  const content = {
     action: input.action,
     actorAdminId: input.actorAdminId,
     actorEmail: input.actorEmail.trim().slice(0, 320),
@@ -49,7 +58,132 @@ export async function recordAdminAction(input: {
     // Capped because these are names and addresses somebody typed.
     targetLabel: (input.targetLabel ?? "").trim().slice(0, 200) || null,
     detail: (input.detail ?? "").trim().slice(0, 500) || null,
-  });
+  };
+
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < CHAIN_APPEND_ATTEMPTS; attempt++) {
+    /*
+      The clock and the current head of the chain from ONE snapshot. The
+      timestamp is rendered as text in UTC so it arrives as an unambiguous ISO
+      string rather than something Date has to guess at, and truncated to
+      milliseconds because Postgres timestamptz carries microseconds a JS Date
+      cannot hold — a row hashed from a Date and re-read later would otherwise
+      disagree with itself on digits nobody can see.
+    */
+    const res = await db.execute(sql`
+      SELECT
+        to_char(
+          date_trunc('milliseconds', now()) AT TIME ZONE 'UTC',
+          'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+        ) AS now_iso,
+        (
+          SELECT chain_hash FROM admin_actions
+          WHERE chain_hash IS NOT NULL
+          ORDER BY id DESC
+          LIMIT 1
+        ) AS head_hash
+    `);
+    const head = res.rows[0] as Record<string, unknown>;
+    const createdAt = new Date(String(head.now_iso));
+    // No chained row yet — this is the first, and it anchors to genesis so
+    // that deleting it later is detectable.
+    const prevHash =
+      head.head_hash === null || head.head_hash === undefined
+        ? adminActionGenesisHash(secret)
+        : String(head.head_hash);
+
+    const row: AdminActionChainContent = { ...content, createdAt };
+
+    try {
+      await db.insert(adminActions).values({
+        ...content,
+        createdAt,
+        chainPrevHash: prevHash,
+        chainHash: adminActionRowHash(row, prevHash, secret),
+      });
+      return;
+    } catch (err) {
+      // A lost race for the head of the chain, which the unique index on
+      // chain_prev_hash turns into a constraint violation rather than a fork.
+      // Anything else is a real failure and must reach the caller.
+      if (!isUniqueViolation(err)) throw err;
+      lastError = err;
+    }
+  }
+
+  throw new Error(
+    `Could not append to the operator action log after ${CHAIN_APPEND_ATTEMPTS} ` +
+      `attempts: ${String(lastError)}`,
+  );
+}
+
+/**
+ * The secret that turns this chain from a checksum into something a
+ * DATABASE_URL holder cannot forge. Absent is supported — the chain still
+ * catches accidents — and verification reports which, so nothing claims more
+ * than it has.
+ *
+ * Read at call time rather than at module load, so setting it in the
+ * deployment environment takes effect on the next request rather than the next
+ * cold start.
+ */
+function chainSecret(): string | null {
+  return process.env[ADMIN_CHAIN_SECRET_ENV] || null;
+}
+
+/**
+ * How many times an append may lose the race for the head before giving up.
+ * Contention is close to theoretical here — it needs two operators performing
+ * platform actions in the same instant — but the retry is what makes the
+ * unique index a correctness mechanism rather than an outage.
+ */
+const CHAIN_APPEND_ATTEMPTS = 5;
+
+/** Postgres unique_violation. */
+function isUniqueViolation(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  return code === "23505";
+}
+
+/**
+ * Walk the action chain and report whether it still holds.
+ *
+ * Fails SOFT, unlike the append. A console that will not render because the
+ * verifier threw tells an operator nothing; an unverified chain reported as
+ * unverified tells them exactly what is true.
+ */
+export async function verifyAdminActionLog(): Promise<ChainVerification> {
+  try {
+    const rows = await db
+      .select({
+        id: adminActions.id,
+        action: adminActions.action,
+        actorAdminId: adminActions.actorAdminId,
+        actorEmail: adminActions.actorEmail,
+        targetId: adminActions.targetId,
+        targetLabel: adminActions.targetLabel,
+        detail: adminActions.detail,
+        createdAt: adminActions.createdAt,
+        chainPrevHash: adminActions.chainPrevHash,
+        chainHash: adminActions.chainHash,
+      })
+      .from(adminActions)
+      .orderBy(adminActions.id);
+
+    return verifyAdminActionChain(rows, chainSecret());
+  } catch (err) {
+    console.error("[admin-audit] could not verify the action chain:", err);
+    return {
+      ok: false,
+      keyed: chainSecret() !== null,
+      total: 0,
+      legacyUnverified: 0,
+      verified: 0,
+      firstBreak: null,
+      note: "The action log could not be read, so nothing was verified. This is a database error, not evidence of tampering.",
+    };
+  }
 }
 
 export type AdminActionRow = {

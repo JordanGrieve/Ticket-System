@@ -1,4 +1,21 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import {
+  chainGenesis,
+  chainRowHash,
+  verifyHashChain,
+  type ChainBreak,
+  type ChainBreakKind,
+  type ChainVerification,
+} from "./hash-chain";
+
+/*
+ * The generic machinery moved to lib/hash-chain.ts when admin_actions needed
+ * the same protection. Nothing about the hashing changed: chainRowHash and
+ * chainGenesis produce byte-identical output to the private helpers they
+ * replaced, so rows written before the extraction still verify. That was the
+ * constraint the refactor had to meet, and this file's own tests — which were
+ * not modified — are what proves it did.
+ */
+export type { ChainBreak, ChainBreakKind, ChainVerification };
 
 /**
  * The hash chain that makes the impersonation log tamper-EVIDENT.
@@ -73,12 +90,6 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
  */
 const PAYLOAD_VERSION = "postbox.impersonation-chain.v1";
 
-/** Hex sha256/hmac-sha256 of a string, keyed when a secret is configured. */
-function digest(input: string, secret: string | null): string {
-  return secret
-    ? createHmac("sha256", secret).update(input, "utf8").digest("hex")
-    : createHash("sha256").update(input, "utf8").digest("hex");
-}
 
 /**
  * The row fields the chain covers, in the order they are hashed.
@@ -144,23 +155,15 @@ function isoMillis(value: Date | string): string {
 }
 
 /**
- * The bytes that get hashed for one row.
+ * The field VALUES, in the order they are hashed.
  *
- * JSON.stringify of a fixed-length array rather than a hand-rolled
- * "field=value|field=value" string, because `reason` is FREE TEXT typed by an
- * operator: any separator scheme has to answer what happens when the text
- * contains the separator, and the answer "JSON escapes it" is one somebody
- * else already got right. Field order is positional and fixed; nulls survive
- * as null and are therefore distinguishable from the empty string, which
- * matters because "gave no reason" and "typed nothing" are different facts.
+ * The framing (domain tag, prev hash, JSON encoding) is lib/hash-chain.ts;
+ * this file owns only which facts are covered and in what order. Positional,
+ * so nulls stay distinguishable from the empty string — "gave no reason" and
+ * "typed nothing" are different facts.
  */
-function payload(
-  content: ImpersonationChainContent,
-  prevHash: string,
-): string {
-  return JSON.stringify([
-    PAYLOAD_VERSION,
-    prevHash,
+function parts(content: ImpersonationChainContent): unknown[] {
+  return [
     content.adminId,
     content.adminEmail,
     content.adminClerkUserId,
@@ -168,7 +171,7 @@ function payload(
     content.workspaceName,
     content.reason,
     isoMillis(content.startedAt),
-  ]);
+  ];
 }
 
 /**
@@ -181,7 +184,7 @@ export function impersonationRowHash(
   prevHash: string,
   secret: string | null,
 ): string {
-  return digest(payload(content, prevHash), secret);
+  return chainRowHash(PAYLOAD_VERSION, parts(content), prevHash, secret);
 }
 
 /**
@@ -197,60 +200,10 @@ export function impersonationRowHash(
  * by someone who only holds the database.
  */
 export function impersonationGenesisHash(secret: string | null): string {
-  return digest(JSON.stringify([PAYLOAD_VERSION, "genesis"]), secret);
+  return chainGenesis(PAYLOAD_VERSION, secret);
 }
 
-/** Constant-time string compare, so verification leaks no timing signal. */
-function hashesEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a, "utf8");
-  const bb = Buffer.from(b, "utf8");
-  return ab.length === bb.length && timingSafeEqual(ab, bb);
-}
 
-export type ChainBreakKind =
-  /** This row's stored hash does not match this row's contents. */
-  | "row_modified"
-  /** This row's predecessor is not the row that precedes it any more. */
-  | "row_removed"
-  /** The chain does not start at genesis: its first row(s) are gone. */
-  | "chain_head_removed"
-  /** A row with no hash at all, after the chain had already started. */
-  | "unchained_row"
-  /** Only one of the two chain columns is populated. */
-  | "partial_hash";
-
-export type ChainBreak = {
-  /** Position in the id-ascending sequence. 0 is the oldest row supplied. */
-  index: number;
-  /** The id of the row AT that position — the one to go and look at. */
-  id: number;
-  kind: ChainBreakKind;
-  /** Plain English, for an operator who is not going to read this file. */
-  detail: string;
-};
-
-export type ChainVerification = {
-  /** True only if every chained row verified. Legacy rows do not count. */
-  ok: boolean;
-  /** Whether a secret was in use. False means forgery is cheap — say so. */
-  keyed: boolean;
-  /** Rows supplied. */
-  total: number;
-  /**
-   * Rows from before the chain existed. NOT verified and NOT verifiable —
-   * see the note in verifyImpersonationChain.
-   */
-  legacyUnverified: number;
-  /** Chained rows that verified, up to the first break. */
-  verified: number;
-  /** The first place the chain stops holding together. Null if it holds. */
-  firstBreak: ChainBreak | null;
-  /**
-   * Set when the shape of the failure suggests the wrong secret rather than
-   * an edit — a whole chain that fails at its very first row.
-   */
-  note: string | null;
-};
 
 /**
  * Walk a sequence of rows and report the FIRST place it stops holding.
@@ -294,104 +247,15 @@ export function verifyImpersonationChain(
   rows: readonly ImpersonationChainRow[],
   secret: string | null = null,
 ): ChainVerification {
-  const ordered = [...rows].sort((a, b) => a.id - b.id);
-  const genesis = impersonationGenesisHash(secret);
-
-  let legacyUnverified = 0;
-  let verified = 0;
-  let previousHash: string | null = null;
-  let started = false;
-
-  const result = (firstBreak: ChainBreak | null): ChainVerification => ({
-    ok: firstBreak === null,
-    keyed: secret !== null,
-    total: ordered.length,
-    legacyUnverified,
-    verified,
-    firstBreak,
-    note:
-      firstBreak && firstBreak.index === legacyUnverified && verified === 0
-        ? "The very first chained row already fails. Before treating this as " +
-          "tampering, check that IMPERSONATION_CHAIN_SECRET is the same value " +
-          "the rows were written with — a wrong or missing secret fails " +
-          "identically to a forged log."
-        : null,
+  return verifyHashChain(rows, {
+    domain: PAYLOAD_VERSION,
+    secret,
+    hashOf: (row, prevHash) => impersonationRowHash(row, prevHash, secret),
+    noun: "Session",
+    editableFields: "operator, workspace, reason or start time",
+    writer: "startImpersonation",
+    secretEnvName: "IMPERSONATION_CHAIN_SECRET",
   });
-
-  for (let index = 0; index < ordered.length; index++) {
-    const row = ordered[index];
-    const hasHash = row.chainHash !== null;
-    const hasPrev = row.chainPrevHash !== null;
-
-    if (hasHash !== hasPrev) {
-      return result({
-        index,
-        id: row.id,
-        kind: "partial_hash",
-        detail:
-          `Session #${row.id} has one chain column filled and the other ` +
-          "empty. No writer produces that; one of the columns has been " +
-          "cleared by hand.",
-      });
-    }
-
-    if (!hasHash) {
-      if (started) {
-        return result({
-          index,
-          id: row.id,
-          kind: "unchained_row",
-          detail:
-            `Session #${row.id} carries no hash, but rows before it do. ` +
-            "Rows that predate the chain are all older than every chained " +
-            "row, so this one was either inserted without going through " +
-            "startImpersonation, or had its hashes cleared.",
-        });
-      }
-      legacyUnverified++;
-      continue;
-    }
-
-    started = true;
-    const prevHash = row.chainPrevHash as string;
-    const expectedPrev = previousHash ?? genesis;
-
-    // Own contents first: an edited row is a different statement from a
-    // missing neighbour, and the edited row is the one to go and read.
-    const recomputed = impersonationRowHash(row, prevHash, secret);
-    if (!hashesEqual(recomputed, row.chainHash as string)) {
-      return result({
-        index,
-        id: row.id,
-        kind: "row_modified",
-        detail:
-          `Session #${row.id} does not hash to the value stored on it. Its ` +
-          "operator, workspace, reason or start time has been changed since " +
-          "it was written.",
-      });
-    }
-
-    if (!hashesEqual(prevHash, expectedPrev)) {
-      return result({
-        index,
-        id: row.id,
-        kind: previousHash === null ? "chain_head_removed" : "row_removed",
-        detail:
-          previousHash === null
-            ? `Session #${row.id} is the oldest chained row, but it does not ` +
-              "point at the start of the chain. One or more rows that came " +
-              "before it have been deleted."
-            : `Session #${row.id} points at a row that is not the row before ` +
-              "it. At least one session between it and the previous row has " +
-              "been deleted.",
-      });
-    }
-
-    previousHash = row.chainHash;
-    verified++;
-  }
-
-  return result(null);
 }
 
 /**

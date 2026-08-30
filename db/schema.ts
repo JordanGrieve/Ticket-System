@@ -1440,8 +1440,34 @@ export const adminActions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    /*
+     * Chained, exactly like impersonation_sessions — see lib/hash-chain.ts.
+     *
+     * This log records an operator DELETING a client workspace, which is more
+     * destructive than any impersonation. Leaving it unchained while the
+     * viewing log was chained meant the more serious of the two records was
+     * the easier one to erase quietly.
+     *
+     * Every column above is covered: nothing here is written after the insert,
+     * so unlike impersonation_sessions there is no mutable tail the chain has
+     * to leave out.
+     */
+    chainPrevHash: text("chain_prev_hash"),
+    chainHash: text("chain_hash"),
   },
-  (t) => [index("admin_actions_created_idx").on(t.createdAt)],
+  (t) => [
+    index("admin_actions_created_idx").on(t.createdAt),
+    /*
+     * The uniques are what make this a chain rather than a tree, enforced by
+     * Postgres rather than by the writer remembering. Two operators acting at
+     * the same moment can read the same head; without the unique on
+     * chain_prev_hash both would commit and the chain would FORK, reporting a
+     * break nobody caused. With it the second fails, retries against the new
+     * head, and lands later in both id and chain order.
+     */
+    uniqueIndex("admin_actions_chain_prev_idx").on(t.chainPrevHash),
+    uniqueIndex("admin_actions_chain_hash_idx").on(t.chainHash),
+  ],
 );
 
 /**

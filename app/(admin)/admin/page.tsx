@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { recentIngestionFailures } from "@/lib/ingestion-log";
 import { recentFeedbackDrops } from "@/lib/feedback-log";
-import { recentAdminActions } from "@/lib/admin-audit";
+import { recentAdminActions, verifyAdminActionLog } from "@/lib/admin-audit";
 import { verifyImpersonationLog } from "@/lib/impersonation";
 // Not Clerk's <SignOutButton>: it runs only in the browser, so an operator
 // signing out from here left their impersonation row open forever.
@@ -184,6 +184,7 @@ export default async function AdminHomePage({
     suppressAddress having no callers and /search having no way in.
   */
   const chain = section === "access" ? await verifyImpersonationLog() : null;
+  const actionChain = section === "access" ? await verifyAdminActionLog() : null;
   const recentAccess =
     section === "accounts" && selected
       ? await listImpersonationSessionsForWorkspace(selected.id, 5)
@@ -321,6 +322,7 @@ export default async function AdminHomePage({
                   sessions={sessions}
                   actions={adminActionRows}
                   chain={chain}
+                  actionChain={actionChain}
                 />
               )}
               {section === "billing" && (

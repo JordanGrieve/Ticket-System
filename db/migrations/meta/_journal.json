@@ -162,6 +162,13 @@
       "when": 1788093961247,
       "tag": "0022_nosy_thunderbolt_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1788095971810,
+      "tag": "0023_flat_randall_flagg",
+      "breakpoints": true
     }
   ]
 }
