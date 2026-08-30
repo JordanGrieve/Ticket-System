@@ -17,7 +17,8 @@
     "db:seed-client": "tsx db/seed-client.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:seed-dev": "tsx db/seed-dev.ts"
+    "db:seed-dev": "tsx db/seed-dev.ts",
+    "db:rekey-chains": "tsx db/rekey-chains.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.5.13",
