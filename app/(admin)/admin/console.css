@@ -1,0 +1,52 @@
+/*
+  Table layouts added when billing and delivery stopped being empty.
+
+  Same arrangement as access-log.css next door, and for the same reason: kept
+  out of app/admin.css to avoid two hands in one file. Every rule is scoped
+  under .pba-root, which is both the console's own scope and — deliberately —
+  a specificity of (0,2,0) against admin.css's (0,1,0). That is what lets
+  .pba-row-accounts below win over the six-column version in app/admin.css
+  without depending on which stylesheet the bundler happens to emit first.
+
+  Tokens only. No colour is invented here.
+*/
+
+/* Company · Owner · Plan · Enquiries · Open · Created · Status.
+   Was six columns; Plan joined it when workspaces.plan gained a writer. */
+.pba-root .pba-row-accounts {
+  grid-template-columns: 1.8fr 1.3fr 1.1fr 0.8fr 0.7fr 1fr 1.1fr;
+}
+
+/* A column wider than the 700px the other tables get away with. */
+.pba-root .pba-grid-accounts {
+  min-width: 880px;
+}
+
+/* Workspace · Plan · Stripe says · Paid through · Subscribers · Enquiries */
+.pba-root .pba-row-billing {
+  grid-template-columns: 1.7fr 1.2fr 1.1fr 1.2fr 1fr 0.9fr;
+}
+
+.pba-root .pba-grid-billing {
+  min-width: 900px;
+}
+
+/* Plan · Price · Workspaces · Paying · Monthly */
+.pba-root .pba-row-plans {
+  grid-template-columns: 1.4fr 0.8fr 1fr 1.4fr 0.9fr;
+}
+
+/* The total line under the plan table. Same grid, so the money column lines
+   up with the figures it totals rather than floating under the middle. */
+.pba-root .pba-row-plans-total {
+  font-weight: 800;
+  color: var(--text);
+  border-top: 1px solid var(--border);
+}
+
+/* A figure we are deliberately not showing, in the place it would have gone.
+   Reads as a gap rather than as a zero — the whole point of this console. */
+.pba-root .pba-withheld {
+  color: var(--muted-2);
+  font-style: italic;
+}

@@ -11,6 +11,14 @@ import {
   listImpersonationSessions,
   listImpersonationSessionsForWorkspace,
 } from "@/lib/impersonation";
+import { stripeConfigured, stripePriceId } from "@/lib/stripe";
+import { PLANS } from "@/lib/pricing";
+import {
+  campaignDeliveryTotals,
+  listWorkspaceUsage,
+  transactionalDeliveryTotals,
+} from "./queries";
+import type { ConsoleGates } from "./sections";
 import {
   AccessSection,
   AccountDrawer,
@@ -41,9 +49,18 @@ import {
  * Server Actions (create / invite / delete / impersonate / admins) keep working
  * unchanged.
  *
- * Where the design asked for numbers the product does not collect (billing,
- * subscribers, MRR, deliverability, an operator support queue), the pane says
- * so instead of showing a figure. See sections.tsx.
+ * Where the design asked for numbers the product does not collect, the pane
+ * says so instead of showing a figure. That list has shrunk — billing,
+ * subscribers, plan state and both delivery paths are measured now — and what
+ * remains is per-account sending domains and an operator support queue. See
+ * sections.tsx.
+ *
+ * ── THE ENVIRONMENT IS READ HERE AND NOWHERE BELOW ──
+ * Several cards have to say "that zero means nothing, the webhook that would
+ * move it is not configured". The answers are gathered in this file and passed
+ * down as props, the same arrangement lib/campaign-health.ts uses, so no
+ * section component reaches into process.env and every one of them can be
+ * reasoned about from what it is given.
  */
 
 const PANE: Record<Section, { title: string; subtitle: string }> = {
@@ -99,7 +116,7 @@ export default async function AdminHomePage({
 }) {
   const params = await searchParams;
   const viewer = await resolveViewer();
-  const [accounts, admins, rejections, drops] = await Promise.all([
+  const [accounts, admins, rejections, drops, usage] = await Promise.all([
     listWorkspaceSummaries(),
     listAdmins(),
     // Fetched for every section rather than only Deliverability: it is three
@@ -109,6 +126,11 @@ export default async function AdminHomePage({
     // Same reasoning, and an even smaller read: the unique index bounds
     // feedback_drops to one row per (reason, event type).
     recentFeedbackDrops(),
+    // One row per workspace, two integers each. Unconditional for the same
+    // reason as the two above: the drawer needs it on Accounts and the table
+    // needs it on Billing, and a conditional read would make the console's
+    // data shape depend on the tab.
+    listWorkspaceUsage(),
   ]);
 
   const section = parseSection(params.section);
@@ -155,6 +177,43 @@ export default async function AdminHomePage({
     section === "accounts" && selected
       ? await listImpersonationSessionsForWorkspace(selected.id, 5)
       : [];
+
+  // Two grouped counts, fetched only for the pane that shows them. Unlike the
+  // reads above these are aggregates over the two biggest tables in the
+  // product, so they are worth not doing on every tab.
+  const [transactional, campaignTotals] =
+    section === "deliverability"
+      ? await Promise.all([
+          transactionalDeliveryTotals(),
+          campaignDeliveryTotals(),
+        ])
+      : [null, null];
+
+  /*
+   * The environment answers, gathered once.
+   *
+   * `stripeConfigured` and `stripePriceId` are imported rather than reading
+   * STRIPE_SECRET_KEY here, so the console cannot drift from the module that
+   * actually decides whether billing works. The other three are read directly
+   * because their owners are route handlers, and importing a route into a page
+   * to borrow a constant is a worse coupling than naming the variable twice.
+   *
+   * CAMPAIGN_DELIVERY_MODE is compared to exactly "ses", the same equality
+   * lib/deliver.ts uses. Anything absent, empty or misspelled is log-only,
+   * which is the safe direction: the failure mode of guessing is mailing
+   * forty thousand real people.
+   */
+  const gates: ConsoleGates = {
+    stripeConfigured: stripeConfigured(),
+    allPricesConfigured: PLANS.every((p) => stripePriceId(p.id) !== null),
+    transactionalSending: Boolean(process.env.RESEND_API_KEY),
+    transactionalFeedback: Boolean(
+      process.env.RESEND_DELIVERY_WEBHOOK_SIGNING_SECRET ??
+        process.env.RESEND_WEBHOOK_SIGNING_SECRET,
+    ),
+    campaignDeliveryLive: process.env.CAMPAIGN_DELIVERY_MODE === "ses",
+    campaignFeedback: Boolean(process.env.SES_SNS_TOPIC_ARN),
+  };
 
   const pane = PANE[section];
 
@@ -243,14 +302,25 @@ export default async function AdminHomePage({
                   deleteTarget={deleteTarget}
                 />
               )}
-              {section === "overview" && <OverviewSection accounts={accounts} />}
+              {section === "overview" && (
+                <OverviewSection accounts={accounts} gates={gates} />
+              )}
               {section === "access" && <AccessSection sessions={sessions} />}
-              {section === "billing" && <BillingSection />}
-              {section === "deliverability" && (
+              {section === "billing" && (
+                <BillingSection
+                  accounts={accounts}
+                  usage={usage}
+                  gates={gates}
+                />
+              )}
+              {section === "deliverability" && transactional && campaignTotals && (
                 <DeliverabilitySection
                   accounts={accounts}
                   rejections={rejections}
                   drops={drops}
+                  transactional={transactional}
+                  campaignTotals={campaignTotals}
+                  gates={gates}
                 />
               )}
               {section === "support" && (
@@ -264,6 +334,7 @@ export default async function AdminHomePage({
                 teamSize={teamSize}
                 query={query}
                 recentAccess={recentAccess}
+                usage={selected ? (usage.get(selected.id) ?? null) : null}
               />
             )}
           </div>

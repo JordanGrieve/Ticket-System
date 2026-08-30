@@ -62,12 +62,26 @@ export function hrefFor(
 }
 
 /**
- * The only account statuses the data can actually support.
+ * The account statuses this pill renders, and why they are not the billing
+ * ones the design asked for.
  *
  * The design asked for Active / Trial / Past due / Churn risk. Three of those
- * describe a billing relationship the product does not have — there are no
- * plans, no subscriptions and no payment state anywhere in the schema — so
- * they are not rendered.
+ * describe a billing relationship, and — unlike when this comment was first
+ * written — the product now has one: every workspace carries a plan, a Stripe
+ * subscription status and a paid-through date, all written by the billing
+ * webhook. So they are renderable. They are still deliberately not rendered
+ * HERE.
+ *
+ * One pill can only answer one question, and this one answers "is this
+ * client's Postbox working?" — is mail arriving, is anyone reading it. Billing
+ * answers "are they paying?". Folding the two together means a workspace whose
+ * contact form has been dead for six weeks shows "Past due", and the outage
+ * that this pill exists to surface disappears behind an invoice problem. That
+ * is the exact failure it was rewritten to prevent, arriving by a new route.
+ *
+ * Billing state therefore gets its own column in the accounts table and its
+ * own pane, where it can say Trial / comped / period ended without competing
+ * for the same square of screen.
  *
  * ── WHY THIS IS NO LONGER A ONE-LINER ──
  * It used to be `totalCount > 0 ? "active" : "quiet"`, and "quiet" rendered in
