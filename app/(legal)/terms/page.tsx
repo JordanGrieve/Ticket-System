@@ -1,4 +1,12 @@
-export const metadata = { title: "Terms of Service" };
+import type { Metadata } from "next";
+
+// See the note in app/pricing/page.tsx — an inherited canonical made this page
+// claim to be a duplicate of the homepage.
+export const metadata: Metadata = {
+  title: "Terms of Service",
+  alternates: { canonical: "/terms" },
+  openGraph: { url: "/terms", title: "Terms of Service", type: "website" },
+};
 
 export default function TermsPage() {
   return (

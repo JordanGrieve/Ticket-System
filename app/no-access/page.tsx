@@ -1,5 +1,21 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import AuthProvider from "@/components/AuthProvider";
+
+/**
+ * Reached only by somebody already signed in who has no workspace, so there is
+ * nothing here for a search engine. robots.txt already disallows the path, but
+ * that stops a crawl rather than an index — a URL linked from elsewhere can
+ * still be indexed without ever being fetched, and the meta tag is what
+ * actually prevents it.
+ *
+ * Declaring it also stops this page inheriting the root layout's canonical and
+ * announcing itself as a duplicate of the homepage. See app/pricing/page.tsx.
+ */
+export const metadata: Metadata = {
+  title: "No access",
+  robots: { index: false, follow: false },
+};
 // A third sign-out, easy to miss. Nobody reaches /no-access mid-impersonation
 // (an operator has an admin row and lands on /admin), so this one closes no
 // audit session in practice — it is routed through the same component anyway

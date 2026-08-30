@@ -1,4 +1,13 @@
-export const metadata = { title: "Privacy Policy" };
+import type { Metadata } from "next";
+
+// canonical and openGraph.url are inherited from the root layout when absent,
+// which had this page declaring itself a duplicate of the homepage. See the
+// note in app/pricing/page.tsx.
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  alternates: { canonical: "/privacy" },
+  openGraph: { url: "/privacy", title: "Privacy Policy", type: "website" },
+};
 
 export default function PrivacyPage() {
   return (

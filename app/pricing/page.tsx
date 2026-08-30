@@ -10,6 +10,19 @@ export const metadata: Metadata = {
   title: "Pricing",
   description:
     "What Postbox costs: a shared support inbox and confirmed opt-in newsletters for small businesses.",
+  /*
+    ── EVERY INDEXABLE PAGE MUST DECLARE ITS OWN ──
+    `alternates.canonical` and `openGraph.url` are INHERITED from the root
+    layout when a page does not set them, and inheriting a canonical is not a
+    harmless default: it made this page tell Google it was a duplicate of the
+    homepage and should be dropped from the index. Worse than having no
+    canonical at all, and invisible on the page itself.
+
+    Guarded by tests/seo-canonical.test.ts so the next public page cannot be
+    added without one.
+  */
+  alternates: { canonical: "/pricing" },
+  openGraph: { url: "/pricing", title: "Pricing", type: "website" },
 };
 
 /**
