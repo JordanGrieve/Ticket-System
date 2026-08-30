@@ -131,6 +131,49 @@ const CASES = [
 </div>`,
   },
   {
+    /*
+     * The access log, after the "Records opened" column joined it.
+     *
+     * A seventh column went into a grid whose template lists its columns by
+     * hand, in a file separate from the markup. Get those two out of step and
+     * every cell after the mistake lands under the wrong heading — which is
+     * exactly the failure the diagnostic-table case above exists for, and it
+     * is invisible to types, lint and tests.
+     *
+     * Also here to check the <details> disclosure does not blow the row height
+     * open when expanded, so both states are rendered.
+     */
+    name: "Admin — access log with the records column (7 columns)",
+    css: ["app/admin.css", "app/(admin)/admin/console.css", "app/(admin)/access-log.css"],
+    wrap: (inner) => `<div class="pba-root" data-theme="dark" style="padding:14px">${inner}</div>`,
+    html: `
+<div class="pba-table"><div class="pba-scroll"><div class="pba-grid pba-grid-access">
+  <div class="pba-thead"><div class="pba-row pba-row-access pba-th">
+    <div>Operator</div><div>Workspace</div><div>Started</div><div>Duration</div><div>Reason given</div><div>Records opened</div><div>State</div>
+  </div></div>
+  <div class="pba-tbody">
+    <div class="pba-row pba-row-access">
+      <div><div class="pba-cell-main">jordangrieve.dev@gmail.com</div><div class="pba-cell-sub">user_2abc…</div></div>
+      <div><div class="pba-cell-main">Open Door Bakery</div></div>
+      <div class="pba-td">30 Aug 2026, 14:02</div>
+      <div class="pba-td">6m</div>
+      <div class="pba-td">Checking a bounced newsletter</div>
+      <div class="pba-td"><details class="pba-reads" open><summary>3 records</summary><ul class="pba-reads-list"><li>#142 <span class="pba-reads-n">&times;4</span> <span class="pba-reads-when">30 Aug 2026, 14:06</span></li><li>#139 <span class="pba-reads-when">30 Aug 2026, 14:04</span></li><li>#118 <span class="pba-reads-when">30 Aug 2026, 14:03</span></li></ul></details></div>
+      <div><span class="pba-pill" data-tone="ok">Ended</span></div>
+    </div>
+    <div class="pba-row pba-row-access">
+      <div><div class="pba-cell-main">someone@postbox.help</div><div class="pba-cell-sub">no longer an admin</div></div>
+      <div><div class="pba-cell-main">Hedge Row Flowers</div><div class="pba-cell-sub">workspace since deleted</div></div>
+      <div class="pba-td">28 Aug 2026, 09:11</div>
+      <div class="pba-td">41m+</div>
+      <div class="pba-td"><span class="pba-unset">none given</span></div>
+      <div class="pba-td"><span class="pba-unset">&mdash;</span></div>
+      <div><span class="pba-pill" data-tone="warn">Abandoned</span></div>
+    </div>
+  </div>
+</div></div></div>`,
+  },
+  {
     /* The sidebar billing card, rewritten from a dead hard-coded button. It
        renders inside the TENANT dashboard, so unlike the console it really
        does have to survive all six palettes. */

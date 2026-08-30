@@ -38,7 +38,13 @@
   color: var(--text);
 }
 
+/* Its own line, the way pba-log-who / pba-log-when already do it in the
+   drawer. The column is narrow enough that a ticket number and a full
+   timestamp will not sit side by side, and left inline the date wrapped
+   mid-way — which looks like a bug rather than a layout. nowrap keeps the date
+   itself from breaking now that it has a line of its own. */
 .pba-root .pba-reads-when {
+  display: block;
   color: var(--muted-2);
   white-space: nowrap;
 }
