@@ -69,12 +69,22 @@
 
   /* accent */
   --accent: #6d4aff;
-  --accent-text: #6d4aff;
+  /* Accent ink. Deepened from #6d4aff: it is most often painted on
+     --accent-soft (chips, tags, the pill on the marketing page), where it
+     measured 4.29:1 rather than the 4.5 AA needs. On white it was already
+     fine, which is why it read as safe. */
+  --accent-text: #6847f4;
   --accent-strong: #5636e0;
   --accent-soft: #ede7fe;
   --accent-chip: #e8e1fd;
   --accent-line: #e7deff;
-  --accent-grad: linear-gradient(145deg, #8b6bff, #6d4aff);
+    /* Both stops carry white text (buttons, the send control, the nav's active
+     row), so both have to clear 4.5:1 against white — measured, not judged.
+     The light stops were 2.10 to 3.72:1; forest and slate failed at the dark
+     end too. Deepening the light stop is the minimum change that fixes it:
+     the hue is unchanged and purple, the default brand, moves by an amount
+     that is hard to see. Asserted in tests/contrast-tokens.test.ts. */
+  --accent-grad: linear-gradient(145deg, #7c60e4, #6d4aff);
   --glow: rgba(109, 74, 255, 0.18);
   --hero-grad: linear-gradient(140deg, #e9e1ff, #d6ccff);
   /*
@@ -102,7 +112,10 @@
   --shell-shadow: rgba(70, 45, 140, 0.2);
 
   /* semantic */
-  --ok-fg: #2e9e68;
+  /* Success ink, deepened from #2e9e68 — 3.38:1 on white. It carries
+     "Delivered" and "Saved", which are the words somebody looks for when
+     they want to know an action worked. */
+  --ok-fg: #278557;
   --warn-bg: #fff3e2;
   --warn-fg: #d08700;
   --pdf-bg: #ffe9ee;
@@ -112,11 +125,22 @@
 
   /* tags */
   --tag-a-bg: #eaf7ef;
-  --tag-a-fg: #2e9e68;
+  /* Label-chip ink, deepened to clear AA on its own chip ground. Measured in
+     the light palette: green was 3.07:1, amber 2.68:1, purple 4.49:1 — the
+     chips read as decoration but they carry the label's NAME, which is the
+     only thing distinguishing one from another. These three are also reused
+     as status ink (--contact-fg, --email-fg, --order-fg), so the same fix
+     covers "Delivered" on white, which measured 3.38:1.
+
+     Targeted at 4.6 rather than exactly 4.5: a value sitting on the line
+     drops below it the next time a chip background is nudged. The dark,
+     forest, slate and ocean palettes declare these as rgba() overlays rather
+     than hex and are checked by rendering instead. */
+  --tag-a-fg: #247d52;
   --tag-b-bg: #f1edff;
-  --tag-b-fg: #6d4aff;
+  --tag-b-fg: #6b49fb;
   --tag-c-bg: #fff3e2;
-  --tag-c-fg: #d08700;
+  --tag-c-fg: #996300;
 
   /* legacy aliases — remove with the inline-style migration */
   --app-bg: var(--surface-2);
@@ -256,7 +280,7 @@
   --accent: #2fa36b;
   --accent-text: #7ce0ae;
   --accent-strong: #238153;
-  --accent-grad: linear-gradient(145deg, #49c98c, #2a9463);
+  --accent-grad: linear-gradient(145deg, #30855d, #26865a);
   --accent-soft: rgba(47, 163, 107, 0.14);
   --accent-chip: rgba(47, 163, 107, 0.22);
   --accent-line: rgba(47, 163, 107, 0.3);
@@ -304,7 +328,7 @@
   --accent: #c08a4e;
   --accent-text: #e7b478;
   --accent-strong: #9a6d3b;
-  --accent-grad: linear-gradient(145deg, #d9a05b, #b07a3f);
+  --accent-grad: linear-gradient(145deg, #976f3f, #9c6c38);
   --accent-soft: rgba(192, 138, 78, 0.14);
   --accent-chip: rgba(192, 138, 78, 0.22);
   --accent-line: rgba(192, 138, 78, 0.3);
@@ -352,7 +376,7 @@
   --accent: #2e6be6;
   --accent-text: #9cc4ff;
   --accent-strong: #2354b8;
-  --accent-grad: linear-gradient(145deg, #5b9bff, #2e6be6);
+  --accent-grad: linear-gradient(145deg, #4576c2, #2e6be6);
   --accent-soft: rgba(46, 107, 230, 0.14);
   --accent-chip: rgba(46, 107, 230, 0.22);
   --accent-line: rgba(46, 107, 230, 0.3);

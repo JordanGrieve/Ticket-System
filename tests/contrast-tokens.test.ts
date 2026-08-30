@@ -92,6 +92,81 @@ describe("muted text clears AA in every theme", () => {
     }
   }
 
+  /*
+   * The accent gradient carries WHITE text — primary buttons, the send
+   * control, the nav's active row. Both stops have to clear AA, not the
+   * average of them: a gradient that passes on average still has an end where
+   * the label is unreadable, and on a 145deg fill that end is the top-left
+   * corner where the eye lands first.
+   *
+   * All four palettes failed before this: 2.10:1 (forest) to 3.72:1 (purple)
+   * on the light stop, with forest and slate failing at the dark end as well.
+   * Jordan chose to deepen the stops rather than accept it.
+   */
+  const WHITE = parseHex("#ffffff")!;
+
+  for (const palette of PALETTES) {
+    it(`${palette.name} accent gradient carries white text`, () => {
+      const at = CSS.indexOf(palette.selector);
+      const block = CSS.slice(at, CSS.indexOf("\n}", at));
+      const decl = /--accent-grad:[^;]*;/.exec(block);
+
+      // Light and dark share the purple declared on the light palette; a theme
+      // that does not restate it inherits one already asserted here.
+      if (!decl) return;
+
+      const stops = [...decl[0].matchAll(/#[0-9a-fA-F]{6}/g)].map((m) => m[0]);
+      expect(stops.length, "no colour stops found in --accent-grad").toBeGreaterThan(0);
+
+      for (const stop of stops) {
+        const ratio = contrastRatio(WHITE, parseHex(stop)!);
+        expect(
+          ratio,
+          `${palette.name} --accent-grad stop ${stop} measures ${ratio.toFixed(2)}:1 against white — AA needs ${MIN_CONTRAST}`,
+        ).toBeGreaterThanOrEqual(MIN_CONTRAST);
+      }
+    });
+  }
+
+  /*
+   * Inks that are painted on a KNOWN tinted ground rather than on the page.
+   *
+   * --accent-text sits on --accent-soft (chips, tags, the marketing pill) and
+   * measured 4.29:1 there while looking perfectly safe on white — which is
+   * where anyone would have checked it. --ok-fg carries "Delivered" and
+   * "Saved" on the plain surface and measured 3.38:1.
+   *
+   * Only palettes that declare both as hex can be checked here; dark, forest,
+   * slate and ocean use rgba() overlays whose real ground depends on what is
+   * behind them, and those were verified by rendering instead. A palette that
+   * cannot be measured is skipped rather than assumed to pass.
+   */
+  const ON_TINT: [string, string][] = [
+    ["--accent-text", "--accent-soft"],
+    ["--ok-fg", "--surface"],
+  ];
+
+  for (const palette of PALETTES) {
+    for (const [ink, ground] of ON_TINT) {
+      it(`${palette.name} ${ink} on ${ground}`, () => {
+        let fg, bg;
+        try {
+          fg = parseHex(token(palette.selector, ink));
+          bg = parseHex(token(palette.selector, ground));
+        } catch {
+          return; // not declared in this palette; it inherits one already checked
+        }
+        if (!fg || !bg) return; // rgba() overlay — checked by rendering
+
+        const ratio = contrastRatio(fg, bg);
+        expect(
+          ratio,
+          `${palette.name} ${ink} measures ${ratio.toFixed(2)}:1 on ${ground} — AA needs ${MIN_CONTRAST}`,
+        ).toBeGreaterThanOrEqual(MIN_CONTRAST);
+      });
+    }
+  }
+
   it("still measures something rather than passing on an empty set", () => {
     // If token() ever started returning nothing, every assertion above would
     // vacuously pass. This is the canary for that.
