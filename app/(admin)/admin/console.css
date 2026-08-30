@@ -50,3 +50,39 @@
   color: var(--muted-2);
   font-style: italic;
 }
+
+/*
+  The two five-column diagnostic tables: Rejected submissions, and Bounces we
+  couldn't attribute.
+
+  ── THIS WAS BROKEN, NOT MISSING ──
+  Both render `.pba-row`, which app/admin.css declares as `display: grid` with
+  NO grid-template-columns. A grid with no template is a single column, so the
+  header labels and every cell stacked vertically — five rows of one word each
+  where a table was intended. It read as a styling oversight rather than as a
+  fault, which is why it survived: nothing is red, nothing overflows, the words
+  are all present and in order.
+
+  Found while reviewing the console work, in the card added earlier the same
+  day — so both tables had it, and neither had ever been looked at in a
+  browser, because the console needs an admin login.
+
+  Scoped under .pba-root for the specificity reason set out at the top of this
+  file, and given a shared class rather than two near-identical rules: the two
+  tables have different content but the same shape, and one of them acquiring a
+  sixth column should be a deliberate act rather than a silent inheritance.
+*/
+.pba-root .pba-row-head,
+.pba-root .pba-row-diag {
+  grid-template-columns: 1.2fr 1fr 0.6fr 1fr 1.6fr;
+}
+
+/* The header row of a diagnostic table. Reads as a heading, not as data. */
+.pba-root .pba-row-head {
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  border-bottom: 1px solid var(--border-soft);
+}

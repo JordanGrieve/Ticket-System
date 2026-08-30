@@ -781,7 +781,7 @@ export function DeliverabilitySection({
                 <span>Last seen</span>
               </div>
               {rejections.map((r) => (
-                <div className="pba-row" key={`${r.reason}:${r.keyPrefix}`}>
+                <div className="pba-row pba-row-diag" key={`${r.reason}:${r.keyPrefix}`}>
                   <span className="pba-mono">{r.keyPrefix}…</span>
                   <span>{REJECTION_LABELS[r.reason] ?? r.reason}</span>
                   <span>
@@ -837,7 +837,7 @@ export function DeliverabilitySection({
                 <span>Example message</span>
               </div>
               {drops.map((d) => (
-                <div className="pba-row" key={`${d.reason}:${d.eventType}`}>
+                <div className="pba-row pba-row-diag" key={`${d.reason}:${d.eventType}`}>
                   {/* The explanation is the title, so an operator gets the
                       "so what" on hover without a second screen. */}
                   <span title={describeDropReason(d.reason)}>
