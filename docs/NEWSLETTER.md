@@ -45,8 +45,18 @@ elaborates on.
 >
 > ⚠️ Do not flip `CAMPAIGN_DELIVERY_MODE=ses` to "see if it works". Open Door
 > Bakery has one confirmed subscriber; in the sandbox that send is rejected,
-> the row is written `failed`, the campaign is marked `sent`, and nothing in
-> the product can re-queue it. Use **Send a test to myself** in the composer.
+> the row is written `failed` and the campaign is marked `sent`. Use **Send a
+> test to myself** in the composer instead.
+>
+> *Updated 30 Aug 2026: this used to end "and nothing in the product can
+> re-queue it", which is no longer true. A campaign that reached NOBODY can now
+> be put back in the queue and returned to draft — see
+> `lib/campaign-requeue.ts`. The advice above is unchanged, because recovery is
+> not a reason to try it: re-queueing is deliberately impossible the moment any
+> message gets through, since retrying beside a delivered row could send
+> somebody a duplicate. A sandbox rejection happens to fail wholesale, which is
+> the recoverable shape; a half-configured send that reaches two people out of
+> forty-seven is not.*
 
 ---
 

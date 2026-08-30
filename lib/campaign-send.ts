@@ -1498,3 +1498,76 @@ export async function stampUnconfirmedRecipients(now: Date): Promise<{
     stamped: unconfirmed.length,
   };
 }
+
+/**
+ * Put a wholly-failed campaign's recipients back in the queue.
+ *
+ * ── THE SAFETY PROPERTY IS IN THE STATEMENT, NOT ONLY IN THE CALLER ──
+ * lib/campaign-requeue.ts decides whether this MAY happen; this decides
+ * whether it DOES. Both check the same thing, on purpose.
+ *
+ * The predicate the caller evaluated was computed from counts read a moment
+ * earlier. Between that read and this write the sweep could have claimed a row
+ * and handed it to the provider — claim-before-send marks a row `sent` BEFORE
+ * the provider call — and then a re-queue would be putting a second copy in a
+ * real inbox. So the "nobody was reached" condition is a NOT EXISTS inside the
+ * UPDATE, which either matches at write time or changes nothing.
+ *
+ * That is the same rule every mutation in this file follows: the predicate
+ * that makes a statement safe belongs in the statement, not in a check
+ * performed beforehand that a concurrent request could invalidate.
+ *
+ * The campaign returns to `draft` rather than `scheduled`. Re-sending has to
+ * be a deliberate act — the send that failed was already deliberate once, and
+ * whatever caused it (a sandbox identity, a missing credential) is probably
+ * still true.
+ *
+ * `attempts` is deliberately NOT reset. It is the row's history and the only
+ * way to tell a first attempt from a fourth.
+ */
+export async function requeueFailedRecipients(
+  workspaceId: number,
+  campaignId: number,
+): Promise<{ requeued: number } | null | { error: "not_requeueable" }> {
+  const existing = await getCampaign(workspaceId, campaignId);
+  if (!existing) return null;
+
+  const res = await db.execute(sql`
+    WITH reopened AS (
+      UPDATE campaigns c
+      SET status = 'draft', sent_at = NULL, updated_at = now()
+      WHERE c.id = ${campaignId}
+        AND c.workspace_id = ${workspaceId}
+        -- Terminal only. 'sending' is abort's edge; draft and scheduled have
+        -- nothing to retry.
+        AND c.status IN ('sent', 'failed')
+        -- Nobody was reached, checked HERE rather than trusted from a read.
+        AND NOT EXISTS (
+          SELECT 1 FROM campaign_recipients cr
+          WHERE cr.campaign_id = c.id
+            AND cr.status IN ('queued', 'sent', 'delivered', 'bounced', 'complained')
+        )
+        -- And there is something to put back.
+        AND EXISTS (
+          SELECT 1 FROM campaign_recipients cr
+          WHERE cr.campaign_id = c.id AND cr.status = 'failed'
+        )
+      RETURNING c.id
+    ),
+    requeued AS (
+      UPDATE campaign_recipients cr
+      SET status = 'queued', error = NULL, sent_at = NULL
+      FROM reopened r
+      WHERE cr.campaign_id = r.id
+        AND cr.status = 'failed'
+      RETURNING cr.id
+    )
+    SELECT
+      (SELECT count(*)::int FROM reopened) AS reopened,
+      (SELECT count(*)::int FROM requeued) AS requeued
+  `);
+
+  const row = res.rows[0] as { reopened: number; requeued: number } | undefined;
+  if (!row || row.reopened === 0) return { error: "not_requeueable" };
+  return { requeued: row.requeued };
+}

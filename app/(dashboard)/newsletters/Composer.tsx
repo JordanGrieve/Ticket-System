@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CampaignStatus } from "@/db/schema";
+import { canRequeueFailed, describeRequeue } from "@/lib/campaign-requeue";
 import {
   AUDIENCE_SKIP_REASONS,
   CAMPAIGN_BODY_MAX,
@@ -354,6 +355,10 @@ export default function Composer({
   const [queue, setQueue] = useState<QueueState>({ kind: "idle" });
   /** The unqueue button has become its own "are you sure?" — see below. */
   const [confirmingUnqueue, setConfirmingUnqueue] = useState(false);
+  /** Putting a wholly-failed campaign back in the queue. */
+  const [requeue, setRequeue] = useState<
+    { kind: "idle" } | { kind: "working" } | { kind: "error"; message: string }
+  >({ kind: "idle" });
 
   const [schedule, setSchedule] = useState<ScheduleState>({ kind: "idle" });
   /**
@@ -842,6 +847,48 @@ export default function Composer({
    * numbers are NOT guessed. The confirm says so instead: a made-up "0 already
    * sent" is the one error here that could not be walked back.
    */
+  /**
+   * Put every recipient back in the queue and return the campaign to draft.
+   *
+   * Offered ONLY when the campaign reached nobody — lib/campaign-requeue.ts
+   * carries the argument for refusing the partly-delivered case outright
+   * rather than warning about it. The server re-checks the same condition
+   * inside its UPDATE, because the sweep could claim a row between this screen
+   * reading its counts and the write landing.
+   */
+  async function requeueFailed() {
+    if (savedId === null || requeue.kind === "working") return;
+    setRequeue({ kind: "working" });
+    try {
+      const res = await fetch(`/api/campaigns/${savedId}/requeue`, {
+        method: "POST",
+      });
+      const payload = (await res.json()) as {
+        requeued?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(payload.error ?? "Couldn't put those back.");
+      }
+      /*
+        Reload the campaign and the list, the same way abortSend does. The
+        status has changed underneath this screen — sent/failed back to draft,
+        and every recipient row back to queued — so re-reading is the only way
+        the panel, the counts and the health line agree with the database.
+        `open` clears the requeue state, so it is set idle afterwards.
+      */
+      await open(savedId);
+      await refreshList();
+      setRequeue({ kind: "idle" });
+    } catch (err) {
+      setRequeue({
+        kind: "error",
+        message:
+          err instanceof Error ? err.message : "Couldn't put those back.",
+      });
+    }
+  }
+
   async function abortSend() {
     if (savedId === null || abort.kind === "working") return;
 
@@ -985,6 +1032,26 @@ export default function Composer({
     screen than the blank box they replaced.
   */
   const slots = unfilledSlots(draft.body);
+
+  /*
+    Whether this finished campaign can go back in the queue.
+
+    Null until the recipient counts have loaded — the answer depends entirely
+    on them, and defaulting to "no" would hide the control from the person who
+    needs it for as long as the numbers take to arrive.
+  */
+  const requeueVerdict =
+    recipients === null
+      ? null
+      : canRequeueFailed(draft.status, {
+          queued: recipients.queued,
+          reached:
+            recipients.sent +
+            recipients.delivered +
+            recipients.bounced +
+            recipients.complained,
+          failed: recipients.failed,
+        });
 
   const subjectLong = draft.subject.length > SUBJECT_DISPLAY_LIMIT;
   const canSave =
@@ -1657,6 +1724,46 @@ export default function Composer({
                   stalled={health?.state === "stalled"}
                   onAbort={abortSend}
                 />
+              ) : requeueVerdict?.ok ? (
+                /*
+                  A finished campaign that reached NOBODY. Until this existed
+                  the only exit was building the whole thing again, and with a
+                  one-person list the person was spent — docs/NEWSLETTER.md
+                  warned about exactly that.
+
+                  Offered only in the all-failed case. The partly-delivered one
+                  is not a confirmation away, it is absent, because a retry
+                  there could put a second copy in a real inbox.
+                */
+                <>
+                  <p className="nl-note nl-note--warn" role="status">
+                    This campaign finished and <b>nobody received it</b>. Every
+                    attempt failed, so nothing was delivered and nobody was
+                    emailed twice.
+                  </p>
+                  <div className="nl-queue-row">
+                    <button
+                      type="button"
+                      className="nl-secondary"
+                      onClick={requeueFailed}
+                      disabled={requeue.kind === "working"}
+                    >
+                      {requeue.kind === "working"
+                        ? "Putting them back…"
+                        : "Put the recipients back and edit"}
+                    </button>
+                    <span className="nl-help">
+                      {describeRequeue(requeueVerdict)} Fix whatever stopped it
+                      first — a failure this complete is usually one cause, not
+                      many.
+                    </span>
+                  </div>
+                  {requeue.kind === "error" && (
+                    <p className="nl-error" role="alert">
+                      {requeue.message}
+                    </p>
+                  )}
+                </>
               ) : draft.status === "scheduled" ? (
                 <>
                   <p className="nl-note nl-note--warn" role="status">
@@ -1980,8 +2087,24 @@ function AbortPanel({
           {state.kind === "working" ? "Stopping…" : "Stop this campaign"}
         </button>
         <span className="nl-help">
-          Ends the campaign for good and marks it <b>Failed</b>. There is no way
-          back to draft and no way to finish the send afterwards.
+          Ends the campaign for good and marks it <b>Failed</b>.{" "}
+          {alreadySent === 0 ? (
+            /*
+              Stopping BEFORE anybody was reached is recoverable, and saying
+              otherwise would frighten somebody out of the safe choice. The
+              requeue panel appears afterwards precisely because nothing was
+              delivered — see lib/campaign-requeue.ts.
+            */
+            <>
+              Nobody has been reached yet, so afterwards you can put the
+              recipients back and return this to draft.
+            </>
+          ) : (
+            <>
+              There is no way to finish the send afterwards, and the people
+              already mailed cannot be un-mailed.
+            </>
+          )}
         </span>
       </div>
 
