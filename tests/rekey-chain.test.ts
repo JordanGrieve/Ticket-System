@@ -189,6 +189,52 @@ describe("re-keying leaves pre-chain rows alone", () => {
     expect(result.writes.map((w) => w.id)).not.toContain(1);
     expect(result.writes).toHaveLength(3);
   });
+
+  it("simulates the WHOLE table, not just the rows it rewrites", () => {
+    /*
+     * The first production run printed "1 verified, 0 pre-chain, 1 total" for
+     * a table of 10 rows with 9 pre-chain ones, because the simulation ran
+     * over the rewritten subset alone. Two problems: the line could not be
+     * compared against the "before" line above it, and it did not exercise the
+     * rule that pre-chain rows are tolerated only as a CONTIGUOUS PREFIX.
+     */
+    const legacy: ImpersonationChainRow[] = [
+      {
+        id: 1,
+        adminId: 1,
+        adminEmail: "old@postbox.help",
+        adminClerkUserId: null,
+        workspaceId: 1,
+        workspaceName: "Before the chain",
+        reason: null,
+        startedAt: new Date(Date.UTC(2026, 6, 1)),
+        chainPrevHash: null,
+        chainHash: null,
+      },
+    ];
+    const rows = [
+      ...legacy,
+      ...chainOf(3, null).map((r) => ({ ...r, id: r.id + 1 })),
+    ];
+
+    const result = plan(rows, null);
+    if (!result.ok) throw new Error("expected a plan");
+
+    // The counts must describe the table, so they line up with "before".
+    expect(result.after.total).toBe(4);
+    expect(result.after.legacyUnverified).toBe(1);
+    expect(result.after.verified).toBe(3);
+  });
+
+  it("refuses when a pre-chain row is NOT a contiguous prefix", () => {
+    // A null-hash row appearing after the chain has started is not a legacy
+    // row — it is one inserted by something that bypassed the writer. The
+    // simulation now covers this rather than leaning on the before-guard.
+    const rows = chainOf(4, null);
+    rows[2] = { ...rows[2], chainPrevHash: null, chainHash: null };
+    const result = plan(rows, null);
+    expect(result.ok).toBe(false);
+  });
 });
 
 describe("re-keying an empty log", () => {

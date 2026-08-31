@@ -127,15 +127,16 @@ export function planRekey<R extends RekeyableRow>(
 
   let prev = genesis(newSecret);
   const writes: RekeyWrite[] = [];
-  const proposed: R[] = [];
+  const rewritten = new Map<number, RekeyWrite>();
   for (const row of chained) {
     // The row itself, not a copy with the new columns spliced in: a row's hash
     // covers its CONTENT fields, and the chain columns are the framing the
     // hash goes into. Passing a half-updated copy would work today and be
     // wrong the moment a chain covers a column this function edits.
     const hash = rowHash(row, prev, newSecret);
-    writes.push({ id: row.id, chainPrevHash: prev, chainHash: hash });
-    proposed.push({ ...row, chainPrevHash: prev, chainHash: hash });
+    const write = { id: row.id, chainPrevHash: prev, chainHash: hash };
+    writes.push(write);
+    rewritten.set(row.id, write);
     prev = hash;
   }
 
@@ -144,7 +145,27 @@ export function planRekey<R extends RekeyableRow>(
     will use. Cheap, and it turns a botched rewrite from something found
     afterwards against a half-written table into something found now against
     nothing.
+
+    ── THE FULL TABLE, NOT JUST THE REWRITTEN ROWS ──
+    This used to simulate over `chained` alone, which was wrong in two ways.
+
+    It under-reported: the first production run printed "1 verified, 0
+    pre-chain, 1 total" for a table of 10 rows with 9 pre-chain ones, so the
+    line could not be compared against the "before" line directly above it —
+    and a number you cannot compare is one nobody checks.
+
+    Worse, it did not simulate what would actually be verified. The verifier
+    tolerates pre-chain rows only as a CONTIGUOUS PREFIX; splicing the new
+    hashes into the full list is the only way the plan is checked against that
+    rule. The guard above happens to catch the interleaved case already, since
+    such a table fails `before` too — but relying on one check to cover
+    another's blind spot is how a blind spot survives the day the first check
+    changes.
   */
+  const proposed = rows.map((row) => {
+    const w = rewritten.get(row.id);
+    return w ? { ...row, chainPrevHash: w.chainPrevHash, chainHash: w.chainHash } : row;
+  });
   const after = verify(proposed, newSecret);
   if (!after.ok) {
     return {
