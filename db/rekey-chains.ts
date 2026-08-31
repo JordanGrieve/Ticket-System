@@ -233,11 +233,47 @@ async function rekey<R extends RekeyableRow>(
   console.log(`  written: ${plan.writes.length} rows.`);
 }
 
+/**
+ * Which database this is actually pointed at.
+ *
+ * ── WHY THIS IS PRINTED, AND WHY IT IS PRINTED FIRST ──
+ * The first real run of this script reported "rows: 0, nothing to write" and
+ * looked like a clean success. It had connected to the DEVELOPMENT branch,
+ * because DATABASE_URL comes from .env.local and that is what .env.local
+ * points at. ALLOW_PRODUCTION_DB=1 was set, which lifts the safety guard but
+ * does not change the destination — an easy thing to assume it does.
+ *
+ * A rekey that silently does nothing is the worst possible outcome for this
+ * tool: production is left unkeyed while the app has been redeployed expecting
+ * a key, so the console reports the chain broken and the operator believes the
+ * job is done. Naming the host makes "rows: 0" self-diagnosing.
+ *
+ * Host and database only. The connection string carries a password and this
+ * output is meant to be pasted into a chat while asking whether it looks right.
+ */
+function target(): string {
+  const url = process.env.DATABASE_URL;
+  if (!url) return "(DATABASE_URL not set)";
+  try {
+    const u = new URL(url);
+    return `${u.hostname}${u.pathname}`;
+  } catch {
+    return "(unparseable DATABASE_URL)";
+  }
+}
+
 async function main(): Promise<void> {
   console.log(
     WRITE
       ? "REKEY — WRITING. The audit chains will be rewritten under the new secret."
       : "REKEY — dry run. Nothing will be written.",
+  );
+  console.log(`  database:      ${target()}`);
+  console.log(
+    `  DATABASE_ENV:  ${process.env.DATABASE_ENV ?? "(not set)"}` +
+      (process.env.DATABASE_ENV === "development"
+        ? "   <-- this is a DEV database. Production rows will NOT be touched."
+        : ""),
   );
 
   const sessions = await db
