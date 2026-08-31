@@ -208,7 +208,7 @@ export default async function AccessLogPage() {
                   <div className="stg-al-who">
                     <span className="stg-al-who-email">{e.actorEmail}</span>
                   </div>
-                  <span className="stg-al-pill" data-state="abandoned">
+                  <span className="stg-al-pill" data-state="copy">
                     Full copy taken
                   </span>
                 </div>

@@ -225,6 +225,39 @@ const CASES = [
 </ol>`,
   },
   {
+    /*
+     * The "copies taken" section, which only appears when an operator has
+     * exported the whole workspace.
+     *
+     * Worth its own case because the pill reuses the amber warn palette for a
+     * meaning opposite to the one it already carries — "abandoned" is a gap in
+     * the record, this is the most significant thing on the page. Same paint,
+     * two meanings, so the question is whether it reads as important rather
+     * than as another shrug about incomplete data.
+     */
+    name: "Settings → Access log — a full copy was taken",
+    css: ["app/settings.css"],
+    wrap: (inner) =>
+      `<div class="pbm" style="padding:14px"><div class="stg-wrap">${inner}</div></div>`,
+    html: `
+<section class="stg-section">
+  <h2 class="stg-section-title">Copies taken of all your data</h2>
+  <p class="stg-section-sub">Someone at Postbox downloaded everything this workspace holds &mdash; every conversation, every message, and every contact &mdash; as a single file. This is not a conversation being opened; it is all of them leaving at once.</p>
+  <ol class="stg-al-list">
+    <li class="stg-al-visit">
+      <div class="stg-al-visit-head">
+        <div class="stg-al-who"><span class="stg-al-who-email">jordangrieve.dev@gmail.com</span></div>
+        <span class="stg-al-pill" data-state="copy">Full copy taken</span>
+      </div>
+      <dl class="stg-al-facts">
+        <div class="stg-al-fact stg-al-fact-wide"><dt class="stg-al-key">When</dt><dd class="stg-al-val">31 Aug 2026, 15:20</dd></div>
+      </dl>
+    </li>
+  </ol>
+  <p class="stg-al-note">Ask us what any of these were for. A copy is normally taken to investigate something you reported, and it should match a conversation you have had with us &mdash; if one does not, that is worth raising.</p>
+</section>`,
+  },
+  {
     /* The sidebar billing card, rewritten from a dead hard-coded button. It
        renders inside the TENANT dashboard, so unlike the console it really
        does have to survive all six palettes. */

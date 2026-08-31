@@ -1976,9 +1976,23 @@
   color: var(--accent-text);
 }
 
-/* Never observed to end. Amber because it is a gap in the record, not a breach
-   — the row is honest about what was seen and nothing more. */
-.stg-al-pill[data-state="abandoned"] {
+/* Two different meanings, deliberately sharing one paint.
+
+   "abandoned" — never observed to end. Amber because it is a gap in the
+   record, not a breach: the row is honest about what was seen and nothing
+   more.
+
+   "copy" — a full export of the workspace was taken. Amber for the opposite
+   reason: not a gap but the most significant thing that can appear on this
+   page, and the one entry a client should stop and read. It gets its own
+   attribute rather than borrowing "abandoned", because a reader of this
+   stylesheet should not have to know that one word is being used for two
+   unrelated facts.
+
+   Sharing the palette is safe: --warn-fg was deepened on 30 Aug to clear AA
+   against --warn-bg in the light theme, and the other five already passed. */
+.stg-al-pill[data-state="abandoned"],
+.stg-al-pill[data-state="copy"] {
   background: var(--warn-bg);
   border-color: var(--warn-fg);
   color: var(--warn-fg);
