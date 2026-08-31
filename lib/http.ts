@@ -34,7 +34,23 @@ export function isValidEmail(email: string): boolean {
  * a placeholder that reads like a fact.
  */
 export function clientIp(req: Request): string | null {
-  const forwarded = req.headers.get("x-forwarded-for");
+  return forwardedIp((name) => req.headers.get(name));
+}
+
+/**
+ * The same rule, over any header source.
+ *
+ * Exists because not every caller holds a Request. Server components read
+ * headers through `next/headers` instead, and a second hand-written copy of
+ * "which entry of X-Forwarded-For is the client" is how the two would come to
+ * disagree about who is being rate-limited.
+ *
+ * Takes a getter rather than importing `next/headers` here, so this module
+ * stays usable from route handlers, server components and tests alike without
+ * dragging a framework dependency into any of them.
+ */
+export function forwardedIp(get: (name: string) => string | null): string | null {
+  const forwarded = get("x-forwarded-for");
   if (forwarded) {
     const first = forwarded.split(",")[0]?.trim();
     // 45 characters is the longest valid IPv6 text form. This is a bound on
@@ -42,6 +58,6 @@ export function clientIp(req: Request): string | null {
     // consentIp in db/schema.ts for why the value is stored verbatim.
     if (first) return first.slice(0, 45);
   }
-  const real = req.headers.get("x-real-ip")?.trim();
+  const real = get("x-real-ip")?.trim();
   return real ? real.slice(0, 45) : null;
 }
