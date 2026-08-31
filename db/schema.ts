@@ -1479,7 +1479,22 @@ export type AdminActionKind =
   | "workspace_created"
   | "workspace_deleted"
   | "admin_granted"
-  | "admin_revoked";
+  | "admin_revoked"
+  /*
+   * An operator downloaded a client's ENTIRE dataset while inside their
+   * workspace: every ticket, every message, every contact, as JSON.
+   *
+   * It is here rather than in impersonation_reads because it is not a record
+   * being opened, it is all of them leaving at once — and because that table
+   * is keyed on a ticket id, which an export does not have. Recording it as
+   * fifty "conversation opened" rows would be both misleading about what
+   * happened and unbounded in size.
+   *
+   * A CLIENT exporting their own data is not this. That is them exercising
+   * portability and is not logged, the same way their own staff reading their
+   * own inbox is not. This fires only during an impersonation.
+   */
+  | "workspace_exported";
 
 /**
  * WHICH client records an operator actually opened, during an impersonation.

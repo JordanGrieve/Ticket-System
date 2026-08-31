@@ -10,6 +10,7 @@ import {
   readsForSessions,
   type ImpersonationReadRow,
 } from "@/lib/impersonation-reads";
+import { exportsForWorkspace } from "@/lib/admin-audit";
 // The operator console's formatters, imported rather than reimplemented. This
 // screen and app/(admin)/admin/sections.tsx are two views of ONE table, and the
 // client must be able to quote a row back at us and have it match what we see.
@@ -95,6 +96,12 @@ export default async function AccessLogPage() {
   */
   const reads = await readsForSessions(sessions.map((s) => s.id));
 
+  /*
+    Bulk copies of this workspace taken by Postbox. Same tenancy argument as
+    everything else here: the id comes from resolveViewer, never from the URL.
+  */
+  const dataExports = await exportsForWorkspace(workspace.id);
+
   // One clock for the whole list, so no two rows are classified against
   // different instants and land either side of the abandoned threshold.
   const states = sessionStates(sessions);
@@ -169,6 +176,58 @@ export default async function AccessLogPage() {
             )}
           </section>
         </>
+      )}
+
+      {/*
+        Copies of the whole workspace, kept apart from the visit list.
+
+        Not folded into a visit, even though one always happens during one. An
+        export is a different kind of event — the data left our servers in a
+        file rather than being looked at on a screen — and burying it as a line
+        inside a visit would understate it. It is the most significant thing on
+        this page when it has happened at all, so it gets its own heading and
+        sits above the caveats rather than below them.
+
+        Absent entirely when there are none: a permanent empty "no copies
+        taken" section trains the reader to skip the space it occupies, which
+        is the one place on this page that must catch the eye.
+      */}
+      {dataExports.length > 0 && (
+        <section className="stg-section">
+          <h2 className="stg-section-title">Copies taken of all your data</h2>
+          <p className="stg-section-sub">
+            Someone at Postbox downloaded everything this workspace holds &mdash;
+            every conversation, every message, and every contact &mdash; as a
+            single file. This is not a conversation being opened; it is all of
+            them leaving at once.
+          </p>
+          <ol className="stg-al-list">
+            {dataExports.map((e) => (
+              <li key={e.id} className="stg-al-visit">
+                <div className="stg-al-visit-head">
+                  <div className="stg-al-who">
+                    <span className="stg-al-who-email">{e.actorEmail}</span>
+                  </div>
+                  <span className="stg-al-pill" data-state="abandoned">
+                    Full copy taken
+                  </span>
+                </div>
+                <dl className="stg-al-facts">
+                  <div className="stg-al-fact stg-al-fact-wide">
+                    <dt className="stg-al-key">When</dt>
+                    <dd className="stg-al-val">{formatDateTime(e.createdAt)}</dd>
+                  </div>
+                </dl>
+              </li>
+            ))}
+          </ol>
+          <p className="stg-al-note">
+            Ask us what any of these were for. A copy is normally taken to
+            investigate something you reported, and it should match a
+            conversation you have had with us &mdash; if one does not, that is
+            worth raising.
+          </p>
+        </section>
       )}
 
       <section className="stg-section">

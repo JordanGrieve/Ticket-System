@@ -16,7 +16,7 @@ export default function PrivacyPage() {
         Privacy Policy
       </h1>
       <p style={{ color: "var(--muted)", marginTop: 0 }}>
-        Last updated: 30 August 2026
+        Last updated: 31 August 2026
       </p>
 
       <h2 style={h2}>Who is responsible for what</h2>
@@ -126,8 +126,9 @@ export default function PrivacyPage() {
       </p>
       <p>
         Clients can read all of it themselves, for their own workspace, at
-        Settings &rarr; Access log. Three limits are stated there and are
-        repeated here because they change what the record can be relied on for:
+        Settings &rarr; Access log. What it covers and what it does not is
+        stated there, and repeated here because it changes what the record can
+        be relied on for:
       </p>
       <ul>
         <li>
@@ -137,10 +138,20 @@ export default function PrivacyPage() {
           recorded &mdash; which is not the same as none being opened.
         </li>
         <li>
-          It covers <strong>entry by us</strong>, and nothing else. It does not
-          record a client&rsquo;s own team signing in or what they read, it does
-          not cover data reached other than by opening a conversation (a
-          contact&rsquo;s details, a subscriber list, a campaign report), and it
+          It covers <strong>entry by us</strong> and the conversations opened.
+          Since 31 August 2026 it also covers any occasion we took a{" "}
+          <strong>full copy</strong>{" "}
+          of a workspace &mdash; an export of every conversation, message and
+          contact as a single file. Copies are listed separately on that page,
+          because the data left our servers rather than being looked at on a
+          screen; any taken before that date were not recorded.
+        </li>
+        <li>
+          It does <strong>not</strong>{" "}
+          record a client&rsquo;s own team signing
+          in or what they read; it does not cover data reached other than by
+          opening a conversation or taking a full copy (a contact&rsquo;s
+          details on their own, a subscriber list, a campaign report); and it
           cannot cover anything done directly against the database.
         </li>
         <li>

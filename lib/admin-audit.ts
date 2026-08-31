@@ -1,5 +1,5 @@
 import "server-only";
-import { desc, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { adminActions } from "@/db/schema";
 import type { AdminActionKind } from "@/db/schema";
@@ -228,6 +228,46 @@ export async function recentAdminActions(limit = 50): Promise<AdminActionRow[]> 
 }
 
 /** Operator-facing wording. Says what happened, not what the column holds. */
+/**
+ * Bulk copies of ONE workspace's data taken by Postbox, newest first.
+ *
+ * For the client's own access log. Everything else in this module is for the
+ * operator console; this is the one query a tenant is allowed to run against
+ * it, and it is narrow on purpose: one action kind, one workspace, and only
+ * the two facts the client needs — who took a copy and when.
+ *
+ * TENANCY. The caller passes its own workspace id from resolveViewer, and the
+ * predicate is inside this statement rather than applied by the caller. There
+ * is no code path that returns another workspace's rows: `action` is pinned to
+ * the export kind so this cannot be widened by accident into a reader for the
+ * whole platform log, which is what admin_actions mostly holds.
+ */
+export async function exportsForWorkspace(
+  workspaceId: number,
+  limit = 50,
+): Promise<{ id: number; actorEmail: string; createdAt: Date }[]> {
+  try {
+    return await db
+      .select({
+        id: adminActions.id,
+        actorEmail: adminActions.actorEmail,
+        createdAt: adminActions.createdAt,
+      })
+      .from(adminActions)
+      .where(
+        and(
+          eq(adminActions.action, "workspace_exported"),
+          eq(adminActions.targetId, workspaceId),
+        ),
+      )
+      .orderBy(desc(adminActions.createdAt))
+      .limit(limit);
+  } catch (err) {
+    console.error("[admin-audit] could not read the export log:", err);
+    return [];
+  }
+}
+
 export function describeAdminAction(action: AdminActionKind): string {
   switch (action) {
     case "workspace_created":
@@ -238,6 +278,10 @@ export function describeAdminAction(action: AdminActionKind): string {
       return "Granted super-admin";
     case "admin_revoked":
       return "Revoked super-admin";
+    // Not "Exported data" — the noun matters. This is the whole workspace:
+    // every ticket, message and contact, in one file, off our servers.
+    case "workspace_exported":
+      return "Downloaded all client data";
   }
 }
 

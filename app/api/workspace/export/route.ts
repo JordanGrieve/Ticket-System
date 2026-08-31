@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { json } from "@/lib/http";
-import { activeWorkspace } from "@/lib/viewer";
+import { activeWorkspace, currentImpersonation } from "@/lib/viewer";
+import { recordAdminAction } from "@/lib/admin-audit";
 import { exportWorkspaceData } from "@/lib/data";
 import { rateLimitDurable } from "@/lib/rate-limit-store";
 
@@ -32,6 +33,55 @@ export async function GET() {
       { error: "Too many exports. Try again in a minute." },
       { status: 429 },
     );
+  }
+
+  /*
+    If a Postbox operator is doing this, record it BEFORE the data is read.
+
+    ── WHY THIS ENDPOINT NEEDS ITS OWN RECORD ──
+    Everything else an operator can see, they see one screen at a time, and
+    impersonation_reads names the conversations they opened. This hands over
+    the whole workspace in a single request — every ticket, every message,
+    every contact — and until now it left no trace beyond "somebody was in
+    your workspace". A client reading their access log would see a visit with
+    no conversations opened, which is true and gives entirely the wrong
+    impression of what happened.
+
+    ── BEFORE THE READ, AND FAIL-CLOSED ──
+    The opposite choice to impersonation_reads, deliberately. That one is best
+    effort because refusing to render a ticket would break the product
+    mid-investigation over a decorative row. This is a bulk extraction of a
+    client's customer data; if it cannot be recorded, it does not happen. The
+    cost of being wrong here is a failed download and a retry.
+
+    Written before the export runs for the same reason lib/admin-audit.ts
+    writes before a deletion: an export that dies halfway still moved data
+    into somebody's memory, and the log should say it was attempted.
+
+    A CLIENT exporting their own data is not logged — currentImpersonation()
+    is null for them. That is portability, not access by us.
+  */
+  const impersonation = await currentImpersonation();
+  if (impersonation) {
+    try {
+      await recordAdminAction({
+        action: "workspace_exported",
+        actorAdminId: impersonation.session?.adminId ?? null,
+        actorEmail: impersonation.operatorEmail ?? "unknown",
+        targetId: workspace.id,
+        targetLabel: workspace.name,
+      });
+    } catch (err) {
+      console.error("[export] refusing: could not record the export:", err);
+      return json(
+        {
+          error:
+            "Could not record this export in the access log, so it has not " +
+            "been produced. Try again.",
+        },
+        { status: 503 },
+      );
+    }
   }
 
   const data = await exportWorkspaceData(workspace.id);
