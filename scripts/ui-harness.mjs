@@ -132,6 +132,27 @@ const CASES = [
   },
   {
     /*
+     * The "nobody can contact Postbox" banner on the operator overview.
+     *
+     * Rendered here because it is the loudest thing the console can say and I
+     * have never seen it: the console needs an admin login. The question is
+     * whether it reads as an alarm or as another grey caveat card, since it
+     * uses the same .pba-card the informational panels use.
+     */
+    name: "Admin — nobody can contact Postbox (unset POSTBOX_CONTACT_KEY)",
+    css: ["app/admin.css", "app/(admin)/admin/console.css"],
+    wrap: (inner) => `<div class="pba-root" data-theme="dark" style="padding:14px">${inner}</div>`,
+    html: `
+<div class="pba-card" data-alarm>
+  <div class="pba-card-head">
+    <h2 class="pba-card-title">Nobody can contact Postbox right now</h2>
+    <p class="pba-card-sub"><code>POSTBOX_CONTACT_KEY</code> is not set in this deployment, so /contact renders an honest &ldquo;this form isn&rsquo;t connected yet&rdquo; notice instead of a form. Every &ldquo;Get in touch&rdquo; button on the pricing page leads there. Until it is set, the marketing site advertises three plans and offers no way to ask about any of them &mdash; and no enquiry is being lost visibly, because there is nowhere for one to be lost from.</p>
+  </div>
+  <p class="pba-note">To fix it: create a workspace here for Postbox itself, copy its API key, and set <code>POSTBOX_CONTACT_KEY</code> to that value. The page reads the key per request, so it starts working without a rebuild.</p>
+</div>`,
+  },
+  {
+    /*
      * The access log, after the "Records opened" column joined it.
      *
      * A seventh column went into a grid whose template lists its columns by

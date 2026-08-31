@@ -465,15 +465,53 @@
   margin-top: 16px;
 }
 
+/* A card reporting something BROKEN, not something merely worth knowing.
+
+   The console already has a language for this — .pba-chain[data-state="broken"]
+   paints itself with the --pdf pair — so this borrows it rather than inventing
+   a second alarm colour. Used sparingly and on purpose: the overview is mostly
+   caveats about what a number does or does not mean, and a caveat styled as an
+   alarm teaches the reader to ignore alarms.
+
+   The title carries the colour, not the body text: the body is three lines of
+   explanation and coloured prose at that length is harder to read, not more
+   urgent. */
+.pba-root .pba-card[data-alarm] {
+  border-color: var(--pdf-fg);
+  background: var(--pdf-bg);
+}
+
+.pba-root .pba-card[data-alarm] .pba-card-title {
+  color: var(--pdf-fg);
+}
+
+/* The tint costs contrast, so the body ink inside an alarm goes up to match.
+
+   Measured: on a plain card the sub reads 4.97:1 with --muted; the pink ground
+   pulls the same ink down to 4.39:1, which is under AA. --text-2 restores it.
+   Worth stating because it is the trap in tinting any container — the tint is
+   chosen for the border and the heading, and the paragraph inside it silently
+   loses half a point of contrast that nobody re-measures. */
+.pba-root .pba-card[data-alarm] .pba-card-sub,
+.pba-root .pba-card[data-alarm] .pba-note {
+  color: var(--text-2);
+}
+
 .pba-card-title {
   font-size: 14px;
   font-weight: 800;
   margin: 0;
 }
 
+/* --muted, not --muted-2. Measured at 4.35:1 against the console's card ground
+   on the dark theme it always renders in — under AA, and this is the running
+   prose that explains what every panel means rather than a decorative label.
+   --muted is the ink .pba-note already uses for the same job at 4.97:1, so
+   this makes the console's two explanatory styles agree instead of adding a
+   third value. */
 .pba-card-sub {
   font-size: 12.5px;
-  color: var(--muted-2);
+  color: var(--muted);
   margin: 3px 0 0;
   line-height: 1.55;
 }

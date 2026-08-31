@@ -84,6 +84,18 @@ export type ConsoleGates = {
   campaignDeliveryLive: boolean;
   /** SES_SNS_TOPIC_ARN is set, so bounce and complaint feedback is accepted. */
   campaignFeedback: boolean;
+  /**
+   * POSTBOX_CONTACT_KEY is set, so /contact can actually receive an enquiry.
+   *
+   * Here because it is the only gate that breaks something a STRANGER sees.
+   * Every other one degrades a number in this console or a feature a signed-in
+   * client uses; this one silently closes the single route into the business.
+   * The pricing page CTAs all read "Get in touch" and all point at /contact, so
+   * with this unset the marketing site sells three plans and offers no way to
+   * ask about any of them. The page says so honestly to the visitor, which is
+   * the right behaviour and also the reason it can sit like that unnoticed.
+   */
+  contactFormLive: boolean;
 };
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -297,6 +309,47 @@ export function OverviewSection({
 
   return (
     <>
+      {/*
+        ABOVE THE NUMBERS, NOT BESIDE THEM.
+
+        Every other gate warning in this console qualifies a figure and sits
+        next to the figure it qualifies. This one does not qualify anything —
+        it says the front door is locked. postbox.help/pricing sells three
+        plans and every one of its CTAs reads "Get in touch" and points at
+        /contact, so with no key set the marketing site cannot take an enquiry
+        at all.
+
+        It is first on the overview because the failure is invisible from
+        inside: the contact page tells the VISITOR plainly that it is not
+        connected, which is the right thing to tell them and the exact reason
+        nobody here finds out. Six weeks of a broken contact form is how this
+        product lost its first pilot's enquiries, and that is the same shape.
+      */}
+      {!gates.contactFormLive && (
+        <div className="pba-card" data-alarm>
+          <div className="pba-card-head">
+            <h2 className="pba-card-title">
+              Nobody can contact Postbox right now
+            </h2>
+            <p className="pba-card-sub">
+              <code>POSTBOX_CONTACT_KEY</code> is not set in this deployment, so
+              /contact renders an honest &ldquo;this form isn&rsquo;t connected
+              yet&rdquo; notice instead of a form. Every &ldquo;Get in touch&rdquo;
+              button on the pricing page leads there. Until it is set, the
+              marketing site advertises three plans and offers no way to ask
+              about any of them &mdash; and no enquiry is being lost visibly,
+              because there is nowhere for one to be lost from.
+            </p>
+          </div>
+          <p className="pba-note">
+            To fix it: create a workspace here for Postbox itself, copy its API
+            key, and set <code>POSTBOX_CONTACT_KEY</code> to that value. The
+            page reads the key per request, so it starts working without a
+            rebuild.
+          </p>
+        </div>
+      )}
+
       <KpiGrid accounts={accounts} />
       <div className="pba-cols">
         <div className="pba-col-main">

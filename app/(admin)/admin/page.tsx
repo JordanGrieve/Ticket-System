@@ -14,6 +14,7 @@ import {
   listImpersonationSessionsForWorkspace,
 } from "@/lib/impersonation";
 import { readsForSessions } from "@/lib/impersonation-reads";
+import { POSTBOX_CONTACT_KEY } from "@/lib/config";
 import { stripeConfigured, stripePriceId } from "@/lib/stripe";
 import { PLANS } from "@/lib/pricing";
 import {
@@ -240,6 +241,7 @@ export default async function AdminHomePage({
     ),
     campaignDeliveryLive: process.env.CAMPAIGN_DELIVERY_MODE === "ses",
     campaignFeedback: Boolean(process.env.SES_SNS_TOPIC_ARN),
+    contactFormLive: Boolean(POSTBOX_CONTACT_KEY),
   };
 
   const pane = PANE[section];
