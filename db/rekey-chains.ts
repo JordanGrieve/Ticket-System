@@ -67,9 +67,12 @@ import { planRekey, type RekeyableRow } from "../lib/rekey-chain";
  *   3. Read the plan it prints, then commit:
  *        ALLOW_PRODUCTION_DB=1 NEW_CHAIN_SECRET=... npx tsx db/rekey-chains.ts --write
  *
- * NEW_CHAIN_SECRET is read from the environment and never printed. The OLD
- * secret comes from the same variables the app uses, so an unkeyed log needs
- * them simply left unset, which is the situation this was written for.
+ * One value covers both chains; see the note above SHARED for why that is safe
+ * and how to give them separate ones instead.
+ *
+ * The new secrets are read from the environment and never printed. The OLD
+ * ones come from the same variables the app uses, so an unkeyed log needs them
+ * simply left unset, which is the situation this was written for.
  *
  * ── AFTERWARDS ──
  * The secret cannot be rotated again without running this again, and every
@@ -79,36 +82,81 @@ import { planRekey, type RekeyableRow } from "../lib/rekey-chain";
 
 const WRITE = process.argv.includes("--write");
 
-const NEW_SECRET = (process.env.NEW_CHAIN_SECRET ?? "").trim();
-/* The old secrets, read exactly as the app reads them. Empty means unkeyed. */
-const OLD_IMPERSONATION = process.env.IMPERSONATION_CHAIN_SECRET || null;
-const OLD_ADMIN = process.env.ADMIN_ACTION_CHAIN_SECRET || null;
-
 function fail(message: string): never {
   console.error(`\n${message}\n`);
   process.exit(1);
 }
 
-if (NEW_SECRET.length === 0) {
-  fail(
-    "NEW_CHAIN_SECRET is not set.\n\n" +
-      "  Generate one with:  node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"\n" +
-      "  Then set it in Vercel (Production) as BOTH IMPERSONATION_CHAIN_SECRET\n" +
-      "  and ADMIN_ACTION_CHAIN_SECRET before running this.",
-  );
+/*
+  ── ONE SECRET FOR BOTH CHAINS, OR TWO? ──
+
+  Either works. NEW_CHAIN_SECRET sets both; NEW_IMPERSONATION_CHAIN_SECRET and
+  NEW_ADMIN_ACTION_CHAIN_SECRET override it per chain.
+
+  Sharing one is SAFE, and not merely convenient. Reusing an HMAC key across
+  two uses is dangerous when the same message could be valid under both; here
+  it cannot be, because lib/hash-chain.ts puts a domain tag as the FIRST
+  element of every hashed payload — including the genesis anchor — and the two
+  tags differ ("postbox.impersonation-chain.v1" against
+  "postbox.admin-actions-chain.v1"). A row lifted from one table therefore
+  cannot verify against the other's chain whatever the key is, which is the
+  exact condition that makes reuse sound. tests/admin-audit.test.ts already
+  pins that separation.
+
+  What two keys would buy is narrow: it is one more thing to store, and both
+  live in the same application environment anyway, so anyone who can read one
+  can read the other. It does not defend against the threat this exists for —
+  somebody holding only DATABASE_URL — because that person has neither.
+
+  The choice is offered rather than made here because it is a security posture
+  decision, and a script that quietly forced key reuse would be making it
+  invisibly.
+*/
+const SHARED = (process.env.NEW_CHAIN_SECRET ?? "").trim();
+
+function newSecretFor(name: string, specific: string | undefined): string {
+  const value = (specific ?? "").trim() || SHARED;
+
+  if (value.length === 0) {
+    fail(
+      `No new secret for ${name}.\n\n` +
+        "  Generate one with:\n" +
+        "    node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"\n\n" +
+        "  Then either set NEW_CHAIN_SECRET for both chains, or set\n" +
+        "  NEW_IMPERSONATION_CHAIN_SECRET and NEW_ADMIN_ACTION_CHAIN_SECRET\n" +
+        "  separately. Whatever you choose here must match what the deployed\n" +
+        "  app has as IMPERSONATION_CHAIN_SECRET / ADMIN_ACTION_CHAIN_SECRET.",
+    );
+  }
+
+  /*
+    A short secret is worse than none, because it looks like protection: the
+    console would report the log as keyed. 32 characters is the floor; the
+    generator above produces 64.
+  */
+  if (value.length < 32) {
+    fail(
+      `The new secret for ${name} is only ${value.length} characters. Use at least 32.\n` +
+        "An HMAC key short enough to brute-force is worse than no key, because\n" +
+        "the console would report the log as keyed.",
+    );
+  }
+
+  return value;
 }
 
-/*
-  A short secret is worse than none, because it looks like protection. 32 hex
-  characters is 16 bytes; the generator above produces 64.
-*/
-if (NEW_SECRET.length < 32) {
-  fail(
-    `NEW_CHAIN_SECRET is only ${NEW_SECRET.length} characters. Use at least 32.\n` +
-      "An HMAC key short enough to brute-force is worse than no key, because\n" +
-      "the console would report the log as keyed.",
-  );
-}
+const NEW_IMPERSONATION = newSecretFor(
+  "impersonation_sessions",
+  process.env.NEW_IMPERSONATION_CHAIN_SECRET,
+);
+const NEW_ADMIN = newSecretFor(
+  "admin_actions",
+  process.env.NEW_ADMIN_ACTION_CHAIN_SECRET,
+);
+
+/* The old secrets, read exactly as the app reads them. Empty means unkeyed. */
+const OLD_IMPERSONATION = process.env.IMPERSONATION_CHAIN_SECRET || null;
+const OLD_ADMIN = process.env.ADMIN_ACTION_CHAIN_SECRET || null;
 
 /** Report a verification the way the console would, minus the styling. */
 function describe(label: string, v: ChainVerification): void {
@@ -132,13 +180,14 @@ async function rekey<R extends RekeyableRow>(
   genesis: (secret: string | null) => string,
   rowHash: (row: R, prevHash: string, secret: string | null) => string,
   oldSecret: string | null,
+  newSecret: string,
   write: (id: number, prevHash: string, hash: string) => Promise<void>,
 ): Promise<void> {
   console.log(`\n${name}`);
   console.log(`  rows: ${rows.length}`);
   describe("before (old secret)", verify(rows, oldSecret));
 
-  const plan = planRekey({ rows, oldSecret, newSecret: NEW_SECRET, verify, genesis, rowHash });
+  const plan = planRekey({ rows, oldSecret, newSecret, verify, genesis, rowHash });
 
   if (!plan.ok) {
     if (plan.reason === "not_verified") {
@@ -214,6 +263,7 @@ async function main(): Promise<void> {
     impersonationGenesisHash,
     (row, prevHash, secret) => impersonationRowHash(row, prevHash, secret),
     OLD_IMPERSONATION,
+    NEW_IMPERSONATION,
     async (id, prevHash, hash) => {
       await db
         .update(impersonationSessions)
@@ -234,6 +284,7 @@ async function main(): Promise<void> {
     adminActionGenesisHash,
     (row, prevHash, secret) => adminActionRowHash(row, prevHash, secret),
     OLD_ADMIN,
+    NEW_ADMIN,
     async (id, prevHash, hash) => {
       await db
         .update(adminActions)
