@@ -219,7 +219,13 @@
   --text-3: #bdb6d6;
   --text-4: #a9a2c4;
   --muted: #9893ae;
-  --muted-2: #8e88a8;
+  /* Lightened 31 Aug: measured 4.04:1 (dark), 4.39:1 (slate) and 4.37:1
+     (ocean) against the translucent --surface-3, under AA. --surface-3 is a
+     white wash over the panel, which lifts the ground toward the ink, and
+     --muted-2 is the darker of the two muted inks — the one the contrast test
+     did NOT cover until today. It carries the explanatory prose on cards and
+     chips. Least adjustment that clears 4.5. */
+  --muted-2: #9792af;
   --accent-text: #b9a6ff;
   /* Deeper sibling of --accent, same as forest/slate/ocean do it. Dark inherits
      --accent (#6d4aff) from :root because the palette is the same purple, but
@@ -263,7 +269,7 @@
     --text-3: #bdb6d6;
     --text-4: #a9a2c4;
     --muted: #9893ae;
-    --muted-2: #8e88a8;
+    --muted-2: #9792af;
     --accent-text: #b9a6ff;
     --accent-strong: #5636e0;
     --accent-soft: rgba(124, 92, 255, 0.14);
@@ -353,7 +359,7 @@
   --text-3: #c8c4bb;
   --text-4: #b0aca3;
   --muted: #99968f;
-  --muted-2: #96928a;
+  --muted-2: #99958d;
   --accent: #c08a4e;
   --accent-text: #e7b478;
   --accent-strong: #9a6d3b;
@@ -401,7 +407,7 @@
   --text-3: #b8cae6;
   --text-4: #a1b5d4;
   --muted: #8c9bb5;
-  --muted-2: #8797b3;
+  --muted-2: #8b9ab5;
   --accent: #2e6be6;
   --accent-text: #9cc4ff;
   --accent-strong: #2354b8;

@@ -211,8 +211,20 @@ describe("muted text clears AA in every theme", () => {
     return m ? m[1]!.trim() : null;
   }
 
+  /*
+    Both muted inks, not just the first.
+
+    --muted was covered here and --muted-2 was not, and --muted-2 is the darker
+    of the pair — so the ONE that was checked was the one more likely to pass.
+    It cost a real bug: .pba-card-sub carries --muted-2 and measured 4.35:1 on
+    the operator console cards, under AA, on the dark theme that console always
+    renders in. Found by hand on 31 Aug while measuring something else.
+  */
+  const MUTED_INKS = ["--muted", "--muted-2"] as const;
+
   for (const palette of PALETTES) {
-    it(`${palette.name} --muted on the translucent --surface-3`, () => {
+    for (const ink of MUTED_INKS) {
+    it(`${palette.name} ${ink} on the translucent --surface-3`, () => {
       const raw = rawToken(palette.selector, "--surface-3");
       if (!raw) return; // palette inherits one already checked
 
@@ -232,15 +244,16 @@ describe("muted text clears AA in every theme", () => {
       const ground = raw.startsWith("#") ? parseHex(raw) : composite(raw, base!);
       expect(ground, `could not resolve --surface-3 ("${raw}")`).not.toBeNull();
 
-      const fg = parseHex(rawToken(palette.selector, "--muted") ?? "");
-      expect(fg, "could not resolve --muted").not.toBeNull();
+      const fg = parseHex(rawToken(palette.selector, ink) ?? "");
+      expect(fg, `could not resolve ${ink}`).not.toBeNull();
 
       const ratio = contrastRatio(fg!, ground!);
       expect(
         ratio,
-        `${palette.name} --muted measures ${ratio.toFixed(2)}:1 on --surface-3 — AA needs ${MIN_CONTRAST}`,
+        `${palette.name} ${ink} measures ${ratio.toFixed(2)}:1 on --surface-3 — AA needs ${MIN_CONTRAST}`,
       ).toBeGreaterThanOrEqual(MIN_CONTRAST);
     });
+    }
   }
 
   it("still measures something rather than passing on an empty set", () => {
