@@ -60,6 +60,38 @@ const PALETTES: { name: string; selector: string; grounds: string[] }[] = [
   { name: "ocean", selector: '[data-theme="ocean"] {', grounds: ["--surface", "--surface-2", "--panel"] },
 ];
 
+/*
+  Module scope, not inside one describe.
+
+  Both of these were declared inside the muted-text block, which meant the
+  focus-ring checks added later could not see them — and the obvious repair,
+  a second copy, is how two definitions of "composite an rgba ground" come to
+  disagree. One definition, used by every block below.
+*/
+function composite(overlay: string, base: NonNullable<ReturnType<typeof parseHex>>) {
+  const m =
+    /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,/\s]+([\d.]+))?\s*\)/.exec(
+      overlay,
+    );
+  if (!m) return null;
+  const a = m[4] === undefined ? 1 : Number(m[4]);
+  const mix = (c: number, b: number) => c * a + b * (1 - a);
+  return {
+    r: mix(Number(m[1]), base.r),
+    g: mix(Number(m[2]), base.g),
+    b: mix(Number(m[3]), base.b),
+  };
+}
+
+/** Raw declaration text, so an rgba() value survives to be composited. */
+function rawToken(selector: string, name: string): string | null {
+  const at = CSS.indexOf(selector);
+  if (at === -1) return null;
+  const block = CSS.slice(at, CSS.indexOf("\n}", at));
+  const m = new RegExp(`${name}:\\s*([^;]+);`).exec(block);
+  return m ? m[1]!.trim() : null;
+}
+
 describe("muted text clears AA in every theme", () => {
   for (const palette of PALETTES) {
     for (const name of ["--muted", "--muted-2"]) {
@@ -187,29 +219,7 @@ describe("muted text clears AA in every theme", () => {
    * Skipping a ground because it is awkward to parse is how a test reports
    * green on the exact pairing that fails, so it is composited here instead.
    */
-  function composite(overlay: string, base: NonNullable<ReturnType<typeof parseHex>>) {
-    const m =
-      /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,/\s]+([\d.]+))?\s*\)/.exec(
-        overlay,
-      );
-    if (!m) return null;
-    const a = m[4] === undefined ? 1 : Number(m[4]);
-    const mix = (c: number, b: number) => c * a + b * (1 - a);
-    return {
-      r: mix(Number(m[1]), base.r),
-      g: mix(Number(m[2]), base.g),
-      b: mix(Number(m[3]), base.b),
-    };
-  }
 
-  /** Raw declaration text, so an rgba() value survives to be composited. */
-  function rawToken(selector: string, name: string): string | null {
-    const at = CSS.indexOf(selector);
-    if (at === -1) return null;
-    const block = CSS.slice(at, CSS.indexOf("\n}", at));
-    const m = new RegExp(`${name}:\\s*([^;]+);`).exec(block);
-    return m ? m[1]!.trim() : null;
-  }
 
   /*
     Both muted inks, not just the first.
@@ -262,4 +272,65 @@ describe("muted text clears AA in every theme", () => {
     expect(parseHex(token('[data-theme="light"] {', "--muted"))).not.toBeNull();
     expect(PALETTES.length).toBeGreaterThanOrEqual(5);
   });
+});
+
+/**
+ * The keyboard focus ring, held to a different standard from text.
+ *
+ * WCAG 1.4.11 asks a non-text indicator to reach 3:1 against ADJACENT colours,
+ * not the 4.5:1 the rest of this file checks. Painted with --accent directly it
+ * measured 2.64:1 (dark) and 2.68:1 (ocean) against --surface-3 — the ground
+ * inputs, chips and cards sit on, so exactly the surface a keyboard user tabs
+ * across. Light, forest and slate passed, which is why it read as fine.
+ *
+ * --surface-3 is included deliberately: it is the least forgiving ground and
+ * the one the earlier version of this file had to composite by hand, so it is
+ * the ground most likely to be left out of a check written quickly.
+ */
+describe("the focus ring clears 3:1 on the grounds it is drawn over", () => {
+  const MIN_NON_TEXT = 3;
+  const RING_GROUNDS = ["--surface", "--surface-3", "--nav"];
+
+  for (const palette of PALETTES) {
+    for (const ground of RING_GROUNDS) {
+      it(`${palette.name} focus ring on ${ground}`, () => {
+        /*
+          --focus-ring where a palette declares one, --accent otherwise. That
+          fallback is the same one the CSS uses, so this measures what is
+          actually painted rather than what a palette happens to name.
+        */
+        let ringRaw: string;
+        try {
+          ringRaw = rawToken(palette.selector, "--focus-ring") ?? "";
+        } catch {
+          ringRaw = "";
+        }
+        if (!ringRaw) {
+          ringRaw =
+            rawToken(palette.selector, "--accent") ??
+            rawToken(":root,", "--accent") ??
+            "";
+        }
+        const ring = parseHex(ringRaw);
+        expect(ring, `could not resolve a focus ring for ${palette.name}`).not.toBeNull();
+
+        const base =
+          parseHex(rawToken(palette.selector, "--panel") ?? "") ??
+          parseHex(rawToken(palette.selector, "--surface") ?? "");
+        const raw = rawToken(palette.selector, ground);
+        if (!raw) return; // not declared in this palette; it inherits one checked already
+
+        // Throws rather than skipping: a ground that cannot be read is a broken
+        // test, not an absent problem. Same rule as the --surface-3 block above.
+        const bg = raw.startsWith("#") ? parseHex(raw) : composite(raw, base!);
+        expect(bg, `could not resolve ${ground} ("${raw}")`).not.toBeNull();
+
+        const ratio = contrastRatio(ring!, bg!);
+        expect(
+          ratio,
+          `${palette.name} focus ring measures ${ratio.toFixed(2)}:1 on ${ground} — WCAG 1.4.11 needs ${MIN_NON_TEXT}`,
+        ).toBeGreaterThanOrEqual(MIN_NON_TEXT);
+      });
+    }
+  }
 });

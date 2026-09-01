@@ -202,6 +202,10 @@
   Both selectors carry the same declarations via a shared custom-property set.
 */
 [data-theme="dark"] {
+  /* The ring only. --accent is inherited from :root and is unchanged; painted
+     as a focus ring on --surface-3 it measured 2.64:1, under the 3:1 WCAG
+     1.4.11 needs for a non-text indicator. 3.16:1 at this value. */
+  --focus-ring: #7c5dff;
   --label-bg-l: 0.30;
   --label-fg-l: 0.84;
   --page-grad: linear-gradient(135deg, #141126 0%, #1c1830 50%, #241d3e 100%);
@@ -409,6 +413,9 @@
   --muted: #8c9bb5;
   --muted-2: #8b9ab5;
   --accent: #2e6be6;
+  /* The ring only. As --accent it measured 2.68:1 on --surface-3, under the
+     3:1 WCAG 1.4.11 needs for a non-text indicator. 3.16:1 at this value. */
+  --focus-ring: #4279e8;
   --accent-text: #9cc4ff;
   --accent-strong: #2354b8;
   --accent-grad: linear-gradient(145deg, #4576c2, #2e6be6);
@@ -529,12 +536,29 @@ input:focus {
   animation: pb-fade-up 0.16s ease-out;
 }
 
-/* Keyboard users get a visible focus ring (mouse clicks stay clean). */
+/* Keyboard users get a visible focus ring (mouse clicks stay clean).
+
+   ── SELECT AND [tabindex] ARE IN THE LIST ──
+   They were not. A <select> or a roving-tabindex element got the browser
+   default ring, which is the one this rule exists to replace.
+
+   ── WHY --focus-ring RATHER THAN --accent ──
+   The ring is held to WCAG 1.4.11 (3:1 against ADJACENT colours), which is a
+   different requirement from the ones --accent is chosen for. Painted with
+   --accent directly it measured 2.64:1 (dark) and 2.68:1 (ocean) against
+   --surface-3 — the ground that inputs, chips and cards sit on, so precisely
+   the surface a keyboard user is tabbing across. Light, forest and slate
+   passed, which is why it read as fine.
+
+   Splitting the token also stops the next accent tweak silently re-breaking
+   the ring: the ring has its own name and its own test now. */
 a:focus-visible,
 button:focus-visible,
+select:focus-visible,
 input:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid var(--accent, #d6552f);
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--accent, #d6552f));
   outline-offset: 2px;
   border-radius: 6px;
 }
