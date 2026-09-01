@@ -76,6 +76,14 @@ export async function POST(
   for (const [bucket, opts] of buckets) {
     const limit = await rateLimitDurable(bucket, opts);
     if (!limit.ok) {
+      // Same reasoning as the twin in /api/tickets/[id]: a 429 here may be
+      // refusing somebody who genuinely wanted to subscribe, and a signup lost
+      // this way leaves no trace on either side.
+      await recordIngestionFailure({
+        reason: "rate_limited",
+        key,
+        workspaceId: workspace.id,
+      });
       return json(
         { ok: false, error: "Too many requests. Please try again shortly." },
         {

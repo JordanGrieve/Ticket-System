@@ -67,6 +67,25 @@ export async function POST(
       ? await rateLimitDurable(bucket, opts)
       : await rateLimitDurable(bucket);
     if (!limit.ok) {
+      /*
+        Recorded, because this is the one rejection that may be turning away a
+        REAL customer.
+
+        Every other reason in this log means the caller sent something wrong.
+        This one means they might have sent something perfectly good and we
+        refused it — a client whose form is being hammered, or retried by a
+        broken script, has enquiries bouncing off a 429 while the sender reads
+        "try again shortly". Unlogged, that is invisible from both ends, which
+        is the bakery failure with a different cause.
+
+        The workspace is known here (the key resolved above), so the console can
+        say WHOSE form is being throttled rather than only that something was.
+      */
+      await recordIngestionFailure({
+        reason: "rate_limited",
+        key: apiKey,
+        workspaceId: workspace.id,
+      });
       return json(
         { ok: false, error: "Too many requests. Please try again shortly." },
         {

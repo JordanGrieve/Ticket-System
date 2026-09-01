@@ -1305,7 +1305,7 @@ export const ingestionFailures = pgTable(
   "ingestion_failures",
   {
     id: serial("id").primaryKey(),
-    /** invalid_key | missing_fields | invalid_email | honeypot */
+    /** invalid_key | missing_fields | invalid_email | honeypot | rate_limited */
     reason: text("reason").$type<IngestionFailureReason>().notNull(),
     /** First 16 chars of the attempted key. Recognisable, not reusable. */
     keyPrefix: text("key_prefix").notNull(),
@@ -1335,7 +1335,22 @@ export type IngestionFailureReason =
   | "invalid_key"
   | "missing_fields"
   | "invalid_email"
-  | "honeypot";
+  | "honeypot"
+  /*
+   * The request was refused for arriving too fast.
+   *
+   * The odd one out here, and the reason it belongs: every other reason means
+   * the caller sent something wrong. This one means the caller may have sent
+   * something perfectly good and we turned it away — a client whose form is
+   * being hammered, or retried by a broken script, is having REAL enquiries
+   * rejected with a 429 while the customer reads "try again shortly".
+   *
+   * Unlogged, that is invisible from both ends: the client sees no enquiry and
+   * no error, and the console shows nothing. Which is the bakery failure with
+   * a different cause — silent rejection of real customers — and the reason
+   * this table exists at all.
+   */
+  | "rate_limited";
 
 /**
  * Bounces and complaints that could not be attributed to a workspace.

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Admin, ImpersonationEnd, ImpersonationSession } from "@/db/schema";
 import type { WorkspaceSummary } from "@/lib/data";
 import type { IngestionFailureRow } from "@/lib/ingestion-log";
+import type { IngestionFailureReason } from "@/db/schema";
 import { describeDropReason, type FeedbackDropRow } from "@/lib/feedback-log";
 import {
   describeAdminAction,
@@ -957,11 +958,18 @@ export function BillingSection({
  * Why a submission was turned away, in the operator’s words rather than the
  * code’s. "invalid_key" is what the column holds; this is what it means.
  */
-const REJECTION_LABELS: Record<string, string> = {
+const REJECTION_LABELS: Record<IngestionFailureReason, string> = {
   invalid_key: "Key not recognised",
   missing_fields: "Incomplete submission",
   invalid_email: "Bad email address",
   honeypot: "Caught by spam trap",
+  /*
+   * Deliberately not "Rate limited", which describes our machinery rather than
+   * what happened to the person. This is the only row in this table that may
+   * mean a REAL enquiry was turned away, so it should read as a problem to look
+   * at rather than as a defence working correctly.
+   */
+  rate_limited: "Turned away — too many, too fast",
 };
 
 export function DeliverabilitySection({
