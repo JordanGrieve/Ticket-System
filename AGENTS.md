@@ -93,8 +93,12 @@ SETTINGS_HARNESS_OUT=$PWD/public/_sh npx vitest run tests/settings-views-render
 ```
 
 Then open `/_sh/themes.html?theme=slate` on the dev server and call
-`__selftest()`, `__overflow()`, `__contrast()`, `__targets()` and
-`__flexSentences()`. The `public/_*` directories are gitignored; delete them
+`__audit()`, or any probe on its own: `__selftest()`, `__overflow()` (1.4.10),
+`__contrast()` (1.4.3), `__targets()` (2.5.8), `__flexSentences()`,
+`__names()` (1.1.1, 2.4.4, 4.1.2), `__headings()` (1.3.1), `__structure()`
+(3.1.1, 2.4.2, duplicate ids, focusables inside aria-hidden, positive
+tabindex), `__textSpacing()` (1.4.12), `__textZoom()` (1.4.4) and
+`__focusVisible()` (2.4.7). The `public/_*` directories are gitignored; delete them
 when you are done.
 
 **A prop-driven component is not required.** `/subscribers` is an async server
@@ -105,6 +109,29 @@ renderable until you have tried awaiting it.
 
 ## The rules these harnesses were built on
 
+- **A skeleton will pass every check you have.** This is the worst one, because
+  it reports success. Every route has a `loading.tsx`, React does not commit
+  the swap while the document is hidden, and a browser pane driven by tooling
+  is ALWAYS hidden — so probes measure placeholder bars, which have no text to
+  fail a contrast check and no controls to fail a target check. A full sweep of
+  the public pages came back perfectly clean this way. Skeletons are excluded
+  from every probe now (`inSkeleton`), and `__ready()` reports what it waited
+  for, so "could not measure" and "clean" cannot look the same. If you write a
+  new probe, exclude them.
+- **Do not poll in a hidden pane.** Timers are throttled hard, so a
+  `setTimeout` loop that should take five seconds can outlive the tool's
+  timeout. Harness pages are static and need no wait at all; call the probes
+  directly.
+- **`:focus` does not match when the document lacks focus**, which it always
+  does here — `el.focus()` sets `activeElement` and nothing else changes. A
+  probe that compared styles before and after reported fourteen failures on a
+  page whose focus styles were fine. `__focusVisible()` refuses to answer
+  instead, and the ring's coverage is guarded from the stylesheet in
+  `tests/focus-ring-coverage.test.ts`.
+- **Transparent text is not always invisible text.** `background-clip: text`
+  with a gradient computes `color` to `rgba(0,0,0,0)`, which reads as 1:1
+  against anything. The hero headline was reported that way. Measure the
+  gradient stops.
 - **Never inject markup into a page you are measuring.** Replacing
   `document.body.innerHTML` to loop over views reported inbox card names at
   1.12:1 — invisible text nobody had noticed, because it was not real.
