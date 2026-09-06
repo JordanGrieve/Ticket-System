@@ -54,15 +54,39 @@ export default function SheetGrip({
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
 
-  const end = useCallback(() => {
-    if (startY.current === null) return;
-    const travelled = offset;
+  /**
+   * Put the sheet back where it started and forget the gesture.
+   *
+   * Shared by a deliberate release and an interrupted one; only the release
+   * path is allowed to close.
+   */
+  const settle = useCallback(() => {
     startY.current = null;
     setDragging(false);
     setOffset(0);
     onOffset(0);
+  }, [onOffset]);
+
+  /** The user let go. Distance decides. */
+  const release = useCallback(() => {
+    if (startY.current === null) return;
+    const travelled = offset;
+    settle();
     if (shouldCloseOnRelease(travelled)) onClose();
-  }, [offset, onClose, onOffset]);
+  }, [offset, onClose, settle]);
+
+  /**
+   * The gesture was TAKEN AWAY — an incoming call, a system edge-swipe, the
+   * browser deciding the pointer is now doing something else.
+   *
+   * Never closes, however far the sheet had travelled. This shared an
+   * implementation with release until a test dispatched pointercancel after a
+   * 150px drag and watched the sheet dismiss: an interruption the user did not
+   * choose was silently being read as the dismissal they did not ask for.
+   */
+  const cancel = useCallback(() => {
+    settle();
+  }, [settle]);
 
   return (
     <div
@@ -92,8 +116,8 @@ export default function SheetGrip({
         setOffset(next);
         onOffset(next);
       }}
-      onPointerUp={end}
-      onPointerCancel={end}
+      onPointerUp={release}
+      onPointerCancel={cancel}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();

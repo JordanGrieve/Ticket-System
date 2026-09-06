@@ -32,6 +32,25 @@ export default defineConfig({
      * is why the expected-fail total read 3 instead of 1.
      */
     exclude: [...configDefaults.exclude, "**/.claude/**"],
+
+    /*
+      A DOM, but only for the files that ask for it.
+
+      Most of this suite is pure functions and source assertions, and it runs
+      in a few hundred milliseconds precisely because it never builds a
+      document. Setting environment: "happy-dom" globally would put every one
+      of those behind a DOM construction they do not use.
+
+      So the default stays node and a file opts in with a docblock pragma:
+
+        // @vitest-environment happy-dom
+
+      Added because three interaction components — SheetGrip, DragScroller,
+      DismissibleNotice — shipped having never been executed. Their maths was
+      extracted and tested; setPointerCapture, click suppression and the
+      storage round-trip were reasoned about and nothing more. That is the gap
+      this closes.
+    */
   },
   resolve: {
     /*
