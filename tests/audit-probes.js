@@ -10,11 +10,31 @@
   broken element and confirm each one reports it.
 */
 
+/*
+  Is this element part of a loading skeleton rather than the page?
+
+  ── WHY THIS EXISTS ──
+  A streamed Next route keeps its loading.tsx skeleton in the DOM alongside the
+  real content until React commits the swap, and React defers that work while
+  the document is hidden — which a browser pane driven by a tool usually is. So
+  "wait for the skeleton to go" can wait forever, on a page whose real content
+  is already sitting right there.
+
+  Measuring the skeleton is worse than waiting: it has real geometry and real
+  colours, so it produces a confident, entirely fictional report. Excluding it
+  is both correct and sufficient — the placeholder is decorative by
+  construction, and its insides are aria-hidden.
+*/
+function inSkeleton(el) {
+  return !!(el.closest && el.closest('[aria-busy="true"], .pbk'));
+}
+
 window.__overflow = function () {
   const vw = document.documentElement.clientWidth;
   const clipped = [];
   const loose = [];
   document.querySelectorAll("*").forEach((el) => {
+    if (inSkeleton(el)) return;
     const r = el.getBoundingClientRect();
     if (r.width === 0) return;
     if (r.right <= vw + 1 && r.left >= -1) return;
@@ -119,6 +139,7 @@ const ground = (el) => {
 window.__contrast = function () {
   const out = [];
   document.querySelectorAll("*").forEach((el) => {
+    if (inSkeleton(el)) return;
     const hasText = [...el.childNodes].some(
       (n) => n.nodeType === 3 && n.textContent.trim().length > 1,
     );
@@ -136,6 +157,47 @@ window.__contrast = function () {
     const cs = getComputedStyle(el);
     if (cs.visibility === "hidden" || cs.opacity === "0") return;
     if (cs.clipPath === "inset(50%)" || cs.clip === "rect(0px, 0px, 0px, 0px)") return;
+
+    /*
+      ── GRADIENT TEXT IS NOT TRANSPARENT TEXT ──
+      The homepage paints its hero emphasis with `background-clip: text` and a
+      transparent fill, so `color` computes to rgba(0,0,0,0). Read naively that
+      is text the same colour as its background, and this probe duly reported
+      the h1 at 1:1 — a headline anyone can see perfectly well.
+
+      What a reader actually sees is the gradient. Each stop is measured
+      against the ground and the WORST one is used, since the text spans all of
+      them. Same approach as the --accent-grad guard in the contrast test.
+    */
+    const clip = cs.webkitBackgroundClip || cs.backgroundClip;
+    const fill = cs.webkitTextFillColor || cs.color;
+    const isGradientText =
+      clip === "text" && parse(fill) && parse(fill).a === 0 && /gradient/.test(cs.backgroundImage);
+    if (isGradientText) {
+      const bgForText = ground(el.parentElement || el);
+      const stops = (cs.backgroundImage.match(/rgba?\([^)]*\)|#[0-9a-f]{3,8}/gi) || [])
+        .map(parse)
+        .filter(Boolean);
+      // A gradient whose stops cannot be read is a broken check, not a pass.
+      if (stops.length === 0) throw new Error("gradient text with no readable stops: " + cs.backgroundImage);
+      const px2 = parseFloat(cs.fontSize);
+      const bold2 = parseInt(cs.fontWeight, 10) >= 700;
+      const need2 = px2 >= 24 || (px2 >= 18.66 && bold2) ? 3 : 4.5;
+      let worst = Infinity;
+      for (const stop of stops) worst = Math.min(worst, ratio(over(stop, bgForText), bgForText));
+      if (worst < need2) {
+        out.push({
+          cls: (el.className || el.tagName).toString().slice(0, 34),
+          text: el.textContent.trim().slice(0, 40),
+          px: Math.round(px2 * 10) / 10,
+          got: Math.round(worst * 100) / 100,
+          need: need2,
+          note: "gradient text, worst stop",
+        });
+      }
+      return;
+    }
+
     const fgRaw = parse(cs.color);
     // Never `if (!x) return` in a check: a colour that cannot be read is a
     // broken probe, not an absent problem.
@@ -165,6 +227,7 @@ window.__targets = function () {
   const sel =
     'a,button,input:not([type="hidden"]),select,textarea,summary,[role="button"],[tabindex]:not([tabindex="-1"])';
   const els = [...document.querySelectorAll(sel)].filter((e) => {
+    if (inSkeleton(e)) return false;
     const r = e.getBoundingClientRect();
     return r.width > 0 && r.height > 0;
   });
@@ -278,6 +341,7 @@ window.__targets = function () {
 window.__flexSentences = function () {
   const out = [];
   document.querySelectorAll("*").forEach((el) => {
+    if (inSkeleton(el)) return;
     const cs = getComputedStyle(el);
     if (cs.display !== "flex" && cs.display !== "inline-flex") return;
     if (cs.flexWrap !== "nowrap") return;
@@ -384,4 +448,328 @@ window.__selftest = function () {
   row.remove();
 
   return { sawOverflow, sawContrast, sawTarget, sawFlexSentence };
+};
+
+/* ────────────────────────────────────────────────────────────────────────
+   THE REST OF WCAG 2.2 AA THAT A MACHINE CAN ACTUALLY DECIDE
+
+   The probes above cover 1.4.3 (contrast), 1.4.10 (reflow), 2.5.8 (target
+   size) and the flex-sentence clipping 1.4.10 lets through. What follows is
+   the rest of the AA set that can be judged from the DOM.
+
+   Deliberately NOT attempted, because a pass would be a lie: whether alt text
+   DESCRIBES its image (1.1.1), whether a heading is the right heading (2.4.6),
+   whether an error message helps (3.3.3), whether focus ORDER is logical
+   (2.4.3). Those need a person. This reports the mechanical half and claims
+   nothing about the rest.
+   ──────────────────────────────────────────────────────────────────────── */
+
+/** 1.1.1, 2.4.4, 4.1.2 — everything interactive or informative has a name. */
+window.__names = function () {
+  const out = [];
+
+  const nameOf = (el) => {
+    const label = el.getAttribute("aria-label");
+    if (label && label.trim()) return label.trim();
+
+    const by = el.getAttribute("aria-labelledby");
+    if (by) {
+      const text = by
+        .split(/\s+/)
+        .map((id) => (document.getElementById(id) || {}).textContent || "")
+        .join(" ")
+        .trim();
+      if (text) return text;
+    }
+
+    if (el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA") {
+      if (el.id) {
+        const lab = document.querySelector("label[for='" + CSS.escape(el.id) + "']");
+        if (lab && lab.textContent.trim()) return lab.textContent.trim();
+      }
+      const wrapping = el.closest("label");
+      if (wrapping && wrapping.textContent.trim()) return wrapping.textContent.trim();
+      const ph = el.getAttribute("placeholder");
+      // A placeholder is NOT a label — it vanishes the moment you type — but
+      // it does identify the field, so it is reported as weak rather than
+      // missing. Same for title.
+      if (ph && ph.trim()) return { weak: ph.trim(), via: "placeholder" };
+    }
+
+    if (el.tagName === "IMG") {
+      const alt = el.getAttribute("alt");
+      return alt === null ? null : alt; // "" is a valid decorative alt
+    }
+
+    const text = (el.textContent || "").trim();
+    if (text) return text;
+
+    const titled = el.getAttribute("title");
+    if (titled && titled.trim()) return { weak: titled.trim(), via: "title" };
+
+    return null;
+  };
+
+  const sel =
+    'a[href],button,input:not([type="hidden"]),select,textarea,img,[role="button"],[role="link"]';
+  document.querySelectorAll(sel).forEach((el) => {
+    if (el.closest("[aria-hidden='true']")) return;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0 && el.tagName !== "INPUT") return;
+
+    const name = nameOf(el);
+    const where = (el.className || "").toString().slice(0, 34);
+    if (name === null) {
+      out.push({ problem: "no accessible name", tag: el.tagName, cls: where });
+    } else if (typeof name === "object") {
+      out.push({ problem: "named only by " + name.via, tag: el.tagName, cls: where, name: name.weak });
+    }
+  });
+  return out;
+};
+
+/** 1.3.1 — heading levels describe a structure, not a font size. */
+window.__headings = function () {
+  const hs = [...document.querySelectorAll("h1,h2,h3,h4,h5,h6")].filter(
+    (h) => !h.closest("[aria-hidden='true']") && h.getBoundingClientRect().height > 0,
+  );
+  const levels = hs.map((h) => ({
+    level: Number(h.tagName[1]),
+    text: h.textContent.trim().slice(0, 40),
+  }));
+  const problems = [];
+  if (levels.length === 0) return { levels, problems: ["no headings on the page"] };
+
+  const h1s = levels.filter((l) => l.level === 1);
+  if (h1s.length === 0) problems.push("no h1");
+  if (h1s.length > 1) problems.push(h1s.length + " h1s");
+
+  for (let i = 1; i < levels.length; i++) {
+    if (levels[i].level - levels[i - 1].level > 1) {
+      problems.push(
+        "jumps h" + levels[i - 1].level + " to h" + levels[i].level + ' at "' + levels[i].text + '"',
+      );
+    }
+  }
+  return { levels, problems };
+};
+
+/** 3.1.1, 2.4.2, 4.1.2 — structural mistakes that break assistive tech. */
+window.__structure = function () {
+  const problems = [];
+
+  // Focusable inside aria-hidden: reachable by tab, invisible to a reader.
+  // The reader announces nothing while focus sits on it.
+  document.querySelectorAll("[aria-hidden='true']").forEach((h) => {
+    const focusable = h.querySelectorAll(
+      'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
+    );
+    for (const f of focusable) {
+      problems.push(
+        "focusable " + f.tagName.toLowerCase() + " inside aria-hidden " +
+          (h.className || "").toString().slice(0, 30),
+      );
+    }
+  });
+
+  // A duplicate id breaks every label-for and aria-labelledby aimed at it.
+  const seen = new Map();
+  document.querySelectorAll("[id]").forEach((el) => seen.set(el.id, (seen.get(el.id) || 0) + 1));
+  for (const [id, n] of seen) if (n > 1) problems.push('id "' + id + '" used ' + n + " times");
+
+  // A positive tabindex reorders the entire page around one element.
+  document.querySelectorAll("[tabindex]").forEach((el) => {
+    const t = Number(el.getAttribute("tabindex"));
+    if (t > 0) problems.push("positive tabindex=" + t + " on " + el.tagName.toLowerCase());
+  });
+
+  return {
+    lang: document.documentElement.getAttribute("lang"), // 3.1.1
+    title: document.title || null, // 2.4.2
+    problems,
+  };
+};
+
+/**
+ * 2.4.7 Focus Visible — focusing a control changes how it looks.
+ *
+ * Focuses each one in turn and compares outline, shadow, border and
+ * background before and after. A control that looks identical when focused
+ * cannot be tracked by anyone navigating with a keyboard.
+ */
+window.__focusVisible = function () {
+  const out = [];
+  const sel =
+    'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])';
+  const wasActive = document.activeElement;
+
+  /*
+    ── WITHOUT DOCUMENT FOCUS THIS MEASURES NOTHING ──
+    :focus only matches while the DOCUMENT itself has focus. In a browser pane
+    that is hidden or not frontmost, el.focus() sets document.activeElement and
+    :focus still does not match — so every control looks identical before and
+    after, and this probe reported fourteen failures on a page whose focus
+    styles are fine.
+
+    "Cannot measure" and "fails" must never come back looking the same, so it
+    refuses rather than guessing. Bring the pane forward to get a real answer;
+    the ring's CONTRAST is separately guarded, without a browser, in
+    tests/contrast-tokens.test.ts.
+  */
+  if (!document.hasFocus()) {
+    return { measurable: false, why: "the document does not have focus, so :focus never matches" };
+  }
+
+  const snap = (el) => {
+    const cs = getComputedStyle(el);
+    return [
+      cs.outlineStyle,
+      cs.outlineWidth,
+      cs.outlineColor,
+      cs.outlineOffset,
+      cs.boxShadow,
+      cs.borderColor,
+      cs.backgroundColor,
+    ].join("|");
+  };
+
+  document.querySelectorAll(sel).forEach((el) => {
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return;
+    if (el.closest("[aria-hidden='true']")) return;
+    const before = snap(el);
+    el.focus();
+    if (snap(el) === before) {
+      out.push({
+        tag: el.tagName,
+        cls: (el.className || "").toString().slice(0, 38),
+        text: (el.textContent || "").trim().slice(0, 24),
+      });
+    }
+  });
+
+  if (wasActive && wasActive.focus) wasActive.focus();
+  return out;
+};
+
+/**
+ * 1.4.12 Text Spacing — the page survives a reader's own spacing.
+ *
+ * Applies exactly what the criterion names — line height 1.5em, letter
+ * spacing 0.12em, word spacing 0.16em, paragraph spacing 2em — then looks for
+ * text now clipped by a fixed height. Restores afterwards.
+ */
+window.__textSpacing = function () {
+  const style = document.createElement("style");
+  style.textContent =
+    "* { line-height: 1.5em !important; letter-spacing: 0.12em !important;" +
+    " word-spacing: 0.16em !important; }\np { margin-bottom: 2em !important; }";
+  document.head.appendChild(style);
+  void document.body.offsetHeight;
+
+  const clipped = [];
+  document.querySelectorAll("*").forEach((el) => {
+    if (inSkeleton(el)) return;
+    // The visually-hidden idiom is a 1px box on purpose. Reporting it as
+    // "clipped" is reporting that screen-reader text is not on screen.
+    const box = el.getBoundingClientRect();
+    if (box.width <= 1 || box.height <= 1) return;
+    const cs = getComputedStyle(el);
+    if (cs.overflow === "visible" && cs.overflowY === "visible") return;
+    // A box that is MEANT to scroll is not clipping anything.
+    if (cs.overflowY === "auto" || cs.overflowY === "scroll") return;
+    const hasText = [...el.childNodes].some(
+      (n) => n.nodeType === 3 && n.textContent.trim().length > 1,
+    );
+    if (!hasText) return;
+    if (el.scrollHeight > el.clientHeight + 2) {
+      clipped.push({
+        cls: (el.className || el.tagName).toString().slice(0, 38),
+        text: el.textContent.replace(/\s+/g, " ").trim().slice(0, 44),
+        scroll: el.scrollHeight,
+        client: el.clientHeight,
+      });
+    }
+  });
+
+  style.remove();
+  void document.body.offsetHeight;
+  return clipped;
+};
+
+/**
+ * Wait until the page is the PAGE, not its skeleton.
+ *
+ * ── THIS INVALIDATED A WHOLE SWEEP ──
+ * Every route has a loading.tsx now, so a slow render shows a skeleton with
+ * real geometry, real colours and no headings. Probes run against that come
+ * back beautifully clean — no contrast failures, no small targets, no
+ * overflow — because a placeholder has nothing to fail. On a cold dev server
+ * the homepage took 16 SECONDS to swap the real content in, and an audit run
+ * at t+0 measured bars.
+ *
+ * So: no measuring until the skeletons are gone and something real is on
+ * screen. Resolves with what it waited for, so a caller can tell "ready" from
+ * "gave up", because those must never look the same.
+ */
+window.__ready = async function (timeoutMs) {
+  const limit = timeoutMs || 25000;
+  const started = Date.now();
+  const busy = () =>
+    [...document.querySelectorAll('[aria-busy="true"], .pbk')].some(
+      (el) => el.getBoundingClientRect().height > 0,
+    );
+  const hasContent = () =>
+    [...document.querySelectorAll("h1,h2,h3,main,article,table,form,input,button")].some(
+      (el) => el.getBoundingClientRect().height > 0,
+    );
+
+  while (Date.now() - started < limit) {
+    // Content is enough. The skeleton is EXCLUDED from every probe rather than
+    // waited out, because React will not commit the swap while the document is
+    // hidden and a hidden document is the normal case for a driven pane.
+    if (hasContent() && document.readyState === "complete") {
+      // One more frame, so a swap that just happened has been laid out.
+      await new Promise((r) => requestAnimationFrame(() => r()));
+      return { ready: true, waitedMs: Date.now() - started };
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return {
+    ready: false,
+    waitedMs: Date.now() - started,
+    stillBusy: busy(),
+    hasContent: hasContent(),
+  };
+};
+
+/**
+ * Everything above, for one page, in one call.
+ *
+ * Async, and it waits first. A synchronous version measured skeletons.
+ */
+window.__audit = async function () {
+  const ready = await window.__ready();
+  const o = window.__overflow();
+  const t = window.__targets();
+  const s = window.__structure();
+  const h = window.__headings();
+  return {
+    // First, so a reader sees it before the findings. A result measured
+    // against a skeleton is worse than no result.
+    ready,
+    selftest: window.__selftest(),
+    reflow: { clipped: o.clipped, loose: o.loose },
+    contrast: window.__contrast(),
+    targets: t.failing,
+    smallButSpaced: t.exemptButSmall.map((x) => x.cls + " " + x.w + "x" + x.h),
+    flexSentences: window.__flexSentences(),
+    names: window.__names(),
+    headings: h.problems,
+    structure: s.problems,
+    lang: s.lang,
+    title: s.title,
+    focusVisible: window.__focusVisible(),
+    textSpacing: window.__textSpacing(),
+  };
 };

@@ -381,6 +381,25 @@
   gap: 16px;
 }
 
+/*
+  Home / Terms / Privacy in the footer.
+
+  12.5px text in a flex row made these 19px tall. They clear WCAG 2.5.8 on the
+  spacing exception — the 16px gap plus their own width keeps any two centres
+  more than 24px apart — but "legally exempt" is a poor answer for the only
+  links to the terms and the privacy policy, tapped with a thumb at the very
+  bottom of a phone screen. The negative inline margin keeps the row visually
+  where it was; only the tappable area grows.
+*/
+.home-footer-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding-inline: 6px;
+  margin-inline: -6px;
+  border-radius: 8px;
+}
+
 /* ── mobile ──────────────────────────────────────────────────── */
 
 @media (max-width: 720px) {

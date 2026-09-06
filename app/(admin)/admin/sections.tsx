@@ -230,10 +230,21 @@ export function AccountsSection({
           </p>
         </div>
         <form action={createClientAction} className="pba-form">
+          {/*
+            aria-label, because a placeholder is not a label: it disappears the
+            moment anyone types, so the field it identified becomes an unnamed
+            box for exactly the people who most need it named. WCAG 3.3.2.
+
+            Labelled rather than given a visible <label> because this form is
+            one row of two fields and a button, and the placeholders already
+            carry the example text that makes it obvious. The name is for
+            assistive technology; the placeholder stays for everyone else.
+          */}
           <input
             type="text"
             name="name"
             required
+            aria-label="Business name"
             placeholder="Business name — e.g. Open Door Bakery"
             className="pba-input pba-input-grow"
           />
@@ -241,6 +252,7 @@ export function AccountsSection({
             type="email"
             name="email"
             required
+            aria-label="Client login email"
             placeholder="Client login email"
             className="pba-input pba-input-grow"
           />
@@ -268,11 +280,15 @@ function DeletePanel({ target }: { target: WorkspaceSummary }) {
       </p>
       <form action={deleteClientAction} className="pba-form">
         <input type="hidden" name="workspaceId" value={target.id} />
+        {/* The most consequential field in the console, and it was named only
+            by a placeholder that vanishes as soon as you start typing the
+            workspace name into it. */}
         <input
           type="text"
           name="confirmName"
           required
           autoComplete="off"
+          aria-label={`Type the workspace name "${target.name}" to confirm deletion`}
           placeholder={`Type "${target.name}" to confirm`}
           className="pba-input pba-input-grow"
         />
@@ -1368,10 +1384,13 @@ export function SupportSection({
           ))}
         </div>
         <form action={addAdminAction} className="pba-form">
+          {/* Named for the same reason as the create-workspace fields above:
+              a placeholder stops naming a field the moment anyone types. */}
           <input
             type="email"
             name="email"
             required
+            aria-label="Email address of the admin to add"
             placeholder="teammate@example.com"
             className="pba-input pba-input-grow"
           />
@@ -1580,6 +1599,7 @@ export function AccountDrawer({
             name="reason"
             maxLength={500}
             autoComplete="off"
+            aria-label="Reason for entering this workspace (optional, recorded in the access log)"
             placeholder="Why are you going in? (optional, logged)"
             className="pba-input pba-input-grow"
           />

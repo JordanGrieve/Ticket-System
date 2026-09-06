@@ -1901,6 +1901,19 @@
   .pbm-thread-actions {
     flex-basis: 100%;
     justify-content: flex-end;
+    /*
+      ── 1.4.10 SAYS 320px, AND THIS ROW NEEDED 322 ──
+      Seven 38px buttons with 8px gaps come to about 322px. At 375 that fits
+      the 304px content box only because the row is its own line; at the 320px
+      the criterion actually names, it overflowed and the whole DOCUMENT
+      scrolled sideways — the exact two-dimensional scrolling reflow forbids.
+
+      Wrapping costs nothing at any width where the row already fits, and on a
+      320px screen it puts one button on a second line instead of pushing the
+      page off the side. The alternative — hiding a control below some width —
+      would remove function rather than reflow it.
+    */
+    flex-wrap: wrap;
   }
   /* The star and delete buttons are disabled placeholders; on a phone they are
      pure noise next to the one control that works, so they come out. */
@@ -1916,10 +1929,27 @@
   .pbm-subject {
     font-size: 17px;
     letter-spacing: -0.4px;
-    /* Long subjects clamp rather than pushing the conversation off-screen. */
+    /*
+      Long subjects clamp rather than pushing the conversation off-screen.
+
+      ── THREE LINES, NOT TWO, BECAUSE OF 1.4.12 ──
+      A clamp counts LINES, so it survives a bigger line-height fine. What it
+      does not survive is letter and word spacing: the reader spacing WCAG
+      1.4.12 names turns a subject that fitted on two lines into three, and the
+      third is simply gone. The full subject appears nowhere else on this
+      screen, and the criterion allows truncation only when the content is
+      still available somewhere — so this was real content loss, not a tidy
+      ellipsis.
+
+      Three lines costs nothing at default spacing, where the fixture subject
+      of 68 characters still takes two, and leaves room for the same subject
+      once a reader's own spacing is applied. It is a bound, not a promise:
+      a subject long enough will still clamp, which is why the inbox card and
+      the email itself both carry the full text.
+    */
     display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }

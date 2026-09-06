@@ -35,6 +35,27 @@ export const clerkAppearance = {
     // Matches the radius used across the app's own cards and inputs.
     borderRadius: "12px",
   },
+  elements: {
+    /*
+      ── --accent IS A BUTTON COLOUR, NOT A TEXT COLOUR ──
+      `colorPrimary` above sets both the primary button's background and the
+      colour of Clerk's text links, which are two different jobs. As a
+      background under white it is fine; as 13px text on the card it measured
+      3.26:1 in the browser — under AA — and against --surface it is 3.05:1 in
+      dark and 3.10:1 in ocean.
+
+      This is the same mistake .pbo-go, .pbn-add and .pbt-cta made: --accent is
+      the light sibling, meant for borders and focus rings where 1.4.11 asks
+      3:1. --accent-text is the token for accent-coloured TEXT, and it measures
+      7.11 to 9.94 on the card across all five palettes.
+
+      Only one link element renders on these two screens — cl-footerActionLink,
+      the "Sign up" / "Sign in" swap at the foot of the card — confirmed by
+      listing every cl-*Link Clerk actually put in the DOM rather than guessing
+      from its docs.
+    */
+    footerActionLink: { color: "var(--accent-text)" },
+  },
   options: {
     // Google is the only provider configured, so a full-width block button
     // reads as "this is how you sign in" rather than as one icon among
