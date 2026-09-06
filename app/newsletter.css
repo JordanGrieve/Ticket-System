@@ -314,10 +314,14 @@
 }
 
 /* The "when" choice. One row per option so the two never run together. */
+/* Send now / schedule. The 13px radio's real target is this label, which was
+   20px tall — under 2.5.8's 24 and passing only on spacing. It is the choice
+   that decides whether a newsletter goes out this second. */
 .nl-radio {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 24px;
   margin: 0 0 8px;
   font-size: 12.5px;
   line-height: 1.6;
@@ -623,6 +627,9 @@
   font-size: 12px;
   font-weight: 700;
   color: var(--text-3);
+  /* Padding rather than a min-height: `display: flex` on a <summary> drops the
+     disclosure triangle in Chrome. Same reasoning as .pba-reads > summary. */
+  padding-block: 5px;
 }
 
 .nl-summary:focus-visible {
