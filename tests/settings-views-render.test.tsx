@@ -104,7 +104,7 @@ function page(title: string, body: string) {
 <link rel="stylesheet" href="./globals.css">
 <link rel="stylesheet" href="./mail.css">
 <link rel="stylesheet" href="./settings.css">
-</head><body><div class="pbm-page pb-scroll"><div class="stg-wrap">${body}</div></div>
+</head><body><div class="pb-shell pbm"><div class="pbm-page pb-scroll"><div class="stg-wrap">${body}</div></div></div>
 <script src="./audit.js"></script></body></html>`;
 }
 

@@ -161,14 +161,53 @@ const messages = [
   },
 ] as never;
 
+/*
+  ── THIS FIXTURE WAS WRONG, AND THE TEST STILL PASSED ──
+  It used { key, label }. The real OnboardingStep is { id, title, detail, done,
+  href, optional }, so every step rendered with NO TEXT: the render assertion
+  (html.length > 200) was satisfied by the card shell, and the accessibility sweep
+  of this view measured a checklist with nothing written in it. The only
+  finding it produced was on the "Do it" button, whose label is hardcoded.
+
+  A fixture that does not produce real content makes every check over it
+  vacuous, which is the same failure as a guard that cannot fail.
+*/
 const progress = {
   done: 2,
   total: 4,
   steps: [
-    { key: "connect", label: "Connect your website form", done: true, href: "/settings/install" },
-    { key: "reply", label: "Reply to your first enquiry", done: true, href: "/inbox" },
-    { key: "auto", label: "Switch on an out-of-hours reply", done: false, href: "/settings/auto-reply" },
-    { key: "postal", label: "Add your postal address", done: false, href: "/settings" },
+    {
+      id: "test_enquiry",
+      title: "Send yourself a test enquiry",
+      detail: "Proves the form on your website reaches this inbox.",
+      done: true,
+      href: "/settings/install",
+      optional: false,
+    },
+    {
+      id: "first_reply",
+      title: "Answer your first enquiry",
+      detail: "Your reply arrives from your own address, not from Postbox.",
+      done: true,
+      href: "/inbox",
+      optional: false,
+    },
+    {
+      id: "auto_reply",
+      title: "Switch on an out-of-hours reply",
+      detail: "So nobody who writes at 9pm on a Sunday wonders if you got it.",
+      done: false,
+      href: "/settings/auto-reply",
+      optional: false,
+    },
+    {
+      id: "postal_address",
+      title: "Add your postal address",
+      detail: "Required by law in every newsletter you send.",
+      done: false,
+      href: "/settings",
+      optional: false,
+    },
   ],
 } as never;
 
@@ -274,7 +313,7 @@ function page(title: string, body: string) {
 <link rel="stylesheet" href="./globals.css">
 <link rel="stylesheet" href="./mail.css">
 <link rel="stylesheet" href="./onboarding.css">
-</head><body><div class="pbm-page">${body}</div>
+</head><body><div class="pb-shell pbm"><div class="pbm-page">${body}</div></div>
 <script src="./audit.js"></script></body></html>`;
 }
 
@@ -287,6 +326,31 @@ describe("every client-facing mail view renders", () => {
       expect(html.length, `${name} rendered nothing`).toBeGreaterThan(200);
     });
   }
+
+  it("every fixture's own text reaches its view", () => {
+    /*
+      One assertion per view that some value only THIS fixture could supply
+      appears in the output. A length check does not do it: the onboarding
+      checklist rendered its card, its progress bar and four "Do it" buttons
+      from a fixture whose field names were all wrong, and passed — while an
+      accessibility sweep over it measured a checklist with no words in it.
+    */
+    const pairs: [string, string][] = [
+      ["inbox", "Van Der Berg-Whitmore"],
+      ["thread", "wrong loaf"],
+      ["rail", "Wholesale customer"],
+      ["labels", "Christmas orders 2026"],
+      ["labels-modal", "Christmas orders 2026"],
+      ["onboarding", "Switch on an out-of-hours reply"],
+      ["links", "opendoorbakery.co.uk"],
+    ];
+    for (const [view, text] of pairs) {
+      expect(
+        renderToStaticMarkup(views[view]!),
+        `${view} rendered without "${text}" — its fixture is not reaching the component`,
+      ).toContain(text);
+    }
+  });
 
   it("the awkward fixtures actually reach the markup", () => {
     /*

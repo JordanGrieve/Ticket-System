@@ -119,11 +119,50 @@ const ratio = (a, b) => {
   declared background reported a pill in this product at 1.61:1 when it was
   really 4.63:1, and "fixing" that would have broken working design.
 */
-const ground = (el) => {
+/*
+  A gradient is a background too.
+
+  ── THE MIRROR OF THE GRADIENT-TEXT BUG ──
+  An element painted with `background: var(--accent-grad)` has a TRANSPARENT
+  background-color; the colour lives in background-image. Walking past it lands
+  on whatever is behind — which for .pbo-go on a white card meant measuring
+  white text against white and reporting 1:1 on a button anybody can read.
+
+  The worst stop is used, since the text crosses all of them, and it stops the
+  walk the way an opaque colour would. Same treatment the --accent-grad guard
+  in tests/contrast-tokens.test.ts gives it.
+*/
+const gradientStops = (cs) => {
+  if (!/gradient/.test(cs.backgroundImage)) return null;
+  const stops = (cs.backgroundImage.match(/rgba?\([^)]*\)|#[0-9a-f]{3,8}/gi) || [])
+    .map(parse)
+    .filter((c) => c && c.a > 0);
+  return stops.length ? stops : null;
+};
+
+const ground = (el, forFg) => {
   const stack = [];
   let n = el;
   while (n) {
-    const c = parse(getComputedStyle(n).backgroundColor);
+    const cs = getComputedStyle(n);
+
+    const stops = gradientStops(cs);
+    if (stops) {
+      // Pick the stop that is worst for this ink, or the darkest when the ink
+      // is not known — either way the gradient is opaque and the walk ends.
+      let worst = stops[0];
+      if (forFg) {
+        let low = Infinity;
+        for (const s of stops) {
+          const r = ratio(over(forFg, s), s);
+          if (r < low) { low = r; worst = s; }
+        }
+      }
+      stack.push(worst);
+      break;
+    }
+
+    const c = parse(cs.backgroundColor);
     if (c && c.a > 0) {
       stack.push(c);
       if (c.a === 1) break;
@@ -202,7 +241,9 @@ window.__contrast = function () {
     // Never `if (!x) return` in a check: a colour that cannot be read is a
     // broken probe, not an absent problem.
     if (!fgRaw) throw new Error("unparsed colour: " + cs.color);
-    const bg = ground(el);
+    // The ink is passed in so a gradient ground can be judged at its worst
+    // stop FOR THIS TEXT rather than at an arbitrary one.
+    const bg = ground(el, fgRaw);
     const fg = over(fgRaw, bg);
     const px = parseFloat(cs.fontSize);
     const bold = parseInt(cs.fontWeight, 10) >= 700;

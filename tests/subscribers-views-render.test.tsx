@@ -131,7 +131,7 @@ function page(title: string, body: string) {
 <link rel="stylesheet" href="./globals.css">
 <link rel="stylesheet" href="./mail.css">
 <link rel="stylesheet" href="./subscribers.css">
-</head><body><div class="pbm-page pb-scroll">${body}</div>
+</head><body><div class="pb-shell pbm"><div class="pbm-page pb-scroll">${body}</div></div>
 <script src="./audit.js"></script></body></html>`;
 }
 
