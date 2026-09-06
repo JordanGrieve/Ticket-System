@@ -128,8 +128,24 @@ const notes = [
   },
 ] as never;
 
+/*
+  The SECOND fixture found wrong the same way as the onboarding one: this used
+  { url, label, messageId }; SharedLink is { url, hostname, ticketId, atIso,
+  fromCustomer }. `hostname` is the primary label — deliberately, so a stranger
+  cannot caption a link "click here" — and with it undefined the card rendered
+  one line instead of two and measured 13px tall, which the target probe then
+  reported as a 2.5.8 failure.
+
+  A fixture that is wrong does not just hide problems; it manufactures them.
+*/
 const links = [
-  { url: "https://opendoorbakery.co.uk/menu/christmas-2026", label: "opendoorbakery.co.uk", messageId: 2 },
+  {
+    url: "https://opendoorbakery.co.uk/menu/christmas-2026",
+    hostname: "opendoorbakery.co.uk",
+    ticketId: 41,
+    atIso: iso(2),
+    fromCustomer: false,
+  },
 ] as never;
 
 const ticket = {
@@ -342,7 +358,9 @@ describe("every client-facing mail view renders", () => {
       ["labels", "Christmas orders 2026"],
       ["labels-modal", "Christmas orders 2026"],
       ["onboarding", "Switch on an out-of-hours reply"],
-      ["links", "opendoorbakery.co.uk"],
+      // hostname, which is the field that was missing. Matching on the URL
+      // would have passed with hostname undefined.
+      ["links", ">opendoorbakery.co.uk<"],
     ];
     for (const [view, text] of pairs) {
       expect(

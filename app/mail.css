@@ -2455,10 +2455,19 @@
 
 /* Quiet until hovered. Deleting is available but should not be the most
    eye-catching thing on a note somebody just wrote. */
+/* 24px, like the other quiet controls given one today. It clears 2.5.8 on the
+   spacing exception — nothing sits within 24px of it — but it deletes a note
+   somebody wrote by hand, and it was 30x12. Quiet is about how it LOOKS; the
+   area a thumb has to find is a separate question. */
 .pbn-del {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
   border: none;
   background: none;
-  padding: 0;
+  padding: 0 6px;
+  margin-inline: -6px;
+  border-radius: 8px;
   font: inherit;
   font-size: 11.5px;
   color: var(--muted-2);
@@ -2527,7 +2536,16 @@
   color: var(--muted-2);
 }
 
+/* "Open the message" — the only way from a shared link back to its thread,
+   and 84x12 before this. Exempt on spacing, given 24px anyway for the same
+   reason as .pbn-del above. */
 .pbl-jump {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding-inline: 6px;
+  margin-inline: -6px;
+  border-radius: 8px;
   color: var(--muted-2);
   text-decoration: underline;
   text-underline-offset: 2px;
