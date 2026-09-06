@@ -119,14 +119,26 @@ export default function SenderIdentityForm({
       </label>
 
       <div className="stg-identity-actions">
-        <button
-          className="stg-button"
-          type="button"
-          onClick={save}
-          disabled={pending || !dirty}
-        >
-          {pending ? "Saving…" : "Save"}
-        </button>
+        {/*
+          Present only when there is a change to save, rather than permanently
+          disabled. A greyed-out button is still a control asking to be
+          understood — the reader has to work out WHY it is dead — and this
+          form spends most of its life with nothing to do. It comes back the
+          moment either field differs from what is stored.
+
+          Kept mounted while saving so the label can say "Saving…" and the
+          button does not vanish under the pointer mid-click.
+        */}
+        {(dirty || pending) && (
+          <button
+            className="stg-button"
+            type="button"
+            onClick={save}
+            disabled={pending}
+          >
+            {pending ? "Saving…" : "Save"}
+          </button>
+        )}
         {status === "saved" && !dirty && (
           <span className="stg-identity-ok">Saved.</span>
         )}

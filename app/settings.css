@@ -1702,6 +1702,21 @@
   display: block;
 }
 
+/* Full width, unlike the 460px cap .stg-field carries elsewhere.
+
+   The cap is a sensible default for a lone text input — a 900px line of typed
+   text is hard to read back. It is wrong here: these two sit alone in a wide
+   panel with a warning box above them that DOES span it, so the form read as
+   two half-finished boxes floating in a card rather than as the panel's
+   content. An address is short lines regardless, so nothing is gained by
+   holding the box narrow.
+
+   Scoped to this form rather than removing the cap globally, because the
+   screens that use .stg-field beside other content still want it. */
+.stg-identity .stg-field {
+  max-width: none;
+}
+
 .stg-identity-warn {
   background: var(--warn-bg);
   border: 1px solid var(--warn-fg);
@@ -1846,6 +1861,53 @@
   line-height: 1.6;
   margin: 0 0 18px;
   padding: 12px 14px;
+}
+
+/* The dismissible variant. Padding-right leaves room for the cross so a long
+   notice wraps before it reaches the button rather than running underneath. */
+.stg-notice--dismissible {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.stg-notice-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/*
+  32px, not the 14px of the glyph inside it.
+
+  A close control drawn at icon size is the classic under-24px tap target, and
+  it is the one people reach for in a hurry. The svg stays 14px; the BUTTON is
+  32 square, which clears WCAG 2.5.8 with room and gives a thumb something to
+  aim at. Negative margins pull it back so the extra box does not push the
+  notice's own padding out.
+
+  currentColor, so it inherits the notice's ink and cannot drift out of
+  contrast with the ground the notice sets — the same reason nothing else in
+  this file hardcodes a colour.
+*/
+.stg-notice-x {
+  flex: none;
+  inline-size: 32px;
+  block-size: 32px;
+  margin: -6px -6px -6px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: currentColor;
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.stg-notice-x:hover {
+  opacity: 1;
+  background: color-mix(in oklab, currentColor 12%, transparent);
 }
 
 .stg-you {

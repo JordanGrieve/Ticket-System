@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import DismissibleNotice from "@/components/DismissibleNotice";
 import { resolveViewer } from "@/lib/viewer";
 import { sortTeam, seatLimit } from "@/lib/team";
 import { getWorkspaceEntitlement } from "@/lib/billing-query";
@@ -95,10 +96,10 @@ export default async function TeamSettingsPage({
             row. A member is not missing a control they should have — the rule
             is deliberate, so it is explained rather than implied by absence.
           */
-          <p className="stg-notice" role="note">
+          <DismissibleNotice id="team-owner-only-removes">
             Only the owner can remove people from this team. You can do
             everything else.
-          </p>
+          </DismissibleNotice>
         )}
 
         <ul className="stc-list">
@@ -206,6 +207,14 @@ export default async function TeamSettingsPage({
             {/*
               The consequence, stated before the button rather than after the
               mistake. This is the whole reason the screen exists in this shape.
+
+              DELIBERATELY NOT DISMISSIBLE, unlike the notice further up. That
+              one explains a rule; this one describes what the button beneath
+              it does — hand a stranger the ability to read every message a
+              client’s customers have ever sent. A warning somebody can
+              permanently silence is one that is absent for the person who
+              silenced it a month ago and has since forgotten. See the header
+              of components/DismissibleNotice.tsx.
             */}
             <p className="stg-identity-warn" role="note">
               <b>They’ll be able to do everything you can:</b> read every

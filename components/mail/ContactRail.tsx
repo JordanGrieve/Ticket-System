@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Icon } from "./icons";
+import SheetGrip from "./SheetGrip";
 import type { ContactCard } from "./types";
 import ContactNotes from "./ContactNotes";
 import SharedLinks from "./SharedLinks";
@@ -78,6 +80,16 @@ export default function ContactRail({
   /** Also omitted by the skeletons, which have no messages to derive from. */
   links?: SharedLink[];
 }) {
+  /*
+    How far the sheet has been dragged down, in px. Zero at rest.
+
+    Held here rather than inside SheetGrip because the transform belongs to the
+    <aside>: the handle owns the gesture, the sheet owns its own position. It
+    is also why the transition is suppressed mid-drag — a sheet that eases
+    toward your finger lags behind it, which reads as lag rather than polish.
+  */
+  const [dragY, setDragY] = useState(0);
+
   const firstSeen = formatFirstSeen(contact.firstSeenIso);
   // Derived on render, not stored: it is a judgement about the address as it
   // is right now, and the rules can improve without a backfill.
@@ -94,9 +106,11 @@ export default function ContactRail({
       <aside
         className="pbm-rail pb-scroll"
         data-rail={state}
+        data-dragging={dragY !== 0 || undefined}
+        style={dragY ? { transform: `translateY(${dragY}px)` } : undefined}
         aria-label="Contact details"
       >
-        <div className="pbm-rail-grip" aria-hidden />
+        <SheetGrip onClose={onClose} onOffset={setDragY} />
         <div className="pbm-rail-head">
           <h2 className="pbm-rail-title">General info</h2>
           <button className="pbm-rail-close" onClick={onClose} aria-label="Hide contact details">

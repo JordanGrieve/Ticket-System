@@ -1899,14 +1899,51 @@
     box-shadow: 0 -10px 40px var(--shadow-2);
     padding: 8px 18px calc(26px + env(safe-area-inset-bottom, 0px));
   }
+  /*
+    The grab handle. It is now a real one — see components/mail/SheetGrip.tsx.
+
+    The visible pill stays 44x5, drawn with a pseudo-element, while the ELEMENT
+    is 44x28. A 5px-tall drag target is not grabbable with a thumb, and this is
+    the control the whole gesture depends on.
+  */
   .pbm-rail-grip {
     display: block;
     flex: none;
     width: 44px;
+    height: 28px;
+    margin: 0 auto;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: grab;
+    /* THE LINE THAT MAKES THE DRAG WORK AT ALL. Without it the browser claims
+       a vertical drag for page scrolling before the first pointermove lands,
+       and the sheet either twitches or does nothing. Only the handle opts out;
+       the sheet body still scrolls, because a sheet you cannot scroll to read
+       is a worse trade than a handle that does not. */
+    touch-action: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pbm-rail-grip::before {
+    content: "";
+    width: 44px;
     height: 5px;
     border-radius: 3px;
     background: var(--border-strong);
-    margin: 4px auto 2px;
+  }
+  .pbm-rail-grip[data-dragging] {
+    cursor: grabbing;
+  }
+  .pbm-rail-grip[data-dragging]::before {
+    background: var(--muted-2);
+  }
+
+  /* Follows the finger exactly while dragging; eases only on release. A sheet
+     that transitions toward the pointer trails it, which reads as lag. */
+  .pbm-rail[data-dragging] {
+    transition: none;
   }
 }
 
