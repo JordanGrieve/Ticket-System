@@ -37,12 +37,39 @@ window.__overflow = function () {
   return { doc: document.documentElement.scrollWidth, vw, clipped, loose };
 };
 
+/*
+  Colour parsing, done by the browser rather than by hand.
+
+  This used to be a regex over rgb()/rgba(), which is every colour a computed
+  style reports — right up until it is not. The mail views paint label chips
+  with oklch(), Chrome reports oklch() back verbatim, and the probe threw. It
+  was right to throw (a colour that cannot be read is a broken check, not an
+  absent problem), but the answer is not to bolt on an oklch parser and then a
+  lab() one and then color-mix().
+
+  A 1x1 canvas converts anything the browser can paint into sRGB bytes, which
+  is the space WCAG contrast is defined in. getImageData returns
+  non-premultiplied RGBA, so alpha survives for the compositing below.
+*/
+const probeCanvas = document.createElement("canvas");
+probeCanvas.width = probeCanvas.height = 1;
+const probeCtx = probeCanvas.getContext("2d", { willReadFrequently: true });
+
 const parse = (s) => {
-  const m = s.match(/rgba?\(([^)]+)\)/);
-  if (!m) return null;
-  const p = m[1].split(/[ ,/]+/).filter(Boolean).map(Number);
-  if (p.length < 3 || p.some(Number.isNaN)) return null;
-  return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+  if (!s || s === "transparent" || s === "none") return { r: 0, g: 0, b: 0, a: 0 };
+  probeCtx.clearRect(0, 0, 1, 1);
+  probeCtx.fillStyle = "#000";
+  // An unparseable value leaves fillStyle at the previous one, so a colour the
+  // browser rejects reads back as the sentinel black rather than silently
+  // becoming whatever was measured last.
+  probeCtx.fillStyle = s;
+  if (probeCtx.fillStyle === "#000" && !/^(#000000|#000|black|rgba?\(0, ?0, ?0)/.test(s.trim())) {
+    return null;
+  }
+  probeCtx.clearRect(0, 0, 1, 1);
+  probeCtx.fillRect(0, 0, 1, 1);
+  const [r, g, b, a] = probeCtx.getImageData(0, 0, 1, 1).data;
+  return { r, g, b, a: a / 255 };
 };
 
 const over = (fg, bg) => ({
@@ -97,9 +124,18 @@ window.__contrast = function () {
     );
     if (!hasText) return;
     const r = el.getBoundingClientRect();
-    if (r.width === 0 || r.height === 0) return;
+    /*
+      1px is the visually-hidden idiom, not a real box.
+
+      .pbm-sr carries text for screen readers only — "Unread", "Last reply
+      sent" — clipped to a 1x1 rect. Measuring its contrast reports a failure
+      on text no sighted user can see, and "fixing" it would change nothing
+      except the numbers here. A zero check alone let all of those through.
+    */
+    if (r.width <= 1 || r.height <= 1) return;
     const cs = getComputedStyle(el);
     if (cs.visibility === "hidden" || cs.opacity === "0") return;
+    if (cs.clipPath === "inset(50%)" || cs.clip === "rect(0px, 0px, 0px, 0px)") return;
     const fgRaw = parse(cs.color);
     // Never `if (!x) return` in a check: a colour that cannot be read is a
     // broken probe, not an absent problem.
@@ -136,9 +172,35 @@ window.__targets = function () {
     const r = e.getBoundingClientRect();
     return { e, r, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
   });
+  /*
+    Does a 24px box centred on this control actually hit it?
+
+    getBoundingClientRect measures the element's own box and nothing else, so
+    a control whose hit area is grown with a pseudo-element — which is how you
+    give a 14px icon a 24px target without inflating the layout around it —
+    reads as 14px and gets reported forever. .pbm-label-x is exactly that.
+
+    elementFromPoint answers the question the success criterion is really
+    asking: if a finger lands here, does this control receive it. Pseudo
+    elements are hit-testable and report their originating element, so the
+    grown area is measured rather than guessed at.
+  */
+  const hitsAt = (t, dx, dy) => {
+    const el = document.elementFromPoint(t.cx + dx, t.cy + dy);
+    return el === t.e || t.e.contains(el) || (el && el.contains(t.e));
+  };
+  const effectively24 = (t) => {
+    const r = 11.5; // just inside a 24px box, to stay off the boundary
+    return [
+      [0, 0], [-r, -r], [r, -r], [-r, r], [r, r], [-r, 0], [r, 0], [0, -r], [0, r],
+    ].every(([dx, dy]) => hitsAt(t, dx, dy));
+  };
+
   const small = [];
   for (const t of c) {
     if (t.r.width >= 24 && t.r.height >= 24) continue;
+    // Small box, but the pointer still lands on it across a 24px square.
+    if (effectively24(t)) continue;
     // The exception is measured as a 24px circle on each centre: if no other
     // target's centre falls inside it, the small target still passes.
     let near = null;

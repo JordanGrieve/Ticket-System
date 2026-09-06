@@ -60,3 +60,6 @@ public/_mobile.html
 # set. A rendering of the admin console for auditing it in a browser without
 # an operator login; never part of a deployment.
 public/_ah/
+
+# Same as public/_ah, for tests/mail-views-render.test.tsx.
+public/_mh/

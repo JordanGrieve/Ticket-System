@@ -317,6 +317,134 @@ describe("muted text clears AA in every theme", () => {
     }
   }
 
+  /*
+    The accent chip's ink.
+
+    --accent-text on --accent-chip, which is a translucent purple laid over the
+    panel. It carries the order number on every inbox card and the "latest N
+    messages" chip on every thread, so it is small text that people actually
+    read a number off.
+
+    Light measured 4.38:1 on 6 Sep and the other four palettes were between
+    5.77 and 5.13 — the pale ground is the hard one, because the chip lifts it
+    toward a mid-tone ink rather than away from it.
+  */
+  for (const palette of PALETTES) {
+    it(`${palette.name} --accent-text on --accent-chip`, () => {
+      const rawChip = rawToken(palette.selector, "--accent-chip");
+      if (!rawChip) return; // palette inherits one already checked
+
+      const base =
+        parseHex(rawToken(palette.selector, "--surface") ?? "") ??
+        parseHex(rawToken(palette.selector, "--panel") ?? "");
+      expect(base, "no opaque base to composite over").not.toBeNull();
+
+      const ground = rawChip.startsWith("#") ? parseHex(rawChip) : composite(rawChip, base!);
+      expect(ground, `could not resolve --accent-chip ("${rawChip}")`).not.toBeNull();
+
+      const fg = parseHex(rawToken(palette.selector, "--accent-text") ?? "");
+      expect(fg, "could not resolve --accent-text").not.toBeNull();
+
+      const ratio = contrastRatio(fg!, ground!);
+      expect(
+        ratio,
+        `${palette.name} --accent-text measures ${ratio.toFixed(2)}:1 on --accent-chip — AA needs ${MIN_CONTRAST}`,
+      ).toBeGreaterThanOrEqual(MIN_CONTRAST);
+    });
+  }
+
+  /*
+    White ink goes on --accent-grad, never on flat --accent.
+
+    Both are "the accent", and that is the trap: --accent is the lighter
+    sibling for borders and focus rings, where 1.4.11 asks for 3:1. Painting a
+    button with it and putting white on top measured 3.20:1 in forest and
+    3.01:1 in slate — which is what .pbo-go, the onboarding checklist's "Do
+    it", did until 6 Sep while every other primary button used the gradient.
+
+    The gradient stops are already tuned for this: 4.51 to 4.55 against white
+    in all four palettes that define one. That is a deliberate margin and this
+    keeps anyone from spending it.
+  */
+  for (const palette of PALETTES) {
+    it(`${palette.name} white ink clears AA on every --accent-grad stop`, () => {
+      const grad = rawToken(palette.selector, "--accent-grad");
+      if (!grad) return; // palette inherits one already checked
+
+      const stops = [...grad.matchAll(/#[0-9a-f]{6}/gi)].map((m) => parseHex(m[0]));
+      // A gradient nobody could read the stops out of is a broken check, not a
+      // passing one — the same rule as --surface-3 above.
+      expect(stops.length, `no colour stops parsed from --accent-grad ("${grad}")`).toBeGreaterThan(0);
+      expect(stops.every(Boolean), "a stop failed to parse").toBe(true);
+
+      for (const stop of stops) {
+        const ratio = contrastRatio(WHITE, stop!);
+        expect(
+          ratio,
+          `${palette.name} white measures ${ratio.toFixed(2)}:1 on an --accent-grad stop — AA needs ${MIN_CONTRAST}`,
+        ).toBeGreaterThanOrEqual(MIN_CONTRAST);
+      }
+    });
+  }
+
+  /*
+    ── AND NOTHING MAY PAINT WHITE ON FLAT --accent ──
+    The block above proves the gradient's stops keep their margin. It does not
+    stop the mistake that was actually found, because that mistake was not in
+    the tokens: .pbo-go set `background: var(--accent)` with `color: #fff`, and
+    every token involved was fine on its own.
+
+    So this reads the stylesheets. --accent is the LIGHT sibling, for borders
+    and focus rings where 1.4.11 asks 3:1; it measures 3.20:1 and 3.01:1
+    against white in forest and slate. White ink belongs on --accent-grad or
+    --accent-strong.
+  */
+  it("no rule puts white ink on a flat --accent background", () => {
+    const files = [
+      "app/globals.css",
+      "app/mail.css",
+      "app/admin.css",
+      "app/home.css",
+      "app/settings.css",
+      "app/newsletter.css",
+      "app/subscribers.css",
+      "components/mail/onboarding.css",
+      "components/trial-banner.css",
+    ];
+
+    const offenders: string[] = [];
+    let blocksScanned = 0;
+
+    for (const file of files) {
+      let css: string;
+      try {
+        css = readFileSync(join(process.cwd(), file), "utf8");
+      } catch {
+        // A file that moved should fail loudly rather than silently shrink
+        // the search — the list above is the point of the check.
+        throw new Error(`${file} is listed here but could not be read`);
+      }
+
+      for (const block of css.split("}")) {
+        const body = block.slice(block.indexOf("{") + 1);
+        if (!body.trim()) continue;
+        blocksScanned++;
+        // var(--accent) exactly: the ) has to follow, or --accent-grad,
+        // --accent-strong, --accent-soft and --accent-chip all match too.
+        const flatAccentBg = /background(?:-color)?:\s*var\(--accent\)/.test(body);
+        if (!flatAccentBg) continue;
+        const whiteInk = /color:\s*(#fff\b|#ffffff\b|white\b|var\(--on-accent\))/i.test(body);
+        if (whiteInk) {
+          offenders.push(`${file}: ${block.slice(0, 60).replace(/\s+/g, " ").trim()}`);
+        }
+      }
+    }
+
+    // The canary: a scanner that matched nothing anywhere would pass silently.
+    expect(blocksScanned, "no CSS blocks were scanned").toBeGreaterThan(200);
+    expect(offenders, "white ink on flat --accent — use --accent-grad").toEqual([]);
+  });
+
   it("still measures something rather than passing on an empty set", () => {
     // If token() ever started returning nothing, every assertion above would
     // vacuously pass. This is the canary for that.

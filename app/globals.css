@@ -73,7 +73,13 @@
      --accent-soft (chips, tags, the pill on the marketing page), where it
      measured 4.29:1 rather than the 4.5 AA needs. On white it was already
      fine, which is why it read as safe. */
-  --accent-text: #6847f4;
+  /* Deepened 6 Sep. This is the ink on --accent-chip — the order number on an
+     inbox card, the "latest 2 messages" chip on a thread — and on that
+     translucent purple over a white panel it measured 4.38:1 in the browser,
+     under AA. The other four palettes clear it comfortably (5.77 to 7.13);
+     light is the tight one because the chip lifts a pale ground toward a
+     mid-tone ink. 4.81:1 now, against the palest ground it is painted on. */
+  --accent-text: #583cce;
   --accent-strong: #5636e0;
   --accent-soft: #ede7fe;
   --accent-chip: #e8e1fd;

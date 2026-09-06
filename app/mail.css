@@ -462,6 +462,11 @@
   background: transparent;
   font-size: 13px;
   color: var(--text);
+  /* The input's own box was 18px tall inside a 42px search bar, so the top and
+     bottom of something that LOOKS like the target did nothing. Stretching it
+     makes the whole bar the tap target, with no visual change: the background
+     and border belong to .pbm-search, and this is transparent. */
+  align-self: stretch;
 }
 
 .pbm-chips {
@@ -614,6 +619,17 @@
   padding: 14px 0 4px;
   font-size: 12.5px;
   font-weight: 600;
+}
+/* Newer / Older. The text is 15px tall on its own; the link is what gets
+   tapped, so it carries the 24px rather than the words inside it. Padding
+   instead of a min-height so the extra area is horizontal as well — a
+   two-word link is easy to miss on either side. */
+.pbm-pager a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 6px;
+  border-radius: 8px;
 }
 .pbm-pager-off {
   color: var(--muted);
@@ -812,6 +828,9 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  /* 23px tall, one pixel under 2.5.8's 24. Nothing about the design wanted
+     23 — it fell out of a 10.5px line plus 4px of padding. */
+  min-height: 24px;
   padding: 4px 10px;
   border: 1px solid var(--border);
   border-radius: 9px;
@@ -1149,7 +1168,23 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/*
+  Remove this label from the ticket.
+
+  ── A 14px TARGET FOR A DESTRUCTIVE ACTION ──
+  The visible cross has to stay 14px: it lives inside a label chip, and a
+  24px one would inflate every chip on the thread. So the HIT AREA is grown
+  instead, with a pseudo-element centred on the cross — 24px square, invisible,
+  and outside the layout, so nothing moves.
+
+  This cleared WCAG 2.5.8 before the change, but only through the spacing
+  exception: with four labels on a ticket the crosses sit far enough apart that
+  a 24px circle on each centre catches no other target. Passing on a
+  technicality is a poor argument for a control that throws work away, and the
+  chips are the smallest things on the busiest screen.
+*/
 .pbm-label-x {
+  position: relative;
   width: 14px;
   height: 14px;
   flex: none;
@@ -1162,6 +1197,13 @@
   color: inherit;
   opacity: 0.6;
   cursor: pointer;
+}
+.pbm-label-x::after {
+  content: "";
+  position: absolute;
+  /* -5px each side takes 14px to 24px. */
+  inset: -5px;
+  border-radius: 50%;
 }
 .pbm-label-x:hover {
   opacity: 1;
@@ -1229,6 +1271,9 @@
   align-items: center;
   gap: 5px;
   flex: none;
+  /* 22px, for the same reason .pbm-status-btn was 23 — a small font and small
+     padding, not a decision. */
+  min-height: 24px;
   padding: 4px 9px;
   border: 1px dashed var(--border-strong);
   border-radius: 9px;
@@ -2314,7 +2359,9 @@
   padding: 6px 13px;
   border: none;
   border-radius: 9px;
-  background: var(--accent);
+  /* --accent-grad, not --accent: white on the flat accent is 3.20:1 in forest
+     and 3.01:1 in slate. See the note on .pbo-go in onboarding.css. */
+  background: var(--accent-grad);
   color: #fff;
   font-size: 12.5px;
   font-weight: 700;

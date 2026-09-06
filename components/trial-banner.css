@@ -118,7 +118,9 @@
   border-radius: 9px;
   font-size: 13px;
   font-weight: 700;
-  background: var(--accent);
+  /* --accent-grad, not --accent: white on the flat accent is 3.20:1 in forest
+     and 3.01:1 in slate, under AA. See the note on .pbo-go in onboarding.css. */
+  background: var(--accent-grad);
   /* Not --accent-text: this sits ON the accent, not beside it. */
   color: #fff;
   white-space: nowrap;
