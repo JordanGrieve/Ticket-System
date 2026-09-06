@@ -222,14 +222,32 @@
   --text-2: #cfc8e6;
   --text-3: #bdb6d6;
   --text-4: #a9a2c4;
-  --muted: #9893ae;
+  /* ── Lightened again 6 Sep: ONE wash was not the worst case ──
+     The 31 Aug pass below measured both muted inks against a single
+     --surface-3 (a 5% white wash) over the panel. The admin console stacks
+     TWO — a .pba-tile inside a .pba-card, each carrying the wash — and every
+     additional layer lifts the ground further toward the ink. On that doubly
+     washed ground --muted measured 3.97:1 and --muted-2 3.92:1, both under
+     AA, which is where every table column header and every tile label in the
+     console lives: the labels that say what each number means.
+
+     Measured on the composited ground, not the declared one. A helper that
+     reads only the nearest background reported a working pill in this product
+     at 1.61:1 when it was really 4.63:1, so the stack is composited properly
+     or the number is fiction.
+
+     Now 4.86:1 on two washes, 5.66:1 on one, 6.98:1 on the page. The two
+     tokens end up close together because at this ground there is not much
+     room below AA to be dim in — that is the palette being honest rather than
+     the distinction being lost. */
+  --muted: #a9a3c1;
   /* Lightened 31 Aug: measured 4.04:1 (dark), 4.39:1 (slate) and 4.37:1
      (ocean) against the translucent --surface-3, under AA. --surface-3 is a
      white wash over the panel, which lifts the ground toward the ink, and
      --muted-2 is the darker of the two muted inks — the one the contrast test
      did NOT cover until today. It carries the explanatory prose on cards and
      chips. Least adjustment that clears 4.5. */
-  --muted-2: #9792af;
+  --muted-2: #a9a3c4;
   --accent-text: #b9a6ff;
   /* Deeper sibling of --accent, same as forest/slate/ocean do it. Dark inherits
      --accent (#6d4aff) from :root because the palette is the same purple, but
@@ -272,8 +290,10 @@
     --text-2: #cfc8e6;
     --text-3: #bdb6d6;
     --text-4: #a9a2c4;
-    --muted: #9893ae;
-    --muted-2: #9792af;
+    /* Kept in step with the [data-theme="dark"] block above — see the note
+       there about the doubly washed ground in the admin console. */
+    --muted: #a9a3c1;
+    --muted-2: #a9a3c4;
     --accent-text: #b9a6ff;
     --accent-strong: #5636e0;
     --accent-soft: rgba(124, 92, 255, 0.14);
@@ -314,8 +334,11 @@
   --text-2: #c8e0d4;
   --text-3: #b6d4c6;
   --text-4: #9fc2b3;
-  --muted: #7f9c8d;
-  --muted-2: #86a294;
+  /* Lightened 6 Sep with dark, slate and ocean: both inks measured under AA on
+     two stacked --surface-3 washes (3.97:1 and 4.28:1). See the note in the
+     dark palette. */
+  --muted: #8dad9d;
+  --muted-2: #8fad9e;
   --accent: #2fa36b;
   --accent-text: #7ce0ae;
   --accent-strong: #238153;
@@ -362,8 +385,9 @@
   --text-2: #d8d4cc;
   --text-3: #c8c4bb;
   --text-4: #b0aca3;
-  --muted: #99968f;
-  --muted-2: #99958d;
+  /* Lightened 6 Sep — 3.95:1 and 3.91:1 on two stacked --surface-3 washes. */
+  --muted: #aaa79f;
+  --muted-2: #aba79e;
   --accent: #c08a4e;
   --accent-text: #e7b478;
   --accent-strong: #9a6d3b;
@@ -410,8 +434,9 @@
   --text-2: #c9d8f0;
   --text-3: #b8cae6;
   --text-4: #a1b5d4;
-  --muted: #8c9bb5;
-  --muted-2: #8b9ab5;
+  /* Lightened 6 Sep — 3.95:1 and 3.90:1 on two stacked --surface-3 washes. */
+  --muted: #9cacc9;
+  --muted-2: #9caccb;
   --accent: #2e6be6;
   /* The ring only. As --accent it measured 2.68:1 on --surface-3, under the
      3:1 WCAG 1.4.11 needs for a non-text indicator. 3.16:1 at this value. */

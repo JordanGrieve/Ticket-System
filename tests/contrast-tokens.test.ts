@@ -266,6 +266,57 @@ describe("muted text clears AA in every theme", () => {
     }
   }
 
+  /*
+    ── ONE WASH IS NOT THE WORST CASE. TWO ARE. ──
+
+    The block above composites --surface-3 over the panel exactly once, which
+    is what a chip or an input does. The admin console nests them: a .pba-tile
+    inside a .pba-card, each carrying the wash, so the ink sits on a ground
+    lifted TWICE toward it. Every extra layer costs contrast.
+
+    That gap was worth about half a point and it was real. On 6 Sep the console
+    measured --muted at 3.97:1 and --muted-2 at 3.92:1 on that doubly washed
+    ground, while both passed every single-wash assertion above — and it is
+    where the console's table column headers and tile labels live, which are
+    the labels saying what each number means. Found in a browser, at 375px,
+    because nothing here modelled a second layer.
+
+    Two is the depth the product actually paints; this does not try to prove
+    anything about three.
+  */
+  for (const palette of PALETTES) {
+    for (const ink of MUTED_INKS) {
+      it(`${palette.name} ${ink} on two stacked --surface-3 washes`, () => {
+        const raw = rawToken(palette.selector, "--surface-3");
+        if (!raw) return; // palette inherits one already checked
+
+        const base =
+          parseHex(rawToken(palette.selector, "--panel") ?? "") ??
+          parseHex(rawToken(palette.selector, "--surface") ?? "");
+        expect(base, "no opaque base to composite over").not.toBeNull();
+
+        // An opaque --surface-3 cannot stack — the second layer hides the
+        // first — so one layer is already the worst case and the block above
+        // covers it.
+        if (raw.startsWith("#")) return;
+
+        const once = composite(raw, base!);
+        expect(once, `could not resolve --surface-3 ("${raw}")`).not.toBeNull();
+        const twice = composite(raw, once!);
+        expect(twice, `could not stack --surface-3 ("${raw}")`).not.toBeNull();
+
+        const fg = parseHex(rawToken(palette.selector, ink) ?? "");
+        expect(fg, `could not resolve ${ink}`).not.toBeNull();
+
+        const ratio = contrastRatio(fg!, twice!);
+        expect(
+          ratio,
+          `${palette.name} ${ink} measures ${ratio.toFixed(2)}:1 on two --surface-3 washes — AA needs ${MIN_CONTRAST}`,
+        ).toBeGreaterThanOrEqual(MIN_CONTRAST);
+      });
+    }
+  }
+
   it("still measures something rather than passing on an empty set", () => {
     // If token() ever started returning nothing, every assertion above would
     // vacuously pass. This is the canary for that.

@@ -205,14 +205,29 @@
   overflow-wrap: anywhere;
 }
 
+/*
+  Sign out.
+
+  `padding: 0` on a 12px label made this 42x15, which clears WCAG 2.5.8 only
+  by way of the spacing exception — nothing else sits within 24px of its
+  centre, so it is not a failure. It was still a 15px-tall tap target for the
+  one control that ends an operator's session, so it is given the 24px the
+  success criterion asks for outright rather than leaning on the exception.
+
+  The negative inline margin keeps the label optically flush with the email
+  above it; without it the added padding would indent the text.
+*/
 .pba-signout {
-  margin-top: 9px;
+  margin-top: 5px;
+  margin-inline: -6px;
+  min-height: 24px;
+  padding: 0 6px;
   font-size: 12px;
   font-weight: 700;
   color: var(--accent-text);
   background: transparent;
   border: none;
-  padding: 0;
+  border-radius: 8px;
   cursor: pointer;
 }
 
@@ -940,6 +955,25 @@
 
   .pba-cols {
     flex-direction: column;
+    /*
+      ── THE AXIS MOVED, AND align-items CAME WITH IT ──
+      .pba-cols sets `align-items: flex-start` for the two-column desktop
+      layout, where it keeps the side column from stretching to the main
+      column's height. Turning the flex direction to `column` here turns the
+      cross axis from vertical to HORIZONTAL, so that same declaration stopped
+      meaning "don't stretch the height" and started meaning "shrink-wrap the
+      width".
+
+      .pba-col-main then sized to its own max-content — 740px — inside a 375px
+      viewport, and .pba-shell's `overflow: hidden` clipped the excess with
+      nothing to scroll. Half of every card on the overview pane was cut off
+      and unreachable on a phone. .pba-col-side escaped only because it was
+      handed an explicit `width: 100%` below; the main column had `flex: 1`,
+      which governs the main axis and does nothing here.
+
+      Stretch is what stacked columns want in both dimensions.
+    */
+    align-items: stretch;
   }
 
   .pba-col-side {

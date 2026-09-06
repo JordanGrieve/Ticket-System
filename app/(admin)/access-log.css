@@ -21,9 +21,16 @@
 /* The per-visit record list. Collapsed by default: the count is the answer
    most of the time, and a session that opened twenty threads should not push
    every other row down the page. */
+/* 24px of height for the disclosure, for the same reason .pba-signout has it:
+   a 16px summary passes 2.5.8 only through the spacing exception, and this is
+   the control that opens the record list. */
 .pba-root .pba-reads > summary {
   cursor: pointer;
   color: var(--text-2);
+  /* Padding, not `display: flex` and a min-height — flex on a <summary> drops
+     the disclosure triangle in Chrome, which would trade the affordance that
+     says "this opens" for four pixels of target. */
+  padding-block: 4px;
 }
 
 .pba-root .pba-reads-list {
