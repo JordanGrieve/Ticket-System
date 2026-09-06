@@ -63,3 +63,6 @@ public/_ah/
 
 # Same as public/_ah, for tests/mail-views-render.test.tsx.
 public/_mh/
+
+# Same as public/_ah, for tests/settings-views-render.test.tsx.
+public/_sh/

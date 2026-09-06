@@ -391,12 +391,28 @@
   flex-basis: 100%;
 }
 
+/*
+  The live "right now it is 09:00 in Europe/London" line.
+
+  ── A SENTENCE CANNOT BE A FLEX ROW ──
+  This was `display: flex` with the dot as the first item. A flex container
+  blockifies every child, so each <b> in the sentence became its own flex item
+  and each run of text between them became an anonymous one — eight items in a
+  row that never wrapped. On a 375px phone the line ran to 404px and
+  .pbm-page's overflow-x: hidden cut it off, so the clock and the timezone
+  simply were not there.
+
+  Only visible with business hours switched on, which is the configuration that
+  produces the longest sentence — and the one nobody had looked at on a phone.
+
+  Block flow with an absolutely positioned dot: the text wraps as text, and the
+  box is 40px shorter for it.
+*/
 .st-status {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
+  display: block;
+  position: relative;
   margin: 0;
-  padding: 11px 13px;
+  padding: 11px 13px 11px 30px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface);
@@ -406,8 +422,11 @@
 }
 
 .st-dot {
-  flex: 0 0 auto;
-  margin-top: 6px;
+  /* Positioned rather than a flex item — see the note on .st-status. Aligned
+     with the first line of text, which is where it read before. */
+  position: absolute;
+  left: 13px;
+  top: 17px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -1618,11 +1637,18 @@
 
 /* Destructive, so it reads as the one warning colour the themes carry
    rather than as another link. */
+/* Rotate the API key — which breaks every snippet the client has already
+   installed. `padding: 0` made it 15px tall; it clears 2.5.8 only through the
+   spacing exception, which is a thin argument for the most destructive control
+   on the page. The negative inline margin keeps the label flush left. */
 .sti-danger {
-  margin-top: 8px;
+  margin-top: 4px;
+  margin-inline: -6px;
+  min-height: 24px;
   background: none;
   border: 0;
-  padding: 0;
+  padding: 0 6px;
+  border-radius: 8px;
   font-size: 12.5px;
   font-weight: 700;
   color: var(--pdf-fg);

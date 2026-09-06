@@ -168,8 +168,43 @@ window.__targets = function () {
     const r = e.getBoundingClientRect();
     return r.width > 0 && r.height > 0;
   });
+  /*
+    A hidden control's target is its label.
+
+    The theme picker is the case: a 1x1 opacity-0 radio inside a 161x168
+    <label> card. That is the correct, accessible way to build it — the card is
+    what anyone taps — but measuring the input's own box reports six failures
+    and invites somebody to "fix" markup that was already right.
+
+    So a control wrapped in (or pointed at by) a label is measured by the union
+    of the two. Same principle as the pseudo-element hit test below: measure
+    what the pointer actually lands on.
+  */
+  const labelFor = (e) => {
+    const wrapping = e.closest && e.closest("label");
+    if (wrapping) return wrapping;
+    if (!e.id) return null;
+    try {
+      return document.querySelector(`label[for="${CSS.escape(e.id)}"]`);
+    } catch {
+      return null;
+    }
+  };
+  const union = (a, b) => {
+    const left = Math.min(a.left, b.left);
+    const top = Math.min(a.top, b.top);
+    const right = Math.max(a.right, b.right);
+    const bottom = Math.max(a.bottom, b.bottom);
+    return { left, top, right, bottom, width: right - left, height: bottom - top };
+  };
+
   const c = els.map((e) => {
-    const r = e.getBoundingClientRect();
+    let r = e.getBoundingClientRect();
+    const lab = labelFor(e);
+    if (lab) {
+      const lr = lab.getBoundingClientRect();
+      if (lr.width > 0 && lr.height > 0) r = union(r, lr);
+    }
     return { e, r, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
   });
   /*
