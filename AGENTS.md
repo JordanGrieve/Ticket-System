@@ -107,6 +107,29 @@ returns the tree — only the query module and `lib/viewer` are stood in for, an
 its own validation still runs. Do not refactor working code to make it
 renderable until you have tried awaiting it.
 
+## Never cast a fixture
+
+`as never` and `as unknown as T` switch off the only check that a fixture
+matches the thing it stands for. On 6 Sep 2026 taking them off the five render
+harnesses turned up TWELVE wrong fixtures that no test and no audit had
+noticed — invented fields (`authorEmail` for `authorLabel`, `ticketsInWindow`
+for `ticketsSinceTrialStart`, `stripeStatus` for `subscriptionStatus`),
+invented enum members (`double_opt_in`, when `ConsentMethod` is `signup_form |
+checkout | api | import | manual`), and missing ones (`chainPrevHash` and
+`chainHash`, on the access log whose whole subject is that hash chain).
+
+They fail in both directions, which is the part worth remembering. The
+onboarding fixture rendered a checklist with NO TEXT, so an accessibility
+sweep over it found nothing and reported clean. The shared-link fixture
+rendered one line instead of two, so the same sweep reported a WCAG
+target-size failure that did not exist.
+
+- **`satisfies T`** for a complete fixture: the literal keeps its narrow types
+  and tsc still rejects a wrong or missing field.
+- **`satisfies Partial<T> as T`** when a test deliberately supplies only the
+  fields the code reads. Partiality is fine; an unchecked field NAME is not.
+- The one file that had no casts was also the only one with no wrong fixtures.
+
 ## The rules these harnesses were built on
 
 - **A skeleton will pass every check you have.** This is the worst one, because

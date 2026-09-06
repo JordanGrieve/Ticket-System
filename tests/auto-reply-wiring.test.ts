@@ -24,13 +24,26 @@ import type { Workspace, Ticket } from "../db/schema";
  * deliver() records that it was reached.
  */
 
+/*
+  ── PARTIAL FIXTURES, BUT THE FIELD NAMES ARE STILL CHECKED ──
+  These carry only the fields the wiring reads, which is the point of the file.
+  They used `as unknown as Workspace`, which permits that — and also permits a
+  field name that does not exist, silently handing the code undefined.
+
+  `satisfies Partial<T> as T` keeps the partiality and restores the name check.
+  Worth doing after 6 Sep 2026, when taking the casts off the render harnesses
+  turned up ten wrong fixtures, several of them exactly this: authorEmail for
+  authorLabel, ticketsInWindow for ticketsSinceTrialStart, stripeStatus for
+  subscriptionStatus. These three were correct — but they are now KNOWN to be.
+*/
+
 const NOW = new Date("2026-08-24T10:00:00Z"); // a Monday, mid-morning
 
 const workspace = {
   id: 1,
   name: "Open Door Bakery",
   sendingEmail: "hello@bakery.example",
-} as unknown as Workspace;
+} satisfies Partial<Workspace> as Workspace;
 
 const ticket = {
   id: 42,
@@ -39,7 +52,7 @@ const ticket = {
   customerEmail: "priya@example.com",
   source: "contact_form",
   replyToken: "tok-42",
-} as unknown as Ticket;
+} satisfies Partial<Ticket> as Ticket;
 
 const enabledConfig = {
   enabled: true,
@@ -51,7 +64,7 @@ const enabledConfig = {
   businessHours: null,
   timezone: "Europe/London",
   skipIfTeammateReplied: true,
-} as unknown as AutoReplyConfig;
+} satisfies AutoReplyConfig;
 
 /** Records every call so a test can assert what was NOT reached. */
 function spyDeps(over: Partial<AutoReplyDeps> = {}) {
