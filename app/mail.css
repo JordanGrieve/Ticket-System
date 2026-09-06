@@ -102,14 +102,31 @@
   flex-direction: column;
 }
 /*
-  components/InstallView sets `height: 100vh; overflow-y: auto` inline, which
-  predates the shell and is now 100vh inside a 100dvh box — 56px too tall on a
-  phone, where the top bar overlays. An inline style can only be beaten with
-  !important, which is exactly why globals.css does the same for .pb-pad-x.
+  components/InstallView USED TO set `height: 100vh; overflow-y: auto` inline,
+  which predates the shell and was 100vh inside a 100dvh box — 56px too tall on
+  a phone, where the top bar overlays. An inline style can only be beaten with
+  !important, which is why this rule is shaped the way it is.
+
+  ── THE overflow HALF IS GONE, 6 SEPTEMBER ──
+  .sti-wrap stopped asking for either property some time ago (the note in
+  app/(dashboard)/settings/install/loading.tsx records that), so the overflow
+  override was left neutralising nothing — except the one child that genuinely
+  needs to scroll.
+
+  .pbs-tabs is a direct child of .pbm-page (see settings/layout.tsx) and sets
+  `overflow-x: auto` so the eight settings tabs can be swiped on a phone.
+  `overflow: visible !important` beat it, so the strip clipped at the screen
+  edge and could not be scrolled by any means — Jordan reported it, and his
+  devtools showed the overflow-x declaration struck through with no rule above
+  it to explain why.
+
+  A blunt `> *` selector with !important is a landmine: it applies to children
+  it was never written for, and it wins silently. `height` stays because a
+  child asking for its own height inside this flex column still breaks the
+  scroll container. Nothing needs its overflow forced.
 */
 .pbm-page > * {
   height: auto !important;
-  overflow: visible !important;
   flex: 0 0 auto;
 }
 
@@ -1151,6 +1168,35 @@
 }
 .pbm-label-swatch--pick[data-on] {
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px currentColor;
+}
+
+/*
+  Colour picking on a phone.
+
+  The swatches are 18px dots 8px apart, which is fine for a mouse and close to
+  unusable with a thumb — reported as "I can't do this on the labels on
+  mobile". 18px is under the 24px WCAG 2.5.8 floor, and the obvious repair of
+  padding the hit area is worse than the problem: at an 8px gap each target
+  would have to grow 5px a side to reach 28px, and adjacent hit areas would
+  then overlap by 2px, so a near miss selects the wrong colour silently.
+
+  So they get their own line instead of a bigger box in the same space. `order`
+  moves them after the rename and delete buttons, which are already comfortable
+  at 28px, leaving the whole row width for four targets that can be 26px with
+  12px between them. Nothing is faked and nothing overlaps.
+*/
+@media (max-width: 768px) {
+  .pbm-label-row .pbm-swatches {
+    order: 1;
+    flex-basis: 100%;
+    margin-left: 0;
+    gap: 12px;
+    padding-top: 2px;
+  }
+  .pbm-label-swatch--pick {
+    width: 26px;
+    height: 26px;
+  }
 }
 
 /* The label row under a thread's subject. */

@@ -30,19 +30,26 @@ export const ICON_PATHS = {
   clock: "M12 4.2a7.8 7.8 0 100 15.6 7.8 7.8 0 000-15.6z M12 7.8V12l2.9 1.9",
   news: "M4 5.5h13v13H5.5A1.5 1.5 0 014 17zM17 9h2.5A1.5 1.5 0 0121 10.5V17a1.5 1.5 0 01-1.5 1.5H17M7 9h7M7 12.5h7M7 15.5h4",
   /*
-   * Both subpaths start 1 left and 0.5 up of where they used to.
+   * REDRAWN, not nudged. The previous path was centred correctly — an earlier
+   * fix had already moved it to (12, 12) and getBBox confirmed that — and it
+   * still read as a lumpy flower rather than a cog, which Jordan called out.
    *
-   * Measured, not guessed: rendering every icon and reading getBBox put this
-   * gear's centre at (13, 12.5) in a 24x24 box — a whole pixel right and half
-   * a pixel low. On its own that is nothing; sitting in a column of folder
-   * rows whose icons are centred to within a tenth of a pixel, it is the one
-   * that looks wrong, and Jordan spotted it.
+   * Rendering it at 330px showed why: the teeth were not the same shape as
+   * each other. Top and bottom were wide flat slabs, the four diagonals were
+   * sheared points, and the tips sat at different radii. At 21px that averages
+   * into a blob. No amount of repositioning fixes a shape whose parts disagree.
    *
-   * Only the two M commands move, because everything after each one is
-   * relative, so shifting the start shifts the whole shape.
+   * So this one is GENERATED rather than drawn: six teeth on a 60° pitch, each
+   * 26° wide, tips on r=8.5 and roots on r=6.5 about (12, 12), with a r=2.85
+   * hole. Every tooth is therefore identical by construction and the whole
+   * glyph is symmetric about both axes.
+   *
+   * Six, not eight: at 21px eight teeth close up into a ring. The 16.56 height
+   * is deliberate too — it sits with `mail` (16) and `star` (15.5) rather than
+   * looming over them, which the first generated attempt at r=9.1 did.
    */
   settings:
-    "M11 14.5a3 3 0 100-6 3 3 0 000 6z M18.4 13l1.6 1-2 3.4-1.9-.6a7 7 0 01-1.7 1l-.4 2h-4l-.4-2a7 7 0 01-1.7-1l-1.9.6-2-3.4 1.6-1a7 7 0 010-2l-1.6-1 2-3.4 1.9.6a7 7 0 011.7-1l.4-2h4l.4 2a7 7 0 011.7 1l1.9-.6 2 3.4-1.6 1a7 7 0 010 2z",
+    "M8.75 6.37L10.09 3.72L13.91 3.72L15.25 6.37L18.22 6.2L20.13 9.51L18.5 12L20.13 14.49L18.22 17.8L15.25 17.63L13.91 20.28L10.09 20.28L8.75 17.63L5.78 17.8L3.87 14.49L5.5 12L3.87 9.51L5.78 6.2L8.75 6.37Z M9.15 12a2.85 2.85 0 105.7 0a2.85 2.85 0 10-5.7 0Z",
   people:
     "M12 12a4 4 0 100-8 4 4 0 000 8z M4.5 20a7.5 7.5 0 0115 0",
   search: "M16 16l4 4",

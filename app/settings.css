@@ -668,6 +668,20 @@
   .pbs-tabs {
     padding: 12px 16px;
     overflow-x: auto;
+    /* Explicit, not left to the initial value. `overflow-x: auto` with
+       `overflow-y: visible` makes the used overflow-y `auto` too, which turns
+       this into a two-axis scroller — and a sticky element that scrolls
+       vertically against itself is where the iOS bugs live. It only ever needs
+       to move sideways. */
+    overflow-y: hidden;
+    /* Tell the browser this strip pans horizontally. Without it a drag that
+       starts even slightly off-axis is claimed by the page's vertical scroll,
+       which is the difference between "scrolls if you are careful" and
+       "scrolls". */
+    touch-action: pan-x;
+    /* A swipe that reaches the end stops there instead of dragging the page
+       behind it sideways. */
+    overscroll-behavior-x: contain;
     scrollbar-width: none;
   }
   .pbs-tabs::-webkit-scrollbar {
@@ -1132,8 +1146,17 @@
   .stg-wrap {
     padding: 18px 14px 40px;
   }
+  /* Two, not one.
+
+     One column turned six themes into a column half a screen tall that had to
+     be scrolled to compare any two of them — and comparing them is the entire
+     purpose of the control, since each card is a picture of the thing it
+     selects. Two fits the swatch, the name and the "Match my device" note at
+     375px with room to spare; the note is the tightest of those and it wraps
+     rather than truncating. */
   .stg-theme-grid {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
   .stg-rows {
     padding: 4px 14px;

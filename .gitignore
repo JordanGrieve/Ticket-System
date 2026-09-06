@@ -54,3 +54,4 @@ next-env.d.ts
 # script is worth keeping, the generated page is not.
 public/_pill.html
 public/_harness.html
+public/_mobile.html
