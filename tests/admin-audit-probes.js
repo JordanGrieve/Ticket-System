@@ -256,6 +256,75 @@ window.__targets = function () {
   return { total: els.length, failing: small.filter((s) => s.fails), exemptButSmall: small.filter((s) => !s.fails) };
 };
 
+/**
+ * Sentences that were made into flex rows.
+ *
+ * ── THE SIGNATURE IS AN ANONYMOUS FLEX ITEM ──
+ * A flex container blockifies every child, and each run of raw text between
+ * its elements becomes an ANONYMOUS flex item. So `<p class="flex">Right now
+ * it is <b>09:00</b> in Europe/London</p>` is not one wrapping paragraph, it
+ * is five items in a row that cannot wrap across each other.
+ *
+ * That is what .st-status was: eight items running to 404px inside a 375px
+ * phone, with the clock clipped off the end. It is invisible until the
+ * sentence is long enough, which is why it survived — the text only overflows
+ * in the configuration that produces the longest string.
+ *
+ * A key/value row of <span>s in a flex container is fine and common, so a bare
+ * "text inside flex" would cry wolf constantly. The report is narrowed to
+ * containers that do NOT wrap and whose items already exceed their own width —
+ * the state that actually clips.
+ */
+window.__flexSentences = function () {
+  const out = [];
+  document.querySelectorAll("*").forEach((el) => {
+    const cs = getComputedStyle(el);
+    if (cs.display !== "flex" && cs.display !== "inline-flex") return;
+    if (cs.flexWrap !== "nowrap") return;
+    if (cs.flexDirection.startsWith("column")) return;
+
+    const textKids = [...el.childNodes].filter(
+      (n) => n.nodeType === 3 && n.textContent.trim().length > 0,
+    );
+    if (textKids.length === 0) return;
+
+    // Does it actually overflow its own box? A short sentence in a flex row is
+    // wrong in principle but harms nobody, and reporting it buries the ones
+    // that clip.
+    /*
+      Measure the ANONYMOUS items too, not just the element children.
+
+      The first version of this looped over el.children and reported nothing
+      anywhere — including on its own self-test injection, which is the only
+      reason it was caught. The text runs are the items that overflow, and they
+      are not elements, so `children` cannot see them. A Range around each text
+      node can.
+    */
+    const box = el.getBoundingClientRect();
+    let widest = 0;
+    for (const kid of el.children) {
+      const r = kid.getBoundingClientRect();
+      if (r.right > widest) widest = r.right;
+    }
+    for (const node of textKids) {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const r = range.getBoundingClientRect();
+      if (r.right > widest) widest = r.right;
+    }
+    if (widest <= box.right + 1) return;
+
+    out.push({
+      cls: (el.className || el.tagName).toString().slice(0, 40),
+      text: el.textContent.replace(/\s+/g, " ").trim().slice(0, 60),
+      boxRight: Math.round(box.right),
+      contentRight: Math.round(widest),
+      items: el.childNodes.length,
+    });
+  });
+  return out;
+};
+
 /** Injects a broken element and confirms each probe reports it. */
 window.__selftest = function () {
   const host = document.querySelector(".pba-content") || document.body;
@@ -301,5 +370,18 @@ window.__selftest = function () {
   a.remove();
   b.remove();
 
-  return { sawOverflow, sawContrast, sawTarget };
+  // A sentence in a nowrap flex row, long enough to overflow its own box —
+  // exactly the .st-status shape.
+  const row = document.createElement("p");
+  row.style.cssText = "display:flex;flex-wrap:nowrap;width:120px";
+  row.append(
+    "Right now it is ",
+    Object.assign(document.createElement("b"), { textContent: "09:00" }),
+    " in Europe/London and this keeps going well past the box",
+  );
+  host.appendChild(row);
+  const sawFlexSentence = window.__flexSentences().length > 0;
+  row.remove();
+
+  return { sawOverflow, sawContrast, sawTarget, sawFlexSentence };
 };
