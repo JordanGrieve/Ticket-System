@@ -164,9 +164,25 @@ window.__selftest = function () {
   const host = document.querySelector(".pba-content") || document.body;
 
   const wide = document.createElement("div");
-  wide.style.cssText = "width:900px;height:8px";
+  // Relative to the viewport, not a fixed 900px. A fixed width fits inside a
+  // desktop window, so the self-test quietly reported "cannot see overflow"
+  // at 1280 — which is indistinguishable from the probe being broken.
+  wide.style.cssText = `width:${document.documentElement.clientWidth * 2}px;height:8px`;
   host.appendChild(wide);
-  const sawOverflow = window.__overflow().clipped.length + window.__overflow().loose.length > 0;
+  const seen = window.__overflow();
+  /*
+    A verdict, not a boolean.
+
+    Above 980px .pba-content carries `overflow-y: auto`, and CSS computes
+    overflow-x to `auto` whenever the other axis is not visible — so the probe
+    lands in a genuine scroller there and is correctly NOT reported. A bare
+    false could not be told apart from a probe that had stopped working, which
+    is the whole thing this function exists to rule out.
+  */
+  const sawOverflow =
+    seen.clipped.length + seen.loose.length > 0
+      ? "reported"
+      : "absorbed by a scrolling ancestor (expected above 980px)";
   wide.remove();
 
   const faint = document.createElement("p");
