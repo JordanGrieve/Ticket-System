@@ -98,6 +98,25 @@ const labelRow = (name, sel) => `
   <button type="button" class="pbm-label-icon pbm-label-icon--danger" aria-label="Delete">${icon("trash", 15)}</button>
 </div>`;
 
+const card = ({ name, time, subject, preview, src, labels = [], unread, awaiting, order }) => `
+<div class="pbm-card-wrap">
+  <a class="pbm-card" href="#"${unread ? " data-unread" : ""}>
+    <div class="pbm-card-top">
+      <span class="pbm-card-who">${unread ? '<span class="pbm-dot" aria-hidden=""></span>' : ""}<span class="pbm-card-name">${name}</span></span>
+      <span class="pbm-card-time">${time}</span>
+    </div>
+    <div class="pbm-card-subject">${subject}</div>
+    <div class="pbm-card-preview">${preview}</div>
+    <div class="pbm-card-chips">
+      <span class="pbm-tag">${src}</span>
+      ${labels.map((l, i) => `<span class="pbm-label pbm-label--sm" data-color="tag_${"abc"[i % 3]}"><span class="pbm-label-name">${l}</span></span>`).join("")}
+      ${awaiting ? '<span class="pbm-tag pbm-tag--awaiting">Awaiting</span>' : ""}
+      ${order ? `<span class="pbm-tag pbm-tag--order">${order}</span>` : ""}
+    </div>
+  </a>
+  <button class="pbm-card-star" aria-label="Star">${icon("star", 15)}</button>
+</div>`;
+
 const SECTIONS = [
   {
     id: "icons",
@@ -150,6 +169,64 @@ const SECTIONS = [
       ${swatches(0)}
       <button type="button" class="pbm-label-create">+ Add</button>
     </div>
+  </div>
+</div>`,
+  },
+  {
+    id: "inbox",
+    title: "6 · Inbox list card",
+    /*
+      Wrapped in .pbm-list > .pbm-list-scroll, which is where the mobile
+      padding, gap and card shadow come from. A bare .pbm-card renders on the
+      wrong ground and at the wrong width.
+    */
+    body: `<div class="pbm-list"><div class="pbm-list-scroll pb-scroll">
+  ${card({ name: "Priya Raman", time: "8h", subject: "Do you cater for gluten-free events?", preview: "Hello — we have a staff lunch coming up in March and two people are coeliac. Is that something you can do?", src: "Contact form", labels: ["Sales"], unread: true })}
+  ${card({ name: "Tom Whitfield", time: "9h", subject: "Invoice 3391 — wrong VAT rate?", preview: "I think the VAT on this one is 20% but it should be zero-rated for the cakes.", src: "Email", labels: ["Billing", "Wholesale"], awaiting: true, order: "ORD-4821" })}
+  ${card({ name: "A Customer With A Very Long Name Indeed", time: "12h", subject: "A subject line that is quite a lot longer than the card is wide and must not break the layout", preview: "Short.", src: "Contact form", labels: [] })}
+</div></div>`,
+  },
+  {
+    id: "thread",
+    title: "7 · Thread",
+    body: `<div class="pbm-thread">
+  <header class="pbm-thread-head">
+    <a class="pbm-icon-btn pbm-back" href="#" aria-label="Back to the list">${icon("back", 17)}</a>
+    <div class="pbm-thread-who">
+      <p class="pbm-thread-name">Priya Raman</p>
+      <p class="pbm-thread-email">priya.raman@example.com</p>
+    </div>
+    <div class="pbm-thread-actions">
+      <button class="pbm-icon-btn" aria-label="Mark as unread">${icon("envelopeOpen", 17)}</button>
+      <button class="pbm-icon-btn" aria-label="Snooze">${icon("clock", 17)}</button>
+      <button class="pbm-icon-btn" aria-label="Archive">${icon("archive", 17)}</button>
+      <button class="pbm-icon-btn" aria-label="Find in Gmail">${icon("clip", 17)}</button>
+      <button class="pbm-icon-btn" aria-label="Delete">${icon("trash", 17)}</button>
+    </div>
+  </header>
+  <div class="pbm-subject">
+    <div class="pbm-thread-subject">Do you cater for gluten-free events?</div>
+    <div class="pbm-subject-chips">
+      <span class="pbm-chip-static pbm-chip-static--src">Contact form</span>
+      <span class="pbm-chip-static">Open</span>
+    </div>
+  </div>
+  <div class="pbm-transcript pb-scroll">
+    <div class="pbm-bubble-row"><div class="pbm-bubble-wrap">
+      <div class="pbm-bubble">Hello — we have a staff lunch coming up in March and two people are coeliac. Is that something you can do, and would it need to be a separate order?</div>
+      <div class="pbm-bubble-foot">Yesterday, 8:55 am</div>
+    </div></div>
+    <div class="pbm-bubble-row" data-out><div class="pbm-bubble-wrap">
+      <div class="pbm-bubble">Yes — we do a gluten-free range and can keep it on a separate tray so there is no cross-contamination. I will send the list over.</div>
+      <div class="pbm-bubble-foot">Yesterday, 9:55 am · Delivered</div>
+    </div></div>
+  </div>
+  <div class="pbm-composer-wrap">
+    <div class="pbm-composer">
+      <textarea class="pbm-composer-input" rows="1" placeholder="Write a reply…"></textarea>
+      <button class="pbm-send" aria-label="Send">${icon("send", 17)}</button>
+    </div>
+    <div class="pbm-composer-foot">Sends as Open Door Bakery &lt;replies@postbox.help&gt;</div>
   </div>
 </div>`,
   },

@@ -715,6 +715,18 @@
   flex: 1;
   min-width: 0;
 }
+/* Both are <p>, so both carried the browser default 1em top and bottom
+   margin — 42px of it for 35px of text. Invisible while this header was a
+   fixed height with align-items:center, because the block was centred in a box
+   taller than its content either way. It stopped being invisible the moment
+   the header wrapped on mobile, where it was the difference between a 147px
+   header and a 105px one. A paragraph used as a name label should not carry
+   prose spacing anywhere. */
+.pbm-thread-name,
+.pbm-thread-email {
+  margin: 0;
+}
+
 .pbm-thread-name {
   font-size: 15px;
   font-weight: 800;
@@ -1801,9 +1813,40 @@
     padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 10px;
     background: var(--surface);
     border-bottom: none;
+    /* See .pbm-thread-actions below — the buttons take their own row. */
+    flex-wrap: wrap;
+    row-gap: 8px;
   }
   .pbm-back {
     display: flex;
+  }
+
+  /*
+    THE ACTIONS GO ON THEIR OWN ROW.
+
+    Measured at 375px with four buttons showing: the header is 325px wide, the
+    back button takes 38, the four buttons take 176, gaps and padding take 56 —
+    leaving 55px for the customer's name, which needed 93. So it truncated to
+    "Priya…" and the email under it to "priya.ra…".
+
+    A normal ticket can show FIVE (mark unread, find in Gmail, snooze, archive,
+    trash), which leaves about 15px. The name is the single most useful thing
+    in this header and it was getting a sixth of the room, while controls that
+    are all one tap away either way took half.
+
+    Wrapping them costs 7px: 101px before, 108px after — and the after case is
+    showing FIVE buttons where the before case truncated the name at four. That
+    only worked out because the margin reset above reclaimed 42px the two <p>
+    elements were spending on default prose margins; without it the wrap cost
+    46px, which would not have been worth it. The name gets 243px instead of 55.
+  */
+  .pbm-thread-who {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .pbm-thread-actions {
+    flex-basis: 100%;
+    justify-content: flex-end;
   }
   /* The star and delete buttons are disabled placeholders; on a phone they are
      pure noise next to the one control that works, so they come out. */
