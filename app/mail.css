@@ -1004,9 +1004,12 @@
 .pbm-rail-title--sub {
   margin-top: 4px;
 }
+/* 32, up from 26. It cleared the 24px floor, but only just, and it is the
+   control somebody reaches for in a hurry on a sheet that covers the screen.
+   The glyph inside is unchanged; only the box it sits in grew. */
 .pbm-rail-close {
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   flex: none;
   border: none;
   border-radius: 9px;
@@ -1079,7 +1082,8 @@
   cursor: not-allowed;
 }
 .pbm-rail-soon {
-  font-size: 9.5px;
+  /* Was 9.5px, the smallest type in the codebase. */
+  font-size: 10.5px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1789,7 +1793,12 @@
     gap: 5px;
     width: 62px;
     min-height: 48px;
-    font-size: 10px;
+    /* 11px, up from 10. These are the primary navigation on a phone and they
+       were the smallest type in the product — smaller than the timestamps on
+       a card. Contrast maths never flags this because the ratio is fine; it is
+       size, and it is the complaint people actually voice as "I cannot read
+       it". Checked at 375px: five tabs still fit on one row without wrapping. */
+    font-size: 11px;
     font-weight: 700;
     color: var(--muted);
   }

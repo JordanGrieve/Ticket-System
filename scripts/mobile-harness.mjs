@@ -230,6 +230,45 @@ const SECTIONS = [
   </div>
 </div>`,
   },
+  {
+    id: "rail",
+    title: "8 · Contact sheet (the drag handle lives here)",
+    /*
+      Rendered open and in flow rather than as the fixed overlay it really is,
+      so the whole sheet is measurable in one screenshot. The CLASSES are the
+      real ones, which is what the contrast and target-size audit reads.
+    */
+    body: `<aside class="pbm-rail" data-rail="open" aria-label="Contact details" style="position:static;inset:auto;height:auto;border-radius:20px">
+  <div class="pbm-rail-grip" role="button" tabindex="0" aria-label="Close contact details"></div>
+  <div class="pbm-rail-head">
+    <h2 class="pbm-rail-title">General info</h2>
+    <button class="pbm-rail-close" aria-label="Hide contact details">${icon("close", 12)}</button>
+  </div>
+  <div class="pbm-rail-card">
+    <div>
+      <p class="pbm-rail-name">Tom Whitfield</p>
+      <p class="pbm-rail-void">No phone number on file</p>
+    </div>
+    <div>
+      <p class="pbm-rail-label">Email</p>
+      <p class="pbm-rail-value">t.whitfield@northloop.io</p>
+    </div>
+    <div>
+      <p class="pbm-rail-label">First contact</p>
+      <p class="pbm-rail-value">17 Aug 2026</p>
+    </div>
+    <div>
+      <p class="pbm-rail-label">Status</p>
+      <p class="pbm-rail-void">Customer lifecycle status isn't tracked yet</p>
+    </div>
+  </div>
+  <h3 class="pbm-rail-title pbm-rail-title--sub">Notes</h3>
+  <form class="pbn-form">
+    <textarea class="pbn-input" rows="2" placeholder="Allergies, usual order, what you agreed on the phone…" aria-label="Add a note"></textarea>
+  </form>
+  <p class="pbm-rail-void">Nothing noted about this customer yet. Anything you write here is for your team only. The customer never sees it.</p>
+</aside>`,
+  },
 ];
 
 writeFileSync(
