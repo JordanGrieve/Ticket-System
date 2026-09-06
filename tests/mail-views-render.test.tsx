@@ -47,7 +47,7 @@ import Thread from "../components/mail/Thread";
  * That is worth having on its own (a view that throws on a null order id now
  * fails in CI), and it also builds the browser harness: set MAIL_HARNESS_OUT
  * and each view is written as a standalone page in the real stylesheets, with
- * the probes from tests/admin-audit-probes.js.
+ * the probes from tests/audit-probes.js.
  *
  *   MAIL_HARNESS_OUT=$PWD/public/_mh npx vitest run tests/mail-views-render
  *
@@ -296,7 +296,7 @@ describe("every client-facing mail view renders", () => {
     ]) {
       copyFileSync(join(process.cwd(), src), join(OUT, src.split("/").pop()!));
     }
-    copyFileSync(join(process.cwd(), "tests/admin-audit-probes.js"), join(OUT, "audit.js"));
+    copyFileSync(join(process.cwd(), "tests/audit-probes.js"), join(OUT, "audit.js"));
 
     for (const [name, node] of Object.entries(views)) {
       writeFileSync(join(OUT, `${name}.html`), page(name, renderToStaticMarkup(node)), "utf8");

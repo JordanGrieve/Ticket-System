@@ -167,7 +167,7 @@ describe("the newsletter composer renders", () => {
     for (const src of ["app/globals.css", "app/mail.css", "app/newsletter.css"]) {
       copyFileSync(join(process.cwd(), src), join(OUT, src.split("/").pop()!));
     }
-    copyFileSync(join(process.cwd(), "tests/admin-audit-probes.js"), join(OUT, "audit.js"));
+    copyFileSync(join(process.cwd(), "tests/audit-probes.js"), join(OUT, "audit.js"));
     for (const [name, node] of Object.entries(views)) {
       writeFileSync(join(OUT, `${name}.html`), page(name, renderToStaticMarkup(node)), "utf8");
     }

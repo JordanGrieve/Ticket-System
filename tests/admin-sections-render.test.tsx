@@ -29,7 +29,7 @@ import {
  * ── IT ALSO BUILDS THE MOBILE HARNESS ──
  * Set ADMIN_HARNESS_OUT to a directory and it writes each pane as a standalone
  * page, dressed in the real stylesheets and carrying the probes in
- * ./admin-audit-probes.js. Point a browser at it to audit the console at any
+ * ./audit-probes.js. Point a browser at it to audit the console at any
  * width without an account:
  *
  *   ADMIN_HARNESS_OUT=$PWD/public/_ah npx vitest run tests/admin-sections-render
@@ -296,7 +296,7 @@ describe("every admin pane renders", () => {
       copyFileSync(join(process.cwd(), src), join(OUT, src.split("/").pop()!));
     }
     copyFileSync(
-      join(process.cwd(), "tests/admin-audit-probes.js"),
+      join(process.cwd(), "tests/audit-probes.js"),
       join(OUT, "audit.js"),
     );
 

@@ -168,7 +168,7 @@ describe("the subscribers screen renders", () => {
     for (const src of ["app/globals.css", "app/mail.css", "app/subscribers.css"]) {
       copyFileSync(join(process.cwd(), src), join(OUT, src.split("/").pop()!));
     }
-    copyFileSync(join(process.cwd(), "tests/admin-audit-probes.js"), join(OUT, "audit.js"));
+    copyFileSync(join(process.cwd(), "tests/audit-probes.js"), join(OUT, "audit.js"));
     writeFileSync(
       join(OUT, "subscribers.html"),
       page("subscribers", await render({}, { rows, hasMore: true })),
