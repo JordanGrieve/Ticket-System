@@ -8,6 +8,7 @@ import {
   BillingSection,
   DeliverabilitySection,
   SupportSection,
+  AccountDrawer,
   OverviewSection,
 } from "../app/(admin)/admin/sections";
 
@@ -216,6 +217,32 @@ const panes: Record<string, React.ReactElement> = {
           visible={accounts}
           query={{ section: "accounts", filter: "all", q: "" } as never}
           deleteTarget={null}
+        />
+      ),
+      /*
+        ── THE OPEN STATES, WHICH NOTHING RENDERED ──
+        Every fixture above is a screen at rest. The confirmation panel and the
+        account drawer only exist once somebody has clicked something, so they
+        had never been rendered, measured or contrast-checked — and they are
+        where the most consequential controls in the console live. The delete
+        confirmation is the one that destroys a workspace.
+      */
+      "accounts-deleting": (
+        <AccountsSection
+          accounts={accounts}
+          visible={accounts}
+          query={{ section: "accounts", filter: "all", q: "" } as never}
+          deleteTarget={accounts[0]!}
+        />
+      ),
+      drawer: (
+        <AccountDrawer
+          account={accounts[0]!}
+          teamSize={2}
+          query={{ section: "accounts", filter: "all", q: "" } as never}
+          recentAccess={sessions}
+          reads={reads}
+          usage={{ subscribers: 118, ticketsInWindow: 24 } as never}
         />
       ),
       overview: <OverviewSection accounts={accounts} gates={gates} />,

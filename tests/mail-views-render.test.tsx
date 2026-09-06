@@ -200,6 +200,20 @@ const views: Record<string, React.ReactElement> = {
     />
   ),
   labels: <LabelManager labels={labels.map((l, i) => ({ ...(l as object), ticketCount: [12, 3, 0, 1][i] })) as never} inline />,
+  /*
+    The same component as a MODAL, which is a different thing to audit: it
+    brings a scrim, role="dialog", aria-modal and a close button that the
+    inline settings panel deliberately does not have. Every fixture in this
+    file was a screen at rest until now, so the modal chrome — the layer most
+    likely to trap focus or sit at the wrong contrast — had never been
+    rendered.
+  */
+  "labels-modal": (
+    <LabelManager
+      labels={labels.map((l, i) => ({ ...(l as object), ticketCount: [12, 3, 0, 1][i] })) as never}
+      onClose={noop}
+    />
+  ),
   onboarding: <OnboardingChecklist progress={progress} />,
   links: <SharedLinks links={links} />,
   thread: (
