@@ -309,11 +309,28 @@ export default function MailNavShell({
         <div className="pb-scrim" onClick={() => setNavOpen(false)} aria-hidden />
       )}
 
+      {/* The rules report on the ELEMENT, not on the onClick line, so the
+          directive below has to sit here rather than beside the handler — and
+          it has to be a comment of its own, because ESLint only reads a
+          directive when it is the first text in the comment. */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
       <nav
         className="pb-sidebar pbm-nav"
         data-open={navOpen}
         aria-label="Mail folders"
         // Tapping any link in the drawer navigates, so the drawer must close.
+        //
+        // ── WHY THE RULE IS DISABLED HERE AND NOT SATISFIED ──
+        // This is delegation, not a click target: the handler does nothing
+        // unless the click came from inside an <a>. Those anchors are already
+        // keyboard-operable, and activating one with Enter fires a click that
+        // bubbles to exactly this handler, so a keyboard user gets identical
+        // behaviour. The rule cannot see through delegation.
+        //
+        // Satisfying it would be worse than disabling it. An onKeyDown on the
+        // <nav> fires for every keystroke inside the drawer, including typing
+        // in any future field, and a tabIndex would put a stop on the tab
+        // order in front of the links people actually want.
         onClick={(e) => {
           if ((e.target as HTMLElement).closest("a")) setNavOpen(false);
         }}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "./icons";
 import SheetGrip from "./SheetGrip";
 import type { ContactCard } from "./types";
@@ -89,6 +89,38 @@ export default function ContactRail({
     toward your finger lags behind it, which reads as lag rather than polish.
   */
   const [dragY, setDragY] = useState(0);
+
+  /*
+    Escape closes the sheet — but only while it IS a sheet.
+
+    ── WHY THIS WAS MISSING ──
+    Every other overlay in the product closes on Escape: LabelManager,
+    LabelPicker, the nav drawer, the status menu. The rail was the one that did
+    not, and it is the only one that can be dismissed by dragging, which is
+    presumably why nobody noticed — a touch gesture has no keyboard equivalent,
+    so the omission is invisible to anyone using a mouse or a finger.
+
+    The close button means this was never a 2.1.1 failure; the rail was always
+    operable from a keyboard. It is a consistency gap, and it costs nothing to
+    close.
+
+    ── ONLY WHEN THERE IS SOMETHING TO CLOSE ──
+    Above 1180px the rail is a COLUMN, the scrim is `display: none`, and
+    nothing is covering the page. Handling Escape there would swallow a key the
+    browser and the page may want — the same reasoning LabelManager gives for
+    not binding Escape in its inline mode. The query mirrors the mail.css
+    breakpoint, as Thread's own `wide` check does.
+  */
+  useEffect(() => {
+    if (state !== "open") return;
+    const overlay = window.matchMedia("(max-width: 1180px)");
+    if (!overlay.matches) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [state, onClose]);
 
   const firstSeen = formatFirstSeen(contact.firstSeenIso);
   // Derived on render, not stored: it is a judgement about the address as it
