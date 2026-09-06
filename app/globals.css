@@ -604,11 +604,20 @@ input:focus {
 
    Splitting the token also stops the next accent tweak silently re-breaking
    the ring: the ring has its own name and its own test now. */
+/* ── AND summary, ADDED 6 Sep 2026 ──
+   For exactly the reason the note above gives for <select>. A <summary> is
+   natively focusable, and four of them ship: the access-log record list, the
+   impersonation banner, the newsletter plain-text disclosure and the pricing
+   FAQ. Two carried their own :focus-visible; the other two — including one on
+   a page any stranger can reach — fell back to the browser default ring, which
+   is the ring this block exists to replace and which is not held to 3:1
+   against these grounds. */
 a:focus-visible,
 button:focus-visible,
 select:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
+summary:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid var(--focus-ring, var(--accent, #d6552f));
   outline-offset: 2px;

@@ -744,6 +744,61 @@ window.__ready = async function (timeoutMs) {
 };
 
 /**
+ * 1.4.4 Resize Text — text doubles without losing content or function.
+ *
+ * Distinct from 1.4.10 Reflow, which is about a narrow viewport. This is a
+ * reader who has set a larger default text size, and the failure looks
+ * different: not a page that scrolls sideways, but a box with a fixed height
+ * that swallows its own text once the text grows.
+ *
+ * Doubling the root font-size is not enough on its own — anything with a
+ * font-size in px ignores the root, and would pass this check while failing a
+ * real reader — so px-sized elements are doubled explicitly and put back.
+ */
+window.__textZoom = function () {
+  const style = document.createElement("style");
+  style.textContent = "html { font-size: 200% !important; }";
+  document.head.appendChild(style);
+
+  const touched = [];
+  document.querySelectorAll("*").forEach((el) => {
+    if (inSkeleton(el)) return;
+    const px = parseFloat(getComputedStyle(el).fontSize);
+    if (!px) return;
+    touched.push([el, el.style.fontSize]);
+    el.style.fontSize = px * 2 + "px";
+  });
+  void document.body.offsetHeight;
+
+  const clipped = [];
+  document.querySelectorAll("*").forEach((el) => {
+    if (inSkeleton(el)) return;
+    const box = el.getBoundingClientRect();
+    if (box.width <= 1 || box.height <= 1) return;
+    const cs = getComputedStyle(el);
+    if (cs.overflow === "visible" && cs.overflowY === "visible") return;
+    if (cs.overflowY === "auto" || cs.overflowY === "scroll") return;
+    const hasText = [...el.childNodes].some(
+      (n) => n.nodeType === 3 && n.textContent.trim().length > 1,
+    );
+    if (!hasText) return;
+    if (el.scrollHeight > el.clientHeight + 2) {
+      clipped.push({
+        cls: (el.className || el.tagName).toString().slice(0, 38),
+        text: el.textContent.replace(/\s+/g, " ").trim().slice(0, 40),
+        scroll: el.scrollHeight,
+        client: el.clientHeight,
+      });
+    }
+  });
+
+  for (const [el, inline] of touched) el.style.fontSize = inline;
+  style.remove();
+  void document.body.offsetHeight;
+  return clipped;
+};
+
+/**
  * Everything above, for one page, in one call.
  *
  * Async, and it waits first. A synchronous version measured skeletons.

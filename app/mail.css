@@ -1946,6 +1946,16 @@
       once a reader's own spacing is applied. It is a bound, not a promise:
       a subject long enough will still clamp, which is why the inbox card and
       the email itself both carry the full text.
+
+      ── WHAT IS STILL TRUE AT 200% ZOOM ──
+      A clamp counts lines, so 1.4.4 will always cut something at extreme
+      zoom; three lines of doubled text hold less than three of normal. This
+      is deliberately left as visual truncation rather than removed, because
+      the element is an <h1> holding the COMPLETE subject, not aria-hidden and
+      not shortened in the markup — so a screen reader reads every word of it
+      at any zoom, and what is bounded is the space it takes on screen. If
+      that ever changes to a truncated string in the DOM, this becomes a real
+      failure and the clamp has to go.
     */
     display: -webkit-box;
     -webkit-line-clamp: 3;
