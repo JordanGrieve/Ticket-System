@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import DragScroller from "@/components/DragScroller";
 import { usePathname } from "next/navigation";
 
 /**
@@ -41,7 +42,17 @@ export default function SettingsTabs() {
   const pathname = usePathname();
 
   return (
-    <nav className="pbs-tabs" aria-label="Settings sections">
+    /*
+      Wrapped so a mouse can drag the strip sideways. Touch already worked once
+      the stale `overflow: visible !important` came off .pbm-page, but a pointing
+      device gets nothing from overflow-x alone — which is what "it does not
+      scroll on desktop in mobile view" was.
+    */
+    <DragScroller
+      className="pbs-tabs"
+      role="navigation"
+      aria-label="Settings sections"
+    >
       {TABS.map((t) => {
         // Exact match: /settings must not light up while on /settings/contacts.
         const active = pathname === t.href;
@@ -57,6 +68,6 @@ export default function SettingsTabs() {
           </Link>
         );
       })}
-    </nav>
+    </DragScroller>
   );
 }

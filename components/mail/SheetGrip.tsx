@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { sheetOffset, shouldCloseOnRelease } from "@/lib/sheet-drag";
 
 /**
  * The drag handle on the contact sheet.
@@ -53,9 +54,6 @@ export default function SheetGrip({
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
 
-  /** Past this many pixels, letting go closes the sheet. */
-  const CLOSE_AT = 110;
-
   const end = useCallback(() => {
     if (startY.current === null) return;
     const travelled = offset;
@@ -63,7 +61,7 @@ export default function SheetGrip({
     setDragging(false);
     setOffset(0);
     onOffset(0);
-    if (travelled > CLOSE_AT) onClose();
+    if (shouldCloseOnRelease(travelled)) onClose();
   }, [offset, onClose, onOffset]);
 
   return (
@@ -88,9 +86,9 @@ export default function SheetGrip({
       onPointerMove={(e) => {
         if (startY.current === null) return;
         const dy = e.clientY - startY.current;
-        // Downward follows the finger exactly. Upward is damped to a third and
-        // capped, so the sheet resists rather than tearing off its top stop.
-        const next = dy >= 0 ? dy : Math.max(dy / 3, -28);
+        // Both rules live in lib/sheet-drag.ts, where they can be tested —
+        // this file cannot be, for want of a DOM environment.
+        const next = sheetOffset(dy);
         setOffset(next);
         onOffset(next);
       }}
