@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import {
   parseHex,
@@ -142,4 +144,63 @@ describe("a brand colour never decides its own legibility", () => {
     expect(contrastRatio(out, dark)).toBeGreaterThanOrEqual(MIN_CONTRAST);
     expect(out.r).toBeGreaterThan(0x1a);
   });
+});
+
+/**
+ * Every colour literal written into the email, measured against the two
+ * grounds the email actually has.
+ *
+ * ── THE ACCENT WAS GUARDED AND THE REST WERE NOT ──
+ * darkenToContrast exists because the brand accent is chosen by a client and
+ * could be anything. That left the impression this file was handled. It was
+ * not: the fixed greys around it had never been measured, and #a49a89 — the
+ * unsubscribe prompt and the postal identification, both 12px — sat at 2.78:1
+ * on the white card and 2.62:1 on the page behind it.
+ *
+ * Those two lines are the least optional text in a commercial email. CAN-SPAM
+ * and PECR both ask for identification that is "clear and conspicuous", and a
+ * grey a third of the way to its background is a thin answer to that before
+ * anyone even reaches the accessibility of it.
+ *
+ * This reads the renderer rather than a list kept by hand, so a literal added
+ * later is measured whether or not anybody remembers this test exists.
+ */
+describe("the fixed colours in the email clear AA on the grounds they sit on", () => {
+  const source = readFileSync(join(process.cwd(), "lib/newsletter.ts"), "utf8");
+
+  // The email has exactly two backgrounds: the white card, and the page behind
+  // it. Both are literals in the same file, so a change to either shows up
+  // here as a failure rather than as a stale assumption.
+  const GROUNDS = ["#ffffff", "#faf8f4"];
+
+  it("the grounds are still the ones this test assumes", () => {
+    for (const ground of GROUNDS) {
+      expect(source, `${ground} is no longer a background in the renderer`).toContain(
+        `background:${ground}`,
+      );
+    }
+  });
+
+  const literals = [...new Set([...source.matchAll(/color:(#[0-9a-f]{6})/g)].map((m) => m[1]!))];
+
+  it("found the literals at all", () => {
+    // The canary: a regex that matched nothing would make the loop below pass
+    // by iterating over an empty list. This repo has been bitten by exactly
+    // that — a mangled regex inside a check that reported green.
+    expect(literals.length).toBeGreaterThanOrEqual(3);
+  });
+
+  for (const literal of literals) {
+    it(`${literal}`, () => {
+      const fg = parseHex(literal);
+      expect(fg, `could not parse ${literal}`).not.toBeNull();
+      for (const ground of GROUNDS) {
+        const ratio = contrastRatio(fg!, parseHex(ground)!);
+        expect(
+          ratio,
+          `${literal} measures ${ratio.toFixed(2)}:1 on ${ground} — the email's body text is 12-14px, so AA needs ${MIN_CONTRAST}`,
+        ).toBeGreaterThanOrEqual(MIN_CONTRAST);
+      }
+    });
+  }
 });

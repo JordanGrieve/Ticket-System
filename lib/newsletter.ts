@@ -810,8 +810,23 @@ function unsubscribeFooterHtml(
 ): string {
   const safe = escapeHtml(url);
   const identity = escapeHtml(senderBlockText(sender)).replace(/\n/g, "<br />");
-  return `<p style="margin:28px 0 0;font:400 12px/1.6 Arial,sans-serif;color:#a49a89;">Don&rsquo;t want these emails? <a href="${safe}" style="color:${accent};text-decoration:underline;">Unsubscribe</a>.</p>
-<p style="margin:10px 0 0;font:400 12px/1.6 Arial,sans-serif;color:#a49a89;">${identity}</p>`;
+  /*
+    ── THE FOOTER GREY WAS 2.78:1 ──
+    #a49a89 on the white card measured 2.78:1, and 2.62:1 against the #faf8f4
+    page behind it, at 12px. Under AA by a wide margin, on the two lines that
+    are least optional in the whole message: the unsubscribe prompt, and the
+    postal identification CAN-SPAM and PECR require in every commercial email.
+
+    "Clear and conspicuous" is the standard those rules actually use, and a
+    grey a third of the way to the background is a poor answer to it — quite
+    apart from the reader who simply cannot make it out. Darkened along the
+    same hue to 5.10:1 on the card and 4.81:1 on the page.
+
+    It is muted ON PURPOSE and stays muted: this is the small print, and the
+    point is that small print still has to be readable.
+  */
+  return `<p style="margin:28px 0 0;font:400 12px/1.6 Arial,sans-serif;color:#746d61;">Don&rsquo;t want these emails? <a href="${safe}" style="color:${accent};text-decoration:underline;">Unsubscribe</a>.</p>
+<p style="margin:10px 0 0;font:400 12px/1.6 Arial,sans-serif;color:#746d61;">${identity}</p>`;
 }
 
 /**
