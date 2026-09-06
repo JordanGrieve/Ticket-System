@@ -1752,9 +1752,9 @@
   box-sizing: border-box;
 }
 
-.stg-input::placeholder {
-  color: var(--text-4);
-}
+/* No override. This used to set --text-4, which was the brightest placeholder
+   in the product and the reason an empty Postal address read as a filled one.
+   The rule in globals.css is the single answer now. */
 
 .stg-input:focus-visible {
   border-color: var(--accent);

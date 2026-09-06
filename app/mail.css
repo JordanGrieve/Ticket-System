@@ -2635,6 +2635,14 @@
   cursor: pointer;
   overflow: hidden;
 }
+
+/* The same ring the preset swatches use for "this is the one in force".
+   Without it, choosing a custom colour left NO swatch marked — or worse, left
+   a preset marked, which is the bug this pairs with in LabelManager.tsx. */
+.pbm-label-pick[data-on] {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent-text);
+  border-color: transparent;
+}
 /* Chrome and Safari draw their own swatch inside; strip it back to the
    circle so it matches the three preset dots beside it. */
 .pbm-label-pick::-webkit-color-swatch-wrapper {

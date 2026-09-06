@@ -643,17 +643,30 @@ export default function Thread({
               rows={1}
               value={replyText}
               aria-label="Write a reply"
-              placeholder="Write a reply…  ⏎ to send"
+              placeholder="Write a reply…"
               onChange={(e) => {
                 setReplyText(e.target.value);
                 e.target.style.height = "auto";
                 e.target.style.height = `${Math.min(e.target.scrollHeight, 132)}px`;
               }}
               onKeyDown={(e) => {
-                // Enter sends, as the design asks. Shift+Enter still writes a
-                // newline — support replies are not one-liners, and a
-                // single-line <input> would have been a real downgrade.
-                if (e.key === "Enter" && !e.shiftKey) {
+                /*
+                  ENTER WRITES A NEWLINE. It used to send.
+
+                  This is an EMAIL composer, not a chat box. The design asked
+                  for chat behaviour and the shape of the control encourages it
+                  — one line, a rounded pill, a send button on the right — but
+                  what leaves here is a real email to a customer, and the thing
+                  people do in emails that they do not do in chat is press
+                  Enter: a greeting line, a paragraph break, a sign-off.
+                  Costing somebody a half-written reply for that is a bad
+                  trade, and it costs it in the one direction that cannot be
+                  undone, because the reply is already gone.
+
+                  Ctrl/Cmd+Enter still sends, which is the convention every
+                  mail client uses and nothing else in this composer binds.
+                */
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                   e.preventDefault();
                   void sendReply();
                 }
@@ -683,8 +696,8 @@ export default function Thread({
               <span className="pbm-error">{error}</span>
             ) : (
               <>
-                Sends a real email from <b>{fromAddress}</b>. Shift+Enter for a new
-                line.
+                Sends a real email from <b>{fromAddress}</b>. Enter starts a new
+                line; Ctrl+Enter (⌘+Enter on a Mac) sends.
               </>
             )}
           </p>

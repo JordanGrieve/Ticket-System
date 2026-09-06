@@ -507,8 +507,29 @@ textarea:focus,
 input:focus {
   outline: none;
 }
+/* A PLACEHOLDER MUST NOT READ AS A VALUE.
+
+   Two problems here at once. The colour was a hardcoded warm beige, which is
+   a literal in a six-theme system and belonged to none of them.
+
+   And it was too LOUD. In dark, the settings override put placeholders at
+   6.92:1 against the field while a real value is 14.97:1 — legible enough that
+   Jordan read the Postal address placeholder as a filled-in address and
+   reported the "you cannot send a newsletter" warning as a false positive. It
+   was not: the field was empty and the warning was right. The placeholder was
+   the thing lying.
+
+   So: --muted-2, which is 4.79–6.1 against the field across the five palettes
+   — still clear of AA, and visibly dimmer — plus italic, because contrast
+   alone is a weak signal and this codebase already uses italic for "nothing
+   here yet" (.pba-unset, .stg-al-unset). Two independent cues that the text is
+   a hint rather than content.
+
+   Every field using this has a visible <label> as well, so the placeholder is
+   supplementary rather than the only name for the control. */
 ::placeholder {
-  color: #b0a795;
+  color: var(--muted-2);
+  font-style: italic;
 }
 
 ::-webkit-scrollbar {

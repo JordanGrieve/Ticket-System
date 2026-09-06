@@ -404,11 +404,24 @@ export default function LabelManager({
                         key={c}
                         type="button"
                         role="radio"
-                        aria-checked={row.color === c}
+                        /*
+                          A PRESET IS ONLY LIT WHEN NO CUSTOM COLOUR IS SET.
+
+                          This read `row.color === c` alone. color still holds
+                          whatever token the label had before, so after picking
+                          a custom colour the preset stayed highlighted and the
+                          custom swatch showed nothing — the ring pointed at a
+                          colour that was not in force. colorHex is what wins
+                          at render time (see labelChipProps), so it has to win
+                          here too.
+                        */
+                        aria-checked={row.colorHex === null && row.color === c}
                         aria-label={`Colour ${i + 1} for ${row.name}`}
                         className="pbm-label-swatch pbm-label-swatch--pick"
                         data-color={c}
-                        data-on={row.color === c || undefined}
+                        data-on={
+                          (row.colorHex === null && row.color === c) || undefined
+                        }
                         onClick={() =>
                           void patch(row.id, { color: c, colorHex: null })
                         }
@@ -425,6 +438,9 @@ export default function LabelManager({
                       type="color"
                       className="pbm-label-pick"
                       aria-label={`Pick any colour for ${row.name}`}
+                      /* Lit when the custom colour is the one in force, so
+                         exactly one swatch in this group is ever ringed. */
+                      data-on={row.colorHex !== null || undefined}
                       value={row.colorHex ?? "#8b6bff"}
                       onChange={(e) =>
                         void patch(row.id, { colorHex: e.target.value })
@@ -485,11 +501,11 @@ export default function LabelManager({
                   key={c}
                   type="button"
                   role="radio"
-                  aria-checked={newColor === c}
+                  aria-checked={newHex === null && newColor === c}
                   aria-label={`Colour ${i + 1}`}
                   className="pbm-label-swatch pbm-label-swatch--pick"
                   data-color={c}
-                  data-on={newColor === c || undefined}
+                  data-on={(newHex === null && newColor === c) || undefined}
                   onClick={() => {
                     setNewColor(c);
                     setNewHex(null);
@@ -500,6 +516,7 @@ export default function LabelManager({
                 type="color"
                 className="pbm-label-pick"
                 aria-label="Pick any colour for the new label"
+                data-on={newHex !== null || undefined}
                 value={newHex ?? "#8b6bff"}
                 onChange={(e) => setNewHex(e.target.value)}
               />

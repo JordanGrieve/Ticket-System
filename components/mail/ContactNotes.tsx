@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { ContactNoteDTO } from "@/app/(dashboard)/queries";
 import { MAX_NOTE_LENGTH } from "@/lib/contact-notes";
 
@@ -45,6 +45,17 @@ export default function ContactNotes({
   onDelete: (formData: FormData) => void;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
+  /*
+    The button appears once there is something to save.
+
+    An always-present "Save note" beside an empty box is a control that does
+    nothing, on a rail that is mostly quiet panels — it reads as an unfinished
+    form rather than an invitation. Tracking the text also lets the button stay
+    out of the way until the box has more than whitespace in it, so a stray
+    space does not enable a submit that the action would reject anyway.
+  */
+  const [draft, setDraft] = useState("");
+  const hasDraft = draft.trim().length > 0;
 
   return (
     <>
@@ -55,6 +66,7 @@ export default function ContactNotes({
         className="pbn-form"
         action={(formData) => {
           onAdd(formData);
+          setDraft("");
           // Optimistic only about the TEXTAREA, never about the list. If the
           // action refuses the note the box is empty and the note is gone,
           // which is annoying; a list that shows a note the database rejected
@@ -78,10 +90,14 @@ export default function ContactNotes({
           maxLength={MAX_NOTE_LENGTH}
           placeholder="Allergies, usual order, what you agreed on the phone…"
           aria-label="Add a note about this customer"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
         />
-        <button className="pbn-add" type="submit">
-          Save note
-        </button>
+        {hasDraft && (
+          <button className="pbn-add" type="submit">
+            Save note
+          </button>
+        )}
       </form>
 
       {notes.length === 0 ? (
