@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, type ReactNode } from "react";
-import { DRAG_SLOP_PX, isDragging, scrollTarget } from "@/lib/drag-scroll";
+import { isDragging, scrollTarget } from "@/lib/drag-scroll";
 
 /**
  * Makes a horizontally scrolling strip draggable with a mouse or pen.
@@ -14,7 +14,7 @@ import { DRAG_SLOP_PX, isDragging, scrollTarget } from "@/lib/drag-scroll";
  *
  * ── IT MUST NOT BREAK THE LINKS ──
  * Every child of the strip this wraps is a Link. So the drag only begins after
- * DRAG_SLOP_PX of travel, and the click is suppressed only if that threshold
+ * a few pixels of travel (the slop, in lib/drag-scroll.ts), and the click is suppressed only if that threshold
  * was crossed. Below it the press is left completely alone and navigates
  * normally. A strip that scrolls perfectly and never navigates would be a
  * straight downgrade.
