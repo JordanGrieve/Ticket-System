@@ -69,3 +69,6 @@ public/_sh/
 
 # Same as public/_ah, for tests/newsletter-views-render.test.tsx.
 public/_nh/
+
+# Same as public/_ah, for tests/subscribers-views-render.test.tsx.
+public/_bh/

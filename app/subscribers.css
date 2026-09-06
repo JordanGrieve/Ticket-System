@@ -517,10 +517,22 @@ a.psb-row:hover {
     flex-wrap: wrap;
   }
   .psb-meta {
-    flex-basis: 100%;
+    /*
+      ── 100% PLUS AN INDENT IS WIDER THAN THE ROW ──
+      The indent below is deliberate (see the note above this block), but
+      flex-basis: 100% resolves against the row's content box and the margin is
+      then added OUTSIDE it. With flex: 0 0 auto inherited from the base rule
+      there is no shrink to absorb it, so every subscriber row overflowed its
+      card by exactly the indent — 45px past a 375px screen, carrying the
+      consent marker and the date off the edge.
+
+      One custom property so the width and the indent cannot drift apart.
+    */
+    --psb-meta-indent: 45px;
+    flex-basis: calc(100% - var(--psb-meta-indent));
     flex-wrap: wrap;
     justify-content: flex-start;
-    margin-left: 45px;
+    margin-left: var(--psb-meta-indent);
   }
   .psb-when {
     min-width: 0;
