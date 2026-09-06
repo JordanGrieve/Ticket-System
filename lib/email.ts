@@ -119,7 +119,29 @@ function escapeHtml(s: string): string {
   );
 }
 
-/** Branded HTML version of the invite (inline styles only — email clients). */
+/**
+ * Branded HTML version of the invite (inline styles only — email clients).
+ *
+ * ── THE COLOURS HERE ARE MEASURED, NOT PICKED ──
+ * Every pairing below is asserted in tests/email-colour.test.ts. Three of them
+ * failed AA when they were first measured on 6 Sep 2026, in the first email a
+ * new client ever receives from Postbox:
+ *
+ *  - White on the brand orange #d6552f was 4.04:1 — the "Set up your inbox"
+ *    button, which is the single action this email exists to produce, and the
+ *    logo tile beside it. The ground is now #c14d2a: 4.81:1, and near enough
+ *    the same orange that nothing about the design changed.
+ *  - #a49a89 at 13px was 2.78:1 on the white card.
+ *  - #b3a999 at 12px was 2.19:1 on the page — the worst measured anywhere in
+ *    the product.
+ *
+ * Both greys are now #746d61, which clears on the white card (5.12:1) and on
+ * the #faf8f4 page (4.83:1), so the small print does not need two values to
+ * keep track of.
+ *
+ * An email has no cascade and no second chance: whatever hex ships is what a
+ * stranger reads. Do not add a colour here without adding it to that test.
+ */
 function inviteHtml(input: {
   businessName: string;
   to: string;
@@ -137,7 +159,7 @@ function inviteHtml(input: {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
           <tr><td style="padding:0 8px 18px;">
             <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-              <td style="width:34px;height:34px;background:#d6552f;border-radius:9px;text-align:center;vertical-align:middle;font:800 18px Arial,sans-serif;color:#ffffff;">p</td>
+              <td style="width:34px;height:34px;background:#c14d2a;border-radius:9px;text-align:center;vertical-align:middle;font:800 18px Arial,sans-serif;color:#ffffff;">p</td>
               <td style="padding-left:10px;font:700 19px Arial,sans-serif;color:#26221d;">postbox</td>
             </tr></table>
           </td></tr>
@@ -155,15 +177,15 @@ function inviteHtml(input: {
               <span style="display:inline-block;background:#f9e7de;border:1px solid #f1dacd;border-radius:8px;padding:8px 14px;font:600 14px Arial,sans-serif;color:#ab441f;">${email}</span>
             </p>
             <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-              <td style="background:#d6552f;border-radius:10px;">
+              <td style="background:#c14d2a;border-radius:10px;">
                 <a href="${url}" style="display:inline-block;padding:13px 26px;font:600 15px Arial,sans-serif;color:#ffffff;text-decoration:none;">Set up your inbox &rarr;</a>
               </td>
             </tr></table>
-            <p style="margin:26px 0 0;font:400 13px/1.6 Arial,sans-serif;color:#a49a89;">
+            <p style="margin:26px 0 0;font:400 13px/1.6 Arial,sans-serif;color:#746d61;">
               Any questions, just reply to this email.
             </p>
           </td></tr>
-          <tr><td style="padding:18px 8px 0;font:400 12px Arial,sans-serif;color:#b3a999;">
+          <tr><td style="padding:18px 8px 0;font:400 12px Arial,sans-serif;color:#746d61;">
             &mdash; Postbox &middot; postbox.help
           </td></tr>
         </table>

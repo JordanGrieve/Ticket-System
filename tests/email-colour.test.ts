@@ -204,3 +204,65 @@ describe("the fixed colours in the email clear AA on the grounds they sit on", (
     });
   }
 });
+
+/**
+ * The invite email, pairing by pairing.
+ *
+ * ── WHY A TABLE AND NOT A SCAN ──
+ * The newsletter block above can scan for literals because that template has
+ * exactly two grounds and every colour sits on one of them. This one has four
+ * — the page, the white card, the brand orange and the address chip — so
+ * "every colour against every ground" would invent pairings that do not exist
+ * and fail on them.
+ *
+ * A hand-written table can drift from the markup instead, which is the usual
+ * reason not to write one. So each entry asserts that BOTH of its colours are
+ * still in the file: change a colour and the test fails rather than quietly
+ * carrying on measuring one that is no longer there.
+ *
+ * Three of these failed when first measured, in the first email a new client
+ * ever receives — including white on the brand orange at 4.04:1, on the button
+ * the whole message exists to get pressed.
+ */
+describe("every pairing in the invite email clears AA", () => {
+  const source = readFileSync(join(process.cwd(), "lib/email.ts"), "utf8");
+
+  const PAIRINGS: { fg: string; bg: string; what: string; large?: boolean }[] = [
+    { fg: "#26221d", bg: "#ffffff", what: "the heading and the bold business name" },
+    { fg: "#5f594f", bg: "#ffffff", what: "the body copy at 14.5px" },
+    { fg: "#ab441f", bg: "#f9e7de", what: "the inbox address chip at 14px" },
+    { fg: "#ffffff", bg: "#c14d2a", what: "the Set up your inbox button at 15px" },
+    { fg: "#746d61", bg: "#ffffff", what: "reply to this email, at 13px" },
+    { fg: "#746d61", bg: "#faf8f4", what: "the Postbox footer line at 12px" },
+  ];
+
+  for (const { fg, bg, what, large } of PAIRINGS) {
+    it(`${fg} on ${bg} — ${what}`, () => {
+      // Both halves must still exist, or this is measuring a pairing the
+      // template no longer has.
+      expect(source, `${fg} is no longer in lib/email.ts`).toContain(fg);
+      expect(source, `${bg} is no longer in lib/email.ts`).toContain(bg);
+
+      const ratio = contrastRatio(parseHex(fg)!, parseHex(bg)!);
+      const need = large ? 3 : MIN_CONTRAST;
+      expect(
+        ratio,
+        `${fg} on ${bg} measures ${ratio.toFixed(2)}:1 — ${what} needs ${need}`,
+      ).toBeGreaterThanOrEqual(need);
+    });
+  }
+
+  it("the table still covers every colour the template uses", () => {
+    /*
+      The drift guard. A colour added to the email without a row above would
+      otherwise never be measured — which is exactly how #a49a89 and #b3a999
+      sat unmeasured beside an accent that had its own helper and its own test.
+    */
+    const used = new Set(
+      [...source.matchAll(/(?:color|background):(#[0-9a-f]{6})/g)].map((m) => m[1]!),
+    );
+    const covered = new Set(PAIRINGS.flatMap((p) => [p.fg, p.bg]));
+    const unmeasured = [...used].filter((c) => !covered.has(c));
+    expect(unmeasured, "colours in lib/email.ts with no pairing in the table above").toEqual([]);
+  });
+});
