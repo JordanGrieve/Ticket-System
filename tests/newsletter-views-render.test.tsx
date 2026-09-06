@@ -18,6 +18,7 @@ vi.mock("next/navigation", () => ({
 import { writeFileSync, mkdirSync, copyFileSync } from "node:fs";
 import { join } from "node:path";
 import Composer from "../app/(dashboard)/newsletters/Composer";
+import type { CampaignRowDTO } from "../app/(dashboard)/newsletters/Composer";
 
 /**
  * The newsletter composer renders.
@@ -77,12 +78,12 @@ const campaigns = [
     updatedAtIso: iso(700),
     sentAtIso: iso(700),
   },
-] as never;
+] satisfies CampaignRowDTO[];
 
 const lists = [
   { id: 1, name: "Everyone", description: "Every confirmed subscriber" },
   { id: 2, name: "Wholesale", description: null },
-] as never;
+] satisfies { id: number; name: string; description: string | null }[];
 
 const views: Record<string, React.ReactElement> = {
   // The blocked state: no postal address, so a send is refused.
@@ -117,8 +118,8 @@ const views: Record<string, React.ReactElement> = {
   ),
   "composer-empty": (
     <Composer
-      initialCampaigns={[] as never}
-      lists={[] as never}
+      initialCampaigns={[]}
+      lists={[]}
       workspaceName="Open Door Bakery"
       legalName={null}
       postalAddress={null}

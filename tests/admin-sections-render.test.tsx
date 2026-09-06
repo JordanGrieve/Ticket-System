@@ -2,6 +2,17 @@ import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { writeFileSync, mkdirSync, copyFileSync } from "node:fs";
 import { join } from "node:path";
+import type { Admin, ImpersonationSession } from "../db/schema";
+import type { WorkspaceSummary } from "../lib/data";
+import type { ImpersonationReadRow } from "../lib/impersonation-reads";
+import type { ChainVerification } from "../lib/hash-chain";
+import type { WorkspaceUsage } from "../app/(admin)/admin/queries";
+import type { ConsoleGates } from "../app/(admin)/admin/sections";
+import type { AdminQuery } from "../app/(admin)/admin/ui";
+import type { AdminActionRow } from "../lib/admin-audit";
+import type { IngestionFailureRow } from "../lib/ingestion-log";
+import type { FeedbackDropRow } from "../lib/feedback-log";
+import type { TransactionalTotals, CampaignTotals } from "../app/(admin)/admin/queries";
 import {
   AccessSection,
   AccountsSection,
@@ -42,6 +53,8 @@ import {
 
 const OUT = process.env.ADMIN_HARNESS_OUT;
 
+const query = { section: "accounts", filter: "all", q: "", account: null } satisfies AdminQuery;
+
 const now = new Date("2026-09-06T11:20:00Z");
 const ago = (h: number) => new Date(now.getTime() - h * 3600_000);
 
@@ -58,6 +71,8 @@ const sessions = [
     endedAt: null,
     endedReason: null,
     reason: "Customer reported a reply that never arrived — checking delivery",
+    chainPrevHash: "0000000000000000000000000000000000000000000000000000000000000000",
+    chainHash: "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90",
   },
   {
     id: 2,
@@ -71,8 +86,10 @@ const sessions = [
     endedAt: ago(49),
     endedReason: "signed_out",
     reason: null,
+    chainPrevHash: "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90",
+    chainHash: "b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1",
   },
-] as never;
+] satisfies ImpersonationSession[];
 
 const reads = new Map([
   [
@@ -82,7 +99,7 @@ const reads = new Map([
       { ticketId: 44, count: 1, firstAt: ago(2), lastAt: ago(2) },
     ],
   ],
-]) as never;
+]) satisfies Map<number, ImpersonationReadRow[]>;
 
 const chain = {
   ok: true,
@@ -91,9 +108,10 @@ const chain = {
   legacyUnverified: 0,
   verified: 2,
   firstBreak: null,
-} as never;
+  note: null,
+} satisfies ChainVerification;
 
-const workspace = (over: Record<string, unknown>) =>
+const workspace = (over: Partial<WorkspaceSummary> = {}): WorkspaceSummary =>
   ({
     id: 3,
     name: "Open Door Bakery",
@@ -103,10 +121,14 @@ const workspace = (over: Record<string, unknown>) =>
     accent: "terracotta",
     legalName: "Open Door Bakery Ltd",
     postalAddress: "12 Mill Lane, Stroud, GL5 1AB",
+    // Both missing before the casts came off, so every pane that reads them
+    // was rendering undefined.
+    brandAccentHex: null,
+    brandSignOff: null,
     plan: "starter",
     stripeCustomerId: "cus_abc",
     stripeSubscriptionId: "sub_abc",
-    stripeStatus: "active",
+    subscriptionStatus: "active",
     currentPeriodEnd: ago(-400),
     trialStartedAt: ago(2000),
     createdAt: ago(2000),
@@ -117,7 +139,7 @@ const workspace = (over: Record<string, unknown>) =>
     firstTicketAt: ago(1800),
     lastTicketAt: ago(30),
     ...over,
-  }) as never;
+  }) satisfies WorkspaceSummary;
 
 const accounts = [
   workspace({}),
@@ -128,18 +150,18 @@ const accounts = [
     ownerEmail: "INVITE_pending@riverside-framing-and-restoration.co.uk",
     pending: true,
     plan: "trial",
-    stripeStatus: null,
+    subscriptionStatus: null,
     openCount: 0,
     totalCount: 0,
     firstTicketAt: null,
     lastTicketAt: null,
   }),
-] as never;
+] satisfies WorkspaceSummary[];
 
 const usage = new Map([
-  [3, { subscribers: 118, ticketsInWindow: 24 }],
-  [4, { subscribers: 0, ticketsInWindow: 0 }],
-]) as never;
+  [3, { subscribers: 118, ticketsSinceTrialStart: 24 }],
+  [4, { subscribers: 0, ticketsSinceTrialStart: 0 }],
+]) satisfies Map<number, WorkspaceUsage>;
 
 const gates = {
   stripeConfigured: true,
@@ -149,11 +171,11 @@ const gates = {
   campaignDeliveryLive: false,
   campaignFeedback: false,
   contactFormLive: false,
-} as never;
+} satisfies ConsoleGates;
 
 const admins = [
   { id: 1, email: "jordangrieve.dev@gmail.com", clerkUserId: "user_2abc", createdAt: ago(2000) },
-] as never;
+] satisfies Admin[];
 
 function page(title: string, body: string) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -205,7 +227,7 @@ const panes: Record<string, React.ReactElement> = {
       access: (
         <AccessSection
           sessions={sessions}
-          actions={[] as never}
+          actions={[] satisfies AdminActionRow[]}
           chain={chain}
           actionChain={chain}
           reads={reads}
@@ -215,7 +237,7 @@ const panes: Record<string, React.ReactElement> = {
         <AccountsSection
           accounts={accounts}
           visible={accounts}
-          query={{ section: "accounts", filter: "all", q: "" } as never}
+          query={query}
           deleteTarget={null}
         />
       ),
@@ -231,7 +253,7 @@ const panes: Record<string, React.ReactElement> = {
         <AccountsSection
           accounts={accounts}
           visible={accounts}
-          query={{ section: "accounts", filter: "all", q: "" } as never}
+          query={query}
           deleteTarget={accounts[0]!}
         />
       ),
@@ -239,10 +261,10 @@ const panes: Record<string, React.ReactElement> = {
         <AccountDrawer
           account={accounts[0]!}
           teamSize={2}
-          query={{ section: "accounts", filter: "all", q: "" } as never}
+          query={query}
           recentAccess={sessions}
           reads={reads}
-          usage={{ subscribers: 118, ticketsInWindow: 24 } as never}
+          usage={usage.get(3)!}
         />
       ),
       overview: <OverviewSection accounts={accounts} gates={gates} />,
@@ -253,39 +275,39 @@ const panes: Record<string, React.ReactElement> = {
           rejections={
             [
               {
-                reason: "unknown_api_key",
+                reason: "invalid_key",
                 keyPrefix: "cli_9f2",
                 workspaceId: null,
                 count: 4182,
                 firstSeenAt: ago(1000),
                 lastSeenAt: ago(3),
               },
-            ] as never
+            ] satisfies IngestionFailureRow[]
           }
           drops={
             [
               {
-                reason: "no_matching_recipient",
+                reason: "unmapped_message_id",
                 eventType: "Bounce",
                 lastMessageId: "0100019a2b3c4d5e-abcdef01-2345-6789-abcd-ef0123456789-000000",
                 count: 2,
                 firstSeenAt: ago(40),
                 lastSeenAt: ago(9),
               },
-            ] as never
+            ] satisfies FeedbackDropRow[]
           }
           transactional={
             {
-              byStatus: { queued: 2, sent: 9, delivered: 118, bounced: 1, complained: 0, failed: 1 },
+              byStatus: { queued: 2, sent: 9, delivered: 118, bounced: 1, failed: 1 },
               unrecorded: 40,
               total: 171,
-            } as never
+            } satisfies TransactionalTotals
           }
           campaignTotals={
             {
-              recipients: { pending: 0, sent: 0, delivered: 0, bounced: 0, complained: 0, failed: 0 },
+              recipients: { queued: 0, sent: 0, delivered: 0, bounced: 0, complained: 0, failed: 0 },
               campaigns: { draft: 1, scheduled: 0, sending: 0, sent: 0, failed: 0 },
-            } as never
+            } satisfies CampaignTotals
           }
           gates={gates}
         />

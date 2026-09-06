@@ -34,6 +34,23 @@ import LabelManager from "../components/mail/LabelManager";
 import OnboardingChecklist from "../components/mail/OnboardingChecklist";
 import SharedLinks from "../components/mail/SharedLinks";
 import Thread from "../components/mail/Thread";
+/*
+  ── THE FIXTURES ARE TYPED, AND THAT IS THE POINT ──
+  These were all `as never`, which switches off the one check that would have
+  caught the two that were wrong: the onboarding checklist rendered with no
+  text at all, and the shared link rendered one line instead of two and was
+  duly reported as a WCAG target-size failure that did not exist.
+
+  `satisfies` rather than a type annotation, so the literal keeps its narrow
+  types where a component wants them, and tsc still rejects a wrong or missing
+  field. tests/settings-views-render.test.tsx had no casts and had no wrong
+  fixtures; that is not a coincidence.
+*/
+import type { LabelChipDTO, LabelWithCountDTO, MailRow, ContactCard } from "../components/mail/types";
+import type { TicketDTO, MessageDTO } from "../lib/serialize";
+import type { SharedLink } from "../lib/shared-links";
+import type { OnboardingProgress, OnboardingStep } from "../lib/onboarding";
+import type { ContactNoteDTO } from "../app/(dashboard)/queries";
 
 /**
  * Every client-facing mail view renders.
@@ -71,7 +88,7 @@ const labels = [
   { id: 2, name: "Complaint", color: "tag_b", colorHex: null },
   { id: 3, name: "Christmas orders 2026", color: "tag_c", colorHex: "#3d7dd8" },
   { id: 4, name: "VIP", color: "tag_a", colorHex: null },
-] as never[];
+] satisfies LabelChipDTO[];
 
 const rows = [
   {
@@ -110,23 +127,25 @@ const rows = [
     starred: false,
     labels: [],
   },
-] as never;
+] satisfies MailRow[];
 
 const contact = {
   name: "Margarethe Van Der Berg-Whitmore",
   email: "margarethe.vandenberg-whitmore@averylongdomainname.example.co.uk",
   firstSeenIso: iso(9000),
   ticketCount: 7,
-} as never;
+} satisfies ContactCard;
 
 const notes = [
   {
     id: 1,
     body: "Wholesale customer — orders every Tuesday for the cafe on Mill Lane. Prefers a call to an email.",
-    authorEmail: "hello@opendoorbakery.co.uk",
+    // authorLabel, not authorEmail — fixture number THREE found wrong, this
+    // one by the compiler the moment the `as never` came off.
+    authorLabel: "hello@opendoorbakery.co.uk",
     createdAtIso: iso(200),
   },
-] as never;
+] satisfies ContactNoteDTO[];
 
 /*
   The SECOND fixture found wrong the same way as the onboarding one: this used
@@ -146,7 +165,7 @@ const links = [
     atIso: iso(2),
     fromCustomer: false,
   },
-] as never;
+] satisfies SharedLink[];
 
 const ticket = {
   id: 41,
@@ -158,7 +177,7 @@ const ticket = {
   subject: "Order 1182 arrived with the wrong loaf and a missing box of pastries",
   status: "open",
   timeShort: "12m",
-} as never;
+} satisfies TicketDTO;
 
 const messages = [
   {
@@ -175,7 +194,7 @@ const messages = [
     sentAtIso: iso(2),
     deliveryStatus: "bounced",
   },
-] as never;
+] satisfies MessageDTO[];
 
 /*
   ── THIS FIXTURE WAS WRONG, AND THE TEST STILL PASSED ──
@@ -188,10 +207,7 @@ const messages = [
   A fixture that does not produce real content makes every check over it
   vacuous, which is the same failure as a guard that cannot fail.
 */
-const progress = {
-  done: 2,
-  total: 4,
-  steps: [
+const steps = [
     {
       id: "test_enquiry",
       title: "Send yourself a test enquiry",
@@ -224,8 +240,17 @@ const progress = {
       href: "/settings",
       optional: false,
     },
-  ],
-} as never;
+] satisfies OnboardingStep[];
+
+const progress = {
+  steps,
+  done: 2,
+  total: 4,
+  // `complete` and `next` were missing entirely — fixture number FOUR, also
+  // caught by the compiler rather than by looking. The checklist reads both.
+  complete: false,
+  next: steps[2]!,
+} satisfies OnboardingProgress;
 
 const noop = () => {};
 
@@ -254,7 +279,7 @@ const views: Record<string, React.ReactElement> = {
       links={links}
     />
   ),
-  labels: <LabelManager labels={labels.map((l, i) => ({ ...(l as object), ticketCount: [12, 3, 0, 1][i] })) as never} inline />,
+  labels: <LabelManager labels={labels.map((l, i) => ({ ...l, ticketCount: [12, 3, 0, 1][i]! })) satisfies LabelWithCountDTO[]} inline />,
   /*
     The same component as a MODAL, which is a different thing to audit: it
     brings a scrim, role="dialog", aria-modal and a close button that the
@@ -265,7 +290,7 @@ const views: Record<string, React.ReactElement> = {
   */
   "labels-modal": (
     <LabelManager
-      labels={labels.map((l, i) => ({ ...(l as object), ticketCount: [12, 3, 0, 1][i] })) as never}
+      labels={labels.map((l, i) => ({ ...l, ticketCount: [12, 3, 0, 1][i]! })) satisfies LabelWithCountDTO[]}
       onClose={noop}
     />
   ),
@@ -298,7 +323,7 @@ const views: Record<string, React.ReactElement> = {
       starred
       unread={false}
       labels={labels}
-      allLabels={labels.map((l) => ({ ...(l as object), ticketCount: 1 })) as never}
+      allLabels={labels.map((l) => ({ ...l, ticketCount: 1 })) satisfies LabelWithCountDTO[]}
       canPersonalise
     />
   ),

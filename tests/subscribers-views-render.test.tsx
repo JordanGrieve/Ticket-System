@@ -56,6 +56,7 @@ vi.mock("../app/(dashboard)/subscribers/queries", async () => {
 import { writeFileSync, mkdirSync, copyFileSync } from "node:fs";
 import { join } from "node:path";
 import SubscribersPage from "../app/(dashboard)/subscribers/page";
+import type { SubscriberRow, StatusCounts } from "../app/(dashboard)/subscribers/queries";
 
 const at = (h: number) => new Date(Date.UTC(2026, 8, 6, 11, 20) - h * 3600_000);
 
@@ -80,7 +81,7 @@ const rows = [
     status: "subscribed",
     source: "website form",
     subscribedAt: at(400),
-    consentMethod: "double_opt_in",
+    consentMethod: "signup_form",
     consentAt: at(400),
   },
   {
@@ -101,12 +102,12 @@ const rows = [
     status: "unsubscribed",
     source: "import",
     subscribedAt: at(2000),
-    consentMethod: "single_opt_in",
+    consentMethod: "import",
     consentAt: at(2000),
   },
-] as never[];
+] satisfies SubscriberRow[];
 
-const counts = { all: 118, subscribed: 104, unsubscribed: 12, bounced: 2, complained: 0 } as never;
+const counts = { all: 118, subscribed: 104, unsubscribed: 12, bounced: 2, complained: 0 } satisfies StatusCounts;
 
 async function render(
   params: { status?: string; page?: string },
