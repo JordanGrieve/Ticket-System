@@ -107,6 +107,29 @@
   /* navigation — the sidebar stays near-black indigo in every light theme */
   --nav: #1c1830;
   --nav-deep: #15122a;
+  /*
+   * ── INK FOR A COLUMN THAT IS DARK IN ALL SIX THEMES ──
+   *
+   * The line above has always said the sidebar stays near-black. What was
+   * missing is a foreground to go with it: .pb-sidebar set `background: var(--nav)`
+   * and no `color`, so the nav inherited the PAGE ink — --text, which flips
+   * with the theme while --nav does not.
+   *
+   * In the five dark themes --text is already light, so it read correctly by
+   * coincidence. In LIGHT it is #221b3a against a #1c1830 nav: measured
+   * 1.05:1 on 7 Sep 2026, which is invisible, on the default theme, on every
+   * signed-in screen. It survived because nothing had ever rendered MailNav —
+   * the five older harnesses drop their view into a bare shell with no
+   * navigation column in it.
+   *
+   * Defined HERE rather than per-theme because the nav is dark everywhere, so
+   * these are the right values everywhere. dark and the system-dark block
+   * inherit them unchanged (they equal that palette's own --text and
+   * --muted-2 exactly); forest, slate and ocean override them below only to
+   * keep their existing tint.
+   */
+  --nav-fg: #f3f0ff;
+  --nav-muted: #a9a3c4;
   --nav-active-bg: rgba(124, 92, 255, 0.18);
   --nav-active-fg: #c7b6ff;
   /*
@@ -354,6 +377,9 @@
   --accent-line: rgba(47, 163, 107, 0.3);
   --glow: rgba(47, 163, 107, 0.18);
   --nav: #0f1a15;
+  /* This theme's own tint, so the nav keeps the appearance it already had. */
+  --nav-fg: #ebf6f0;
+  --nav-muted: #8fad9e;
   --nav-active-bg: rgba(47, 163, 107, 0.18);
   --nav-active-fg: #7ce0ae;
   --nav-badge-on: rgba(47, 163, 107, 0.32);
@@ -403,6 +429,9 @@
   --accent-line: rgba(192, 138, 78, 0.3);
   --glow: rgba(192, 138, 78, 0.18);
   --nav: #141413;
+  /* This theme's own tint, so the nav keeps the appearance it already had. */
+  --nav-fg: #f2f0ec;
+  --nav-muted: #aba79e;
   --nav-active-bg: rgba(192, 138, 78, 0.18);
   --nav-active-fg: #e7b478;
   --nav-badge-on: rgba(192, 138, 78, 0.32);
@@ -455,6 +484,9 @@
   --accent-line: rgba(46, 107, 230, 0.3);
   --glow: rgba(46, 107, 230, 0.18);
   --nav: #0d1727;
+  /* This theme's own tint, so the nav keeps the appearance it already had. */
+  --nav-fg: #edf3ff;
+  --nav-muted: #9caccb;
   --nav-active-bg: rgba(46, 107, 230, 0.18);
   --nav-active-fg: #9cc4ff;
   --nav-badge-on: rgba(46, 107, 230, 0.32);

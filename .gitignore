@@ -79,3 +79,6 @@ public/_runner/
 
 # Same as public/_ah, for tests/public-views-render.test.tsx.
 public/_ph/
+
+# Same as public/_ah, for tests/dashboard-views-render.test.tsx.
+public/_dh/

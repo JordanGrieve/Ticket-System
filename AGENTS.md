@@ -85,6 +85,18 @@ reach for before opening a browser.
 - `tests/subscribers-views-render.test.tsx` — the subscriber list
 - `tests/public-views-render.test.tsx` — home, pricing, contact, privacy, terms,
   no-access, 404, and the subscribe/unsubscribe pages a client's customer sees
+- `tests/dashboard-views-render.test.tsx` — MailNav, /search, /settings/billing,
+  /settings/contacts, /settings/forms, /settings/team, /settings/access-log and
+  /subscribers/[id]
+
+**Check the harnesses against the route tree, not against themselves.** The
+five component harnesses covered the screens somebody had thought to build a
+fixture for. Listing them beside `find app -name page.tsx` on 7 Sep 2026 found
+seven signed-in routes with no coverage of any kind — and MailNav, the
+navigation column on EVERY signed-in screen, which no test had ever rendered
+because the other harnesses drop their view into a bare `.pb-shell.pbm` div
+with no chrome around it. The first sweep of it found the light theme painting
+the whole navigation at 1.05:1.
 
 **The homepage IS renderable.** This file used to say it was not, because
 `app/page.tsx` calls Clerk's `auth()` which pulls `server-only` from inside
@@ -155,6 +167,19 @@ target-size failure that did not exist.
 - **`satisfies Partial<T> as T`** when a test deliberately supplies only the
   fields the code reads. Partiality is fine; an unchecked field NAME is not.
 - The one file that had no casts was also the only one with no wrong fixtures.
+- **`mockResolvedValue` on a bare `vi.fn()` takes `any`.** Same blind spot as
+  `as never`, reached without writing a cast at all — so a mocked query's
+  fixture is unchecked unless it says what it is. On 7 Sep this let a
+  `countTicketsPerForm` fixture be a bare `Map` when the real return is
+  `{ byForm, unattributed }`; the page died on `undefined.get` at render rather
+  than at typecheck. Put `satisfies` on every mocked return value, and where
+  the type is not exported, derive it:
+  `type T = Awaited<ReturnType<typeof theRealFunction>>`.
+- **Fixtures invent impossible states as readily as wrong ones.** A contacts
+  fixture with `name: null` crashed `initials()` on `null.trim()` and looked
+  like a real defect on a page that shows customer names. It was not:
+  `contacts.name` is `notNull()` and typed `string`, so no such row exists.
+  Before fixing a crash a fixture found, check that the fixture could happen.
 
 ## The rules these harnesses were built on
 
@@ -230,6 +255,24 @@ target-size failure that did not exist.
   hardcoded list of nine stylesheets when the repo has twenty, omitting every
   public marketing page. Both were how the same bug shipped twice. Discover the
   files; scan both languages; assert the discovery found something.
+- **A surface that paints its own background must set its own ink.**
+  `.pb-sidebar` set `background: var(--nav)` — near-black indigo in all six
+  themes — and no `color`, so it inherited the page's `--text`, which DOES
+  follow the theme. Five of the six themes are dark, so their `--text` is light
+  and it read correctly by coincidence; the light theme rendered the entire
+  navigation at 1.05:1. `--nav-fg` and `--nav-muted` exist now, and
+  tests/contrast-tokens.test.ts measures them against `--nav` rather than
+  against a page surface. Whenever a token pair is fixed while its partner
+  flips per theme, the pairing has to be asserted somewhere.
+- **A closed off-canvas drawer is not a reflow failure.** The mobile nav is
+  `position: fixed` with `translateX(-300px)` and `data-open="false"`, so all
+  fifty of its descendants sit outside the viewport and `__overflow` reported
+  every one of them. The document's scrollWidth equalled the viewport: nothing
+  required horizontal scrolling, which is what 1.4.10 is about. `offCanvasClosed`
+  excludes them, and deliberately narrowly — the ancestor must be out of flow,
+  ENTIRELY outside the viewport, and marked closed. It also fixed a phantom
+  `__flexSentences` hit, because a Range's rect inside a translated subtree does
+  not always carry the transform.
 - **1.4.3 exempts inactive controls, and the probe must know it.** A disabled
   Save button at 0.5 opacity measures ~2.1:1 and is correct. `__contrast` marks
   those `exempt` rather than dropping them, on the same principle as `__ready`:

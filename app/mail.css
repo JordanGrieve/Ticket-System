@@ -137,6 +137,18 @@
   flex: 0 0 262px;
   padding: 26px 18px 22px;
   background: var(--nav);
+  /*
+    The nav sets its own ink because it sets its own background.
+
+    It did not, and inherited the page's --text instead — which is light in
+    the five dark themes and dark in the light one, against a --nav that is
+    near-black in all six. The light theme therefore rendered the entire
+    navigation at 1.05:1. See the --nav-fg note in globals.css.
+
+    Fallback spelled out because an undefined var() invalidates the whole
+    declaration and would put the inheritance back exactly as it was.
+  */
+  color: var(--nav-fg, #f3f0ff);
   border-right: none;
   gap: 0;
 }
@@ -204,7 +216,7 @@
   text-align: left;
   border: none;
   background: transparent;
-  color: var(--muted-2);
+  color: var(--nav-muted, #a9a3c4);
   cursor: pointer;
   transition: background 0.16s ease, color 0.16s ease;
 }
@@ -253,7 +265,7 @@
   font-weight: 800;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--nav-muted, #a9a3c4);
   opacity: 0.75;
   padding: 0 14px 7px;
 }
@@ -277,7 +289,7 @@
   border-radius: 14px;
   border: none;
   background: transparent;
-  color: var(--muted-2);
+  color: var(--nav-muted, #a9a3c4);
   cursor: pointer;
   text-align: left;
 }
@@ -1391,7 +1403,7 @@
   border: none;
   border-radius: 8px;
   background: var(--pbm-nav-line);
-  color: var(--muted-2);
+  color: var(--nav-muted, #a9a3c4);
   font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -1725,17 +1737,26 @@
     min-width: 0;
     line-height: 1.2;
   }
+  /*
+    The mobile top bar is painted with --nav, exactly like the sidebar, so its
+    ink follows the same rule: --nav-fg and --nav-muted, never the page's
+    --text and --muted-2.
+
+    This pair was the worst reading in the sweep. --text on --nav measured
+    1.05:1 in the light theme — the workspace name, at the top of every screen
+    on a phone, invisible.
+  */
   .pbm-topbar-name {
     font-size: 0.90625rem;
     font-weight: 700;
-    color: var(--text);
+    color: var(--nav-fg, #f3f0ff);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .pbm-topbar-sub {
     font-size: 0.6875rem;
-    color: var(--muted-2);
+    color: var(--nav-muted, #a9a3c4);
   }
   .pbm-drawer-close {
     color: var(--text-3);
@@ -2674,10 +2695,20 @@
   cursor: pointer;
   width: 100%;
   text-align: left;
-  color: var(--muted);
+  /*
+    Nav ink, like every other row in this column — it sits on --nav, so the
+    page's --muted and --text are the wrong pair. It was the last of the
+    twenty-five light-theme failures, and the only one left after the sidebar
+    and the top bar were fixed, because it sets its own colour rather than
+    inheriting.
+
+    Hover goes to --nav-fg for the same reason: the resting state must not be
+    the more legible of the two.
+  */
+  color: var(--nav-muted, #a9a3c4);
 }
 .pbm-folder--more:hover {
-  color: var(--text);
+  color: var(--nav-fg, #f3f0ff);
 }
 .pbm-folder--more svg {
   transition: transform 160ms ease;

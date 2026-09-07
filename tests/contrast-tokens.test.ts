@@ -423,6 +423,55 @@ describe("muted text clears AA in every theme", () => {
     return found;
   }
 
+  /*
+    ── THE NAVIGATION IS DARK IN ALL SIX THEMES, SO ITS INK MUST BE TOO ──
+
+    .pb-sidebar and the mobile top bar are painted with --nav, which is
+    near-black indigo in every palette including the light one. They set no
+    colour of their own, so they inherited the PAGE ink — --text and --muted-2,
+    which do follow the theme.
+
+    In the five dark palettes that read correctly by coincidence. In light it
+    was #221b3a on #1c1830: measured 1.05:1 on 7 Sep 2026, on the default
+    theme, on the navigation column of every signed-in screen. Twenty-five
+    failing elements on one component.
+
+    It lasted because nothing had ever RENDERED MailNav — the five component
+    harnesses drop their view into a bare shell with no nav in it, so the most
+    universal component in the product was the least looked at.
+
+    --nav-fg and --nav-muted exist for this, and this checks them against the
+    ground they are actually painted on rather than against a page surface.
+  */
+  for (const palette of PALETTES) {
+    for (const [name, min] of [
+      ["--nav-fg", MIN_CONTRAST],
+      // The muted nav ink is used at 11px and up, so it needs the full 4.5:1
+      // as well — none of it is large text.
+      ["--nav-muted", MIN_CONTRAST],
+    ] as const) {
+      it(`${palette.name} ${name} clears AA on --nav`, () => {
+        /*
+          Inherited rather than redeclared is CORRECT for dark and system-dark:
+          the base values in the light block are already that palette's own
+          text colours. So fall back to the light block rather than demanding
+          a copy in every palette, which is how six declarations drift apart.
+        */
+        const raw = rawToken(palette.selector, name) ?? rawToken('[data-theme="light"] {', name);
+        expect(raw, `${palette.name} has no ${name} and no base to inherit`).not.toBeNull();
+        const fg = parseHex(raw!);
+        const bg = parseHex(token(palette.selector, "--nav"));
+        expect(fg, `${name} did not parse: ${raw}`).not.toBeNull();
+        expect(bg, `${palette.name} --nav did not parse`).not.toBeNull();
+        const got = contrastRatio(fg!, bg!);
+        expect(
+          got,
+          `${palette.name} ${name} measures ${got.toFixed(2)}:1 on --nav — AA needs ${MIN_CONTRAST}`,
+        ).toBeGreaterThanOrEqual(min);
+      });
+    }
+  }
+
   it("no rule puts white ink on a flat --accent background", () => {
     const files = stylesheets();
     // The list used to be typed out and had drifted to under half the sheets.

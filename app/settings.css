@@ -1380,9 +1380,26 @@
     flex-wrap: wrap;
   }
   .stc-meta {
-    flex-basis: 100%;
+    /*
+      ── THE INDENT HAS TO COME OUT OF THE WIDTH ──
+
+      `flex-basis: 100%` with `margin-left: 45px` is 100% of the line PLUS the
+      indent: a margin sits outside the box, box-sizing does not cover it, and
+      `flex: 0 0 100%` leaves no shrink to absorb it. So the row overflowed by
+      exactly the indent — measured 7 Sep 2026 at 392px against a 375px
+      viewport, carrying the ticket count and the first-seen date off the edge
+      and under .pb-shell's overflow:hidden.
+
+      This is the SAME defect fixed in .psb-meta on 6 Sep, and it survived here
+      for one reason: /settings/contacts had no harness, so nothing had ever
+      rendered this row. It is the argument for the file this was found by.
+
+      One custom property, so the width and the indent cannot drift apart.
+    */
+    --stc-meta-indent: 45px;
+    flex-basis: calc(100% - var(--stc-meta-indent, 45px));
     justify-content: flex-start;
-    margin-left: 45px;
+    margin-left: var(--stc-meta-indent, 45px);
   }
   .stc-seen {
     min-width: 0;

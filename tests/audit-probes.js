@@ -29,6 +29,46 @@ function inSkeleton(el) {
   return !!(el.closest && el.closest('[aria-busy="true"], .pbk'));
 }
 
+/**
+ * Is this inside a CLOSED off-canvas panel?
+ *
+ * The mobile navigation drawer is `position: fixed` with
+ * `transform: translateX(-300px)` and `data-open="false"` — parked entirely
+ * off the left edge until somebody opens it. Every one of its fifty-odd
+ * descendants therefore sits outside the viewport, and __overflow reported all
+ * of them the first time MailNav was ever rendered (7 Sep 2026).
+ *
+ * None of it is a reflow failure. 1.4.10 is about content that REQUIRES
+ * horizontal scrolling, and the document scrollWidth was exactly the viewport
+ * width — a closed drawer causes no scrolling at all, which is the entire
+ * point of parking it there.
+ *
+ * Deliberately narrow, because the easy version of this exclusion would hide
+ * real findings. All three must hold: the ancestor is taken out of flow with
+ * `position: fixed` or `absolute`, it is *entirely* outside the viewport
+ * rather than merely poking over the edge, and it is MARKED closed. An element
+ * half off the screen, or one with no closed marker, is still reported.
+ *
+ * The panel's contrast and target sizes are still measured — those matter for
+ * when it opens, and it is `visibility: visible` throughout.
+ */
+function offCanvasClosed(el, vw) {
+  for (let a = el; a && a !== document.body; a = a.parentElement) {
+    const cs = getComputedStyle(a);
+    if (cs.position !== "fixed" && cs.position !== "absolute") continue;
+    const r = a.getBoundingClientRect();
+    const fullyOut = r.right <= 0 || r.left >= vw;
+    if (!fullyOut) continue;
+    const closed =
+      a.getAttribute("data-open") === "false" ||
+      a.getAttribute("aria-hidden") === "true" ||
+      a.hasAttribute("inert") ||
+      a.getAttribute("aria-expanded") === "false";
+    if (closed) return true;
+  }
+  return false;
+}
+
 window.__overflow = function () {
   const vw = document.documentElement.clientWidth;
   const clipped = [];
@@ -38,6 +78,7 @@ window.__overflow = function () {
     const r = el.getBoundingClientRect();
     if (r.width === 0) return;
     if (r.right <= vw + 1 && r.left >= -1) return;
+    if (offCanvasClosed(el, vw)) return;
     let a = el.parentElement;
     let verdict = "loose";
     while (a && a !== document.body) {
@@ -405,8 +446,17 @@ window.__targets = function () {
  */
 window.__flexSentences = function () {
   const out = [];
+  const vw = document.documentElement.clientWidth;
   document.querySelectorAll("*").forEach((el) => {
     if (inSkeleton(el)) return;
+    /*
+      Same closed-drawer exclusion as __overflow, and for a sharper reason:
+      inside a translated subtree a Range's rect does not always carry the
+      transform, so the nav avatar measured boxRight -242 against contentRight
+      0 and was reported as a sentence overflowing by 242px. It is one letter
+      in a circle. The reading was of the transform, not of the layout.
+    */
+    if (offCanvasClosed(el, vw)) return;
     const cs = getComputedStyle(el);
     if (cs.display !== "flex" && cs.display !== "inline-flex") return;
     if (cs.flexWrap !== "nowrap") return;
