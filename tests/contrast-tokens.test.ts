@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { parseHex, contrastRatio, MIN_CONTRAST } from "../lib/email-colour";
 
@@ -399,31 +399,40 @@ describe("muted text clears AA in every theme", () => {
     against white in forest and slate. White ink belongs on --accent-grad or
     --accent-strong.
   */
+  /*
+    Every stylesheet under app/ and components/, FOUND rather than listed.
+
+    The hardcoded list this replaces named nine files. The repo has twenty,
+    and the eleven it omitted included pricing.css, contact.css, subscribe.css
+    and the admin console's own sheet — every public marketing page, in other
+    words. A guard is only as wide as its input, and a list that has to be
+    edited by hand when a file is added is a guard that quietly narrows.
+  */
+  function stylesheets(): string[] {
+    const found: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(join(process.cwd(), dir), { withFileTypes: true })) {
+        if (e.name === "node_modules" || e.name.startsWith(".")) continue;
+        const rel = `${dir}/${e.name}`;
+        if (e.isDirectory()) walk(rel);
+        else if (e.name.endsWith(".css")) found.push(rel);
+      }
+    };
+    walk("app");
+    walk("components");
+    return found;
+  }
+
   it("no rule puts white ink on a flat --accent background", () => {
-    const files = [
-      "app/globals.css",
-      "app/mail.css",
-      "app/admin.css",
-      "app/home.css",
-      "app/settings.css",
-      "app/newsletter.css",
-      "app/subscribers.css",
-      "components/mail/onboarding.css",
-      "components/trial-banner.css",
-    ];
+    const files = stylesheets();
+    // The list used to be typed out and had drifted to under half the sheets.
+    expect(files.length, "stylesheet discovery found almost nothing").toBeGreaterThan(15);
 
     const offenders: string[] = [];
     let blocksScanned = 0;
 
     for (const file of files) {
-      let css: string;
-      try {
-        css = readFileSync(join(process.cwd(), file), "utf8");
-      } catch {
-        // A file that moved should fail loudly rather than silently shrink
-        // the search — the list above is the point of the check.
-        throw new Error(`${file} is listed here but could not be read`);
-      }
+      const css = readFileSync(join(process.cwd(), file), "utf8");
 
       for (const block of css.split("}")) {
         const body = block.slice(block.indexOf("{") + 1);
@@ -443,6 +452,59 @@ describe("muted text clears AA in every theme", () => {
     // The canary: a scanner that matched nothing anywhere would pass silently.
     expect(blocksScanned, "no CSS blocks were scanned").toBeGreaterThan(200);
     expect(offenders, "white ink on flat --accent — use --accent-grad").toEqual([]);
+  });
+
+  /*
+    The same rule, for inline styles in components.
+
+    ── WHY THIS EXISTS ──
+    The CSS scan above was added on 6 Sep after white-on-flat-accent was found
+    in four rules. On 7 Sep a browser sweep found a FIFTH, on /no-access:
+    3.20:1 in forest, 3.01:1 in slate. The guard had not failed — it had never
+    been able to see the file, because the offending declaration was a React
+    style object in a .tsx and the scan reads .css.
+
+    A guard with a known blind spot is how the same bug ships twice.
+
+    Matching is deliberately loose about spacing and quote style, since the
+    shape here is `background: "var(--accent)"` rather than a CSS declaration,
+    and prettier may or may not put it on one line.
+  */
+  it("no inline style puts white ink on a flat --accent background", () => {
+    const sources: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(join(process.cwd(), dir), { withFileTypes: true })) {
+        if (e.name === "node_modules" || e.name.startsWith(".")) continue;
+        const rel = `${dir}/${e.name}`;
+        if (e.isDirectory()) walk(rel);
+        else if (e.name.endsWith(".tsx")) sources.push(rel);
+      }
+    };
+    walk("app");
+    walk("components");
+    expect(sources.length, "no components found to scan").toBeGreaterThan(20);
+
+    const offenders: string[] = [];
+    let objectsScanned = 0;
+
+    for (const file of sources) {
+      const src = readFileSync(join(process.cwd(), file), "utf8");
+      // Each `style={{ ... }}` object, and each standalone style const.
+      for (const block of src.split(/style=\{\{|style:\s*\{/).slice(1)) {
+        const obj = block.slice(0, block.indexOf("}"));
+        if (!obj.trim()) continue;
+        objectsScanned++;
+        // The closing paren must follow, or --accent-grad and --accent-soft
+        // match too — the same trap the CSS scan documents.
+        if (!/background(?:Color)?:\s*["'`]var\(--accent\)["'`]/.test(obj)) continue;
+        if (/color:\s*["'`](#fff\b|#ffffff\b|white\b|var\(--on-accent\))["'`]/i.test(obj)) {
+          offenders.push(`${file}: ${obj.replace(/\s+/g, " ").trim().slice(0, 70)}`);
+        }
+      }
+    }
+
+    expect(objectsScanned, "no inline style objects were scanned").toBeGreaterThan(20);
+    expect(offenders, "white ink on flat --accent in an inline style").toEqual([]);
   });
 
   it("still measures something rather than passing on an empty set", () => {

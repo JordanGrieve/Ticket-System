@@ -175,6 +175,28 @@ const ground = (el, forFg) => {
   return base;
 };
 
+/**
+ * Is this text part of an INACTIVE user interface component?
+ *
+ * 1.4.3 exempts those outright, and the product leans on it: a Save button
+ * stays disabled until a field changes, dimmed to 0.5 opacity, which measures
+ * about 2.1:1 and is correct.
+ *
+ * Exempt findings are RETURNED rather than dropped, on the same principle that
+ * keeps skeletons visible to __ready: an exemption applied silently is
+ * indistinguishable from a probe that stopped looking. The caller filters;
+ * the probe reports what it decided and why.
+ *
+ * Deliberately narrow. `disabled` is a real DOM property on real controls and
+ * aria-disabled is its ARIA equivalent; a merely greyed-out div that is still
+ * clickable is NOT inactive and stays a failure.
+ */
+function inactive(el) {
+  const ctl = el.closest("button,input,select,textarea,fieldset,option,[aria-disabled='true']");
+  if (!ctl) return false;
+  return ctl.disabled === true || ctl.getAttribute("aria-disabled") === "true";
+}
+
 window.__contrast = function () {
   const out = [];
   document.querySelectorAll("*").forEach((el) => {
@@ -232,6 +254,7 @@ window.__contrast = function () {
           got: Math.round(worst * 100) / 100,
           need: need2,
           note: "gradient text, worst stop",
+          exempt: inactive(el) ? "inactive control (1.4.3)" : null,
         });
       }
       return;
@@ -257,6 +280,7 @@ window.__contrast = function () {
         px: Math.round(px * 10) / 10,
         got: Math.round(got * 100) / 100,
         need,
+        exempt: inactive(el) ? "inactive control (1.4.3)" : null,
       });
     }
   });
@@ -488,7 +512,24 @@ window.__selftest = function () {
   const sawFlexSentence = window.__flexSentences().length > 0;
   row.remove();
 
-  return { sawOverflow, sawContrast, sawTarget, sawFlexSentence };
+  /*
+    A paragraph sized in px — the regression __textZoom exists to catch now
+    that the product is entirely in rem.
+
+    Worth its own case because this probe spent its whole life unable to
+    report the very thing it was named for: it doubled every element inline,
+    so a stylesheet full of px produced a clean 200% reading. A guard that
+    could not fail is worse than no guard, so this one is made to fail here
+    before any page is called clean by it.
+  */
+  const stuck = document.createElement("p");
+  stuck.style.cssText = "font-size:13px";
+  stuck.textContent = "sized in px and cannot be enlarged";
+  host.appendChild(stuck);
+  const sawUnscaled = window.__textZoom().unscaled.length > 0;
+  stuck.remove();
+
+  return { sawOverflow, sawContrast, sawTarget, sawFlexSentence, sawUnscaled };
 };
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -792,24 +833,70 @@ window.__ready = async function (timeoutMs) {
  * different: not a page that scrolls sideways, but a box with a fixed height
  * that swallows its own text once the text grows.
  *
- * Doubling the root font-size is not enough on its own — anything with a
- * font-size in px ignores the root, and would pass this check while failing a
- * real reader — so px-sized elements are doubled explicitly and put back.
+ * ── THIS PROBE USED TO SIMULATE THE THING IT WAS MEANT TO MEASURE ──
+ *
+ * It doubled the root AND then set every element's font-size inline to twice
+ * its computed px, "because anything sized in px ignores the root". That was
+ * a true statement about the stylesheets at the time and exactly the wrong
+ * response to it: the workaround made a product whose text did not respond to
+ * the root at all produce a full, clean 200% reading. The probe reported on a
+ * page that could not happen.
+ *
+ * On 7 Sep 2026 every font-size in the product became rem, so the root is now
+ * the only lever needed. The simulation is gone, and the px case it was
+ * papering over is REPORTED instead: `unscaled` lists text that ignored the
+ * doubling, which is what a regression back to px looks like from here.
  */
 window.__textZoom = function () {
-  const style = document.createElement("style");
-  style.textContent = "html { font-size: 200% !important; }";
-  document.head.appendChild(style);
-
-  const touched = [];
+  const before = new Map();
   document.querySelectorAll("*").forEach((el) => {
     if (inSkeleton(el)) return;
     const px = parseFloat(getComputedStyle(el).fontSize);
-    if (!px) return;
-    touched.push([el, el.style.fontSize]);
-    el.style.fontSize = px * 2 + "px";
+    if (px) before.set(el, px);
   });
+
+  const style = document.createElement("style");
+  style.textContent = "html { font-size: 200% !important; }";
+  document.head.appendChild(style);
   void document.body.offsetHeight;
+
+  /*
+    Text that did not move when the root did is text a reader cannot enlarge.
+
+    ── WHY THE BAR IS 1.1x AND NOT 2x ──
+    The first version asked for 1.5x and reported the homepage h1, which is
+    `clamp(2.375rem, 6.4vw, 4rem)`. At 1440px that clamp lands on its vw term
+    once the root doubles, so it goes 64px -> 92.16px: a 1.44x rise, correctly
+    bounded by the viewport, and not a defect in any sense.
+
+    Fluid display type is SUPPOSED to stop growing at some point; a heading
+    that reached 128px would be the bug. What 1.4.4 is about is text that
+    cannot be enlarged AT ALL, and that has an unmistakable signature -- a px
+    value ignores the root completely and comes back at exactly 1.0x. 1.1x
+    separates "pinned" from "fluid but capped" without needing to know which
+    rule set the size.
+
+    The ratio is reported either way so a borderline case can be judged rather
+    than trusted to the threshold.
+  */
+  const unscaled = [];
+  for (const [el, was] of before) {
+    const now = parseFloat(getComputedStyle(el).fontSize);
+    if (now > was * 1.1) continue;
+    const own = [...el.childNodes].some(
+      (n) => n.nodeType === 3 && n.textContent.trim().length > 1,
+    );
+    // Only elements holding their own text: a wrapper inherits and would
+    // otherwise be reported once per level of nesting.
+    if (!own) continue;
+    unscaled.push({
+      cls: (el.className || el.tagName).toString().slice(0, 38),
+      text: el.textContent.replace(/\s+/g, " ").trim().slice(0, 40),
+      was,
+      now,
+      grew: Math.round((now / was) * 100) / 100,
+    });
+  }
 
   const clipped = [];
   document.querySelectorAll("*").forEach((el) => {
@@ -833,10 +920,9 @@ window.__textZoom = function () {
     }
   });
 
-  for (const [el, inline] of touched) el.style.fontSize = inline;
   style.remove();
   void document.body.offsetHeight;
-  return clipped;
+  return { clipped, unscaled };
 };
 
 /**

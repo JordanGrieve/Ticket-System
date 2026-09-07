@@ -83,6 +83,32 @@ reach for before opening a browser.
 - `tests/settings-views-render.test.tsx` — themes, sender, brand, auto-reply, install
 - `tests/newsletter-views-render.test.tsx` — the composer
 - `tests/subscribers-views-render.test.tsx` — the subscriber list
+- `tests/public-views-render.test.tsx` — home, pricing, contact, privacy, terms,
+  no-access, 404, and the subscribe/unsubscribe pages a client's customer sees
+
+**The homepage IS renderable.** This file used to say it was not, because
+`app/page.tsx` calls Clerk's `auth()` which pulls `server-only` from inside
+node_modules where the vitest alias does not reach. The diagnosis was right and
+the conclusion did not follow: `vi.mock("@clerk/nextjs/server", …)` replaces the
+whole module, so the real one never loads and never imports `server-only`.
+Nothing needs aliasing. The most-visited page in the product spent months as the
+only one no automated check could see, on the strength of an untested "cannot".
+
+`tests/audit-runner.html` drives all of them. Copy it to `public/_runner/` and
+open `/_runner/index.html` — note the filename, since `public/` does not serve a
+directory index and `/_runner/` falls through to the router and lands on the
+sign-in page. Then `await __runAll(urls, 375)` runs every probe over every
+surface at a chosen width. Each surface loads in an iframe sized to that width,
+so media queries, reflow and `elementFromPoint` all resolve against it and one
+page load covers 36 surfaces. **This is not the innerHTML trap** — each page
+loads its own untouched document from its own URL; the runner only reads across
+a same-origin boundary.
+
+Do not call `__audit()` from a driven pane. It awaits `__ready()`, which awaits
+`requestAnimationFrame`, and rAF does not fire *at all* in a hidden document —
+not throttled, stopped. It cannot reach its success path and hangs past the
+tool's timeout. The runner calls the probes individually and proves the document
+had text and controls in it instead.
 
 In CI they assert the views render at all, which nothing did before. Given an
 output directory they also write a standalone page per view, dressed in the
@@ -179,6 +205,36 @@ target-size failure that did not exist.
   `elementFromPoint`, because the fix for a 14px icon is a pseudo-element that
   grows its hit area, and a control's real target is its `<label>` when it has
   one. Both were reported as failures by an earlier rect-based version.
+- **A probe that works around a defect will never report it.** `__textZoom`
+  doubled the root font-size and then ALSO set every element's size inline to
+  twice its computed px, with a comment explaining that px ignores the root.
+  That was a true statement about the stylesheets and exactly the wrong response
+  to it: the workaround made a product where NO text responded to the root
+  produce a clean 200% reading. The whole product was in px — 374 declarations
+  plus 19 inline — and a reader who set their browser font size to "Very large"
+  got nothing at all. Everything is rem now, `__textZoom` reports what failed to
+  grow instead of faking it, and `tests/type-scale.test.ts` fails CI on a px
+  font-size. When a probe contains a workaround for a product problem, the
+  workaround is the bug.
+- **Set the threshold from the failure's signature, not from a round number.**
+  The first version of that check asked for 1.5x growth and reported the
+  homepage h1, which is `clamp(2.375rem, 6.4vw, 4rem)` and correctly stops at
+  its viewport term — 1.44x, not a defect. Text that cannot be enlarged has an
+  unmistakable signature: it comes back at exactly 1.0x. The bar is 1.1x, and
+  the ratio is reported either way so a borderline case can be judged.
+- **A guard is only as wide as its input.** The "no white ink on flat
+  `--accent`" scan was added on 6 Sep after four rules were found. On 7 Sep a
+  browser sweep found a fifth, on `/no-access`: 3.20:1 in forest, 3.01:1 in
+  slate. The guard had not failed — it had never been able to see it, because it
+  read `.css` and this was a React style object in a `.tsx`. It also scanned a
+  hardcoded list of nine stylesheets when the repo has twenty, omitting every
+  public marketing page. Both were how the same bug shipped twice. Discover the
+  files; scan both languages; assert the discovery found something.
+- **1.4.3 exempts inactive controls, and the probe must know it.** A disabled
+  Save button at 0.5 opacity measures ~2.1:1 and is correct. `__contrast` marks
+  those `exempt` rather than dropping them, on the same principle as `__ready`:
+  an exemption applied silently cannot be told apart from a probe that stopped
+  looking.
 - **Composite alpha, and let the browser parse colour.** Contrast is measured
   through a 1x1 canvas so `oklch()` and `color-mix()` work, over a ground built
   by stacking every translucent layer. A regex-and-nearest-background version

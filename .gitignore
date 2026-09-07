@@ -72,3 +72,10 @@ public/_nh/
 
 # Same as public/_ah, for tests/subscribers-views-render.test.tsx.
 public/_bh/
+
+# The audit runner from tests/audit-runner.html, copied here to be served.
+# Source is committed; this copy is not, and must never ship in a build.
+public/_runner/
+
+# Same as public/_ah, for tests/public-views-render.test.tsx.
+public/_ph/
