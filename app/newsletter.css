@@ -44,7 +44,7 @@
 
 .nl-rail-title {
   margin: 0;
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--text);
@@ -55,7 +55,7 @@
   border-radius: 11px;
   background: var(--surface);
   color: var(--text-3);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   padding: 7px 13px;
   cursor: pointer;
@@ -69,7 +69,7 @@
 
 .nl-rail-empty {
   margin: 0;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.65;
   color: var(--muted-2);
 }
@@ -120,7 +120,7 @@
 
 .nl-item-name {
   min-width: 0;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: var(--text);
   overflow: hidden;
@@ -136,12 +136,12 @@
 }
 
 .nl-item-sub {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-4);
 }
 
 .nl-item-meta {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   color: var(--muted);
 }
 
@@ -150,7 +150,7 @@
    revisited when one first appears. */
 .nl-status {
   flex: 0 0 auto;
-  font-size: 10px;
+  font-size: 0.6875rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -204,7 +204,7 @@
 
 .nl-title {
   margin: 0 0 6px;
-  font-size: 21px;
+  font-size: 1.3125rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--text);
@@ -213,7 +213,7 @@
 .nl-sub {
   margin: 0;
   max-width: 66ch;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.65;
   color: var(--muted-2);
 }
@@ -226,7 +226,7 @@
 }
 
 .nl-saved {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--ok-fg);
 }
@@ -237,7 +237,7 @@
   border-radius: 12px;
   background: var(--accent-grad);
   color: var(--sel);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   padding: 10px 16px;
   cursor: pointer;
@@ -268,7 +268,7 @@
   border-radius: 12px;
   background: none;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   padding: 10px 14px;
   cursor: not-allowed;
@@ -289,7 +289,7 @@
   border-radius: 12px;
   background: var(--surface);
   color: var(--text-3);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   padding: 10px 14px;
   cursor: pointer;
@@ -321,9 +321,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 24px;
+  min-height: var(--tap-min, 24px);
   margin: 0 0 8px;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.6;
   color: var(--muted-2);
   cursor: pointer;
@@ -368,14 +368,14 @@
 
 .nl-card-title {
   margin: 0;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 800;
   color: var(--text);
 }
 
 .nl-card-sub {
   margin: 0;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.6;
   color: var(--muted-2);
 }
@@ -389,7 +389,7 @@
 }
 
 .nl-label {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   color: var(--text-3);
@@ -397,7 +397,7 @@
 
 .nl-optional {
   margin-left: 6px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
@@ -412,7 +412,7 @@
   border-radius: 12px;
   background: var(--surface);
   color: var(--text);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-family: inherit;
   padding: 10px 12px;
 }
@@ -453,7 +453,7 @@
 
 .nl-help {
   margin: 0;
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.6;
   color: var(--muted-2);
 }
@@ -464,7 +464,7 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface-2);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.6;
   color: var(--text-3);
 }
@@ -481,7 +481,7 @@
   border: 1px solid var(--pdf-fg);
   border-radius: 12px;
   background: var(--pdf-bg);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.6;
   color: var(--pdf-fg);
 }
@@ -499,7 +499,7 @@
   border-radius: 999px;
   background: var(--surface);
   color: var(--text-3);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   padding: 6px 12px;
   cursor: pointer;
@@ -540,7 +540,7 @@
   border-radius: 11px;
   background: var(--surface);
   color: var(--text-4);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
   transition: border-color 0.14s ease, color 0.14s ease, background 0.14s ease;
@@ -571,7 +571,7 @@
   margin: 0;
   display: flex;
   gap: 10px;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.55;
 }
 
@@ -624,7 +624,7 @@
 
 .nl-summary {
   cursor: pointer;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--text-3);
   /* Padding rather than a min-height: `display: flex` on a <summary> drops the
@@ -645,7 +645,7 @@
   white-space: pre-wrap;
   word-break: break-word;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   line-height: 1.6;
   color: var(--text-3);
 }
@@ -664,12 +664,12 @@
 
 .nl-count-num {
   margin: 0;
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   color: var(--text-2);
 }
 
 .nl-count-num b {
-  font-size: 19px;
+  font-size: 1.1875rem;
   font-weight: 800;
   color: var(--accent-text);
 }
@@ -691,7 +691,7 @@
   border-radius: 999px;
   background: var(--surface);
   padding: 4px 10px;
-  font-size: 11.5px;
+  font-size: 0.71875rem;
 }
 
 .nl-skip-n {
@@ -717,7 +717,7 @@
 .nl-fact {
   position: relative;
   padding-left: 22px;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.6;
   color: var(--text-3);
 }
@@ -814,7 +814,7 @@
   border: 1px solid var(--warn-fg);
   border-radius: 12px;
   background: var(--warn-bg);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.6;
   color: var(--warn-fg);
 }
@@ -830,7 +830,7 @@
   border-radius: 12px;
   background: var(--surface);
   color: var(--accent-text);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   padding: 10px 16px;
   cursor: pointer;
@@ -877,7 +877,7 @@
   border-radius: 12px;
   background: var(--pdf-bg);
   color: var(--pdf-fg);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   padding: 10px 16px;
   cursor: pointer;
@@ -924,7 +924,7 @@
 .nl-confirm-q {
   margin: 0 0 11px;
   color: var(--warn-fg);
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.6;
 }
 .nl-confirm-acts {
@@ -937,7 +937,7 @@
   background: var(--surface);
   color: var(--text-2);
   font: inherit;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   border-radius: 9px;
   padding: 7px 14px;

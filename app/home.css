@@ -67,7 +67,7 @@
 
 .home-nav-link {
   color: var(--text-4);
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   padding: 8px 12px;
   border-radius: 9px;
@@ -88,7 +88,7 @@
   height: 46px;
   padding: 0 24px;
   border-radius: 12px;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 700;
   border: 1px solid transparent;
   white-space: nowrap;
@@ -119,7 +119,7 @@
 .home-btn--sm {
   height: 38px;
   padding: 0 16px;
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   border-radius: 10px;
 }
 
@@ -180,7 +180,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--nav-active-fg);
@@ -192,7 +192,7 @@
 }
 
 .home-h1 {
-  font-size: clamp(38px, 6.4vw, 64px);
+  font-size: clamp(2.375rem, 6.4vw, 4rem);
   line-height: 1.04;
   letter-spacing: -0.03em;
   font-weight: 800;
@@ -209,7 +209,7 @@
 }
 
 .home-lede {
-  font-size: 17.5px;
+  font-size: 1.09375rem;
   line-height: 1.65;
   color: rgba(244, 241, 255, 0.78);
   margin: 0 0 32px;
@@ -225,7 +225,7 @@
 
 .home-cta-note {
   margin: 18px 0 0;
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   color: rgba(244, 241, 255, 0.6);
 }
 
@@ -255,7 +255,7 @@
 }
 
 .home-kicker {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -264,7 +264,7 @@
 }
 
 .home-h2 {
-  font-size: clamp(26px, 3.4vw, 34px);
+  font-size: clamp(1.625rem, 3.4vw, 2.125rem);
   line-height: 1.18;
   letter-spacing: -0.02em;
   font-weight: 800;
@@ -273,7 +273,7 @@
 }
 
 .home-sub {
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.7;
   color: var(--text-4);
   margin: 0 0 32px;
@@ -308,14 +308,14 @@
 }
 
 .home-card-title {
-  font-size: 16.5px;
+  font-size: 1.03125rem;
   font-weight: 700;
   margin: 0 0 8px;
   color: var(--text);
 }
 
 .home-card-body {
-  font-size: 14.5px;
+  font-size: 0.90625rem;
   line-height: 1.65;
   color: var(--text-4);
   margin: 0;
@@ -335,7 +335,7 @@
 }
 
 .home-band-title {
-  font-size: clamp(22px, 3vw, 30px);
+  font-size: clamp(1.375rem, 3vw, 1.875rem);
   font-weight: 800;
   letter-spacing: -0.02em;
   color: #fff;
@@ -343,7 +343,7 @@
 }
 
 .home-band-sub {
-  font-size: 15px;
+  font-size: 0.9375rem;
   line-height: 1.6;
   color: rgba(244, 241, 255, 0.72);
   margin: 0;
@@ -356,7 +356,7 @@
   border-top: 1px solid var(--border-soft);
   margin-top: 12px;
   padding: 22px 24px;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   color: var(--muted-2);
   display: flex;
   justify-content: space-between;
@@ -394,7 +394,7 @@
 .home-footer-links a {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
+  min-height: var(--tap-min, 24px);
   padding-inline: 6px;
   margin-inline: -6px;
   border-radius: 8px;
@@ -527,14 +527,14 @@
 
 .home-show-title {
   margin: 10px 0 14px;
-  font-size: clamp(24px, 3vw, 31px);
+  font-size: clamp(1.5rem, 3vw, 1.9375rem);
   line-height: 1.18;
   letter-spacing: -0.02em;
   color: var(--text);
 }
 .home-show-body {
   margin: 0 0 12px;
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.65;
   color: var(--text-2);
   max-width: 46ch;

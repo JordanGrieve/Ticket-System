@@ -22,7 +22,7 @@ export default function UnsubscribeLayout({
   return (
     <div className="u-shell">
       <header className="u-header">
-        <PostboxLockup size={30} fontSize={18} color="var(--ink)" />
+        <PostboxLockup size={30} fontSize="1.125rem" color="var(--ink)" />
       </header>
       <main className="u-main">{children}</main>
     </div>

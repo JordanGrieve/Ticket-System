@@ -160,7 +160,7 @@
   justify-content: center;
 }
 .pbm-brand-name {
-  font-size: 17px;
+  font-size: 1.0625rem;
   font-weight: 800;
   letter-spacing: -0.4px;
   color: var(--pbm-on-dark);
@@ -177,7 +177,7 @@
   margin-bottom: 10px;
   padding: 9px 14px;
   border-radius: 12px;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   color: var(--nav-active-fg);
   background: var(--nav-active-bg);
@@ -219,7 +219,7 @@
 .pbm-folder-label {
   flex: 1;
   min-width: 0;
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -227,7 +227,7 @@
 }
 .pbm-folder-count {
   flex: none;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   padding: 3px 8px;
   border-radius: 8px;
@@ -249,7 +249,7 @@
   margin: 14px 6px;
 }
 .pbm-nav-heading {
-  font-size: 10px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -294,7 +294,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 800;
 }
 .pbm-account-text {
@@ -304,7 +304,7 @@
 }
 .pbm-account-name {
   display: block;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   color: var(--pbm-on-dark);
   overflow: hidden;
@@ -313,7 +313,7 @@
 }
 .pbm-account-role {
   display: block;
-  font-size: 10.5px;
+  font-size: 0.6875rem;
   font-weight: 600;
 }
 
@@ -327,11 +327,11 @@
   color: var(--pbm-on-dark);
 }
 .pbm-pro-title {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 800;
 }
 .pbm-pro-body {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   line-height: 1.5;
   opacity: 0.78;
   margin-top: 6px;
@@ -352,7 +352,7 @@
   border-radius: 13px;
   background: var(--nav-deep);
   color: var(--pbm-on-dark);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   text-decoration: none;
   cursor: pointer;
@@ -402,7 +402,7 @@
   border: none;
   border-radius: 10px;
   background: transparent;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-2);
   text-align: left;
@@ -460,7 +460,7 @@
   min-width: 0;
   border: none;
   background: transparent;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--text);
   /* The input's own box was 18px tall inside a 42px search bar, so the top and
      bottom of something that LOOKS like the target did nothing. Stretching it
@@ -486,7 +486,7 @@
   padding: 7px 12px;
   border: none;
   border-radius: 11px;
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 700;
   cursor: pointer;
   background: var(--surface-3);
@@ -507,7 +507,7 @@
 }
 
 .pbm-list-meta {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 600;
   color: var(--muted-2);
 }
@@ -560,7 +560,7 @@
   background: var(--accent);
 }
 .pbm-card-name {
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   font-weight: 700;
   color: var(--text);
   overflow: hidden;
@@ -569,12 +569,12 @@
 }
 .pbm-card-time {
   flex: none;
-  font-size: 10.5px;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--muted);
 }
 .pbm-card-subject {
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 600;
   color: var(--text-3);
   margin-top: 2px;
@@ -583,7 +583,7 @@
   white-space: nowrap;
 }
 .pbm-card-preview {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted-2);
   margin-top: 2px;
   overflow: hidden;
@@ -600,7 +600,7 @@
   padding-right: 30px;
 }
 .pbm-tag {
-  font-size: 10px;
+  font-size: 0.6875rem;
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 7px;
@@ -617,7 +617,7 @@
   justify-content: center;
   gap: 12px;
   padding: 14px 0 4px;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 600;
 }
 /* Newer / Older. The text is 15px tall on its own; the link is what gets
@@ -627,7 +627,7 @@
 .pbm-pager a {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
+  min-height: var(--tap-min, 24px);
   padding: 0 6px;
   border-radius: 8px;
 }
@@ -660,12 +660,12 @@
   margin-bottom: 8px;
 }
 .pbm-empty-title {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 800;
   color: var(--text);
 }
 .pbm-empty-body {
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.6;
   color: var(--muted-2);
   max-width: 250px;
@@ -679,7 +679,7 @@
   border: 1px solid var(--border);
   border-radius: 13px;
   background: var(--surface);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   color: var(--text-2);
   cursor: pointer;
@@ -707,12 +707,12 @@
   padding: 24px;
 }
 .pbm-placeholder-title {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 800;
   color: var(--text);
 }
 .pbm-placeholder-body {
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   color: var(--muted-2);
   max-width: 260px;
   line-height: 1.6;
@@ -744,7 +744,7 @@
 }
 
 .pbm-thread-name {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 800;
   color: var(--text);
   overflow: hidden;
@@ -752,7 +752,7 @@
   white-space: nowrap;
 }
 .pbm-thread-email {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 600;
   color: var(--muted-2);
   overflow: hidden;
@@ -795,7 +795,7 @@
   padding: 18px 20px 6px;
 }
 .pbm-subject {
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 800;
   letter-spacing: -0.5px;
   color: var(--text);
@@ -809,7 +809,7 @@
   flex-wrap: wrap;
 }
 .pbm-chip-static {
-  font-size: 10.5px;
+  font-size: 0.6875rem;
   font-weight: 700;
   padding: 5px 10px;
   border-radius: 9px;
@@ -830,12 +830,12 @@
   gap: 7px;
   /* 23px tall, one pixel under 2.5.8's 24. Nothing about the design wanted
      23 — it fell out of a 10.5px line plus 4px of padding. */
-  min-height: 24px;
+  min-height: var(--tap-min, 24px);
   padding: 4px 10px;
   border: 1px solid var(--border);
   border-radius: 9px;
   background: var(--surface);
-  font-size: 10.5px;
+  font-size: 0.6875rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -857,7 +857,7 @@
 }
 .pbm-transcript-note {
   text-align: center;
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 600;
   color: var(--muted-2);
 }
@@ -876,7 +876,7 @@
   background: var(--surface-3);
   border-radius: 18px 18px 18px 6px;
   padding: 13px 16px;
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   line-height: 1.55;
   color: var(--text-2);
   white-space: pre-wrap;
@@ -890,7 +890,7 @@
   box-shadow: 0 4px 12px var(--glow);
 }
 .pbm-bubble-foot {
-  font-size: 10.5px;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--muted);
   margin: 6px 0 0 6px;
@@ -937,7 +937,7 @@
   background: transparent;
   resize: none;
   font-family: inherit;
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   line-height: 1.5;
   color: var(--text-2);
   padding: 10px 0;
@@ -955,7 +955,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -965,7 +965,7 @@
   box-shadow: none;
 }
 .pbm-composer-foot {
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--muted-2);
   padding: 8px 8px 0;
 }
@@ -1016,7 +1016,7 @@
   flex: none;
 }
 .pbm-rail-title {
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   font-weight: 800;
   color: var(--text);
 }
@@ -1054,17 +1054,17 @@
   background: transparent;
 }
 .pbm-rail-name {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 800;
   color: var(--text);
 }
 .pbm-rail-label {
-  font-size: 10.5px;
+  font-size: 0.6875rem;
   font-weight: 700;
   color: var(--muted);
 }
 .pbm-rail-value {
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   color: var(--text-2);
   margin-top: 3px;
@@ -1072,7 +1072,7 @@
 }
 /* Anything the schema cannot answer. Italic + muted so it never reads as data. */
 .pbm-rail-void {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-style: italic;
   line-height: 1.5;
   color: var(--muted);
@@ -1093,7 +1093,7 @@
   border: none;
   border-bottom: 1px solid var(--border);
   background: transparent;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: var(--text);
   text-align: left;
@@ -1102,7 +1102,7 @@
 }
 .pbm-rail-soon {
   /* Was 9.5px, the smallest type in the codebase. */
-  font-size: 10.5px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1155,11 +1155,11 @@
   max-width: 100%;
   padding: 4px 8px;
   border-radius: 8px;
-  font-size: 10.5px;
+  font-size: 0.6875rem;
   font-weight: 700;
 }
 .pbm-label--sm {
-  font-size: 10px;
+  font-size: 0.6875rem;
   padding: 3px 7px;
 }
 .pbm-label-name {
@@ -1273,13 +1273,13 @@
   flex: none;
   /* 22px, for the same reason .pbm-status-btn was 23 — a small font and small
      padding, not a decision. */
-  min-height: 24px;
+  min-height: var(--tap-min, 24px);
   padding: 4px 9px;
   border: 1px dashed var(--border-strong);
   border-radius: 9px;
   background: transparent;
   color: var(--muted-2);
-  font-size: 10.5px;
+  font-size: 0.6875rem;
   font-weight: 700;
   cursor: pointer;
   transition: color 0.16s ease, border-color 0.16s ease;
@@ -1311,7 +1311,7 @@
   margin: 6px 4px;
 }
 .pbm-menu-note {
-  font-size: 11px;
+  font-size: 0.6875rem;
   line-height: 1.5;
   color: var(--muted-2);
   padding: 6px 10px;
@@ -1346,7 +1346,7 @@
   border-radius: 10px;
   background: var(--surface-2);
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   color: var(--text);
 }
 .pbm-swatches {
@@ -1367,7 +1367,7 @@
   border-radius: 12px;
   background: var(--accent-grad);
   color: var(--pbm-on-dark);
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -1392,7 +1392,7 @@
   border-radius: 8px;
   background: var(--pbm-nav-line);
   color: var(--muted-2);
-  font-size: 10px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1402,7 +1402,7 @@
   color: var(--nav-active-fg);
 }
 .pbm-nav-note {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   line-height: 1.5;
   color: var(--muted-2);
   padding: 2px 14px 4px;
@@ -1441,7 +1441,7 @@
   border-bottom: 1px solid var(--border);
 }
 .pbm-modal-title {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 800;
   color: var(--text);
 }
@@ -1455,7 +1455,7 @@
   gap: 8px;
 }
 .pbm-modal-note {
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.55;
   color: var(--muted-2);
 }
@@ -1479,7 +1479,7 @@
   padding-top: 14px;
 }
 .pbm-label-count {
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--muted);
 }
@@ -1523,7 +1523,7 @@
 .pbm-confirm-q {
   flex: 1 1 200px;
   margin: 0;
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.55;
   font-weight: 600;
   color: var(--text-2);
@@ -1541,7 +1541,7 @@
   border-radius: 12px;
   background: var(--surface-3);
   color: var(--text-2);
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -1726,7 +1726,7 @@
     line-height: 1.2;
   }
   .pbm-topbar-name {
-    font-size: 14.5px;
+    font-size: 0.90625rem;
     font-weight: 700;
     color: var(--text);
     overflow: hidden;
@@ -1734,7 +1734,7 @@
     white-space: nowrap;
   }
   .pbm-topbar-sub {
-    font-size: 11px;
+    font-size: 0.6875rem;
     color: var(--muted-2);
   }
   .pbm-drawer-close {
@@ -1771,14 +1771,14 @@
     box-shadow: 0 8px 18px var(--shadow-2);
   }
   .pbm-search-input {
-    font-size: 14px;
+    font-size: 0.875rem;
   }
   .pbm-chips {
     padding-left: 0;
   }
   .pbm-chip {
     padding: 8px 15px;
-    font-size: 12.5px;
+    font-size: 0.78125rem;
     background: var(--surface);
     box-shadow: 0 4px 10px var(--shadow);
   }
@@ -1804,13 +1804,13 @@
     height: 32px;
   }
   .pbm-card-name {
-    font-size: 14.5px;
+    font-size: 0.90625rem;
   }
   .pbm-card-subject {
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
   .pbm-card-preview {
-    font-size: 12.5px;
+    font-size: 0.78125rem;
   }
 
   /* Floating tab bar from the mobile design. */
@@ -1843,7 +1843,7 @@
        a card. Contrast maths never flags this because the ratio is fine; it is
        size, and it is the complaint people actually voice as "I cannot read
        it". Checked at 375px: five tabs still fit on one row without wrapping. */
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 700;
     color: var(--muted);
   }
@@ -1927,7 +1927,7 @@
     box-shadow: 0 10px 26px var(--shadow-2);
   }
   .pbm-subject {
-    font-size: 17px;
+    font-size: 1.0625rem;
     letter-spacing: -0.4px;
     /*
       Long subjects clamp rather than pushing the conversation off-screen.
@@ -1947,21 +1947,28 @@
       a subject long enough will still clamp, which is why the inbox card and
       the email itself both carry the full text.
 
-      ── WHAT IS STILL TRUE AT 200% ZOOM ──
-      A clamp counts lines, so 1.4.4 will always cut something at extreme
-      zoom; three lines of doubled text hold less than three of normal. This
-      is deliberately left as visual truncation rather than removed, because
-      the element is an <h1> holding the COMPLETE subject, not aria-hidden and
-      not shortened in the markup — so a screen reader reads every word of it
-      at any zoom, and what is bounded is the space it takes on screen. If
-      that ever changes to a truncated string in the DOM, this becomes a real
-      failure and the clamp has to go.
+      ── THE CLAMP IS GONE, AND THE ARGUMENT THAT KEPT IT WAS WRONG ──
+      It used to clamp to three lines. The defence written here was that the
+      <h1> holds the COMPLETE subject in the DOM — not aria-hidden, not
+      shortened — so a screen reader still reads every word and only the
+      on-screen space is bounded.
+
+      That defence answers the wrong reader. 1.4.4 exists for someone with low
+      vision who has enlarged the text and is looking at it; a screen-reader
+      user is who 1.4.4 is NOT about. And the loss is caused by the resizing
+      itself, which is the exact shape the criterion prohibits: a clamp counts
+      lines while enlarged text needs more of them, so a subject that fits in
+      two lines at 100% wants four at 200% and the reader who most needed to
+      read it is the only one who cannot.
+
+      Measured on 7 Sep 2026: scrollHeight 152 against clientHeight 114 at
+      200%, i.e. a line and a half of the subject deleted.
+
+      Nothing replaces it. The h1 sits above a scrolling transcript, so a long
+      subject costs scrolling and nothing else — and a reader at 200% zoom has
+      already accepted scrolling. "Do not push the conversation down" was a
+      layout preference; it is not worth a criterion.
     */
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
   }
   .pbm-transcript {
     padding: 16px 16px 8px;
@@ -2087,7 +2094,7 @@
   border-bottom: 1px solid var(--border);
 }
 .pbm-results-meta {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted-2);
 }
@@ -2110,7 +2117,7 @@
   padding: 0 13px;
   border: none;
   border-radius: 10px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
   background: var(--accent-grad);
@@ -2141,14 +2148,14 @@
   padding: 0 2px 9px;
 }
 .pbm-group-title {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--text-4);
 }
 .pbm-group-count {
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 8px;
@@ -2156,13 +2163,13 @@
   color: var(--accent-text);
 }
 .pbm-group-more {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 500;
   color: var(--muted-2);
 }
 .pbm-results-aside {
   margin-left: auto;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--accent-text);
 }
@@ -2196,7 +2203,7 @@
 .pbm-result-title {
   flex: 1;
   min-width: 0;
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   font-weight: 700;
   color: var(--text);
   overflow: hidden;
@@ -2205,13 +2212,13 @@
 }
 .pbm-result-time {
   flex: none;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--muted);
 }
 .pbm-result-line {
   margin-top: 3px;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-4);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2219,7 +2226,7 @@
 }
 .pbm-result-snippet {
   margin-top: 6px;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.65;
   color: var(--text-3);
 }
@@ -2236,7 +2243,7 @@
   box-shadow: 0 0 0 1px var(--border);
 }
 .pbm-result-where {
-  font-size: 10.5px;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--muted-2);
 }
@@ -2265,7 +2272,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   background: var(--accent-soft);
   color: var(--accent-text);
@@ -2286,7 +2293,7 @@
   gap: 2px;
 }
 .pbm-result-count {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 700;
   color: var(--text-4);
 }
@@ -2384,7 +2391,7 @@
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 12.8px;
+  font-size: 0.8rem;
   line-height: 1.5;
 }
 
@@ -2403,7 +2410,7 @@
      and 3.01:1 in slate. See the note on .pbo-go in onboarding.css. */
   background: var(--accent-grad);
   color: #fff;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -2430,7 +2437,7 @@
 
 .pbn-body {
   margin: 0 0 6px;
-  font-size: 12.8px;
+  font-size: 0.8rem;
   line-height: 1.55;
   color: var(--text-2);
   /* Staff type free text with their own line breaks; honour them. Also wraps
@@ -2445,7 +2452,7 @@
   align-items: center;
   gap: 4px;
   flex-wrap: wrap;
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   color: var(--muted-2);
 }
 
@@ -2462,14 +2469,14 @@
 .pbn-del {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
+  min-height: var(--tap-min, 24px);
   border: none;
   background: none;
   padding: 0 6px;
   margin-inline: -6px;
   border-radius: 8px;
   font: inherit;
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   color: var(--muted-2);
   cursor: pointer;
   text-decoration: underline;
@@ -2509,7 +2516,7 @@
 }
 
 .pbl-host {
-  font-size: 12.8px;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--accent-text);
   overflow-wrap: anywhere;
@@ -2523,7 +2530,7 @@
    in full on hover (title) or by selecting it, without letting a long tracking
    URL push the 290px rail out of shape. */
 .pbl-url {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   color: var(--muted-2);
   white-space: nowrap;
   overflow: hidden;
@@ -2532,7 +2539,7 @@
 
 .pbl-meta {
   margin: 6px 0 0;
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   color: var(--muted-2);
 }
 
@@ -2542,7 +2549,7 @@
 .pbl-jump {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
+  min-height: var(--tap-min, 24px);
   padding-inline: 6px;
   margin-inline: -6px;
   border-radius: 8px;
@@ -2566,7 +2573,7 @@
   background: var(--warn-bg);
   color: var(--warn-fg);
   border-bottom: 1px solid var(--warn-fg);
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.55;
 }
 
@@ -2579,7 +2586,7 @@
   border-radius: 9px;
   background: var(--warn-bg);
   color: var(--warn-fg);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.5;
 }
 
@@ -2630,7 +2637,7 @@
   background: var(--surface-2);
   color: var(--text);
   border-bottom: 1px solid var(--border);
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.55;
 }
 
@@ -2825,7 +2832,7 @@
   background: var(--accent-soft);
   color: var(--accent-text);
   font: inherit;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   border-radius: 11px;
   padding: 8px 14px;
@@ -2844,6 +2851,6 @@
 .pbm-starter-hint {
   margin: 0;
   color: var(--muted-2);
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   line-height: 1.55;
 }

@@ -503,6 +503,47 @@ body {
 }
 
 /*
+  ── THE TOUCH FLOOR ───────────────────────────────────────────────────────
+
+  --tap-min is the smallest a control may be. It is NOT a palette token: it is
+  the same in all six themes and changes with the POINTER, which is why it
+  sits here rather than in the blocks above.
+
+  ── WHY TWO NUMBERS AND NOT ONE ──
+  24px is the WCAG 2.2 AA floor (2.5.8 Target Size (Minimum)), and eleven rules
+  in this repo were set to exactly that on 6 Sep to clear it. Clearing a floor
+  is not the same as being comfortable: Apple's HIG asks for 44pt and Material
+  for 48dp, both of which are usability guidance rather than conformance, and
+  both of which are nearly double what those rules give.
+
+  A blanket 44px would be the wrong answer here. This is a dense mail client —
+  an inbox row carries a star, a status pill and three label chips — and
+  44px-tall chips would push the message itself off the card. That is a real
+  cost paid by every user to benefit a fingertip that is not present on a
+  desktop.
+
+  So the floor follows the pointer. 24px where there is a mouse, which is
+  conformant and keeps the density the product is for; 32px under a finger,
+  which is a third larger than the criterion asks and buys back the accuracy a
+  fingertip loses. 44px stays available for anything primary that wants it.
+
+  ── ALWAYS READ IT WITH A FALLBACK ──
+  An undefined var() invalidates the whole declaration and the property falls
+  back to its inherited value — so `min-height: var(--tap-min, 24px)`, never
+  a bare var(). A typo in the token name would otherwise silently remove the
+  minimum rather than fail.
+*/
+:root {
+  --tap-min: 24px;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --tap-min: 32px;
+  }
+}
+
+/*
   Bare links read --accent-text, NOT --accent-strong.
 
   --accent-strong is the deep, behind-the-front-plate accent: every theme sets
@@ -831,7 +872,7 @@ summary:focus-visible,
     padding-bottom: 11px !important;
   }
   .pb-thread-title {
-    font-size: 16.5px !important;
+    font-size: 1.03125rem !important;
     margin-bottom: 5px !important;
     /* Long subjects clamp rather than pushing the conversation off-screen. */
     display: -webkit-box;

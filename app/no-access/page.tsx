@@ -62,10 +62,10 @@ export default async function NoAccessPage() {
             <PostboxLockup />
           </div>
 
-          <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 10 }}>
+          <h1 style={{ fontSize: "1.375rem", fontWeight: 700, marginBottom: 10 }}>
             Postbox is invite-only
           </h1>
-          <p style={{ fontSize: 14.5, lineHeight: 1.65, color: "var(--muted)", margin: 0 }}>
+          <p style={{ fontSize: "0.90625rem", lineHeight: 1.65, color: "var(--muted)", margin: 0 }}>
             You&rsquo;re signed in as <b style={{ color: "var(--ink)" }}>{viewer.email}</b>,
             but there&rsquo;s no workspace linked to that email. If your business
             uses Postbox, ask your provider to invite this address — or sign in
@@ -78,9 +78,20 @@ export default async function NoAccessPage() {
                 height: 40,
                 padding: "0 20px",
                 borderRadius: 10,
-                background: "var(--accent)",
+                /*
+                  --accent-grad, not --accent. White on the flat accent is
+                  3.20:1 in forest and 3.01:1 in slate, against the 4.5:1 that
+                  13.5px text needs; the gradient's stops are all guarded to
+                  clear AA in tests/contrast-tokens.test.ts.
+
+                  The same bug was fixed in four CSS rules on 6 Sep and a
+                  source scan was added to stop it coming back. It came back
+                  here anyway, because the scan reads stylesheets and this is
+                  an inline style in a .tsx -- so the scan now reads both.
+                */
+                background: "var(--accent-grad)",
                 color: "#fff",
-                fontSize: 13.5,
+                fontSize: "0.84375rem",
                 fontWeight: 600,
                 border: "none",
                 cursor: "pointer",

@@ -47,7 +47,7 @@ export default function CopyButton({
         background: copied ? "var(--accent-soft)" : "var(--surface)",
         border: `1px solid ${copied ? "var(--accent-line)" : "var(--border)"}`,
         borderRadius: 8,
-        fontSize: 12.5,
+        fontSize: "0.78125rem",
         fontWeight: 600,
         color: copied ? "var(--accent-text)" : "var(--text-2)",
         cursor: "pointer",

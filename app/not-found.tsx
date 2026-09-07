@@ -46,10 +46,10 @@ export default function NotFoundPage() {
         >
           <PostboxLockup colors={LITERAL_COLORS} />
         </div>
-        <h1 style={{ fontSize: 21, fontWeight: 700, marginBottom: 8 }}>
+        <h1 style={{ fontSize: "1.3125rem", fontWeight: 700, marginBottom: 8 }}>
           This page doesn&rsquo;t exist
         </h1>
-        <p style={{ fontSize: 14.5, lineHeight: 1.65, color: "#8a84a4", margin: "0 0 22px" }}>
+        <p style={{ fontSize: "0.90625rem", lineHeight: 1.65, color: "#8a84a4", margin: "0 0 22px" }}>
           The link may be out of date, or the page may have been moved.
         </p>
         <Link
@@ -60,7 +60,7 @@ export default function NotFoundPage() {
             borderRadius: 10,
             background: "#6d4aff",
             color: "#fff",
-            fontSize: 13.5,
+            fontSize: "0.84375rem",
             fontWeight: 600,
             display: "inline-flex",
             alignItems: "center",

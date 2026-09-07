@@ -59,7 +59,7 @@
   background: var(--surface);
   border-radius: 0 0 19px 19px;
   overflow: hidden;
-  font-size: 11px;
+  font-size: 0.6875rem;
   line-height: 1.4;
 }
 
@@ -88,7 +88,7 @@
 }
 .pshot-brand-name {
   font-weight: 700;
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -142,23 +142,23 @@
 .pshot-row-name {
   font-weight: 700;
   color: var(--text);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .pshot-row-when {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.6875rem;
   flex: none;
 }
 .pshot-row-subject {
   margin: 2px 0 0;
   color: var(--text-2);
   font-weight: 600;
-  font-size: 10.5px;
+  font-size: 0.6875rem;
 }
 .pshot-row-preview {
   margin: 1px 0 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.6875rem;
   /* One line only. Two lines of preview at this scale is grey noise. */
   white-space: nowrap;
   overflow: hidden;
@@ -171,7 +171,7 @@
   margin-top: 6px;
 }
 .pshot-tag {
-  font-size: 8.5px;
+  font-size: 0.6875rem;
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 999px;
@@ -199,11 +199,11 @@
 .pshot-thread-name {
   font-weight: 700;
   color: var(--text);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .pshot-thread-sub {
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: 0.6875rem;
 }
 .pshot-bubbles {
   display: flex;
@@ -216,7 +216,7 @@
   border-radius: 12px;
   background: var(--surface-3);
   color: var(--text-2);
-  font-size: 10.5px;
+  font-size: 0.6875rem;
 }
 .pshot-bubble--out {
   align-self: flex-end;
@@ -225,7 +225,7 @@
 }
 .pshot-meta {
   margin: 3px 0 10px;
-  font-size: 9px;
+  font-size: 0.6875rem;
   font-weight: 700;
   color: var(--muted);
 }
@@ -256,7 +256,7 @@
   background: var(--surface);
   border: 1px solid var(--border-strong);
   box-shadow: 0 6px 18px var(--shadow);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 600;
   line-height: 1.25;
   color: var(--text);
@@ -326,7 +326,7 @@
   /* Sidebar and list only: "everything lands in one place" is a statement
      about the LIST, and the open thread beside it is just competition. */
   grid-template-columns: 170px 1fr;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
 }
 .pshot-body[data-focus="inbox"] .pshot-thread {
   display: none;
@@ -338,13 +338,13 @@
   padding: 12px 14px;
 }
 .pshot-body[data-focus="inbox"] .pshot-row-name {
-  font-size: 12.5px;
+  font-size: 0.78125rem;
 }
 .pshot-body[data-focus="inbox"] .pshot-row-subject {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .pshot-body[data-focus="inbox"] .pshot-row-preview {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
 }
 /*
  * 12px, not 10. These chips are the thing the "Where it came from" callout
@@ -353,13 +353,13 @@
  * to read is a callout aimed at nothing.
  */
 .pshot-body[data-focus="inbox"] .pshot-tag {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .pshot-body[data-focus="thread"] {
   /* One conversation, full width. */
   grid-template-columns: 1fr;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .pshot-body[data-focus="thread"] .pshot-side,
 .pshot-body[data-focus="thread"] .pshot-list {
@@ -369,19 +369,19 @@
   padding: 18px 22px;
 }
 .pshot-body[data-focus="thread"] .pshot-thread-name {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .pshot-body[data-focus="thread"] .pshot-thread-sub {
-  font-size: 12.5px;
+  font-size: 0.78125rem;
 }
 .pshot-body[data-focus="thread"] .pshot-bubble {
-  font-size: 13px;
+  font-size: 0.8125rem;
   padding: 11px 14px;
   border-radius: 14px;
   max-width: 72%;
 }
 .pshot-body[data-focus="thread"] .pshot-meta {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 /*
@@ -428,45 +428,45 @@
   .pshot-body,
   .pshot-body[data-focus="inbox"],
   .pshot-body[data-focus="thread"] {
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
   .pshot-row-preview {
     display: none;
   }
   .pshot-body .pshot-row-name,
   .pshot-body[data-focus="inbox"] .pshot-row-name {
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
   .pshot-body .pshot-row-subject,
   .pshot-body[data-focus="inbox"] .pshot-row-subject {
-    font-size: 12.5px;
+    font-size: 0.78125rem;
   }
   .pshot-body .pshot-tag,
   .pshot-body[data-focus="inbox"] .pshot-tag {
-    font-size: 12px;
+    font-size: 0.75rem;
   }
   .pshot-body .pshot-row-when {
-    font-size: 12px;
+    font-size: 0.75rem;
   }
   .pshot-body .pshot-bubble,
   .pshot-body[data-focus="thread"] .pshot-bubble {
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
   .pshot-body .pshot-meta,
   .pshot-body[data-focus="thread"] .pshot-meta {
-    font-size: 12px;
+    font-size: 0.75rem;
   }
   .pshot-body .pshot-thread-name {
-    font-size: 14px;
+    font-size: 0.875rem;
   }
   .pshot-body .pshot-thread-sub {
-    font-size: 12.5px;
+    font-size: 0.78125rem;
   }
   .pshot-folder {
-    font-size: 12.5px;
+    font-size: 0.78125rem;
   }
   .pshot-brand-name {
-    font-size: 12.5px;
+    font-size: 0.78125rem;
   }
 }
 
@@ -486,17 +486,17 @@
  */
 .pshot-body[data-focus="inbox"] .pshot-row-when,
 .pshot-body[data-focus="inbox"] .pshot-meta {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .pshot-body[data-focus="thread"] .pshot-meta {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .pshot-body[data-focus="thread"] .pshot-row-when {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 /* Hero texture: small, but above the point where it looks broken. */
 .pshot-body[data-focus="full"] .pshot-tag {
-  font-size: 10px;
+  font-size: 0.6875rem;
 }
 
 /* ── the newsletter scene ────────────────────────────────────── */
@@ -508,7 +508,7 @@
 .pshot-body[data-focus="newsletter"] {
   grid-template-columns: 1fr 1fr;
   gap: 0;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
 }
 .pshot-compose,
 .pshot-preview {
@@ -520,7 +520,7 @@
 }
 .pshot-field-label {
   margin: 0 0 6px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--text-2);
 }
@@ -533,7 +533,7 @@
   background: var(--surface-3);
   border: 1px solid var(--border-soft);
   color: var(--text);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
 }
 /* Fields that are showing a choice rather than typed text. */
 .pshot-input--quiet {
@@ -557,7 +557,7 @@
 }
 .pshot-email-body {
   margin: 0 0 9px;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.5;
 }
 .pshot-email-foot {
@@ -565,7 +565,7 @@
   padding-top: 10px;
   border-top: 1px solid #e6e4ee;
   color: #6b6880;
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.5;
 }
 .pshot-email-foot p {
