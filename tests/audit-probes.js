@@ -801,6 +801,10 @@ window.__structure = function () {
   // Focusable inside aria-hidden: reachable by tab, invisible to a reader.
   // The reader announces nothing while focus sits on it.
   document.querySelectorAll("[aria-hidden='true']").forEach((h) => {
+    // `inert` removes the subtree from the tab order as well as the tree, so
+    // an aria-hidden + inert disclosure is the CORRECT way to park links. The
+    // nav's collapsed "More" section is one, and was reported seven times.
+    if (h.closest("[inert]")) return;
     const focusable = h.querySelectorAll(
       'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
     );
@@ -858,6 +862,26 @@ window.__focusVisible = function () {
   */
   if (!document.hasFocus()) {
     return { measurable: false, why: "the document does not have focus, so :focus never matches" };
+  }
+  /*
+    And even WITH document focus, el.focus() after a pointer interaction does
+    not match :focus-visible — Chrome keeps the last input modality, and a
+    programmatic focus following a click is treated as pointer focus, which
+    draws no ring by design. On the live site this reported 22 controls with
+    no ring while three real Tab presses drew a 2px one. So: if the first
+    control focused does not match :focus-visible, the answer is "cannot
+    measure this way", not "22 failures".
+  */
+  const first = document.querySelector(sel);
+  if (first) {
+    first.focus();
+    if (!first.matches(":focus-visible")) {
+      if (wasActive && wasActive.focus) wasActive.focus();
+      return {
+        measurable: false,
+        why: "programmatic focus is not :focus-visible after a pointer interaction; press Tab and look",
+      };
+    }
   }
 
   const snap = (el) => {

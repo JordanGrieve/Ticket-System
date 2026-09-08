@@ -74,6 +74,8 @@
   align-items: center;
   gap: 7px;
   min-width: 0;
+  /* 44px for 2.5.5 — measured 117x24 on the live site, 8 Sep 2026. */
+  min-height: 44px;
   padding: 4px 8px 4px 4px;
   border-radius: 999px;
   cursor: pointer;
@@ -142,7 +144,7 @@
   margin: 0;
   font-weight: 700;
   font-size: 0.78125rem;
-  line-height: 1.45;
+  line-height: 1.5; /* 1.4.8 */
 }
 
 .pbi-panel-lead b {
@@ -164,7 +166,10 @@
 .pbi-stop {
   flex: none;
   cursor: pointer;
-  padding: 5px 12px;
+  /* 44px for 2.5.5 — it is the control that ends an impersonation, and it
+     measured 53x26 live. */
+  min-height: 44px;
+  padding: 5px 14px;
   border: 0;
   border-radius: 999px;
   background: #f5a623;

@@ -248,7 +248,7 @@
      1.4.11 needs for a non-text indicator. 3.16:1 at this value. */
   --focus-ring: #7c5dff;
   --label-bg-l: 0.30;
-  --label-fg-l: 0.89;
+  --label-fg-l: 0.9;
   --page-grad: linear-gradient(135deg, #141126 0%, #1c1830 50%, #241d3e 100%);
   --screen-grad: linear-gradient(180deg, #1b1731 0%, #221c3b 100%);
   --surface: #241f3c;
@@ -289,7 +289,7 @@
      did NOT cover until today. It carries the explanatory prose on cards and
      chips. Least adjustment that clears 4.5. */
   --muted-2: #c5bfd9;
-  --accent-text: #d1c4ff;
+  --accent-text: #d6caff;
   /* Deeper sibling of --accent, same as forest/slate/ocean do it. Dark inherits
      --accent (#6d4aff) from :root because the palette is the same purple, but
      --accent-strong has to be stated or it silently leaks the light value. */
@@ -300,23 +300,23 @@
   --nav: #17142b;
   --shadow: rgba(0, 0, 0, 0.28);
   --shadow-2: rgba(0, 0, 0, 0.34);
-  --ok-fg: #72dcaa;
+  --ok-fg: #7ee0b2;
   --warn-bg: rgba(208, 135, 0, 0.2);
-  --warn-fg: #f4c87e;
+  --warn-fg: #f6cd8b;
   --pdf-bg: rgba(255, 95, 126, 0.18);
   --pdf-fg: #ffb7c5;
   --tag-a-bg: rgba(46, 158, 104, 0.18);
-  --tag-a-fg: #72dcaa;
+  --tag-a-fg: #7ee0b2;
   --tag-b-bg: rgba(124, 92, 255, 0.22);
-  --tag-b-fg: #d1c4ff;
+  --tag-b-fg: #d6caff;
   --tag-c-bg: rgba(208, 135, 0, 0.2);
-  --tag-c-fg: #f4c87e;
+  --tag-c-fg: #f6cd8b;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
   --label-bg-l: 0.30;
-  --label-fg-l: 0.89;
+  --label-fg-l: 0.9;
     --page-grad: linear-gradient(135deg, #141126 0%, #1c1830 50%, #241d3e 100%);
     --screen-grad: linear-gradient(180deg, #1b1731 0%, #221c3b 100%);
     --surface: #241f3c;
@@ -335,7 +335,7 @@
        there about the doubly washed ground in the admin console. */
     --muted: #c4bfd7;
     --muted-2: #c5bfd9;
-    --accent-text: #d1c4ff;
+    --accent-text: #d6caff;
     --accent-strong: #5535dd;
     --accent-soft: rgba(124, 92, 255, 0.14);
     --accent-chip: rgba(124, 92, 255, 0.22);
@@ -343,24 +343,24 @@
     --nav: #17142b;
     --shadow: rgba(0, 0, 0, 0.28);
     --shadow-2: rgba(0, 0, 0, 0.34);
-    --ok-fg: #72dcaa;
+    --ok-fg: #7ee0b2;
     --warn-bg: rgba(208, 135, 0, 0.2);
-    --warn-fg: #f4c87e;
+    --warn-fg: #f6cd8b;
     --pdf-bg: rgba(255, 95, 126, 0.18);
     --pdf-fg: #ffb7c5;
     --tag-a-bg: rgba(46, 158, 104, 0.18);
-    --tag-a-fg: #72dcaa;
+    --tag-a-fg: #7ee0b2;
     --tag-b-bg: rgba(124, 92, 255, 0.22);
-    --tag-b-fg: #d1c4ff;
+    --tag-b-fg: #d6caff;
     --tag-c-bg: rgba(208, 135, 0, 0.2);
-    --tag-c-fg: #f4c87e;
+    --tag-c-fg: #f6cd8b;
   }
 }
 
 /* Forest — deep green, dark ground */
 [data-theme="forest"] {
   --label-bg-l: 0.30;
-  --label-fg-l: 0.89;
+  --label-fg-l: 0.9;
   --page-grad: linear-gradient(135deg, #0c1712 0%, #10201a 50%, #152a21 100%);
   --screen-grad: linear-gradient(180deg, #101d18 0%, #16261f 100%);
   --surface: #17251f;
@@ -415,7 +415,7 @@
 /* Slate — neutral ground, amber accent */
 [data-theme="slate"] {
   --label-bg-l: 0.30;
-  --label-fg-l: 0.89;
+  --label-fg-l: 0.9;
   --page-grad: linear-gradient(135deg, #121212 0%, #1a1a19 50%, #20201f 100%);
   --screen-grad: linear-gradient(180deg, #1a1a19 0%, #212120 100%);
   --surface: #232322;
@@ -468,7 +468,7 @@
 /* Ocean — midnight blue */
 [data-theme="ocean"] {
   --label-bg-l: 0.30;
-  --label-fg-l: 0.89;
+  --label-fg-l: 0.9;
   --page-grad: linear-gradient(135deg, #0a1120 0%, #0e1a2c 50%, #132339 100%);
   --screen-grad: linear-gradient(180deg, #0e1a2c 0%, #142438 100%);
   --surface: #182741;

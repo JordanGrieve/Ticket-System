@@ -875,7 +875,7 @@
 }
 
 .stg-theme-input:focus-visible + .stg-theme-card {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 2px;
 }
 
@@ -1844,7 +1844,7 @@
 
 .stg-input:focus-visible {
   border-color: var(--accent);
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 1px;
 }
 
@@ -1898,7 +1898,7 @@
 }
 
 .stg-button:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 2px;
 }
 
@@ -2014,7 +2014,7 @@
 }
 
 .stg-remove:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 2px;
 }
 
@@ -2415,7 +2415,7 @@
   cursor: default;
 }
 .stg-colour:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 1px;
 }
 
@@ -2451,7 +2451,7 @@
   color: var(--text);
 }
 .stg-brand-reset:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 2px;
 }
 
@@ -2496,7 +2496,7 @@
   color: var(--text);
 }
 .sti-confirm-btn:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 2px;
 }
 /* The destructive choice is the one that has to look different, not the one

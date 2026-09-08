@@ -87,7 +87,7 @@
 /* Deliberate: the visible keyboard focus ring is not optional. */
 .u-button:focus-visible,
 .u-shell a:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 2px;
 }
 

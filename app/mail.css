@@ -186,6 +186,7 @@
   align-items: center;
   gap: 7px;
   margin-bottom: 10px;
+  min-height: 44px; /* 2.5.5 — measured 226x37 live, 8 Sep 2026 */
   padding: 9px 14px;
   border-radius: 12px;
   font-size: 0.78125rem;
@@ -2590,7 +2591,9 @@
 }
 
 .pbn-input:focus-visible {
-  outline: 2px solid var(--accent);
+  /* The ring token, not --accent: --accent deepened for AAA text and no
+     longer clears 3:1 on every ground. Seen live on the notes box. */
+  outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 1px;
   border-color: transparent;
 }
@@ -3078,4 +3081,34 @@
 }
 .pbm-bubble-foot {
   max-width: 60ch;
+}
+
+/*
+  ── FOUND ON THE LIVE SITE, 8 SEP 2026, AT 1920px ──
+  Three things the static harness could not show, because two need a real
+  pointer and one needs the operator banner, which no harness renders.
+*/
+
+/* The global a:hover underline was underlining every line of a card on
+   hover — name, subject and preview. A card is a link, but it is not a link
+   in prose. */
+.pbm-card:hover,
+.pbm-card:hover * {
+  text-decoration: none;
+}
+
+/* The disabled star (an operator cannot star) was a 38%-opacity dead
+   control in the desktop header. It came out on a phone already; a control
+   that does nothing is noise at every width. */
+.pbm-thread-actions .pbm-icon-btn:disabled {
+  display: none;
+}
+
+/* The impersonation pill is fixed at the top right and sat squarely over the
+   rail's "General info" heading whenever the rail is a column. The rail
+   makes room only while an operator is looking. */
+@media (min-width: 1181px) {
+  body:has(.pbi-banner) .pbm-rail {
+    padding-top: 62px;
+  }
 }
