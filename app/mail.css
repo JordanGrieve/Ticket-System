@@ -3077,10 +3077,13 @@
 .pbm-transcript-note,
 .pbm-composer-foot,
 .pbm-thread-email {
-  max-width: 70ch;
+  /* 54ch, not 70: measured live, this face's "0" is 0.73em wide, so 70ch of
+     13.5px text was 692px — about 100 average characters a line. 54ch is
+     ~534px, which is 80 of them. */
+  max-width: 54ch;
 }
 .pbm-bubble-foot {
-  max-width: 60ch;
+  max-width: 46ch;
 }
 
 /*
