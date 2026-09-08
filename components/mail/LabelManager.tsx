@@ -37,8 +37,9 @@ import { STARTER_LABELS } from "@/lib/starter-labels";
  * question also puts the consequence beside the thing it applies to, which a
  * system alert with the label's name quoted into a string never managed.
  *
- * components/InstallView.tsx still calls window.confirm/window.alert for the
- * API-key rotation. Same argument applies there; it is owned elsewhere.
+ * components/InstallView.tsx followed with the same pattern for its API-key
+ * rotation (.sti-confirm* in app/settings.css). The one native dialog left in
+ * the client is Composer's abortSend, and its header says why.
  */
 
 const COLOR_ORDER: LabelColor[] = ["tag_a", "tag_b", "tag_c"];

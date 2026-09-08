@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CopyButton from "./CopyButton";
 
@@ -60,6 +60,45 @@ export default function InstallView({
   const [confirming, setConfirming] = useState(false);
   /** Replaces window.alert. Null when there is nothing to say. */
   const [rotateError, setRotateError] = useState<string | null>(null);
+  /**
+   * Screen-reader narration for an outcome that is otherwise silent. A
+   * successful rotation changes one string of characters in a field the
+   * reader is not on; without this it happened without a word.
+   */
+  const [announcement, setAnnouncement] = useState("");
+  const rotateBtnRef = useRef<HTMLButtonElement>(null);
+  /** Set when the question closes by our hand, so focus follows it back. */
+  const returnFocus = useRef(false);
+
+  /*
+    The three things a native confirm() gave for free and the in-page one has
+    to spell out — the last of what was still missing after the dialog itself
+    moved into the page (8 Sep 2026):
+
+    Esc backs out. Scoped to while the question is open, so this page does not
+    claim the key the rest of the time.
+  */
+  useEffect(() => {
+    if (!confirming) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      returnFocus.current = true;
+      setConfirming(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [confirming]);
+
+  /*
+    Focus goes back to the button. The question REPLACES it, so cancelling
+    unmounts whatever the keyboard was standing on; without this, focus drops
+    to <body> and the next Tab restarts from the top of the document.
+  */
+  useEffect(() => {
+    if (confirming || !returnFocus.current) return;
+    returnFocus.current = false;
+    rotateBtnRef.current?.focus();
+  }, [confirming]);
 
   /**
    * Rotating the key, with the question asked in the page rather than by the
@@ -84,17 +123,21 @@ export default function InstallView({
    */
   async function rotateKey() {
     if (rotating) return;
+    returnFocus.current = true;
     setConfirming(false);
     setRotateError(null);
+    setAnnouncement("");
     setRotating(true);
     try {
       const res = await fetch("/api/workspace/rotate-key", { method: "POST" });
       if (!res.ok) throw new Error(String(res.status));
+      setAnnouncement("API key rotated. Update the snippet on your site with the new key.");
       router.refresh();
     } catch {
       setRotateError(
         "Couldn't rotate the key — nothing has changed, so your forms are still working. Try again in a moment.",
       );
+      setAnnouncement("The key was not rotated. Your current key still works.");
     } finally {
       setRotating(false);
     }
@@ -373,7 +416,10 @@ human mailbox).
                   type="button"
                   className="sti-confirm-btn"
                   autoFocus
-                  onClick={() => setConfirming(false)}
+                  onClick={() => {
+                    returnFocus.current = true;
+                    setConfirming(false);
+                  }}
                 >
                   Cancel
                 </button>
@@ -388,6 +434,8 @@ human mailbox).
             </div>
           ) : (
             <button
+              ref={rotateBtnRef}
+              type="button"
               className="sti-danger"
               onClick={() => {
                 setRotateError(null);
@@ -404,6 +452,12 @@ human mailbox).
               {rotateError}
             </p>
           )}
+
+          {/* Always mounted, empty until there is something to say: a live
+              region added at the same moment as its text is routinely missed. */}
+          <p className="stg-sr-only" role="status" aria-live="polite">
+            {announcement}
+          </p>
 
           <div className="sti-gap" />
           <Label>Replies send from</Label>
