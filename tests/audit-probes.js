@@ -388,7 +388,23 @@ window.__targets = function (min) {
       const lr = lab.getBoundingClientRect();
       if (lr.width > 0 && lr.height > 0) r = union(r, lr);
     }
-    return { e, r, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+    /*
+      Two centres. `cx, cy` is the centre of the box INCLUDING the label,
+      which is what the crowding test measures distance between. `ocx, ocy`
+      is the control's own centre, which is where the hit-testing square is
+      placed: a 48x28 switch with a wide label beside it had its square placed
+      at the centre of the pair, off the switch entirely, and was reported
+      small forever while every corner of a square on the switch itself hit.
+    */
+    const own = e.getBoundingClientRect();
+    return {
+      e,
+      r,
+      cx: r.left + r.width / 2,
+      cy: r.top + r.height / 2,
+      ocx: own.left + own.width / 2,
+      ocy: own.top + own.height / 2,
+    };
   });
   /*
     Does a 24px box centred on this control actually hit it?
@@ -404,7 +420,7 @@ window.__targets = function (min) {
     grown area is measured rather than guessed at.
   */
   const hitsAt = (t, dx, dy) => {
-    const el = document.elementFromPoint(t.cx + dx, t.cy + dy);
+    const el = document.elementFromPoint(t.ocx + dx, t.ocy + dy);
     return el === t.e || t.e.contains(el) || (el && el.contains(t.e));
   };
   /*
@@ -445,16 +461,56 @@ window.__targets = function (min) {
   const reachable = c.filter((t) => !collapsed(t.e) && (!inView(t) || hitsAt(t, 0, 0)));
   const unreachable = c.length - reachable.length;
 
+  /*
+    The INLINE exception, which both 2.5.8 and 2.5.5 carry: a target "in a
+    sentence or block of text", whose size is set by the line it sits in. A
+    link in a paragraph is the case, and it is the one exception 2.5.5 keeps
+    when it drops the spacing one. Decided from the DOM: an inline-level
+    element with text-node siblings that say something is in a sentence.
+    Reported as `inline`, not dropped — same rule as `exempt` in __contrast.
+  */
+  const inSentence = (el) => {
+    if (getComputedStyle(el).display !== "inline") return false;
+    const p = el.parentElement;
+    if (!p) return false;
+    return [...p.childNodes].some((n) => n !== el && n.nodeType === 3 && n.textContent.trim().length > 1);
+  };
+
   const effectively24 = (t) => {
     const r = MIN / 2 - 0.5; // just inside the box, to stay off the boundary
-    return [
+    /*
+      elementFromPoint answers only inside the viewport. A control below the
+      fold — the second toggle on the auto-reply page sits at y=2675 in an
+      812px frame — got null for every point and was reported small for the
+      whole afternoon while every point on it hit once scrolled to. So it is
+      scrolled into view for the test and the window put back afterwards; the
+      distances the crowding check uses were taken before and do not move
+      with the scroll.
+    */
+    const outside =
+      t.ocy < 0 || t.ocy > window.innerHeight || t.ocx < 0 || t.ocx > window.innerWidth;
+    let restore = null;
+    if (outside) {
+      restore = [window.scrollX, window.scrollY];
+      t.e.scrollIntoView({ block: "center", inline: "center" });
+      const own = t.e.getBoundingClientRect();
+      t = { ...t, ocx: own.left + own.width / 2, ocy: own.top + own.height / 2 };
+    }
+    const ok = [
       [0, 0], [-r, -r], [r, -r], [-r, r], [r, r], [-r, 0], [r, 0], [0, -r], [0, r],
     ].every(([dx, dy]) => hitsAt(t, dx, dy));
+    if (restore) window.scrollTo(restore[0], restore[1]);
+    return ok;
   };
 
   const small = [];
+  const inline = [];
   for (const t of reachable) {
     if (t.r.width >= MIN && t.r.height >= MIN) continue;
+    if (inSentence(t.e)) {
+      inline.push({ cls: (t.e.className || t.e.tagName).toString().slice(0, 34), text: (t.e.textContent || "").trim().slice(0, 26) });
+      continue;
+    }
     // Small box, but the pointer still lands on it across the whole square.
     if (effectively24(t)) continue;
     // The exception is measured as a 24px circle on each centre: if no other
@@ -474,7 +530,7 @@ window.__targets = function (min) {
       fails: near !== null,
     });
   }
-  return { total: els.length, unreachable, failing: small.filter((s) => s.fails), exemptButSmall: small.filter((s) => !s.fails) };
+  return { total: els.length, unreachable, inline, failing: small.filter((s) => s.fails), exemptButSmall: small.filter((s) => !s.fails) };
 };
 
 /**
@@ -1124,6 +1180,51 @@ window.__textBlocks = function () {
       justify: cs.textAlign === "justify",
     };
     if (ratioLh < 1.5 || chars > 80 || rec.justify) out.push(rec);
+  });
+  return out;
+};
+
+/**
+ * 1.4.11 Non-text Contrast — the ICONS. Every SVG inside a control, measured
+ * as its stroke/fill (currentColor, so the control's computed color) against
+ * the ground behind the control. AA asks 3:1; there is no AAA icon
+ * criterion, so `strong` is also reported at 4.5:1 for anyone holding icons
+ * to the text bar — Jordan's "icons are not accessible" on 8 Sep 2026 was
+ * about the thread header's row of grey glyphs on a dark card.
+ *
+ * Decorative icons beside a text label are skipped: the label carries the
+ * meaning and the icon is exempt as decoration. An icon that IS the control's
+ * only visible content is what this measures.
+ */
+window.__icons = function (min) {
+  const MIN = min || 3;
+  const out = [];
+  document.querySelectorAll("button, a, [role='button'], summary").forEach((ctl) => {
+    if (inSkeleton(ctl)) return;
+    const svg = ctl.querySelector("svg");
+    if (!svg) return;
+    const label = (ctl.textContent || "").replace(/\s+/g, " ").trim();
+    if (label.length > 0) return; // labelled control: the icon decorates
+    const r = ctl.getBoundingClientRect();
+    if (r.width <= 1 || r.height <= 1) return;
+    if (offCanvasClosed(ctl, document.documentElement.clientWidth)) return;
+    const cs = getComputedStyle(ctl);
+    if (cs.visibility === "hidden" || cs.opacity === "0" || cs.display === "none") return;
+    const ink = parse(getComputedStyle(svg).color);
+    if (!ink) throw new Error("unparsed icon colour on " + (ctl.className || ctl.tagName));
+    const bg = ground(ctl, ink);
+    const got = ratio(over(ink, bg), bg);
+    if (got < MIN) {
+      out.push({
+        cls: (ctl.className || ctl.tagName).toString().slice(0, 34),
+        name: ctl.getAttribute("aria-label") || ctl.getAttribute("title") || "(no name)",
+        got: Math.round(got * 100) / 100,
+        need: MIN,
+        w: Math.round(r.width),
+        h: Math.round(r.height),
+        disabled: ctl.disabled === true || undefined,
+      });
+    }
   });
   return out;
 };

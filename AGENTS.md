@@ -306,6 +306,26 @@ target-size failure that did not exist.
   Only INSIDE the viewport: outside it the call returns null for everything,
   and the first version threw away the self-test's own probe buttons, which
   sit at the bottom of the page. `__selftest` caught it within the hour.
+- **Hit-test from the control's OWN centre, and scroll it into view first.**
+  `__targets` placed its nine-point square at the centre of the control
+  unioned with its label, so a 48x28 switch beside a wide label was tested
+  off the switch entirely; and it tested below the fold, where
+  `elementFromPoint` returns null for everything, so the auto-reply page's
+  second toggle failed all afternoon while every point on it hit once
+  scrolled to. Both fixed on 8 Sep 2026: `ocx/ocy` for the square, `cx/cy`
+  for crowding, and an out-of-view control is scrolled to for the test and
+  the window put back.
+- **A 44px circle is not a 44x44 target.** The label-remove cross grew its hit
+  area with a rounded pseudo-element; the corners of a 44px square sit 8px
+  outside a 44px circle, and the sweep's corner points landed on the row
+  above. Square hit areas, and 24px between rows of chips so the squares do
+  not overlap the next row's.
+- **`--tap-min` is 44px at every width.** It was 24 with a mouse on the
+  argument that a mail client is dense. 2.5.5 makes no mouse/finger
+  distinction, and the desktop thread header had six controls at exactly 24px
+  when the product was held to AAA. The by-class block in globals.css is
+  un-scoped for the same reason. `__targets(44)` now reports inline links in a
+  sentence as `inline` rather than failing — the one exception 2.5.5 keeps.
 - **2.3.3 is one blanket rule at the END of globals.css**, not a promise that
   every stylesheet remembers its own reduced-motion block (two had not).
   `tests/reduced-motion.test.ts` pins that it is last and covers both

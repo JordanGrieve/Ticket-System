@@ -24,7 +24,9 @@ export default function LegalLayout({
       >
         <Link
           href="/"
-          style={{ display: "inline-flex", alignItems: "center", gap: 10 }}
+          /* 44px tall for 2.5.5: the lockup is 30px and this is the only
+             control on the page, so it was the one under the floor. */
+          style={{ display: "inline-flex", alignItems: "center", gap: 10, minHeight: 44 }}
         >
           <PostboxLockup size={30} fontSize="1.125rem" color="var(--ink)" />
         </Link>

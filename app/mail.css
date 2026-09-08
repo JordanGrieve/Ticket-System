@@ -822,10 +822,11 @@
 .pbm-subject-chips {
   display: flex;
   align-items: center;
-  /* 10px, not 7: each chip's remove cross carries a 44px hit circle on a
-     phone (2.5.5), and at 7px the circles' centres sat 43px apart, so the
-     circles overlapped by 1px and the sweep reported all four. */
-  gap: 10px;
+  /* 16px, not 7: each chip's remove cross carries a 44px hit circle
+     (2.5.5), and the circle must not land on the NEXT chip's body either —
+     the cross sits ~7px in from its chip's edge, so the chips need ~15px of
+     air between them for the whole circle to be the cross's own. */
+  gap: 16px;
   margin-top: 10px;
   flex-wrap: wrap;
 }
@@ -1222,9 +1223,11 @@
 .pbm-label-x::after {
   content: "";
   position: absolute;
-  /* -5px each side takes 14px to 24px. */
-  inset: -5px;
-  border-radius: 50%;
+  /* -15px each side takes the 14px cross to a 44px hit SQUARE (2.5.5), at
+     every width — it was -5px here and -15px only on a phone, and it was a
+     circle: a 44px circle's corners fall 8px short of a 44x44 target, which
+     is exactly where the sweep's corner points landed on the row above. */
+  inset: -15px;
 }
 .pbm-label-x:hover {
   opacity: 1;
@@ -1284,7 +1287,11 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  /* 24px between ROWS, 6px between chips. Each chip's remove cross carries a
+     44px hit square (2.5.5); rows of 22px chips 6px apart put those squares
+     5px over each other, and the sweep found the lower row's crosses under
+     the upper row's corners. 22 + 24 = 46, so they clear. */
+  gap: 24px 6px;
   margin-top: 9px;
 }
 .pbm-label-add {
@@ -2073,7 +2080,8 @@
      the lower half only, so nothing has to be pulled up over anything. */
   .pbm-thread-head {
     height: auto;
-    padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 10px;
+    /* 12px at the sides, not 16: see .pbm-thread-actions below. */
+    padding: calc(14px + env(safe-area-inset-top, 0px)) 12px 10px;
     background: var(--surface);
     border-bottom: none;
     /* See .pbm-thread-actions below — the buttons take their own row. */
@@ -2110,6 +2118,18 @@
   .pbm-thread-actions {
     flex-basis: 100%;
     justify-content: flex-end;
+    /*
+      4px, not 8: seven 44px buttons at 8px are 356px, and a 375 screen has
+      343 for them, so the last one wrapped alone onto a second row — the
+      first thing Jordan's screenshot of this header showed on 8 Sep 2026.
+      Measured after that: the row has 317px, not 343 — and the hidden
+      live-region span in it is a flex item too, taking a gap of its own. So
+      the span is lifted out of flow below, the head's side padding drops to
+      12px (325px for the row), and the gap is 2px: 7 x 44 + 6 x 2 = 320.
+      320px screens still wrap, and there two right-aligned rows is the honest
+      answer.
+    */
+    gap: 2px;
     /*
       ── 1.4.10 SAYS 320px, AND THIS ROW NEEDED 322 ──
       Seven 38px buttons with 8px gaps come to about 322px. At 375 that fits
@@ -3081,4 +3101,25 @@
   color: var(--muted-2);
   font-size: 0.71875rem;
   line-height: 1.55;
+}
+
+/*
+  ── 1.4.8 VISUAL PRESENTATION (AAA): NO LINE WIDER THAN 80 CHARACTERS ──
+  At 1440px a message bubble ran to about 140 characters a line and the
+  composer's footnote to 250. Each block of text on the thread screen is
+  capped in ITS OWN ch — on the element that holds the text, not on a
+  wrapper, because ch follows the font of the element it is set on and the
+  wrapper's font is not the footnote's. 70ch of a block's own font measures
+  as ~77 by the probe's half-em estimate and reads as ~64 real characters.
+
+  .pbm-bubble-wrap keeps its 70% / 86% rules; these cap the text inside it.
+*/
+.pbm-bubble,
+.pbm-transcript-note,
+.pbm-composer-foot,
+.pbm-thread-email {
+  max-width: 70ch;
+}
+.pbm-bubble-foot {
+  max-width: 60ch;
 }

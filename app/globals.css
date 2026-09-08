@@ -580,30 +580,29 @@ body {
   minimum rather than fail.
 */
 :root {
-  --tap-min: 24px;
+  /*
+    44px at every width, from 8 Sep 2026. It was 24 with a mouse and 32, then
+    44, under a finger — the argument being density. WCAG 2.5.5 (AAA) makes
+    no mouse/finger distinction, and the desktop thread header still had six
+    controls at exactly 24px when the product was held to it. A status button
+    that is 44px tall in a 1440px header costs nothing that a mail client
+    needs.
+  */
+  --tap-min: 44px;
 }
-
-@media (max-width: 768px) {
-  :root {
-    /*
-      44px, not 32, from 8 Sep 2026: WCAG 2.5.5 Target Size (Enhanced), the
-      AAA criterion, which is also Apple's number. It has no spacing exception,
-      so the controls below get the same floor by class — they are the ones
-      the 44px sweep named, sized by their own rules rather than by this
-      token.
-    */
-    --tap-min: 44px;
-  }
 
   /*
     ── THE AAA TOUCH FLOOR, BY CLASS ──
 
-    Every control the 2.5.5 sweep found under 44px on a phone. min-height
-    rather than height so a two-line label still grows; inline-flex on the
-    two text links because min-height does nothing to an inline box.
+    Every control the 2.5.5 sweep found under 44px. min-height rather than
+    height so a two-line label still grows; inline-flex on the two text links
+    because min-height does nothing to an inline box.
 
-    Listed here, in one place, rather than in five stylesheets' own phone
-    blocks — one rule to read when the floor changes again.
+    At EVERY width since 8 Sep 2026 — this block was inside a phone media
+    query while --tap-min was 24 with a mouse, and the desktop thread header
+    still had six controls at exactly 24px when the product was held to AAA.
+    Listed here, in one place, rather than in five stylesheets — one rule to
+    read when the floor changes again.
   */
   html .pbm-chip,
   html .pbs-tab,
@@ -684,7 +683,6 @@ body {
     position: absolute;
     inset: -10px 0;
   }
-}
 
 /*
   Bare links read --accent-text, NOT --accent-strong.
