@@ -39,8 +39,8 @@ import { STARTER_LABELS } from "@/lib/starter-labels";
  *
  * components/InstallView.tsx followed with the same pattern for its API-key
  * rotation (.sti-confirm* in app/settings.css), and Composer for stopping a
- * send. The one native dialog left in the client is Composer's
- * confirmDiscard — a synchronous gate on navigation — and its header says why.
+ * send and for leaving unsaved edits. There are no browser-native dialogs
+ * left in the client.
  */
 
 const COLOR_ORDER: LabelColor[] = ["tag_a", "tag_b", "tag_c"];

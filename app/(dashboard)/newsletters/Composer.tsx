@@ -495,15 +495,65 @@ export default function Composer({
    * system's palette rather than the workspace's, and cannot be asserted on in
    * a test. That is the trade, not a claim it is better in every way.
    */
-  function confirmDiscard(): boolean {
+  /*
+    ── CONVERTED, 8 SEP 2026 — AND HOW THE "SYNCHRONOUS GATE" ARGUMENT WENT ──
+    The header above was right that a browser confirm answers before either
+    caller proceeds and an inline panel cannot. What it did not say is that
+    the callers do not need an ANSWER, only a way to be RESUMED: each one
+    records what it was about to do, returns, and the panel replays it with
+    `force` if the person says discard. Neither caller's control flow moved;
+    each grew one parameter.
+
+    The rest of the pattern is the one the other three use: alertdialog, the
+    safe choice focused, Escape backs out, focus goes back to whatever was
+    pressed. There are now no browser-native dialogs in the client.
+  */
+  type PendingNav = { kind: "new" } | { kind: "open"; id: number };
+  const [pendingNav, setPendingNav] = useState<PendingNav | null>(null);
+  /** Whatever was pressed to get here — the New button or a campaign row. */
+  const navReturnFocus = useRef<HTMLElement | null>(null);
+
+  /** True if the caller may proceed now; false if it has been parked. */
+  function guardNavigation(next: PendingNav): boolean {
     if (!dirty) return true;
-    return window.confirm(
-      "You have unsaved changes to this campaign. Discard them?",
-    );
+    // <body> is what activeElement reports when nothing is focused; returning
+    // focus there is the exact drop-to-nowhere this is meant to prevent.
+    const active = document.activeElement;
+    navReturnFocus.current =
+      active instanceof HTMLElement && active !== document.body ? active : null;
+    setPendingNav(next);
+    return false;
   }
 
-  function startNew() {
-    if (!confirmDiscard()) return;
+  function keepEditing() {
+    setPendingNav(null);
+    navReturnFocus.current?.focus();
+    navReturnFocus.current = null;
+  }
+
+  function discardAndGo() {
+    const next = pendingNav;
+    setPendingNav(null);
+    navReturnFocus.current = null;
+    if (!next) return;
+    if (next.kind === "new") startNew(true);
+    else void open(next.id, true);
+  }
+
+  useEffect(() => {
+    if (pendingNav === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") keepEditing();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+    // keepEditing is stable in what it does; the listener only needs to exist
+    // while there is a question to dismiss.
+  }, [pendingNav]);
+
+  /** `force` is the panel replaying a parked call after "Discard changes". */
+  function startNew(force = false) {
+    if (!force && !guardNavigation({ kind: "new" })) return;
     setDraft(emptyDraft());
     setSavedId(null);
     setSavedListId(null);
@@ -542,9 +592,9 @@ export default function Composer({
     }
   }
 
-  async function open(id: number) {
+  async function open(id: number, force = false) {
     if (loadingId !== null) return;
-    if (id !== draft.id && !confirmDiscard()) return;
+    if (id !== draft.id && !force && !guardNavigation({ kind: "open", id })) return;
     setLoadingId(id);
     setError(null);
     try {
@@ -676,10 +726,10 @@ export default function Composer({
    * what this function believes.
    */
   /**
-   * Converted off window.confirm, unlike confirmDiscard above.
+   * Converted off window.confirm first, before the discard guard above was.
    *
-   * This one qualifies where that one does not: it is asynchronous, it has a
-   * single call site, and it is triggered by its own button — so the question
+   * This one qualified immediately: it is asynchronous, it has a single call
+   * site, and it is triggered by its own button — so the question
    * can be asked in the place the answer applies to, which is the whole
    * argument. Same pattern as LabelManager's delete row and InstallView's key
    * rotation.
@@ -893,8 +943,8 @@ export default function Composer({
     Converted off window.confirm on 8 Sep 2026 — the last of the three. The
     question is asked by AbortPanel, in the place the answer applies to, with
     the same counts describeAbort always named; this is only ever reached
-    once the person has said yes there. confirmDiscard above is now the only
-    native dialog in the client, and its header says why it stays.
+    once the person has said yes there. With the discard guard converted the
+    same day, there are no browser-native dialogs left in the client.
   */
   async function abortSend() {
     if (savedId === null || abort.kind === "working") return;
@@ -1061,10 +1111,46 @@ export default function Composer({
       <aside className="nl-rail" aria-label="Campaigns">
         <div className="nl-rail-head">
           <h1 className="nl-rail-title">Newsletters</h1>
-          <button type="button" className="nl-new" onClick={startNew}>
+          {/* Not `onClick={startNew}`: the event would arrive as `force`. */}
+          <button type="button" className="nl-new" onClick={() => startNew()}>
             New
           </button>
         </div>
+
+        {pendingNav !== null && (
+          /* Sits under the rail head, between the two things that can raise
+             it — the New button above and the campaign rows below. */
+          <div
+            className="nl-confirm"
+            role="alertdialog"
+            aria-label="Unsaved changes"
+            aria-describedby="nl-discard-q"
+          >
+            <p className="nl-confirm-q" id="nl-discard-q">
+              You have unsaved changes to this campaign.{" "}
+              {pendingNav.kind === "new"
+                ? "Starting a new one throws them away."
+                : "Opening another one throws them away."}
+            </p>
+            <div className="nl-confirm-acts">
+              <button
+                type="button"
+                className="nl-confirm-btn"
+                autoFocus
+                onClick={keepEditing}
+              >
+                Keep editing
+              </button>
+              <button
+                type="button"
+                className="nl-confirm-btn nl-confirm-btn--danger"
+                onClick={discardAndGo}
+              >
+                Discard changes
+              </button>
+            </div>
+          </div>
+        )}
 
         {campaigns.length === 0 ? (
           <p className="nl-rail-empty">
@@ -2040,8 +2126,8 @@ export function AbortPanel({
   /*
     ── THE QUESTION, IN THE PANEL ──
     This was a window.confirm until 8 Sep 2026. It qualified for the in-page
-    pattern on every count the header of confirmDiscard sets out — one call
-    site, its own button, asynchronous — and it is the most consequential
+    pattern on every count — one call site, its own button, asynchronous —
+    and it is the most consequential
     question in the product: it can strand part of a live audience. The
     numbers a person is deciding on belong beside the button they are about to
     press, not in the operating system's grey box.
