@@ -37,7 +37,7 @@
    * See the data-custom rules in app/mail.css.
    */
   --label-bg-l: 0.93;
-  --label-fg-l: 0.42;
+  --label-fg-l: 0.33;
   /* surfaces */
   --page-grad: linear-gradient(135deg, #dcd3f5 0%, #d5d8f0 45%, #e3d8f2 100%);
   --screen-grad: linear-gradient(180deg, #efeafb 0%, #e9e5f7 100%);
@@ -55,8 +55,8 @@
   /* type */
   --text: #221b3a;
   --text-2: #3a3350;
-  --text-3: #4b4363;
-  --text-4: #6b6483;
+  --text-3: #463e5e;
+  --text-4: #4e4961;
   /* Raised to clear WCAG AA (4.5:1) on the PALEST ground these sit on.
      Measured, not adjusted by eye: the old values rendered muted text at
      2.21:1 on the bento panel and 2.55:1 on white — the marketing page's
@@ -64,8 +64,8 @@
      theme. The floor is set against #f1edf9, the palest surface, so the
      commoner white ground has margin (5.25:1) rather than sitting exactly
      on the line. Forest, slate and ocean already passed and are untouched. */
-  --muted: #6d6a7c;
-  --muted-2: #6e6981;
+  --muted: #4d4b58;
+  --muted-2: #4e4a5c;
 
   /* accent */
   --accent: #6d4aff;
@@ -79,7 +79,7 @@
      under AA. The other four palettes clear it comfortably (5.77 to 7.13);
      light is the tight one because the chip lifts a pale ground toward a
      mid-tone ink. 4.81:1 now, against the palest ground it is painted on. */
-  --accent-text: #583cce;
+  --accent-text: #4730a8;
   --accent-strong: #5636e0;
   --accent-soft: #ede7fe;
   --accent-chip: #e8e1fd;
@@ -129,7 +129,7 @@
    * keep their existing tint.
    */
   --nav-fg: #f3f0ff;
-  --nav-muted: #a9a3c4;
+  --nav-muted: #d6d2e5;
   --nav-active-bg: rgba(124, 92, 255, 0.18);
   --nav-active-fg: #c7b6ff;
   /*
@@ -156,7 +156,7 @@
   /* Success ink, deepened from #2e9e68 — 3.38:1 on white. It carries
      "Delivered" and "Saved", which are the words somebody looks for when
      they want to know an action worked. */
-  --ok-fg: #278557;
+  --ok-fg: #195838;
   /*
    * The success GROUND. Same story as --nav-active-dot: used by .pba-pill-ok
    * and .pba-banner-ok in app/admin.css, defined nowhere, so both rendered
@@ -175,9 +175,9 @@
      sending has stopped, the "you cannot send until this is filled in" notice
      on Sender identity, the rotate-key confirmation, and the CHAIN BROKEN line
      in the operator console. All five other palettes already passed. */
-  --warn-fg: #996300;
+  --warn-fg: #6c4600;
   --pdf-bg: #ffe9ee;
-  --pdf-fg: #b54359;
+  --pdf-fg: #802f40;
   --star: #ffb627;
   --star-off: #cfc9e0;
 
@@ -194,11 +194,11 @@
      drops below it the next time a chip background is nudged. The dark,
      forest, slate and ocean palettes declare these as rgba() overlays rather
      than hex and are checked by rendering instead. */
-  --tag-a-fg: #247d52;
+  --tag-a-fg: #195838;
   --tag-b-bg: #f1edff;
-  --tag-b-fg: #6b49fb;
+  --tag-b-fg: #4b33b3;
   --tag-c-bg: #fff3e2;
-  --tag-c-fg: #996300;
+  --tag-c-fg: #6c4600;
 
   /* legacy aliases — remove with the inline-style migration */
   --app-bg: var(--surface-2);
@@ -236,7 +236,7 @@
      1.4.11 needs for a non-text indicator. 3.16:1 at this value. */
   --focus-ring: #7c5dff;
   --label-bg-l: 0.30;
-  --label-fg-l: 0.84;
+  --label-fg-l: 0.89;
   --page-grad: linear-gradient(135deg, #141126 0%, #1c1830 50%, #241d3e 100%);
   --screen-grad: linear-gradient(180deg, #1b1731 0%, #221c3b 100%);
   --surface: #241f3c;
@@ -249,8 +249,8 @@
   --border-strong: rgba(255, 255, 255, 0.18);
   --text: #f3f0ff;
   --text-2: #cfc8e6;
-  --text-3: #bdb6d6;
-  --text-4: #a9a2c4;
+  --text-3: #c2bbdb;
+  --text-4: #c5bed9;
   /* ── Lightened again 6 Sep: ONE wash was not the worst case ──
      The 31 Aug pass below measured both muted inks against a single
      --surface-3 (a 5% white wash) over the panel. The admin console stacks
@@ -269,15 +269,15 @@
      tokens end up close together because at this ground there is not much
      room below AA to be dim in — that is the palette being honest rather than
      the distinction being lost. */
-  --muted: #a9a3c1;
+  --muted: #c4bfd7;
   /* Lightened 31 Aug: measured 4.04:1 (dark), 4.39:1 (slate) and 4.37:1
      (ocean) against the translucent --surface-3, under AA. --surface-3 is a
      white wash over the panel, which lifts the ground toward the ink, and
      --muted-2 is the darker of the two muted inks — the one the contrast test
      did NOT cover until today. It carries the explanatory prose on cards and
      chips. Least adjustment that clears 4.5. */
-  --muted-2: #a9a3c4;
-  --accent-text: #b9a6ff;
+  --muted-2: #c5bfd9;
+  --accent-text: #d1c4ff;
   /* Deeper sibling of --accent, same as forest/slate/ocean do it. Dark inherits
      --accent (#6d4aff) from :root because the palette is the same purple, but
      --accent-strong has to be stated or it silently leaks the light value. */
@@ -288,23 +288,23 @@
   --nav: #17142b;
   --shadow: rgba(0, 0, 0, 0.28);
   --shadow-2: rgba(0, 0, 0, 0.34);
-  --ok-fg: #63d6a0;
+  --ok-fg: #72dcaa;
   --warn-bg: rgba(208, 135, 0, 0.2);
-  --warn-fg: #f0b657;
+  --warn-fg: #f4c87e;
   --pdf-bg: rgba(255, 95, 126, 0.18);
-  --pdf-fg: #ff8da3;
+  --pdf-fg: #ffb7c5;
   --tag-a-bg: rgba(46, 158, 104, 0.18);
-  --tag-a-fg: #63d6a0;
+  --tag-a-fg: #72dcaa;
   --tag-b-bg: rgba(124, 92, 255, 0.22);
-  --tag-b-fg: #b9a6ff;
+  --tag-b-fg: #d1c4ff;
   --tag-c-bg: rgba(208, 135, 0, 0.2);
-  --tag-c-fg: #f0b657;
+  --tag-c-fg: #f4c87e;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
   --label-bg-l: 0.30;
-  --label-fg-l: 0.84;
+  --label-fg-l: 0.89;
     --page-grad: linear-gradient(135deg, #141126 0%, #1c1830 50%, #241d3e 100%);
     --screen-grad: linear-gradient(180deg, #1b1731 0%, #221c3b 100%);
     --surface: #241f3c;
@@ -317,13 +317,13 @@
     --border-strong: rgba(255, 255, 255, 0.18);
     --text: #f3f0ff;
     --text-2: #cfc8e6;
-    --text-3: #bdb6d6;
-    --text-4: #a9a2c4;
+    --text-3: #c2bbdb;
+    --text-4: #c5bed9;
     /* Kept in step with the [data-theme="dark"] block above — see the note
        there about the doubly washed ground in the admin console. */
-    --muted: #a9a3c1;
-    --muted-2: #a9a3c4;
-    --accent-text: #b9a6ff;
+    --muted: #c4bfd7;
+    --muted-2: #c5bfd9;
+    --accent-text: #d1c4ff;
     --accent-strong: #5636e0;
     --accent-soft: rgba(124, 92, 255, 0.14);
     --accent-chip: rgba(124, 92, 255, 0.22);
@@ -331,24 +331,24 @@
     --nav: #17142b;
     --shadow: rgba(0, 0, 0, 0.28);
     --shadow-2: rgba(0, 0, 0, 0.34);
-    --ok-fg: #63d6a0;
+    --ok-fg: #72dcaa;
     --warn-bg: rgba(208, 135, 0, 0.2);
-    --warn-fg: #f0b657;
+    --warn-fg: #f4c87e;
     --pdf-bg: rgba(255, 95, 126, 0.18);
-    --pdf-fg: #ff8da3;
+    --pdf-fg: #ffb7c5;
     --tag-a-bg: rgba(46, 158, 104, 0.18);
-    --tag-a-fg: #63d6a0;
+    --tag-a-fg: #72dcaa;
     --tag-b-bg: rgba(124, 92, 255, 0.22);
-    --tag-b-fg: #b9a6ff;
+    --tag-b-fg: #d1c4ff;
     --tag-c-bg: rgba(208, 135, 0, 0.2);
-    --tag-c-fg: #f0b657;
+    --tag-c-fg: #f4c87e;
   }
 }
 
 /* Forest — deep green, dark ground */
 [data-theme="forest"] {
   --label-bg-l: 0.30;
-  --label-fg-l: 0.84;
+  --label-fg-l: 0.89;
   --page-grad: linear-gradient(135deg, #0c1712 0%, #10201a 50%, #152a21 100%);
   --screen-grad: linear-gradient(180deg, #101d18 0%, #16261f 100%);
   --surface: #17251f;
@@ -366,8 +366,8 @@
   /* Lightened 6 Sep with dark, slate and ocean: both inks measured under AA on
      two stacked --surface-3 washes (3.97:1 and 4.28:1). See the note in the
      dark palette. */
-  --muted: #8dad9d;
-  --muted-2: #8fad9e;
+  --muted: #97b4a6;
+  --muted-2: #99b4a6;
   --accent: #2fa36b;
   --accent-text: #7ce0ae;
   --accent-strong: #238153;
@@ -379,30 +379,30 @@
   --nav: #0f1a15;
   /* This theme's own tint, so the nav keeps the appearance it already had. */
   --nav-fg: #ebf6f0;
-  --nav-muted: #8fad9e;
+  --nav-muted: #a5c1b5;
   --nav-active-bg: rgba(47, 163, 107, 0.18);
   --nav-active-fg: #7ce0ae;
   --nav-badge-on: rgba(47, 163, 107, 0.32);
   --nav-badge-fg: #b6f0d4;
   --shadow: rgba(0, 0, 0, 0.28);
   --shadow-2: rgba(0, 0, 0, 0.34);
-  --ok-fg: #63d6a0;
+  --ok-fg: #76dcad;
   --warn-bg: rgba(208, 135, 0, 0.2);
-  --warn-fg: #f0b657;
+  --warn-fg: #f4c87e;
   --pdf-bg: rgba(255, 95, 126, 0.18);
-  --pdf-fg: #ff8da3;
+  --pdf-fg: #ffb3c1;
   --tag-a-bg: rgba(46, 158, 104, 0.18);
-  --tag-a-fg: #63d6a0;
+  --tag-a-fg: #76dcad;
   --tag-b-bg: rgba(47, 163, 107, 0.22);
   --tag-b-fg: #7ce0ae;
   --tag-c-bg: rgba(208, 135, 0, 0.2);
-  --tag-c-fg: #f0b657;
+  --tag-c-fg: #f4c87e;
 }
 
 /* Slate — neutral ground, amber accent */
 [data-theme="slate"] {
   --label-bg-l: 0.30;
-  --label-fg-l: 0.84;
+  --label-fg-l: 0.89;
   --page-grad: linear-gradient(135deg, #121212 0%, #1a1a19 50%, #20201f 100%);
   --screen-grad: linear-gradient(180deg, #1a1a19 0%, #212120 100%);
   --surface: #232322;
@@ -416,12 +416,12 @@
   --text: #f2f0ec;
   --text-2: #d8d4cc;
   --text-3: #c8c4bb;
-  --text-4: #b0aca3;
+  --text-4: #b2aea6;
   /* Lightened 6 Sep — 3.95:1 and 3.91:1 on two stacked --surface-3 washes. */
-  --muted: #aaa79f;
-  --muted-2: #aba79e;
+  --muted: #b1afa7;
+  --muted-2: #b2afa6;
   --accent: #c08a4e;
-  --accent-text: #e7b478;
+  --accent-text: #f0cea6;
   --accent-strong: #9a6d3b;
   --accent-grad: linear-gradient(145deg, #976f3f, #9c6c38);
   --accent-soft: rgba(192, 138, 78, 0.14);
@@ -431,30 +431,30 @@
   --nav: #141413;
   /* This theme's own tint, so the nav keeps the appearance it already had. */
   --nav-fg: #f2f0ec;
-  --nav-muted: #aba79e;
+  --nav-muted: #c0bdb5;
   --nav-active-bg: rgba(192, 138, 78, 0.18);
   --nav-active-fg: #e7b478;
   --nav-badge-on: rgba(192, 138, 78, 0.32);
   --nav-badge-fg: #f0d3ac;
   --shadow: rgba(0, 0, 0, 0.28);
   --shadow-2: rgba(0, 0, 0, 0.34);
-  --ok-fg: #63d6a0;
+  --ok-fg: #76dcad;
   --warn-bg: rgba(208, 135, 0, 0.2);
-  --warn-fg: #f0b657;
+  --warn-fg: #f5c980;
   --pdf-bg: rgba(255, 95, 126, 0.18);
-  --pdf-fg: #ff8da3;
+  --pdf-fg: #ffb7c5;
   --tag-a-bg: rgba(46, 158, 104, 0.18);
-  --tag-a-fg: #63d6a0;
+  --tag-a-fg: #76dcad;
   --tag-b-bg: rgba(192, 138, 78, 0.22);
-  --tag-b-fg: #e7b478;
+  --tag-b-fg: #f0cea6;
   --tag-c-bg: rgba(208, 135, 0, 0.2);
-  --tag-c-fg: #f0b657;
+  --tag-c-fg: #f5c980;
 }
 
 /* Ocean — midnight blue */
 [data-theme="ocean"] {
   --label-bg-l: 0.30;
-  --label-fg-l: 0.84;
+  --label-fg-l: 0.89;
   --page-grad: linear-gradient(135deg, #0a1120 0%, #0e1a2c 50%, #132339 100%);
   --screen-grad: linear-gradient(180deg, #0e1a2c 0%, #142438 100%);
   --surface: #182741;
@@ -470,13 +470,13 @@
   --text-3: #b8cae6;
   --text-4: #a1b5d4;
   /* Lightened 6 Sep — 3.95:1 and 3.90:1 on two stacked --surface-3 washes. */
-  --muted: #9cacc9;
-  --muted-2: #9caccb;
+  --muted: #a5b3ce;
+  --muted-2: #a5b3d0;
   --accent: #2e6be6;
   /* The ring only. As --accent it measured 2.68:1 on --surface-3, under the
      3:1 WCAG 1.4.11 needs for a non-text indicator. 3.16:1 at this value. */
   --focus-ring: #4279e8;
-  --accent-text: #9cc4ff;
+  --accent-text: #adceff;
   --accent-strong: #2354b8;
   --accent-grad: linear-gradient(145deg, #4576c2, #2e6be6);
   --accent-soft: rgba(46, 107, 230, 0.14);
@@ -486,24 +486,24 @@
   --nav: #0d1727;
   /* This theme's own tint, so the nav keeps the appearance it already had. */
   --nav-fg: #edf3ff;
-  --nav-muted: #9caccb;
+  --nav-muted: #b5c3dc;
   --nav-active-bg: rgba(46, 107, 230, 0.18);
   --nav-active-fg: #9cc4ff;
   --nav-badge-on: rgba(46, 107, 230, 0.32);
   --nav-badge-fg: #c4dcff;
   --shadow: rgba(0, 0, 0, 0.28);
   --shadow-2: rgba(0, 0, 0, 0.34);
-  --ok-fg: #63d6a0;
+  --ok-fg: #82e0b3;
   --warn-bg: rgba(208, 135, 0, 0.2);
-  --warn-fg: #f0b657;
+  --warn-fg: #f5cb86;
   --pdf-bg: rgba(255, 95, 126, 0.18);
-  --pdf-fg: #ff8da3;
+  --pdf-fg: #ffbcc9;
   --tag-a-bg: rgba(46, 158, 104, 0.18);
-  --tag-a-fg: #63d6a0;
+  --tag-a-fg: #82e0b3;
   --tag-b-bg: rgba(46, 107, 230, 0.22);
-  --tag-b-fg: #9cc4ff;
+  --tag-b-fg: #adceff;
   --tag-c-bg: rgba(208, 135, 0, 0.2);
-  --tag-c-fg: #f0b657;
+  --tag-c-fg: #f5cb86;
 }
 
 @theme inline {
@@ -571,7 +571,104 @@ body {
 
 @media (max-width: 768px) {
   :root {
-    --tap-min: 32px;
+    /*
+      44px, not 32, from 8 Sep 2026: WCAG 2.5.5 Target Size (Enhanced), the
+      AAA criterion, which is also Apple's number. It has no spacing exception,
+      so the controls below get the same floor by class — they are the ones
+      the 44px sweep named, sized by their own rules rather than by this
+      token.
+    */
+    --tap-min: 44px;
+  }
+
+  /*
+    ── THE AAA TOUCH FLOOR, BY CLASS ──
+
+    Every control the 2.5.5 sweep found under 44px on a phone. min-height
+    rather than height so a two-line label still grows; inline-flex on the
+    two text links because min-height does nothing to an inline box.
+
+    Listed here, in one place, rather than in five stylesheets' own phone
+    blocks — one rule to read when the floor changes again.
+  */
+  html .pbm-chip,
+  html .pbs-tab,
+  html .pba-tab,
+  html .pba-input,
+  html .pba-btn,
+  html .st-day,
+  html .st-chip,
+  html .st-seg-btn,
+  html .nl-token,
+  html .nl-seg-btn,
+  html .nl-queue,
+  html .nl-unqueue,
+  html .nl-summary,
+  html .sti-mode,
+  html .sti-download,
+  html .pbf-btn,
+  html .pbf-input,
+  html .pbl-link {
+    min-height: 44px;
+  }
+  html .pbm-nav-manage,
+  html .stg-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  /* The stragglers the 44px sweep named after the list above landed. */
+  html .nl-test,
+  html .nl-input,
+  html .nl-secondary,
+  html .sti-field button,
+  html .sti-code-copy button {
+    min-height: 44px;
+  }
+  html .pbn-del {
+    min-width: 44px;
+  }
+  html .pbm-label-pick {
+    width: 44px;
+    height: 44px;
+  }
+  html .pba-root summary {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  /* Its 44px hit circle must sit above the neighbouring chip, or the pointer
+     lands on the chip's text instead. */
+  html .pbm-label-x {
+    position: relative;
+    z-index: 1;
+  }
+  html .pbm-icon-btn,
+  html .pbm-card-star {
+    width: 44px;
+    height: 44px;
+  }
+  html .pbm-label-swatch {
+    width: 44px;
+    height: 44px;
+  }
+  /* The remove cross on a label chip: 14px drawn, 44px hit. */
+  html .pbm-label-x::after {
+    inset: -15px;
+  }
+  /*
+    The switch keeps its 48x28 drawing — a 44px-tall toggle looks like a
+    different control — and grows its HIT AREA with a pseudo-element, the way
+    the label's remove cross does. Measured by elementFromPoint, so the sweep
+    sees the real target.
+  */
+  .st-switch {
+    position: relative;
+  }
+  .st-switch::after {
+    content: "";
+    position: absolute;
+    inset: -10px 0;
   }
 }
 
@@ -837,6 +934,20 @@ summary:focus-visible,
      Scoped inside the media query so a mobile-open drawer that gets rotated
      to desktop width can't leave the page frozen. */
   .pb-shell:has(.pb-scrim) .pb-scroll {
+    overflow: hidden !important;
+  }
+  /*
+    The same lock behind the contact sheet.
+
+    Its scrim is .pbm-rail-scrim, not .pb-scrim, so the rule above never
+    matched it and the transcript kept scrolling under an open sheet — Jordan's
+    "I can scroll the content behind it", 8 Sep 2026. Keyed on the OPEN state,
+    since the scrim element exists in the tree while closed too.
+
+    The sheet is itself a .pb-scroll and must keep scrolling, or a long set of
+    notes cannot be read; :not() carves it out.
+  */
+  .pb-shell:has(.pbm-rail-scrim[data-rail="open"]) .pb-scroll:not(.pbm-rail) {
     overflow: hidden !important;
   }
   /* Stops a drag that starts on the scrim from chaining to whatever is

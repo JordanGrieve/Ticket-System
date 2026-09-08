@@ -7,7 +7,12 @@ import { useRouter } from "next/navigation";
 import { SOURCE_META } from "@/lib/theme";
 import { Icon, SearchIcon } from "./icons";
 import StarButton from "./StarButton";
+import SwipeRow from "./SwipeRow";
 import type { MailRow } from "./types";
+
+type FormAction = (formData: FormData) => void;
+/** Archive and Delete, revealed by swiping a card on a phone. Open folder only. */
+export type SwipeActions = { archive: FormAction; trash: FormAction };
 
 /**
  * The 336px list pane (full width below 768px).
@@ -44,6 +49,7 @@ export default function MessageList({
   labelId,
   canPersonalise,
   hideOnMobile = false,
+  swipeActions,
 }: {
   rows: MailRow[];
   folder: string;
@@ -58,26 +64,31 @@ export default function MessageList({
   canPersonalise: boolean;
   /** True on a thread route, where the phone shows the thread instead. */
   hideOnMobile?: boolean;
+  /**
+   * Supplied by the inbox page on the Open folder only. Without it the cards
+   * do not swipe — the thread route's list pane and every other folder.
+   */
+  swipeActions?: SwipeActions;
 }) {
   const [refine, setRefine] = useState<Refine>("all");
   const [search, setSearch] = useState("");
   const router = useRouter();
 
-  // "Unread" and "Starred" only exist for a viewer with an agent row; the rest
-  // are properties of the ticket and always apply.
   /*
-   * Unread and Starred are per-agent, so an operator viewing a client sees
-   * only "All" — the other two would read zero for somebody who has no agent
-   * row here, which is a fact about them rather than about the mail.
+   * All three chips, for everybody.
+   *
+   * Unread and Starred are per-agent, and this used to show only "All" to a
+   * viewer with no agent row — an operator looking at a client's inbox — on
+   * the argument that the other two would read zero for them. True, and the
+   * result was a filter row with one chip in it, which is not a filter row;
+   * on a phone it read as something missing. Jordan asked for the full set on
+   * 8 Sep 2026. For a viewer without an agent row the two per-agent chips
+   * simply match nothing, and the empty state's "clear" puts it back.
    */
   const chips: { key: Refine; label: string }[] = [
     { key: "all", label: "All" },
-    ...(canPersonalise
-      ? ([
-          { key: "unread", label: "Unread" },
-          { key: "starred", label: "Starred" },
-        ] as { key: Refine; label: string }[])
-      : []),
+    { key: "unread", label: "Unread" },
+    { key: "starred", label: "Starred" },
   ];
 
   // Keep the list live: new tickets used to appear only on manual reload.
@@ -116,8 +127,12 @@ export default function MessageList({
   const sentView = folder === "sent";
 
   return (
+    // `pb-scroll` because on a phone the LIST is the scroller (mail.css moves
+    // the overflow up from .pbm-list-scroll so the search and chips scroll
+    // away with the cards), and pb-scroll is what the drawer's scroll-lock
+    // targets. Harmless on desktop, where the section does not scroll.
     <section
-      className="pbm-list"
+      className="pbm-list pb-scroll"
       data-hide-mobile={hideOnMobile || undefined}
       aria-label="Message list"
     >
@@ -180,6 +195,7 @@ export default function MessageList({
               labelQuery={labelQuery}
               canPersonalise={canPersonalise}
               sentView={sentView}
+              swipeActions={swipeActions}
             />
           ))
         )}
@@ -218,6 +234,7 @@ function MailCard({
   labelQuery,
   canPersonalise,
   sentView = false,
+  swipeActions,
 }: {
   row: MailRow;
   selected: boolean;
@@ -227,12 +244,13 @@ function MailCard({
   canPersonalise: boolean;
   /** Reading this ticket as "something we sent" rather than "mail we got". */
   sentView?: boolean;
+  swipeActions?: SwipeActions;
 }) {
   const src = SOURCE_META[row.source];
   // `sentTime` is null only when the row has no human reply, which the sent
   // folder's WHERE already excludes — the fallback is for safety, not display.
   const showSent = sentView && row.sentTime !== null;
-  return (
+  const card = (
     // The star is a button and the card is a link, so they cannot nest. The
     // wrapper gives the star somewhere to sit without swallowing the row's
     // click target.
@@ -298,6 +316,12 @@ function MailCard({
         className="pbm-card-star"
       />
     </div>
+  );
+  if (!swipeActions) return card;
+  return (
+    <SwipeRow ticketId={row.id} actions={swipeActions}>
+      {card}
+    </SwipeRow>
   );
 }
 

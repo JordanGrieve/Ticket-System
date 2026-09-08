@@ -238,7 +238,15 @@ function inactive(el) {
   return ctl.disabled === true || ctl.getAttribute("aria-disabled") === "true";
 }
 
-window.__contrast = function () {
+/**
+ * 1.4.3 by default; pass "AAA" for 1.4.6, which asks 7:1 for normal text and
+ * 4.5:1 for large. Same measurement, higher bar — so a AAA run reports the
+ * AA failures too, and an element that fails only AAA is one that passes AA.
+ */
+window.__contrast = function (level) {
+  const aaa = level === "AAA";
+  const normalNeed = aaa ? 7 : 4.5;
+  const largeNeed = aaa ? 4.5 : 3;
   const out = [];
   document.querySelectorAll("*").forEach((el) => {
     if (inSkeleton(el)) return;
@@ -284,7 +292,7 @@ window.__contrast = function () {
       if (stops.length === 0) throw new Error("gradient text with no readable stops: " + cs.backgroundImage);
       const px2 = parseFloat(cs.fontSize);
       const bold2 = parseInt(cs.fontWeight, 10) >= 700;
-      const need2 = px2 >= 24 || (px2 >= 18.66 && bold2) ? 3 : 4.5;
+      const need2 = px2 >= 24 || (px2 >= 18.66 && bold2) ? largeNeed : normalNeed;
       let worst = Infinity;
       for (const stop of stops) worst = Math.min(worst, ratio(over(stop, bgForText), bgForText));
       if (worst < need2) {
@@ -312,7 +320,7 @@ window.__contrast = function () {
     const px = parseFloat(cs.fontSize);
     const bold = parseInt(cs.fontWeight, 10) >= 700;
     const large = px >= 24 || (px >= 18.66 && bold);
-    const need = large ? 3 : 4.5;
+    const need = large ? largeNeed : normalNeed;
     const got = ratio(fg, bg);
     if (got < need) {
       out.push({
@@ -329,7 +337,13 @@ window.__contrast = function () {
 };
 
 /** WCAG 2.2 2.5.8, including the 24px spacing exception. */
-window.__targets = function () {
+/**
+ * 2.5.8 at 24px by default. Pass 44 for 2.5.5 (AAA), which has NO spacing
+ * exception — so at that level read `failing` and `exemptButSmall` together;
+ * the second is what the AA exception would have let through.
+ */
+window.__targets = function (min) {
+  const MIN = min || 24;
   const sel =
     'a,button,input:not([type="hidden"]),select,textarea,summary,[role="button"],[tabindex]:not([tabindex="-1"])';
   const els = [...document.querySelectorAll(sel)].filter((e) => {
@@ -394,7 +408,7 @@ window.__targets = function () {
     return el === t.e || t.e.contains(el) || (el && el.contains(t.e));
   };
   const effectively24 = (t) => {
-    const r = 11.5; // just inside a 24px box, to stay off the boundary
+    const r = MIN / 2 - 0.5; // just inside the box, to stay off the boundary
     return [
       [0, 0], [-r, -r], [r, -r], [-r, r], [r, r], [-r, 0], [r, 0], [0, -r], [0, r],
     ].every(([dx, dy]) => hitsAt(t, dx, dy));
@@ -402,8 +416,8 @@ window.__targets = function () {
 
   const small = [];
   for (const t of c) {
-    if (t.r.width >= 24 && t.r.height >= 24) continue;
-    // Small box, but the pointer still lands on it across a 24px square.
+    if (t.r.width >= MIN && t.r.height >= MIN) continue;
+    // Small box, but the pointer still lands on it across the whole square.
     if (effectively24(t)) continue;
     // The exception is measured as a 24px circle on each centre: if no other
     // target's centre falls inside it, the small target still passes.
@@ -411,7 +425,7 @@ window.__targets = function () {
     for (const o of c) {
       if (o === t) continue;
       const d = Math.hypot(o.cx - t.cx, o.cy - t.cy);
-      if (d < 24) { near = Math.round(d); break; }
+      if (d < MIN) { near = Math.round(d); break; }
     }
     small.push({
       cls: (t.e.className || t.e.tagName).toString().slice(0, 34),
@@ -933,6 +947,11 @@ window.__textZoom = function () {
   for (const [el, was] of before) {
     const now = parseFloat(getComputedStyle(el).fontSize);
     if (now > was * 1.1) continue;
+    // display:none still has a computed font-size. Nobody can read it, so
+    // nobody is failed by it — the swipe actions above 768px were reported
+    // this way.
+    const box = el.getBoundingClientRect();
+    if (box.width === 0 && box.height === 0) continue;
     const own = [...el.childNodes].some(
       (n) => n.nodeType === 3 && n.textContent.trim().length > 1,
     );

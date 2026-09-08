@@ -92,6 +92,39 @@ function rawToken(selector: string, name: string): string | null {
   return m ? m[1]!.trim() : null;
 }
 
+/*
+  ── AAA FOR SECONDARY TEXT, FROM 8 SEP 2026 ──
+  1.4.6 asks 7:1 where 1.4.3 asks 4.5:1. The muted tokens were tuned to clear
+  it on --surface and --surface-2 in every palette, and on --surface-3 too in
+  light, where secondary text sits on the washed grounds most often. The
+  shifts were tiny in the dark palettes (#a9a3c1 -> #b1abc6) and visible in
+  light (#6d6a7c -> #504e5b), which was the price Jordan chose to pay.
+
+  Asserted separately from the AA block so a future palette that clears AA
+  but not AAA fails with the number it actually missed.
+*/
+describe("muted text clears AAA (7:1) on the page grounds", () => {
+  for (const palette of PALETTES) {
+    for (const name of ["--muted", "--muted-2", "--text-4"]) {
+      it(`${palette.name} ${name}`, () => {
+        const fg = parseHex(token(palette.selector, name));
+        expect(fg, `${palette.name} ${name} did not parse`).not.toBeNull();
+        const grounds = palette.name === "light"
+          ? ["--surface", "--surface-2", "--surface-3"]
+          : ["--surface", "--surface-2"];
+        for (const g of grounds) {
+          const raw = rawToken(palette.selector, g);
+          expect(raw, `${palette.name} has no ${g}`).not.toBeNull();
+          const bg = parseHex(raw!);
+          expect(bg, `${palette.name} ${g} is not a flat hex: ${raw}`).not.toBeNull();
+          const got = contrastRatio(fg!, bg!);
+          expect(got, `${palette.name} ${name} on ${g} is ${got.toFixed(2)}:1 — AAA needs 7`).toBeGreaterThanOrEqual(7);
+        }
+      });
+    }
+  }
+});
+
 describe("muted text clears AA in every theme", () => {
   for (const palette of PALETTES) {
     for (const name of ["--muted", "--muted-2"]) {

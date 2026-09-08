@@ -49,7 +49,7 @@ export default function NotFoundPage() {
         <h1 style={{ fontSize: "1.3125rem", fontWeight: 700, marginBottom: 8 }}>
           This page doesn&rsquo;t exist
         </h1>
-        <p style={{ fontSize: "0.90625rem", lineHeight: 1.65, color: "#8a84a4", margin: "0 0 22px" }}>
+        <p style={{ fontSize: "0.90625rem", lineHeight: 1.65, color: "#bdb7d4", margin: "0 0 22px" }}>
           The link may be out of date, or the page may have been moved.
         </p>
         <Link

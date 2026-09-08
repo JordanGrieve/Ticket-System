@@ -26,6 +26,23 @@
   /* The one colour that is not a palette token: text sitting on the accent
      gradient, which is white in every theme. */
   --on-accent: #ffffff;
+  /*
+    ── AAA INK FOR THE CONSOLE'S OWN GROUNDS ──
+    The console is dark in every theme and paints its cards as a 5% white
+    wash over the shell, which is a darker ground than any palette's
+    --surface. The shared muted tokens clear 7:1 on the page surfaces and
+    measured 6.15:1 here on 8 Sep 2026, so the console lifts them a step
+    further for itself. Scoped to .pba-root: nothing outside the console
+    reads these values.
+  */
+  --muted: #cfcbe0;
+  --muted-2: #d0cbe2;
+  --text-4: #d0cae2;
+  /* The status pills, for the same reason: their washes sit on the console's
+     own darker cards, so the shared inks measured 5.6–6.0:1 here. */
+  --ok-fg: #8de6bb;
+  --warn-fg: #f7d290;
+  --pdf-fg: #ffcad4;
 
   min-height: 100dvh;
   background: var(--surface-2);

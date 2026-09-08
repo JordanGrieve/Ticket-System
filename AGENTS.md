@@ -273,6 +273,26 @@ target-size failure that did not exist.
   ENTIRELY outside the viewport, and marked closed. It also fixed a phantom
   `__flexSentences` hit, because a Range's rect inside a translated subtree does
   not always carry the transform.
+- **A harness page with no `?theme=` is whatever the PANE prefers.** The
+  driven browser pane runs dark, so every "default theme" reading on 8 Sep
+  2026 was the system-dark block, not light — an hour of token tuning went to
+  the wrong palette before a card ground of `rgb(36,31,60)` gave it away. The
+  light palette had not been measured at all. Always pass the theme by name,
+  and sweep light and dark as two runs; "no theme" is not a theme.
+- **An override on the element that carries `data-theme` loses to the palette
+  block.** `.pba-root { --muted: … }` and `[data-theme="dark"] { --muted: … }`
+  are equal specificity and the palette comes later, so the console's own
+  values were silently ignored. Scope it `.pba-root[data-theme="dark"]`.
+- **`__contrast("AAA")` and `__targets(44)` exist from 8 Sep 2026.** Same
+  measurement, higher bar: 7:1 / 4.5:1 for 1.4.6 and 44px with no spacing
+  exception for 2.5.5. Everything that could be tuned by token was; what is
+  left at AAA is white on `--accent-grad` (4.52:1 on every primary button),
+  which needs a darker brand accent and is Jordan's decision, plus adjacent
+  14px chip crosses that cannot all be 44px without spacing, and inline links.
+- **A heredoc `node -` script with a regex in it will lose its backslashes and
+  throw — or worse, run.** It happened twice on 8 Sep while applying token
+  values; the second time the error surfaced only because the anchor string was
+  checked. The scripts in the scratchpad are files for this reason.
 - **1.4.3 exempts inactive controls, and the probe must know it.** A disabled
   Save button at 0.5 opacity measures ~2.1:1 and is correct. `__contrast` marks
   those `exempt` rather than dropping them, on the same principle as `__ready`:

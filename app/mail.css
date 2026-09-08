@@ -1584,6 +1584,35 @@
   position: relative;
   flex: none;
 }
+
+/*
+  ── SWIPE TO REVEAL ARCHIVE / DELETE ──
+  components/mail/SwipeRow.tsx. The front slides; the actions wait behind it.
+
+  Above 768px there is no gesture and the actions are not rendered visible at
+  all — the thread header has both buttons and a mouse has no swipe.
+*/
+.pbm-swipe {
+  position: relative;
+  flex: none;
+}
+.pbm-swipe-actions {
+  display: none;
+}
+/*
+  Type on the base rule, not only the phone rule: a <button> does not inherit
+  font-size, so above 768px the (hidden) labels sat on the UA's 13.33px and
+  the 200% zoom probe reported them as text that could not be enlarged.
+*/
+.pbm-swipe-btn {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.pbm-swipe-front {
+  position: relative;
+  z-index: 1;
+}
 .pbm-card-star {
   position: absolute;
   right: 12px;
@@ -1774,9 +1803,28 @@
     padding-top: 56px;
   }
 
+  /*
+    ── THE LIST IS THE SCROLLER ON A PHONE, NOT THE CARDS ──
+
+    On desktop .pbm-list-head sits still and .pbm-list-scroll scrolls beneath
+    it, which in a 336px column is right: the search box and chips stay to
+    hand. On a phone the same arrangement pinned a 46px search bar and a row
+    of chips to the top of a 375px screen for as long as you scrolled, and
+    with the fixed top bar above them a third of the viewport never moved.
+    Jordan's words on 8 Sep 2026: "the search bar and tabs should not be
+    sticky".
+
+    So below 768px the overflow moves UP one level. .pbm-list scrolls; the
+    head and the cards are ordinary content inside it and go up together. The
+    section carries pb-scroll so the drawer's scroll-lock still finds it.
+  */
   .pbm-list {
     width: 100%;
     flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
     border-right: none;
     background: var(--surface-2);
     /* Clears the fixed top bar. */
@@ -1804,7 +1852,17 @@
     box-shadow: 0 4px 10px var(--shadow);
   }
   .pbm-list-scroll {
-    padding: 2px 16px 116px;
+    /* No longer the scroller here — see .pbm-list above. */
+    flex: none;
+    overflow: visible;
+    /*
+      Room for the floating tab bar: 66px tall, 16px off the bottom, plus the
+      home-indicator inset on an iPhone, plus breathing space so the last card
+      is not merely uncovered but readable. The old 116px had no inset term,
+      which is how the last card came to sit under the tabs on a phone with a
+      home bar.
+    */
+    padding: 2px 16px calc(104px + env(safe-area-inset-bottom, 0px));
     gap: 10px;
   }
   .pbm-card {
@@ -1823,6 +1881,73 @@
     bottom: 14px;
     width: 32px;
     height: 32px;
+  }
+
+  /*
+    The swipe. Widths here MUST match ACTION_PX and ACTION_GAP_PX in
+    lib/swipe.ts — 72 and 8 — because the maths decides how far the card
+    travels and the CSS decides how much room that uncovers.
+
+    The actions are visibility:hidden until the card is open or moving, not
+    merely covered: the card has rounded corners and a shadow, and a red
+    button sitting behind a 22px radius shows at the corners of every row.
+  */
+  .pbm-swipe-actions {
+    display: flex;
+    gap: 8px;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    padding-left: 8px;
+    visibility: hidden;
+  }
+  .pbm-swipe[data-open] .pbm-swipe-actions,
+  .pbm-swipe[data-dragging] .pbm-swipe-actions {
+    visibility: visible;
+  }
+  .pbm-swipe-actions form {
+    display: flex;
+  }
+  .pbm-swipe-btn {
+    width: 72px;
+    height: 100%;
+    min-height: 44px;
+    border: 0;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: #fff;
+    cursor: pointer;
+  }
+  /*
+    Literals, deliberately, and the same in all six themes: these are the two
+    colours everybody already knows for "put away" and "destroy", and a theme
+    that repainted Delete in its accent would be a theme in which Delete does
+    not look like Delete. Both measured against white for AAA (7:1) rather
+    than AA — a destructive control is the one place the extra margin is
+    cheap to give. #52506a: 7.6:1. #a3211a: 7.5:1.
+  */
+  .pbm-swipe-btn--archive {
+    background: #52506a;
+  }
+  .pbm-swipe-btn--delete {
+    background: #a3211a;
+  }
+  .pbm-swipe-front {
+    /* Vertical stays the browser's; horizontal is ours. See SwipeRow.tsx. */
+    touch-action: pan-y;
+    transition: transform 0.18s ease;
+    will-change: transform;
+  }
+  .pbm-swipe[data-dragging] .pbm-swipe-front {
+    transition: none;
   }
   .pbm-card-name {
     font-size: 0.90625rem;
@@ -2031,9 +2156,18 @@
   .pbm-rail-grip {
     display: block;
     flex: none;
-    width: 44px;
-    height: 28px;
-    margin: 0 auto;
+    /*
+      The whole width of the sheet, not the 44px of the pill.
+
+      The pill is what you SEE; the element is what you GRAB, and a 44px-wide
+      grab handle on a 375px sheet meant most drags that started at the top of
+      the sheet landed beside it and scrolled instead. Jordan reported the
+      sheet as not movable. Now the entire strip above the title is the
+      handle; the pill still draws centred inside it.
+    */
+    width: 100%;
+    height: 32px;
+    margin: 0;
     padding: 0;
     border: 0;
     background: none;

@@ -49,7 +49,7 @@ export default function ErrorPage({
         <h1 style={{ fontSize: "1.3125rem", fontWeight: 700, marginBottom: 8 }}>
           Something went wrong
         </h1>
-        <p style={{ fontSize: "0.90625rem", lineHeight: 1.65, color: "#8a84a4", margin: "0 0 22px" }}>
+        <p style={{ fontSize: "0.90625rem", lineHeight: 1.65, color: "#bdb7d4", margin: "0 0 22px" }}>
           Sorry — that didn&rsquo;t work. It&rsquo;s been noted on our side;
           trying again usually fixes it.
         </p>
