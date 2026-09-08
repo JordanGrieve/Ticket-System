@@ -889,22 +889,15 @@ export default function Composer({
     }
   }
 
+  /*
+    Converted off window.confirm on 8 Sep 2026 — the last of the three. The
+    question is asked by AbortPanel, in the place the answer applies to, with
+    the same counts describeAbort always named; this is only ever reached
+    once the person has said yes there. confirmDiscard above is now the only
+    native dialog in the client, and its header says why it stays.
+  */
   async function abortSend() {
     if (savedId === null || abort.kind === "working") return;
-
-    const ok = window.confirm(
-      recipients
-        ? describeAbort({
-            queued: recipients.queued,
-            alreadySent:
-              recipients.sent +
-              recipients.delivered +
-              recipients.bounced +
-              recipients.complained,
-          })
-        : "Stop this campaign for good?\n\nWe couldn’t read how many people have already been sent this, so this may stop a campaign that is part way through a live audience. Anyone already mailed cannot be un-mailed.\n\nThis cannot be undone. The campaign is marked Failed and can’t be edited, re-scheduled or sent again.",
-    );
-    if (!ok) return;
 
     setAbort({ kind: "working" });
     try {
@@ -2024,7 +2017,7 @@ export default function Composer({
  * just working through the queue" and "this will never move again" are the two
  * things a person is choosing between, and only one of them is worth stopping.
  */
-function AbortPanel({
+export function AbortPanel({
   state,
   recipients,
   stalled,
@@ -2033,6 +2026,7 @@ function AbortPanel({
   state: AbortState;
   recipients: Record<RecipientStatus, number> | null;
   stalled: boolean;
+  /** Called once the person has confirmed. The panel asks; the caller acts. */
   onAbort: () => void;
 }) {
   const alreadySent =
@@ -2042,6 +2036,48 @@ function AbortPanel({
         recipients.delivered +
         recipients.bounced +
         recipients.complained;
+
+  /*
+    ── THE QUESTION, IN THE PANEL ──
+    This was a window.confirm until 8 Sep 2026. It qualified for the in-page
+    pattern on every count the header of confirmDiscard sets out — one call
+    site, its own button, asynchronous — and it is the most consequential
+    question in the product: it can strand part of a live audience. The
+    numbers a person is deciding on belong beside the button they are about to
+    press, not in the operating system's grey box.
+
+    The text is still describeAbort's, so the number of people already mailed
+    and still queued is the same wording the tests pin, split into paragraphs
+    rather than joined with newlines a <p> would collapse. When the counts
+    could not be read the question says so, because "we do not know how many"
+    is a fact the person needs before pressing Stop.
+  */
+  const [confirming, setConfirming] = useState(false);
+  const stopBtnRef = useRef<HTMLButtonElement>(null);
+  const returnFocus = useRef(false);
+
+  useEffect(() => {
+    if (!confirming) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      returnFocus.current = true;
+      setConfirming(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [confirming]);
+
+  useEffect(() => {
+    if (confirming || !returnFocus.current) return;
+    returnFocus.current = false;
+    stopBtnRef.current?.focus();
+  }, [confirming]);
+
+  const question = (
+    recipients !== null && alreadySent !== null
+      ? describeAbort({ queued: recipients.queued, alreadySent })
+      : "Stop this campaign for good?\n\nWe couldn’t read how many people have already been sent this, so this may stop a campaign that is part way through a live audience. Anyone already mailed cannot be un-mailed.\n\nThis cannot be undone. The campaign is marked Failed and can’t be edited, re-scheduled or sent again."
+  ).split("\n\n");
 
   return (
     <>
@@ -2077,12 +2113,60 @@ function AbortPanel({
         </ul>
       )}
 
+      {confirming && (
+        <div
+          className="nl-confirm"
+          role="alertdialog"
+          aria-label="Stop this campaign"
+          aria-describedby="nl-abort-q"
+        >
+          <div id="nl-abort-q">
+            {question.map((para, i) => (
+              <p className="nl-confirm-q" key={i}>
+                {i === 0 ? <b>{para}</b> : para}
+              </p>
+            ))}
+          </div>
+          <div className="nl-confirm-acts">
+            {/* Cancel first and focused, for the reason the unqueue confirm
+                gives — and it matters more here, because the other button
+                cannot be undone. */}
+            <button
+              type="button"
+              className="nl-confirm-btn"
+              autoFocus
+              disabled={state.kind === "working"}
+              onClick={() => {
+                returnFocus.current = true;
+                setConfirming(false);
+              }}
+            >
+              Keep sending
+            </button>
+            <button
+              type="button"
+              className="nl-confirm-btn nl-confirm-btn--danger"
+              disabled={state.kind === "working"}
+              onClick={() => {
+                returnFocus.current = true;
+                setConfirming(false);
+                onAbort();
+              }}
+            >
+              Stop it for good
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="nl-queue-row">
         <button
+          ref={stopBtnRef}
           type="button"
           className="nl-danger"
-          onClick={onAbort}
-          disabled={state.kind === "working"}
+          onClick={() => setConfirming(true)}
+          disabled={state.kind === "working" || confirming}
+          aria-expanded={confirming}
         >
           {state.kind === "working" ? "Stopping…" : "Stop this campaign"}
         </button>

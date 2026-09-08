@@ -38,8 +38,9 @@ import { STARTER_LABELS } from "@/lib/starter-labels";
  * system alert with the label's name quoted into a string never managed.
  *
  * components/InstallView.tsx followed with the same pattern for its API-key
- * rotation (.sti-confirm* in app/settings.css). The one native dialog left in
- * the client is Composer's abortSend, and its header says why.
+ * rotation (.sti-confirm* in app/settings.css), and Composer for stopping a
+ * send. The one native dialog left in the client is Composer's
+ * confirmDiscard — a synchronous gate on navigation — and its header says why.
  */
 
 const COLOR_ORDER: LabelColor[] = ["tag_a", "tag_b", "tag_c"];
