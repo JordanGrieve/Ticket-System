@@ -29,7 +29,6 @@ vi.mock("next/navigation", () => ({
 import { writeFileSync, mkdirSync, copyFileSync } from "node:fs";
 import { join } from "node:path";
 import MessageList from "../components/mail/MessageList";
-import MobileTabs from "../components/mail/MobileTabs";
 import ContactRail from "../components/mail/ContactRail";
 import LabelManager from "../components/mail/LabelManager";
 import OnboardingChecklist from "../components/mail/OnboardingChecklist";
@@ -258,23 +257,19 @@ const noop = () => {};
 const views: Record<string, React.ReactElement> = {
   /*
     The Open folder as it ships on a phone: the list with swipe actions on
-    every card, and the floating tab bar. Both were absent from this view
-    until 8 Sep 2026, so the last card's clearance above the tabs, and the
-    revealed Archive/Delete buttons, had never been measured.
+    every card. (The floating tab bar that used to sit under it was removed
+    on 8 Sep 2026 — navigation is the burger menu and the folder strip.)
   */
   inbox: (
-    <>
-      <MessageList
-        rows={rows}
-        folder="inbox"
-        page={1}
-        pageCount={3}
-        total={57}
-        canPersonalise
-        swipeActions={{ archive: noop, trash: noop }}
-      />
-      <MobileTabs canPersonalise />
-    </>
+    <MessageList
+      rows={rows}
+      folder="inbox"
+      page={1}
+      pageCount={3}
+      total={57}
+      canPersonalise
+      swipeActions={{ archive: noop, trash: noop }}
+    />
   ),
   "inbox-empty": (
     <MessageList rows={[]} folder="inbox" page={1} pageCount={1} total={0} canPersonalise />

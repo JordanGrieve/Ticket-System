@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import MobileTabs from "@/components/mail/MobileTabs";
 import SearchField from "@/components/mail/SearchField";
 import { Icon } from "@/components/mail/icons";
 import { resolveViewer } from "@/lib/viewer";
@@ -133,8 +132,6 @@ export default async function SearchPage({
           )}
         </div>
       </section>
-
-      <MobileTabs canPersonalise={agentId !== null} />
     </>
   );
 }

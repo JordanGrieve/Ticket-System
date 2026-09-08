@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import MessageList from "@/components/mail/MessageList";
-import MobileTabs from "@/components/mail/MobileTabs";
 import OnboardingChecklist from "@/components/mail/OnboardingChecklist";
 import OnboardingDismiss from "@/components/mail/OnboardingDismiss";
 import { getOnboardingProgress } from "@/lib/onboarding-query";
@@ -105,7 +104,6 @@ export default async function InboxPage({
           </>
         )}
       </section>
-      <MobileTabs canPersonalise={agentId !== null} />
     </>
   );
 }
