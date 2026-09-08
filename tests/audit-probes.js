@@ -407,6 +407,44 @@ window.__targets = function (min) {
     const el = document.elementFromPoint(t.cx + dx, t.cy + dy);
     return el === t.e || t.e.contains(el) || (el && el.contains(t.e));
   };
+  /*
+    Only controls a pointer can REACH count as targets.
+
+    The nav drawer's "More" section collapses to zero width, and the eight
+    folder rows inside it keep a 28px box that no pointer can land on — the
+    sweep reported all eight as under-sized on 8 Sep 2026. A control that
+    elementFromPoint cannot find at its own centre is not a target anybody is
+    being asked to hit; it is hidden, and belongs to the disclosure that
+    hides it. Reported separately, so "unreachable" is visible rather than
+    silently dropped.
+  */
+  /*
+    Two signals, and the difference between them mattered within the hour.
+
+    A control inside a box with no width or height is COLLAPSED: a closed
+    disclosure holds it, and nothing presents it. That is the eight "More"
+    rows, and it is decided from geometry, so it works anywhere on the page.
+
+    A control whose centre is inside the viewport and yet elementFromPoint
+    returns something else is COVERED. That is also unreachable — but the
+    test is only meaningful inside the viewport, where elementFromPoint can
+    answer. Outside it the call returns null for everything, and the first
+    version of this filter read that null as "unreachable" and threw away the
+    self-test's own probe buttons, which are appended at the bottom of the
+    page. The self-test went red, which is what it is for.
+  */
+  const inView = (t) =>
+    t.cx >= 0 && t.cy >= 0 && t.cx <= window.innerWidth && t.cy <= window.innerHeight;
+  const collapsed = (el) => {
+    for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+      const r = a.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return true;
+    }
+    return false;
+  };
+  const reachable = c.filter((t) => !collapsed(t.e) && (!inView(t) || hitsAt(t, 0, 0)));
+  const unreachable = c.length - reachable.length;
+
   const effectively24 = (t) => {
     const r = MIN / 2 - 0.5; // just inside the box, to stay off the boundary
     return [
@@ -415,14 +453,14 @@ window.__targets = function (min) {
   };
 
   const small = [];
-  for (const t of c) {
+  for (const t of reachable) {
     if (t.r.width >= MIN && t.r.height >= MIN) continue;
     // Small box, but the pointer still lands on it across the whole square.
     if (effectively24(t)) continue;
     // The exception is measured as a 24px circle on each centre: if no other
     // target's centre falls inside it, the small target still passes.
     let near = null;
-    for (const o of c) {
+    for (const o of reachable) {
       if (o === t) continue;
       const d = Math.hypot(o.cx - t.cx, o.cy - t.cy);
       if (d < MIN) { near = Math.round(d); break; }
@@ -436,7 +474,7 @@ window.__targets = function (min) {
       fails: near !== null,
     });
   }
-  return { total: els.length, failing: small.filter((s) => s.fails), exemptButSmall: small.filter((s) => !s.fails) };
+  return { total: els.length, unreachable, failing: small.filter((s) => s.fails), exemptButSmall: small.filter((s) => !s.fails) };
 };
 
 /**
@@ -992,6 +1030,102 @@ window.__textZoom = function () {
   style.remove();
   void document.body.offsetHeight;
   return { clipped, unscaled };
+};
+
+/* ────────────────────────────────────────────────────────────────────────
+   AAA, THE PART A MACHINE CAN DECIDE (added 8 Sep 2026)
+
+   1.4.6 and 2.5.5 are __contrast("AAA") and __targets(44) above. These two
+   cover what else in the AAA set is mechanical. Deliberately NOT attempted:
+   whether a heading section is well organised (2.4.10), whether an
+   abbreviation is expanded (3.1.4), reading level (3.1.5) — those need a
+   person, and a pass here would be a lie.
+   ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * 2.4.9 Link Purpose (Link Only) — every link's purpose from its text alone.
+ *
+ * Two failures F84 names: a generic name ("here", "more", "read more",
+ * "click", "link", "this"), and the same name pointing at different places on
+ * one page, which a screen reader's links list cannot tell apart.
+ */
+window.__links = function () {
+  const GENERIC =
+    /^(here|click here|more|read more|learn more|see more|link|this|details|view|go|continue|open)$/i;
+  const out = [];
+  const byName = new Map();
+  document.querySelectorAll("a[href]").forEach((a) => {
+    if (inSkeleton(a)) return;
+    const r = a.getBoundingClientRect();
+    if (r.width <= 1 || r.height <= 1) return;
+    const name = (
+      a.getAttribute("aria-label") ||
+      a.textContent ||
+      ""
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!name) return; // __names reports the empty ones
+    if (GENERIC.test(name)) out.push({ text: name, href: a.getAttribute("href"), why: "generic" });
+    const seen = byName.get(name.toLowerCase());
+    const href = a.getAttribute("href");
+    if (seen && seen !== href) out.push({ text: name, href, also: seen, why: "same name, different place" });
+    else if (!seen) byName.set(name.toLowerCase(), href);
+  });
+  return out;
+};
+
+/**
+ * 1.4.8 Visual Presentation — the three parts of it that are properties of the
+ * page rather than of a mechanism the reader might bring:
+ *
+ *   - line spacing at least 1.5 within a block of text
+ *   - no block of text wider than 80 characters
+ *   - text not justified
+ *
+ * Only BLOCKS of text: elements holding a sentence's worth of their own text
+ * (40+ characters). A label, a chip or a button is not a paragraph, and
+ * asking 1.5 line-height of a 44px button is asking the wrong question.
+ *
+ * Width is estimated as characters, not pixels: the criterion is written in
+ * glyphs, and a 16px face averages about 0.5em per character in Latin text.
+ * The estimate is reported alongside the pixels so a borderline case can be
+ * judged rather than trusted.
+ */
+window.__textBlocks = function () {
+  const out = [];
+  document.querySelectorAll("p, li, dd, td, blockquote, figcaption, .pbm-bubble, [class*='note'], [class*='help'], [class*='sub']").forEach((el) => {
+    if (inSkeleton(el)) return;
+    // A heading is not a block of text in 1.4.8's sense: it is set to be read
+    // as one line, and 1.5 leading on a 20px h1 is not what the criterion is
+    // asking for. The thread subject and the console's empty-state title
+    // were reported this way.
+    if (/^H[1-6]$/.test(el.tagName) || el.getAttribute("role") === "heading") return;
+    const own = [...el.childNodes]
+      .filter((n) => n.nodeType === 3)
+      .map((n) => n.textContent)
+      .join("")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (own.length < 40) return;
+    const r = el.getBoundingClientRect();
+    if (r.width <= 1 || r.height <= 1) return;
+    const cs = getComputedStyle(el);
+    const px = parseFloat(cs.fontSize);
+    const lh = cs.lineHeight === "normal" ? px * 1.2 : parseFloat(cs.lineHeight);
+    const ratioLh = Math.round((lh / px) * 100) / 100;
+    const chars = Math.round(r.width / (px * 0.5));
+    const rec = {
+      cls: (el.className || el.tagName).toString().slice(0, 30),
+      text: own.slice(0, 40),
+      lineHeight: ratioLh,
+      widthPx: Math.round(r.width),
+      widthCh: chars,
+      justify: cs.textAlign === "justify",
+    };
+    if (ratioLh < 1.5 || chars > 80 || rec.justify) out.push(rec);
+  });
+  return out;
 };
 
 /**

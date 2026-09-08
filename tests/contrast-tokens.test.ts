@@ -103,6 +103,38 @@ function rawToken(selector: string, name: string): string | null {
   Asserted separately from the AA block so a future palette that clears AA
   but not AAA fails with the number it actually missed.
 */
+/*
+  ── WHITE ON THE ACCENT, AT AAA ──
+  Every primary button, the active chip and the active tab paint white on
+  --accent-grad; a few paint it on flat --accent. At 4.52:1 they were the
+  last AAA failure standing on 8 Sep 2026, and the fix was the brand accent
+  itself: deepened per palette until white clears 7:1 on every stop. That is
+  a visible change to the purple, made on Jordan's instruction that the
+  product has to comply with AAA.
+*/
+describe("white clears AAA (7:1) on the accent", () => {
+  const WHITE = { r: 255, g: 255, b: 255 };
+  for (const palette of PALETTES) {
+    it(`${palette.name} --accent-grad stops`, () => {
+      const grad = rawToken(palette.selector, "--accent-grad") ?? rawToken('[data-theme="light"] {', "--accent-grad");
+      expect(grad, `${palette.name} has no --accent-grad`).not.toBeNull();
+      const stops = (grad!.match(/#[0-9a-fA-F]{6}/g) ?? []).map(parseHex);
+      expect(stops.length, "no stops parsed").toBeGreaterThan(0);
+      for (const stop of stops) {
+        const got = contrastRatio(WHITE, stop!);
+        expect(got, `${palette.name} white on ${JSON.stringify(stop)} is ${got.toFixed(2)}:1 — AAA needs 7`).toBeGreaterThanOrEqual(7);
+      }
+    });
+    it(`${palette.name} flat --accent`, () => {
+      const raw = rawToken(palette.selector, "--accent") ?? rawToken('[data-theme="light"] {', "--accent");
+      const accent = parseHex(raw!);
+      expect(accent, `${palette.name} --accent did not parse: ${raw}`).not.toBeNull();
+      const got = contrastRatio(WHITE, accent!);
+      expect(got, `${palette.name} white on --accent is ${got.toFixed(2)}:1 — AAA needs 7`).toBeGreaterThanOrEqual(7);
+    });
+  }
+});
+
 describe("muted text clears AAA (7:1) on the page grounds", () => {
   for (const palette of PALETTES) {
     for (const name of ["--muted", "--muted-2", "--text-4"]) {

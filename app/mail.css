@@ -481,6 +481,12 @@
   align-self: stretch;
 }
 
+/* The phone's folder strip. Hidden here: above 768px the navigation column
+   lists every folder already. The phone block below shows it. */
+.pbm-folders {
+  display: none;
+}
+
 .pbm-chips {
   display: flex;
   gap: 7px;
@@ -816,7 +822,10 @@
 .pbm-subject-chips {
   display: flex;
   align-items: center;
-  gap: 7px;
+  /* 10px, not 7: each chip's remove cross carries a 44px hit circle on a
+     phone (2.5.5), and at 7px the circles' centres sat 43px apart, so the
+     circles overlapped by 1px and the sweep reported all four. */
+  gap: 10px;
   margin-top: 10px;
   flex-wrap: wrap;
 }
@@ -1750,8 +1759,9 @@
     display: flex;
   }
   .pbm-burger {
-    width: 38px;
-    height: 38px;
+    /* 44px, not 38: 2.5.5 (AAA) on the one control every phone screen has. */
+    width: 44px;
+    height: 44px;
     flex: none;
     display: flex;
     align-items: center;
@@ -1842,8 +1852,59 @@
   .pbm-search-input {
     font-size: 0.875rem;
   }
+  /*
+    ── FOLDERS UNDER THE SEARCH BOX, NOT REFINE CHIPS ──
+    The refine chips filter the page already loaded, and on a phone they read
+    as "only three options" when the person was looking for Snoozed, Archived,
+    Closed and Trash — which live in the drawer, two taps away. So the strip
+    here is the folders (components/mail/MessageList.tsx, MOBILE_FOLDERS), and
+    the refine chips step aside; Unread and Starred are folders in their own
+    right, so nothing is lost.
+
+    44px tall for 2.5.5. The row scrolls sideways rather than wrapping, as the
+    chip row always has — eleven folders wrapped would push the first card
+    below the fold.
+  */
   .pbm-chips {
-    padding-left: 0;
+    display: none;
+  }
+  .pbm-folders {
+    display: flex;
+    /* Stated, because a nav in the mail shell is otherwise a column: the
+       first render of this strip stacked eleven full-width chips 572px tall. */
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 2px 0 6px;
+    /* A strip that scrolls sideways must not hand a horizontal drag to the
+       swipe rows below it. */
+    touch-action: pan-x;
+  }
+  .pbm-folders::-webkit-scrollbar {
+    display: none;
+  }
+  .pbm-folder-chip {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 15px;
+    border-radius: 14px;
+    background: var(--surface);
+    color: var(--text-3);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 4px 10px var(--shadow);
+  }
+  .pbm-folder-chip:hover {
+    text-decoration: none;
+    color: var(--text);
+  }
+  .pbm-folder-chip[data-on] {
+    background: var(--accent-grad);
+    color: var(--pbm-on-dark, #fff);
   }
   .pbm-chip {
     padding: 8px 15px;
@@ -1982,14 +2043,16 @@
     align-items: center;
     justify-content: center;
     gap: 5px;
-    width: 62px;
-    min-height: 48px;
-    /* 11px, up from 10. These are the primary navigation on a phone and they
-       were the smallest type in the product — smaller than the timestamps on
-       a card. Contrast maths never flags this because the ratio is fine; it is
-       size, and it is the complaint people actually voice as "I cannot read
-       it". Checked at 375px: five tabs still fit on one row without wrapping. */
-    font-size: 0.6875rem;
+    /*
+      66x54 from 62x48, and 12px type from 11 (8 Sep 2026). These are the
+      primary navigation on a phone and Jordan's words were "the awaiting
+      reply and open don't seem big enough". 48px cleared 2.5.5 already; the
+      complaint was not the criterion, it was the thumb. Five tabs at 66px
+      are 330px, inside a 343px bar at 375 — checked, they still fit.
+    */
+    width: 66px;
+    min-height: 54px;
+    font-size: 0.75rem;
     font-weight: 700;
     color: var(--muted);
   }

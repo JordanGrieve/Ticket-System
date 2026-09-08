@@ -68,7 +68,7 @@
   --muted-2: #4e4a5c;
 
   /* accent */
-  --accent: #6d4aff;
+  --accent: #583cce;
   /* Accent ink. Deepened from #6d4aff: it is most often painted on
      --accent-soft (chips, tags, the pill on the marketing page), where it
      measured 4.29:1 rather than the 4.5 AA needs. On white it was already
@@ -80,7 +80,7 @@
      light is the tight one because the chip lifts a pale ground toward a
      mid-tone ink. 4.81:1 now, against the palest ground it is painted on. */
   --accent-text: #4730a8;
-  --accent-strong: #5636e0;
+  --accent-strong: #5535dd;
   --accent-soft: #ede7fe;
   --accent-chip: #e8e1fd;
   --accent-line: #e7deff;
@@ -90,7 +90,7 @@
      end too. Deepening the light stop is the minimum change that fixes it:
      the hue is unchanged and purple, the default brand, moves by an amount
      that is hard to see. Asserted in tests/contrast-tokens.test.ts. */
-  --accent-grad: linear-gradient(145deg, #7c60e4, #6d4aff);
+  --accent-grad: linear-gradient(145deg, #5c47a9, #583cce);
   --glow: rgba(109, 74, 255, 0.18);
   --hero-grad: linear-gradient(140deg, #e9e1ff, #d6ccff);
   /*
@@ -145,7 +145,19 @@
    */
   --nav-active-dot: var(--nav-active-fg);
   --nav-badge-on: rgba(124, 92, 255, 0.32);
-  --nav-badge-fg: #dcd1ff;
+  /* #ece6ff from #dcd1ff: the count on the ACTIVE row sits on two purple
+     washes stacked over the nav and read 6.69:1 at 11px — AAA wants 7. */
+  --nav-badge-fg: #ece6ff;
+  /*
+   * The keyboard focus ring, as its own token.
+   *
+   * It used to fall back to --accent, which on 8 Sep 2026 deepened for AAA
+   * text and took the ring under 3:1 on the nav (1.4.11). A ring has to
+   * clear 3:1 on white, the palest wash AND the near-black nav at once, and
+   * #7c5dff does: 4.31 / 3.74 / 3.98. forest and slate get theirs below for
+   * the same reason; dark and ocean already had one.
+   */
+  --focus-ring: #7c5dff;
 
   /* elevation */
   --shadow: rgba(70, 45, 140, 0.1);
@@ -281,7 +293,7 @@
   /* Deeper sibling of --accent, same as forest/slate/ocean do it. Dark inherits
      --accent (#6d4aff) from :root because the palette is the same purple, but
      --accent-strong has to be stated or it silently leaks the light value. */
-  --accent-strong: #5636e0;
+  --accent-strong: #5535dd;
   --accent-soft: rgba(124, 92, 255, 0.14);
   --accent-chip: rgba(124, 92, 255, 0.22);
   --accent-line: rgba(124, 92, 255, 0.3);
@@ -324,7 +336,7 @@
     --muted: #c4bfd7;
     --muted-2: #c5bfd9;
     --accent-text: #d1c4ff;
-    --accent-strong: #5636e0;
+    --accent-strong: #5535dd;
     --accent-soft: rgba(124, 92, 255, 0.14);
     --accent-chip: rgba(124, 92, 255, 0.22);
     --accent-line: rgba(124, 92, 255, 0.3);
@@ -368,10 +380,10 @@
      dark palette. */
   --muted: #97b4a6;
   --muted-2: #99b4a6;
-  --accent: #2fa36b;
+  --accent: #1d6442;
   --accent-text: #7ce0ae;
-  --accent-strong: #238153;
-  --accent-grad: linear-gradient(145deg, #30855d, #26865a);
+  --accent-strong: #1b6440;
+  --accent-grad: linear-gradient(145deg, #236345, #1d6343);
   --accent-soft: rgba(47, 163, 107, 0.14);
   --accent-chip: rgba(47, 163, 107, 0.22);
   --accent-line: rgba(47, 163, 107, 0.3);
@@ -384,6 +396,7 @@
   --nav-active-fg: #7ce0ae;
   --nav-badge-on: rgba(47, 163, 107, 0.32);
   --nav-badge-fg: #b6f0d4;
+  --focus-ring: #2fa36b;
   --shadow: rgba(0, 0, 0, 0.28);
   --shadow-2: rgba(0, 0, 0, 0.34);
   --ok-fg: #76dcad;
@@ -420,10 +433,10 @@
   /* Lightened 6 Sep — 3.95:1 and 3.91:1 on two stacked --surface-3 washes. */
   --muted: #b1afa7;
   --muted-2: #b2afa6;
-  --accent: #c08a4e;
+  --accent: #71512e;
   --accent-text: #f0cea6;
-  --accent-strong: #9a6d3b;
-  --accent-grad: linear-gradient(145deg, #976f3f, #9c6c38);
+  --accent-strong: #74522c;
+  --accent-grad: linear-gradient(145deg, #70522f, #75512a);
   --accent-soft: rgba(192, 138, 78, 0.14);
   --accent-chip: rgba(192, 138, 78, 0.22);
   --accent-line: rgba(192, 138, 78, 0.3);
@@ -436,6 +449,7 @@
   --nav-active-fg: #e7b478;
   --nav-badge-on: rgba(192, 138, 78, 0.32);
   --nav-badge-fg: #f0d3ac;
+  --focus-ring: #c08a4e;
   --shadow: rgba(0, 0, 0, 0.28);
   --shadow-2: rgba(0, 0, 0, 0.34);
   --ok-fg: #76dcad;
@@ -472,13 +486,13 @@
   /* Lightened 6 Sep — 3.95:1 and 3.90:1 on two stacked --surface-3 washes. */
   --muted: #a5b3ce;
   --muted-2: #a5b3d0;
-  --accent: #2e6be6;
+  --accent: #2453b2;
   /* The ring only. As --accent it measured 2.68:1 on --surface-3, under the
      3:1 WCAG 1.4.11 needs for a non-text indicator. 3.16:1 at this value. */
   --focus-ring: #4279e8;
   --accent-text: #adceff;
-  --accent-strong: #2354b8;
-  --accent-grad: linear-gradient(145deg, #4576c2, #2e6be6);
+  --accent-strong: #2253b5;
+  --accent-grad: linear-gradient(145deg, #335890, #2453b2);
   --accent-soft: rgba(46, 107, 230, 0.14);
   --accent-chip: rgba(46, 107, 230, 0.22);
   --accent-line: rgba(46, 107, 230, 0.3);
@@ -1043,5 +1057,58 @@ summary:focus-visible,
 @media (prefers-reduced-motion: reduce) {
   .pb-sidebar {
     transition: none;
+  }
+}
+
+/*
+  ── 1.4.8 VISUAL PRESENTATION (AAA): LINE SPACING ──
+  Blocks of text at least space-and-a-half. __textBlocks() in
+  tests/audit-probes.js found these eleven still on the browser's `normal`
+  (about 1.2) on 8 Sep 2026 — every one a line of secondary text that had
+  never been given a leading of its own. Listed here rather than in five
+  sheets, and matched by the same probe that found them.
+*/
+.pba-list-sub,
+.pba-cell-sub,
+.pbm-card-subject,
+.pbm-thread-email,
+.pbm-transcript-note,
+.pbm-bubble-foot,
+.pbm-composer-foot,
+.pbm-rail-value,
+.nl-item-sub,
+.home-cta-note,
+.pbf-hint,
+.pba-empty-title,
+.st-summary-row dd {
+  line-height: 1.5;
+}
+
+/*
+  ── 2.3.3 ANIMATION FROM INTERACTIONS (AAA), THE BLANKET FORM ──
+
+  Every stylesheet that animates something is meant to carry its own
+  prefers-reduced-motion block, and most do. Two did not (admin.css and
+  onboarding.css, found 8 Sep 2026), and "most" is the wrong word for a
+  criterion: a reader who has asked for no motion gets the one transition
+  nobody remembered.
+
+  This is WAI technique C39 in its broadest form. It runs LAST in the cascade
+  and with !important, so it wins over every per-file rule regardless of
+  order, and it keeps transitions technically present at a duration no eye
+  can see rather than removing them — which leaves transitionend events
+  firing for anything that waits on one.
+
+  The per-file blocks stay: they document which motion each sheet has and
+  are the ones a person reads. This is the guarantee behind them.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

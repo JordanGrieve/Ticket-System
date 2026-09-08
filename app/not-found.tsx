@@ -58,7 +58,9 @@ export default function NotFoundPage() {
             height: 40,
             padding: "0 20px",
             borderRadius: 10,
-            background: "#6d4aff",
+            /* The AAA accent (7.11:1 under white), stated as a literal because
+               this page renders with no stylesheet tokens to lean on. */
+            background: "#583cce",
             color: "#fff",
             fontSize: "0.84375rem",
             fontWeight: 600,

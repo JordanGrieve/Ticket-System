@@ -98,7 +98,13 @@ export default function OnboardingChecklist({
             </span>
 
             {!step.done && (
-              <Link className="pbo-go" href={step.href}>
+              <Link
+                className="pbo-go"
+                href={step.href}
+                /* 2.4.9: four "Do it" links to four places read identically in
+                   a links list. The step's own title is the purpose. */
+                aria-label={`Do it: ${step.title}`}
+              >
                 Do it
               </Link>
             )}

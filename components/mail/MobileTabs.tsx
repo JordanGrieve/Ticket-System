@@ -10,13 +10,19 @@ import { Icon, type IconName } from "./icons";
  * composer, which is what the design does too).
  */
 
-type Tab = { key: string; label: string; icon: IconName; href: string };
+/**
+ * `name` is the accessible name and `label` what is printed. They differ where
+ * the printed word is not a purpose on its own (2.4.9): "Open" in a screen
+ * reader's links list says nothing, "Open tickets" does. Where the label is
+ * already specific the two are the same.
+ */
+type Tab = { key: string; label: string; name: string; icon: IconName; href: string };
 
 const BASE_TABS: Tab[] = [
-  { key: "inbox", label: "Open", icon: "mail", href: "/inbox" },
-  { key: "awaiting", label: "Awaiting", icon: "lines", href: "/inbox?folder=awaiting" },
-  { key: "all", label: "All", icon: "news", href: "/inbox?folder=all" },
-  { key: "settings", label: "Settings", icon: "settings", href: "/settings" },
+  { key: "inbox", label: "Open", name: "Open tickets", icon: "mail", href: "/inbox" },
+  { key: "awaiting", label: "Awaiting", name: "Awaiting reply", icon: "lines", href: "/inbox?folder=awaiting" },
+  { key: "all", label: "All", name: "All mail", icon: "news", href: "/inbox?folder=all" },
+  { key: "settings", label: "Settings", name: "Settings", icon: "settings", href: "/settings" },
 ];
 
 /** Starred is the design's fourth tab. It is real now, so it goes in — but
@@ -25,6 +31,7 @@ const BASE_TABS: Tab[] = [
 const STARRED_TAB: Tab = {
   key: "starred",
   label: "Starred",
+  name: "Starred tickets",
   icon: "star",
   href: "/inbox?folder=starred",
 };
@@ -51,8 +58,9 @@ export default function MobileTabs({
           className="pbm-tab"
           data-on={active === t.key || undefined}
           aria-current={active === t.key ? "page" : undefined}
+          aria-label={t.name}
         >
-          <Icon name={t.icon} size={21} />
+          <Icon name={t.icon} size={23} />
           <span>{t.label}</span>
         </Link>
       ))}

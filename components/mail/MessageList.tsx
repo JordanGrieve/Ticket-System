@@ -39,6 +39,26 @@ export type SwipeActions = { archive: FormAction; trash: FormAction };
  */
 type Refine = "all" | "unread" | "starred";
 
+/**
+ * The folder strip shown under the search box on a phone. Open first, since
+ * it is where the phone lands; then the ones that answer "what needs me",
+ * then the places things are put away. Keys are MailFolder values from
+ * app/(dashboard)/queries.ts — parseFolder accepts exactly these.
+ */
+const MOBILE_FOLDERS: [key: string, label: string][] = [
+  ["inbox", "Open"],
+  ["awaiting", "Awaiting"],
+  ["unread", "Unread"],
+  ["starred", "Starred"],
+  ["snoozed", "Snoozed"],
+  ["archived", "Archived"],
+  ["closed", "Closed"],
+  ["sent", "Sent"],
+  ["labeled", "Labeled"],
+  ["trash", "Trash"],
+  ["all", "All mail"],
+];
+
 export default function MessageList({
   rows,
   folder,
@@ -149,6 +169,35 @@ export default function MessageList({
             placeholder="Search this page…"
           />
         </div>
+
+        {/*
+          ── EVERY FOLDER, ON A PHONE ──
+          Below 768px the navigation column is a drawer behind the burger, so
+          the folders it lists are two taps away and — Jordan's report on
+          8 Sep 2026 — the row under the search box showed "only 3 options".
+          Those three were the refine chips (All / Unread / Starred), which
+          filter the page already loaded; they are not folders. On a phone
+          this row IS the folders instead: one horizontally scrolling strip of
+          links, the current one marked, 44px tall for 2.5.5. mail.css shows
+          this strip and hides the refine chips below 768px, and the reverse
+          above it, where the column is always in view.
+        */}
+        <nav className="pbm-folders" aria-label="Folders">
+          {MOBILE_FOLDERS.map(([key, label]) => (
+            <Link
+              key={key}
+              href={key === "inbox" ? "/inbox" : `/inbox?folder=${key}`}
+              className="pbm-folder-chip"
+              aria-current={folder === key ? "page" : undefined}
+              data-on={folder === key || undefined}
+              /* 2.4.9: "Open", "Sent" and "Closed" are not link purposes on
+                 their own in a links list; "Open folder" is. */
+              aria-label={`${label} folder`}
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
 
         <div className="pbm-chips" role="group" aria-label="Refine this page">
           {chips.map((c) => (

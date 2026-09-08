@@ -283,12 +283,33 @@ target-size failure that did not exist.
   block.** `.pba-root { --muted: … }` and `[data-theme="dark"] { --muted: … }`
   are equal specificity and the palette comes later, so the console's own
   values were silently ignored. Scope it `.pba-root[data-theme="dark"]`.
-- **`__contrast("AAA")` and `__targets(44)` exist from 8 Sep 2026.** Same
+- **`__contrast("AAA")` and `__targets(44)` exist from 8 Sep 2026**, with
+  `__links()` (2.4.9) and `__textBlocks()` (1.4.8) beside them. Same
   measurement, higher bar: 7:1 / 4.5:1 for 1.4.6 and 44px with no spacing
-  exception for 2.5.5. Everything that could be tuned by token was; what is
-  left at AAA is white on `--accent-grad` (4.52:1 on every primary button),
-  which needs a darker brand accent and is Jordan's decision, plus adjacent
-  14px chip crosses that cannot all be 44px without spacing, and inline links.
+  exception for 2.5.5. The brand accent was deepened per palette until white
+  clears 7:1 on every gradient stop (Jordan's call: "it has to comply with
+  AAA"), and every muted, chip, status and nav ink was retuned against the
+  ground it is painted on. What remains at AAA, and why: the brand-colour
+  sample on /settings previews the CLIENT'S chosen colour and cannot be tuned
+  without lying about it; four inline links in prose, which 2.5.5 itself
+  exempts; and the four label-remove crosses on a thread, 14px icons whose
+  44px hit circles would need the chips spaced ~22px apart.
+- **Deepening `--accent` moves the focus ring with it.** The ring fell back to
+  `--accent` in three palettes and dropped under 3:1 on the nav (1.4.11) the
+  moment the accent deepened for text. `--focus-ring` is declared in all six
+  now, chosen against `--surface`, `--surface-3` and `--nav` at once, and the
+  token guard measures it against all three.
+- **A target nobody can reach is not a target.** The drawer's collapsed "More"
+  section holds eight folder rows in a zero-width box; `__targets` reported
+  them all as 28px. It now excludes a control inside a collapsed ancestor, and
+  one whose centre is inside the viewport but not hit by `elementFromPoint`.
+  Only INSIDE the viewport: outside it the call returns null for everything,
+  and the first version threw away the self-test's own probe buttons, which
+  sit at the bottom of the page. `__selftest` caught it within the hour.
+- **2.3.3 is one blanket rule at the END of globals.css**, not a promise that
+  every stylesheet remembers its own reduced-motion block (two had not).
+  `tests/reduced-motion.test.ts` pins that it is last and covers both
+  animation and transition.
 - **A heredoc `node -` script with a regex in it will lose its backslashes and
   throw — or worse, run.** It happened twice on 8 Sep while applying token
   values; the second time the error surfaced only because the anchor string was

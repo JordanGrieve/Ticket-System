@@ -564,7 +564,9 @@
   margin-top: 14px;
   padding-top: 10px;
   border-top: 1px solid #e6e4ee;
-  color: #6b6880;
+  /* Literals, because the mock email is always a white panel whatever the
+     page's theme. Both retuned for AAA on 8 Sep 2026: 7.6:1 and 7.2:1. */
+  color: #55526a;
   font-size: 0.75rem;
   line-height: 1.5;
 }
@@ -572,7 +574,7 @@
   margin: 0 0 4px;
 }
 .pshot-email-link {
-  color: #5b3fd6;
+  color: #4b33b3;
   text-decoration: underline;
 }
 

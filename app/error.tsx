@@ -60,7 +60,9 @@ export default function ErrorPage({
               height: 40,
               padding: "0 20px",
               borderRadius: 10,
-              background: "#6d4aff",
+              /* The AAA accent (7.11:1 under white) — a literal, as this page
+                 must render even when the stylesheets did not. */
+              background: "#583cce",
               color: "#fff",
               fontSize: "0.84375rem",
               fontWeight: 600,
