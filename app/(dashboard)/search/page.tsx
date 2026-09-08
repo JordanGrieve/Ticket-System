@@ -14,7 +14,6 @@ import {
   type Segment,
   type TicketHit,
 } from "@/lib/search";
-import { viewerAgentId } from "../queries";
 
 /**
  * /search?q=… — results across tickets, message bodies, contacts and labels.
@@ -42,10 +41,9 @@ export default async function SearchPage({
   if (!viewer.workspace) redirect(viewer.isAdmin ? "/admin" : "/no-access");
   const workspaceId = viewer.workspace.id;
 
-  const [results, agentId] = await Promise.all([
-    searchWorkspace(workspaceId, rawQuery ?? ""),
-    viewerAgentId(workspaceId),
-  ]);
+  // viewerAgentId used to be fetched alongside, for the tab bar's Starred
+  // tab. The tab bar is gone (8 Sep 2026), and with it the second query.
+  const results = await searchWorkspace(workspaceId, rawQuery ?? "");
   const now = new Date();
 
   const asked = results.terms.length > 0;
