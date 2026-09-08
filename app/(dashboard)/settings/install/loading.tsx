@@ -38,12 +38,12 @@ export default function InstallLoading() {
         style={{ maxWidth: 760, margin: "0 auto", padding: "34px 32px 64px" }}
         aria-hidden
       >
-        <div className="pbk-text" style={{ fontSize: 24, width: 216 }}>
+        <div className="pbk-text" style={{ fontSize: "1.5rem", width: 216 }}>
           &nbsp;
         </div>
         <div
           className="pbk-text"
-          style={{ fontSize: 14, lineHeight: 1.6, marginTop: 6, width: "78%" }}
+          style={{ fontSize: "0.875rem", lineHeight: 1.6, marginTop: 6, width: "78%" }}
         >
           &nbsp;
         </div>
@@ -61,7 +61,7 @@ export default function InstallLoading() {
           >
             <div
               className="pbk-text"
-              style={{ fontSize: 15, marginBottom: 14, width: s.title }}
+              style={{ fontSize: "0.9375rem", marginBottom: 14, width: s.title }}
             >
               &nbsp;
             </div>

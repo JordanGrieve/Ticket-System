@@ -53,7 +53,7 @@
 
 .psb-title {
   margin: 0 0 6px;
-  font-size: 21px;
+  font-size: 1.3125rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--text);
@@ -62,7 +62,7 @@
 .psb-sub {
   margin: 0;
   max-width: 62ch;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.65;
   color: var(--muted-2);
 }
@@ -87,7 +87,7 @@
   border-radius: 999px;
   background: var(--surface-2);
   color: var(--text-3);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
@@ -105,7 +105,7 @@
 }
 
 .psb-filter-count {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 800;
   color: var(--muted);
 }
@@ -155,7 +155,7 @@ a.psb-row:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 800;
 }
 
@@ -177,14 +177,14 @@ a.psb-row:hover {
 }
 
 .psb-name {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
   line-height: 1.35;
   color: var(--text);
 }
 
 .psb-email {
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 600;
   line-height: 1.4;
   color: var(--muted-2);
@@ -203,7 +203,7 @@ a.psb-row:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted-2);
 }
@@ -212,7 +212,7 @@ a.psb-row:hover {
   flex: 0 0 auto;
   min-width: 56px;
   text-align: right;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted);
   white-space: nowrap;
@@ -227,7 +227,7 @@ a.psb-row:hover {
   flex: 0 0 auto;
   padding: 3px 9px;
   border-radius: 999px;
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 800;
   white-space: nowrap;
 }
@@ -265,7 +265,7 @@ a.psb-row:hover {
   gap: 5px;
   padding: 3px 9px;
   border-radius: 999px;
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 800;
   white-space: nowrap;
 }
@@ -289,14 +289,14 @@ a.psb-row:hover {
   border-radius: 18px;
   background: var(--surface-2);
   text-align: center;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.6;
   color: var(--muted-2);
 }
 
 .psb-empty-title {
   margin: 0 0 6px;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 800;
   color: var(--text);
 }
@@ -320,7 +320,7 @@ a.psb-row:hover {
 
 .psb-back {
   align-self: flex-start;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   color: var(--accent-text);
   text-decoration: none;
@@ -340,7 +340,7 @@ a.psb-row:hover {
 .psb-identity .psb-avatar {
   width: 46px;
   height: 46px;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .psb-identity-text {
@@ -352,7 +352,7 @@ a.psb-row:hover {
 
 .psb-identity-email {
   margin: 0;
-  font-size: 19px;
+  font-size: 1.1875rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--text);
@@ -361,7 +361,7 @@ a.psb-row:hover {
 
 .psb-identity-name {
   margin: 0;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--muted-2);
 }
@@ -376,13 +376,13 @@ a.psb-row:hover {
   padding: 16px 18px;
   border-radius: 16px;
   border: 1px solid transparent;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.6;
 }
 
 .psb-banner-title {
   margin: 0 0 4px;
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   font-weight: 800;
 }
 
@@ -418,14 +418,14 @@ a.psb-row:hover {
 
 .psb-card-title {
   margin: 0 0 4px;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 800;
   color: var(--text);
 }
 
 .psb-card-note {
   margin: 0 0 14px;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.6;
   color: var(--muted-2);
 }
@@ -446,7 +446,7 @@ a.psb-row:hover {
 
 .psb-fact-k {
   margin: 0;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--muted-2);
 }
@@ -454,7 +454,7 @@ a.psb-row:hover {
 .psb-fact-v {
   margin: 0;
   min-width: 0;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.5;
   color: var(--text-2);
@@ -464,7 +464,7 @@ a.psb-row:hover {
 /* IP addresses and form URLs are evidence, quoted verbatim. */
 .psb-mono {
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
 }
 
 /*
@@ -489,7 +489,7 @@ a.psb-row:hover {
   border: 1px solid var(--accent-line);
   background: var(--accent-soft);
   color: var(--accent-text);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 

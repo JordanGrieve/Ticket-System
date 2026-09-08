@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { parseHex, contrastRatio, MIN_CONTRAST } from "../lib/email-colour";
 
@@ -91,6 +91,39 @@ function rawToken(selector: string, name: string): string | null {
   const m = new RegExp(`${name}:\\s*([^;]+);`).exec(block);
   return m ? m[1]!.trim() : null;
 }
+
+/*
+  ── AAA FOR SECONDARY TEXT, FROM 8 SEP 2026 ──
+  1.4.6 asks 7:1 where 1.4.3 asks 4.5:1. The muted tokens were tuned to clear
+  it on --surface and --surface-2 in every palette, and on --surface-3 too in
+  light, where secondary text sits on the washed grounds most often. The
+  shifts were tiny in the dark palettes (#a9a3c1 -> #b1abc6) and visible in
+  light (#6d6a7c -> #504e5b), which was the price Jordan chose to pay.
+
+  Asserted separately from the AA block so a future palette that clears AA
+  but not AAA fails with the number it actually missed.
+*/
+describe("muted text clears AAA (7:1) on the page grounds", () => {
+  for (const palette of PALETTES) {
+    for (const name of ["--muted", "--muted-2", "--text-4"]) {
+      it(`${palette.name} ${name}`, () => {
+        const fg = parseHex(token(palette.selector, name));
+        expect(fg, `${palette.name} ${name} did not parse`).not.toBeNull();
+        const grounds = palette.name === "light"
+          ? ["--surface", "--surface-2", "--surface-3"]
+          : ["--surface", "--surface-2"];
+        for (const g of grounds) {
+          const raw = rawToken(palette.selector, g);
+          expect(raw, `${palette.name} has no ${g}`).not.toBeNull();
+          const bg = parseHex(raw!);
+          expect(bg, `${palette.name} ${g} is not a flat hex: ${raw}`).not.toBeNull();
+          const got = contrastRatio(fg!, bg!);
+          expect(got, `${palette.name} ${name} on ${g} is ${got.toFixed(2)}:1 — AAA needs 7`).toBeGreaterThanOrEqual(7);
+        }
+      });
+    }
+  }
+});
 
 describe("muted text clears AA in every theme", () => {
   for (const palette of PALETTES) {
@@ -399,31 +432,89 @@ describe("muted text clears AA in every theme", () => {
     against white in forest and slate. White ink belongs on --accent-grad or
     --accent-strong.
   */
+  /*
+    Every stylesheet under app/ and components/, FOUND rather than listed.
+
+    The hardcoded list this replaces named nine files. The repo has twenty,
+    and the eleven it omitted included pricing.css, contact.css, subscribe.css
+    and the admin console's own sheet — every public marketing page, in other
+    words. A guard is only as wide as its input, and a list that has to be
+    edited by hand when a file is added is a guard that quietly narrows.
+  */
+  function stylesheets(): string[] {
+    const found: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(join(process.cwd(), dir), { withFileTypes: true })) {
+        if (e.name === "node_modules" || e.name.startsWith(".")) continue;
+        const rel = `${dir}/${e.name}`;
+        if (e.isDirectory()) walk(rel);
+        else if (e.name.endsWith(".css")) found.push(rel);
+      }
+    };
+    walk("app");
+    walk("components");
+    return found;
+  }
+
+  /*
+    ── THE NAVIGATION IS DARK IN ALL SIX THEMES, SO ITS INK MUST BE TOO ──
+
+    .pb-sidebar and the mobile top bar are painted with --nav, which is
+    near-black indigo in every palette including the light one. They set no
+    colour of their own, so they inherited the PAGE ink — --text and --muted-2,
+    which do follow the theme.
+
+    In the five dark palettes that read correctly by coincidence. In light it
+    was #221b3a on #1c1830: measured 1.05:1 on 7 Sep 2026, on the default
+    theme, on the navigation column of every signed-in screen. Twenty-five
+    failing elements on one component.
+
+    It lasted because nothing had ever RENDERED MailNav — the five component
+    harnesses drop their view into a bare shell with no nav in it, so the most
+    universal component in the product was the least looked at.
+
+    --nav-fg and --nav-muted exist for this, and this checks them against the
+    ground they are actually painted on rather than against a page surface.
+  */
+  for (const palette of PALETTES) {
+    for (const [name, min] of [
+      ["--nav-fg", MIN_CONTRAST],
+      // The muted nav ink is used at 11px and up, so it needs the full 4.5:1
+      // as well — none of it is large text.
+      ["--nav-muted", MIN_CONTRAST],
+    ] as const) {
+      it(`${palette.name} ${name} clears AA on --nav`, () => {
+        /*
+          Inherited rather than redeclared is CORRECT for dark and system-dark:
+          the base values in the light block are already that palette's own
+          text colours. So fall back to the light block rather than demanding
+          a copy in every palette, which is how six declarations drift apart.
+        */
+        const raw = rawToken(palette.selector, name) ?? rawToken('[data-theme="light"] {', name);
+        expect(raw, `${palette.name} has no ${name} and no base to inherit`).not.toBeNull();
+        const fg = parseHex(raw!);
+        const bg = parseHex(token(palette.selector, "--nav"));
+        expect(fg, `${name} did not parse: ${raw}`).not.toBeNull();
+        expect(bg, `${palette.name} --nav did not parse`).not.toBeNull();
+        const got = contrastRatio(fg!, bg!);
+        expect(
+          got,
+          `${palette.name} ${name} measures ${got.toFixed(2)}:1 on --nav — AA needs ${MIN_CONTRAST}`,
+        ).toBeGreaterThanOrEqual(min);
+      });
+    }
+  }
+
   it("no rule puts white ink on a flat --accent background", () => {
-    const files = [
-      "app/globals.css",
-      "app/mail.css",
-      "app/admin.css",
-      "app/home.css",
-      "app/settings.css",
-      "app/newsletter.css",
-      "app/subscribers.css",
-      "components/mail/onboarding.css",
-      "components/trial-banner.css",
-    ];
+    const files = stylesheets();
+    // The list used to be typed out and had drifted to under half the sheets.
+    expect(files.length, "stylesheet discovery found almost nothing").toBeGreaterThan(15);
 
     const offenders: string[] = [];
     let blocksScanned = 0;
 
     for (const file of files) {
-      let css: string;
-      try {
-        css = readFileSync(join(process.cwd(), file), "utf8");
-      } catch {
-        // A file that moved should fail loudly rather than silently shrink
-        // the search — the list above is the point of the check.
-        throw new Error(`${file} is listed here but could not be read`);
-      }
+      const css = readFileSync(join(process.cwd(), file), "utf8");
 
       for (const block of css.split("}")) {
         const body = block.slice(block.indexOf("{") + 1);
@@ -443,6 +534,59 @@ describe("muted text clears AA in every theme", () => {
     // The canary: a scanner that matched nothing anywhere would pass silently.
     expect(blocksScanned, "no CSS blocks were scanned").toBeGreaterThan(200);
     expect(offenders, "white ink on flat --accent — use --accent-grad").toEqual([]);
+  });
+
+  /*
+    The same rule, for inline styles in components.
+
+    ── WHY THIS EXISTS ──
+    The CSS scan above was added on 6 Sep after white-on-flat-accent was found
+    in four rules. On 7 Sep a browser sweep found a FIFTH, on /no-access:
+    3.20:1 in forest, 3.01:1 in slate. The guard had not failed — it had never
+    been able to see the file, because the offending declaration was a React
+    style object in a .tsx and the scan reads .css.
+
+    A guard with a known blind spot is how the same bug ships twice.
+
+    Matching is deliberately loose about spacing and quote style, since the
+    shape here is `background: "var(--accent)"` rather than a CSS declaration,
+    and prettier may or may not put it on one line.
+  */
+  it("no inline style puts white ink on a flat --accent background", () => {
+    const sources: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(join(process.cwd(), dir), { withFileTypes: true })) {
+        if (e.name === "node_modules" || e.name.startsWith(".")) continue;
+        const rel = `${dir}/${e.name}`;
+        if (e.isDirectory()) walk(rel);
+        else if (e.name.endsWith(".tsx")) sources.push(rel);
+      }
+    };
+    walk("app");
+    walk("components");
+    expect(sources.length, "no components found to scan").toBeGreaterThan(20);
+
+    const offenders: string[] = [];
+    let objectsScanned = 0;
+
+    for (const file of sources) {
+      const src = readFileSync(join(process.cwd(), file), "utf8");
+      // Each `style={{ ... }}` object, and each standalone style const.
+      for (const block of src.split(/style=\{\{|style:\s*\{/).slice(1)) {
+        const obj = block.slice(0, block.indexOf("}"));
+        if (!obj.trim()) continue;
+        objectsScanned++;
+        // The closing paren must follow, or --accent-grad and --accent-soft
+        // match too — the same trap the CSS scan documents.
+        if (!/background(?:Color)?:\s*["'`]var\(--accent\)["'`]/.test(obj)) continue;
+        if (/color:\s*["'`](#fff\b|#ffffff\b|white\b|var\(--on-accent\))["'`]/i.test(obj)) {
+          offenders.push(`${file}: ${obj.replace(/\s+/g, " ").trim().slice(0, 70)}`);
+        }
+      }
+    }
+
+    expect(objectsScanned, "no inline style objects were scanned").toBeGreaterThan(20);
+    expect(offenders, "white ink on flat --accent in an inline style").toEqual([]);
   });
 
   it("still measures something rather than passing on an empty set", () => {

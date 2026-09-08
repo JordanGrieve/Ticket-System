@@ -26,6 +26,23 @@
   /* The one colour that is not a palette token: text sitting on the accent
      gradient, which is white in every theme. */
   --on-accent: #ffffff;
+  /*
+    ── AAA INK FOR THE CONSOLE'S OWN GROUNDS ──
+    The console is dark in every theme and paints its cards as a 5% white
+    wash over the shell, which is a darker ground than any palette's
+    --surface. The shared muted tokens clear 7:1 on the page surfaces and
+    measured 6.15:1 here on 8 Sep 2026, so the console lifts them a step
+    further for itself. Scoped to .pba-root: nothing outside the console
+    reads these values.
+  */
+  --muted: #cfcbe0;
+  --muted-2: #d0cbe2;
+  --text-4: #d0cae2;
+  /* The status pills, for the same reason: their washes sit on the console's
+     own darker cards, so the shared inks measured 5.6–6.0:1 here. */
+  --ok-fg: #8de6bb;
+  --warn-fg: #f7d290;
+  --pdf-fg: #ffcad4;
 
   min-height: 100dvh;
   background: var(--surface-2);
@@ -87,7 +104,7 @@
 
 .pba-brand-name {
   display: block;
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--on-accent);
@@ -96,7 +113,7 @@
 
 .pba-brand-sub {
   display: block;
-  font-size: 10.5px;
+  font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -123,7 +140,7 @@
   align-items: center;
   gap: 11px;
   padding: 0 12px;
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   font-weight: 600;
   color: var(--text-4);
   background: transparent;
@@ -159,7 +176,7 @@
 }
 
 .pba-count {
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   min-width: 22px;
   height: 20px;
@@ -190,7 +207,7 @@
 }
 
 .pba-whoami-label {
-  font-size: 10px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -198,7 +215,7 @@
 }
 
 .pba-whoami-email {
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 600;
   color: var(--text-2);
   margin-top: 4px;
@@ -220,9 +237,9 @@
 .pba-signout {
   margin-top: 5px;
   margin-inline: -6px;
-  min-height: 24px;
+  min-height: var(--tap-min, 24px);
   padding: 0 6px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--accent-text);
   background: transparent;
@@ -257,14 +274,14 @@
 }
 
 .pba-htitle {
-  font-size: 17px;
+  font-size: 1.0625rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   margin: 0;
 }
 
 .pba-hsub {
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   color: var(--muted-2);
   margin: 2px 0 0;
 }
@@ -296,7 +313,7 @@
   border: 1px solid var(--border);
   background: var(--surface-3);
   color: var(--text);
-  font-size: 13px;
+  font-size: 0.8125rem;
   padding: 0 12px 0 34px;
 }
 
@@ -309,7 +326,7 @@
   border: 1px solid var(--border);
   background: var(--surface-3);
   color: var(--text-2);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
@@ -365,14 +382,14 @@
 .pba-linkbtn {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
+  min-height: var(--tap-min, 24px);
   background: transparent;
   border: none;
   padding: 0 6px;
   margin-inline: -6px;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--accent-text);
 }
@@ -423,7 +440,7 @@
 }
 
 .pba-kpi-label {
-  font-size: 10.5px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -431,7 +448,7 @@
 }
 
 .pba-kpi-value {
-  font-size: 26px;
+  font-size: 1.625rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   margin-top: 8px;
@@ -439,7 +456,7 @@
 }
 
 .pba-kpi-note {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   color: var(--muted-2);
   margin-top: 5px;
 }
@@ -460,7 +477,7 @@
   border: 1px solid var(--border);
   background: var(--surface-3);
   color: var(--text-4);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -530,7 +547,7 @@
 }
 
 .pba-card-title {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 800;
   margin: 0;
 }
@@ -542,7 +559,7 @@
    this makes the console's two explanatory styles agree instead of adding a
    third value. */
 .pba-card-sub {
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   color: var(--muted);
   margin: 3px 0 0;
   line-height: 1.55;
@@ -590,7 +607,7 @@
 }
 
 .pba-th {
-  font-size: 10.5px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -635,34 +652,34 @@
 }
 
 .pba-td {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--text-2);
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 .pba-cell-main {
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   font-weight: 700;
   color: var(--text);
 }
 
 .pba-cell-sub {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   color: var(--muted-2);
   margin-top: 2px;
   overflow-wrap: anywhere;
 }
 
 .pba-num {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
   color: var(--text);
 }
 
 .pba-mono {
   font-family: var(--font-spline-mono), ui-monospace, monospace;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
 }
 
 /* ── Pills ────────────────────────────────────────────────────────────── */
@@ -674,7 +691,7 @@
   height: 24px;
   padding: 0 10px;
   border-radius: 20px;
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -727,20 +744,20 @@
   border-radius: 20px;
   background: var(--warn-bg);
   color: var(--warn-fg);
-  font-size: 10.5px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 
 .pba-empty-title {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 800;
   margin: 12px 0 0;
 }
 
 .pba-empty-text {
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.65;
   color: var(--muted-2);
   margin: 7px auto 0;
@@ -758,7 +775,7 @@
 }
 
 .pba-empty-list li {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 700;
   color: var(--muted);
   background: var(--surface-2);
@@ -779,7 +796,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 0;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--text-2);
 }
 
@@ -793,13 +810,13 @@
 }
 
 .pba-list-name {
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   font-weight: 700;
   color: var(--text);
 }
 
 .pba-list-sub {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   color: var(--muted-2);
   margin-top: 2px;
   overflow-wrap: anywhere;
@@ -808,7 +825,7 @@
 /* ── Drawer internals ─────────────────────────────────────────────────── */
 
 .pba-drawer-name {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   margin: 0;
@@ -826,7 +843,7 @@
 }
 
 .pba-dt {
-  font-size: 10px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -834,7 +851,7 @@
 }
 
 .pba-dd {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--text-2);
   margin: 4px 0 0;
   overflow-wrap: anywhere;
@@ -854,13 +871,13 @@
 }
 
 .pba-tile-value {
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
 
 .pba-tile-label {
-  font-size: 10.5px;
+  font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -889,7 +906,7 @@
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
-  font-size: 13px;
+  font-size: 0.8125rem;
   padding: 0 12px;
   min-width: 0;
 }
@@ -909,7 +926,7 @@
   border-radius: 16px;
   border: 1px solid var(--border);
   padding: 12px 16px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.55;
   margin-bottom: 14px;
 }
@@ -935,14 +952,14 @@
 }
 
 .pba-danger-title {
-  font-size: 14.5px;
+  font-size: 0.90625rem;
   font-weight: 800;
   color: var(--pdf-fg);
   margin: 0 0 5px;
 }
 
 .pba-danger-text {
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.65;
   color: var(--text-3);
   margin: 0 0 12px;
@@ -957,7 +974,7 @@
 }
 
 .pba-note {
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.6;
   color: var(--muted);
   margin: 12px 2px 0;
@@ -973,7 +990,7 @@
 .pba-note > a:only-child {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
+  min-height: var(--tap-min, 24px);
   padding-inline: 6px;
   margin-inline: -6px;
   border-radius: 8px;

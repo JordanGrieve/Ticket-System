@@ -26,7 +26,7 @@ export default function LegalLayout({
           href="/"
           style={{ display: "inline-flex", alignItems: "center", gap: 10 }}
         >
-          <PostboxLockup size={30} fontSize={18} color="var(--ink)" />
+          <PostboxLockup size={30} fontSize="1.125rem" color="var(--ink)" />
         </Link>
       </header>
       <main
@@ -35,7 +35,7 @@ export default function LegalLayout({
           maxWidth: 720,
           margin: "0 auto",
           padding: "28px 24px 72px",
-          fontSize: 14.5,
+          fontSize: "0.90625rem",
           lineHeight: 1.7,
         }}
       >

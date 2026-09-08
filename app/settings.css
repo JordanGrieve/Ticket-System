@@ -33,7 +33,7 @@
 
 .st-title {
   margin: 0 0 6px;
-  font-size: 21px;
+  font-size: 1.3125rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--text);
@@ -42,7 +42,7 @@
 .st-sub {
   margin: 0;
   max-width: 62ch;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.65;
   color: var(--muted-2);
 }
@@ -55,7 +55,7 @@
 }
 
 .st-saved {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--ok-fg);
 }
@@ -67,7 +67,7 @@
   border-radius: 13px;
   background: var(--accent-grad);
   color: var(--pbm-on-dark, #fff);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 8px 18px -8px var(--glow);
@@ -88,7 +88,7 @@
   border-radius: 12px;
   background: var(--pdf-bg);
   color: var(--pdf-fg);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 600;
 }
 
@@ -99,7 +99,7 @@
   border-radius: 12px;
   background: var(--accent-soft);
   color: var(--text-3);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.6;
 }
 
@@ -131,14 +131,14 @@
 
 .st-card-title {
   margin: 0;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 800;
   color: var(--text);
 }
 
 .st-card-sub {
   margin: 5px 0 0;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.6;
   color: var(--muted-2);
 }
@@ -201,21 +201,21 @@
 .st-label {
   display: block;
   padding: 0;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   color: var(--text-3);
 }
 
 .st-label-sm {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 700;
   color: var(--muted-2);
 }
 
 .st-optional {
   margin-left: 6px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
@@ -229,7 +229,7 @@
   border-radius: 12px;
   background: var(--surface);
   color: var(--text);
-  font-size: 13px;
+  font-size: 0.8125rem;
   padding: 10px 12px;
 }
 
@@ -252,7 +252,7 @@
 
 .st-help {
   margin: 0;
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.6;
   color: var(--muted-2);
 }
@@ -270,7 +270,7 @@
   border: 0;
   background: none;
   padding: 0;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--accent-text);
   cursor: pointer;
@@ -304,7 +304,7 @@
   border-radius: 12px;
   background: var(--surface);
   color: var(--text-3);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   cursor: pointer;
   transition: border-color 0.14s ease, color 0.14s ease;
@@ -332,7 +332,7 @@
 }
 
 .st-seg-tag {
-  font-size: 10px;
+  font-size: 0.6875rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -358,7 +358,7 @@
   border-radius: 11px;
   background: var(--surface);
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -416,7 +416,7 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.6;
   color: var(--text-3);
 }
@@ -447,7 +447,7 @@
 }
 
 .st-tokens-label {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--muted-2);
 }
@@ -459,7 +459,7 @@
   border-radius: 999px;
   background: var(--accent-soft);
   color: var(--accent-text);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   font-family: var(--font-mono, ui-monospace, monospace);
   cursor: pointer;
@@ -517,7 +517,7 @@
 .st-email-row {
   display: flex;
   gap: 10px;
-  font-size: 12px;
+  font-size: 0.75rem;
   min-width: 0;
 }
 
@@ -540,7 +540,7 @@
 
 .st-email-body {
   padding: 18px 16px;
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   line-height: 1.7;
   color: var(--text-2);
   /* The customer receives plain text — render the newlines they'll see. */
@@ -553,7 +553,7 @@
   margin: 0;
   padding: 11px 16px 14px;
   border-top: 1px solid var(--border-soft);
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   line-height: 1.6;
   color: var(--muted);
 }
@@ -561,7 +561,7 @@
 .st-email-foot code,
 .st-list code {
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: 0.6875rem;
   background: var(--surface-3);
   border-radius: 5px;
   padding: 1px 5px;
@@ -579,7 +579,7 @@
   display: flex;
   justify-content: space-between;
   gap: 14px;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
 }
 
 .st-summary-row dt {
@@ -601,7 +601,7 @@
   display: flex;
   flex-direction: column;
   gap: 7px;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.6;
   color: var(--muted-2);
 }
@@ -662,7 +662,7 @@
 .pbs-tab {
   padding: 8px 14px;
   border-radius: 11px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: var(--text-4);
   text-decoration: none;
@@ -741,7 +741,7 @@
 
 .stg-title {
   margin: 0 0 6px;
-  font-size: 21px;
+  font-size: 1.3125rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--text);
@@ -750,7 +750,7 @@
 .stg-sub {
   margin: 0;
   max-width: 62ch;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.65;
   color: var(--muted-2);
 }
@@ -769,14 +769,14 @@
 
 .stg-section-title {
   margin: 0;
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   font-weight: 800;
   color: var(--text);
 }
 
 .stg-section-sub {
   margin: -4px 0 0;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.55;
   color: var(--muted-2);
@@ -789,7 +789,7 @@
   border-radius: 12px;
   background: var(--pdf-bg);
   color: var(--pdf-fg);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 600;
 }
 
@@ -902,13 +902,13 @@
 }
 
 .stg-theme-label {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 800;
   color: var(--text);
 }
 
 .stg-theme-note {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 600;
   color: var(--muted-2);
 }
@@ -922,7 +922,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   color: transparent;
   background: transparent;
@@ -960,7 +960,7 @@
 
 .stg-row-label {
   flex: 0 0 auto;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: var(--text-2);
 }
@@ -980,7 +980,7 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 600;
   color: var(--text-3);
   overflow-wrap: anywhere;
@@ -992,7 +992,7 @@
 
 .stg-row-mono {
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .stg-row-link {
@@ -1001,7 +1001,7 @@
   border-radius: 11px;
   background: var(--surface-3);
   border: 1px solid var(--border);
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 700;
   color: var(--text-2);
   text-decoration: none;
@@ -1031,7 +1031,7 @@
 .stg-unbuilt-note {
   min-width: 0;
   max-width: 46ch;
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 600;
   line-height: 1.5;
   color: var(--muted);
@@ -1076,7 +1076,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
 }
 
@@ -1101,13 +1101,13 @@
 }
 
 .stg-int-name {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 800;
   color: var(--text);
 }
 
 .stg-int-note {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 600;
   line-height: 1.5;
   color: var(--muted-2);
@@ -1119,7 +1119,7 @@
   border-radius: 12px;
   background: var(--surface-3);
   border: 1px solid var(--border);
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 700;
   color: var(--text-3);
   text-decoration: none;
@@ -1136,7 +1136,7 @@
 
 .stg-state {
   flex: 0 0 auto;
-  font-size: 10px;
+  font-size: 0.6875rem;
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 7px;
@@ -1234,7 +1234,7 @@
 
 .stc-title {
   margin: 0 0 6px;
-  font-size: 21px;
+  font-size: 1.3125rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--text);
@@ -1243,7 +1243,7 @@
 .stc-sub {
   margin: 0;
   max-width: 62ch;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.65;
   color: var(--muted-2);
 }
@@ -1280,7 +1280,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 800;
 }
 
@@ -1304,14 +1304,14 @@
 }
 
 .stc-name {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
   line-height: 1.35;
   color: var(--text);
 }
 
 .stc-email {
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 600;
   line-height: 1.4;
   color: var(--muted-2);
@@ -1330,7 +1330,7 @@
   border-radius: 999px;
   background: var(--accent-soft);
   color: var(--accent-text);
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 800;
   white-space: nowrap;
 }
@@ -1339,7 +1339,7 @@
   flex: 0 0 auto;
   min-width: 56px;
   text-align: right;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted);
   white-space: nowrap;
@@ -1352,7 +1352,7 @@
   border-radius: 18px;
   background: var(--surface-2);
   text-align: center;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.6;
   color: var(--muted-2);
 }
@@ -1380,9 +1380,26 @@
     flex-wrap: wrap;
   }
   .stc-meta {
-    flex-basis: 100%;
+    /*
+      ── THE INDENT HAS TO COME OUT OF THE WIDTH ──
+
+      `flex-basis: 100%` with `margin-left: 45px` is 100% of the line PLUS the
+      indent: a margin sits outside the box, box-sizing does not cover it, and
+      `flex: 0 0 100%` leaves no shrink to absorb it. So the row overflowed by
+      exactly the indent — measured 7 Sep 2026 at 392px against a 375px
+      viewport, carrying the ticket count and the first-seen date off the edge
+      and under .pb-shell's overflow:hidden.
+
+      This is the SAME defect fixed in .psb-meta on 6 Sep, and it survived here
+      for one reason: /settings/contacts had no harness, so nothing had ever
+      rendered this row. It is the argument for the file this was found by.
+
+      One custom property, so the width and the indent cannot drift apart.
+    */
+    --stc-meta-indent: 45px;
+    flex-basis: calc(100% - var(--stc-meta-indent, 45px));
     justify-content: flex-start;
-    margin-left: 45px;
+    margin-left: var(--stc-meta-indent, 45px);
   }
   .stc-seen {
     min-width: 0;
@@ -1421,7 +1438,7 @@
 
 .sti-title {
   margin: 0;
-  font-size: 24px;
+  font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: -0.015em;
   color: var(--text);
@@ -1429,7 +1446,7 @@
 
 .sti-sub {
   margin: 6px 0 0;
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.6;
   color: var(--muted-2);
 }
@@ -1451,27 +1468,27 @@
 
 .sti-section-title {
   margin: 0 0 14px;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 800;
   color: var(--text);
 }
 
 .sti-help {
   margin: 0 0 12px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.6;
   color: var(--muted-2);
 }
 
 .sti-help--tight {
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   margin: 0 0 8px;
 }
 
 /* A subhead inside a section — "Paste this form" / "Or link to it". */
 .sti-sub-title {
   margin: 0 0 6px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1499,7 +1516,7 @@
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text-3);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   cursor: pointer;
   transition: border-color 0.14s ease, color 0.14s ease;
@@ -1541,7 +1558,7 @@
   padding: 16px 18px;
   overflow-x: auto;
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.7;
   color: var(--nav-badge-fg);
   white-space: pre;
@@ -1566,7 +1583,7 @@
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 10px;
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1591,7 +1608,7 @@
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   line-height: 1.55;
   color: var(--text-3);
 }
@@ -1606,7 +1623,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 800;
 }
 
@@ -1619,7 +1636,7 @@
 /* ── settings block ─────────────────────────────────────────── */
 
 .sti-label {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1644,12 +1661,12 @@
 .sti-danger {
   margin-top: 4px;
   margin-inline: -6px;
-  min-height: 24px;
+  min-height: var(--tap-min, 24px);
   background: none;
   border: 0;
   padding: 0 6px;
   border-radius: 8px;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   color: var(--pdf-fg);
   cursor: pointer;
@@ -1672,7 +1689,7 @@
   border-radius: 9px;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: var(--text-2);
   text-decoration: none;
@@ -1689,7 +1706,7 @@
 
 .sti-inline-code {
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 12px;
+  font-size: 0.75rem;
   background: var(--tag-c-bg);
   color: var(--tag-c-fg);
   padding: 1px 5px;
@@ -1708,8 +1725,36 @@
   .sti-field {
     flex-wrap: wrap;
   }
+  /*
+    ── THE VALUE WRAPS ON A PHONE INSTEAD OF BEING CUT OFF ──
+
+    The desktop rule is one nowrap line with an ellipsis, which at 375px hid
+    30 of the 40 characters of
+
+        "Open Door Bakery" <replies@postbox.help>
+
+    Measured 7 Sep 2026: content ran to 372px inside a box ending at 302px.
+
+    The three things that looked like mitigations are not. `title` does not
+    open on touch, and this screen's whole audience on a phone is touch. The
+    copy button hands you the value but never shows it — you cannot check the
+    address you are about to paste. And the text being complete in the DOM
+    answers a screen reader, not the sighted reader who is the one squinting
+    at a truncated address.
+
+    It is the sending identity: the one string on this page a user has to be
+    able to READ, to confirm it is the address their customers will see. Two
+    lines is the cost, and the fixed height goes with the nowrap since a
+    wrapped value needs to be able to grow — which also keeps it legible when
+    a reader's own font-size setting enlarges it.
+  */
   .sti-field-value {
     flex-basis: 100%;
+    height: auto;
+    min-height: 42px;
+    padding: 9px 14px;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 
@@ -1748,7 +1793,7 @@
   border: 1px solid var(--warn-fg);
   border-radius: 10px;
   color: var(--warn-fg);
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   line-height: 1.6;
   margin: 0 0 18px;
   /*
@@ -1773,7 +1818,7 @@
 .stg-field-label {
   color: var(--text-2);
   display: block;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   margin: 0 0 6px;
 }
@@ -1785,7 +1830,7 @@
   color: var(--text);
   display: block;
   font: inherit;
-  font-size: 14.5px;
+  font-size: 0.90625rem;
   padding: 10px 12px;
   width: 100%;
   /* Border and padding otherwise push the field past its container on a
@@ -1818,7 +1863,7 @@
 .stg-field-hint {
   color: var(--muted-2);
   display: block;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.55;
   margin: 6px 0 0;
 }
@@ -1837,7 +1882,7 @@
   color: var(--accent-text);
   cursor: pointer;
   font: inherit;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   padding: 9px 18px;
   transition: box-shadow 140ms ease;
@@ -1859,13 +1904,13 @@
 
 .stg-identity-ok {
   color: var(--ok-fg);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
 }
 
 .stg-identity-error {
   color: var(--warn-fg);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1883,7 +1928,7 @@
   border: 1px solid var(--tag-c-fg);
   border-radius: 10px;
   color: var(--tag-c-fg);
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   line-height: 1.6;
   margin: 0 0 18px;
   padding: 12px 14px;
@@ -1956,7 +2001,7 @@
   color: var(--muted);
   cursor: pointer;
   font: inherit;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   padding: 5px 12px;
   transition: color 140ms ease, border-color 140ms ease;
 }
@@ -2006,7 +2051,7 @@
 }
 
 .stg-al-tile-value {
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--text);
@@ -2014,7 +2059,7 @@
 
 .stg-al-tile-label {
   margin-top: 2px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.4;
   color: var(--muted-2);
@@ -2055,14 +2100,14 @@
 }
 
 .stg-al-who-email {
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   font-weight: 700;
   color: var(--text);
   overflow-wrap: anywhere;
 }
 
 .stg-al-who-note {
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 600;
   color: var(--muted-2);
 }
@@ -2071,7 +2116,7 @@
   flex: 0 0 auto;
   border-radius: 999px;
   padding: 4px 11px;
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 700;
   line-height: 1.35;
   border: 1px solid transparent;
@@ -2126,7 +2171,7 @@
 
 .stg-al-key {
   margin: 0;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -2135,7 +2180,7 @@
 
 .stg-al-val {
   margin: 2px 0 0;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.5;
   color: var(--text-2);
@@ -2148,7 +2193,7 @@
 .stg-al-sub {
   display: block;
   margin-top: 2px;
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 500;
   color: var(--muted-2);
 }
@@ -2198,7 +2243,7 @@
 
 .stg-al-none-lead {
   margin: 0;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 800;
   color: var(--text);
 }
@@ -2206,7 +2251,7 @@
 .stg-al-none-body {
   margin: 6px 0 0;
   max-width: 62ch;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.65;
   color: var(--text-3);
 }
@@ -2219,7 +2264,7 @@
 .stg-al-note {
   margin: 0;
   max-width: 68ch;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.7;
   color: var(--muted-2);
 }
@@ -2280,31 +2325,31 @@
 }
 
 .stb-plan-name {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
 .stb-plan-price {
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
 
 .stb-plan-per {
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 500;
   color: var(--muted-2);
 }
 
 .stb-plan-tag {
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.5;
   color: var(--text-4);
   margin-bottom: 8px;
 }
 
 .stb-plan-cta {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: var(--accent-text);
 }
@@ -2385,7 +2430,7 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   background: #ffffff;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -2396,7 +2441,7 @@
   background: transparent;
   color: var(--muted-2);
   font: inherit;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   border-radius: 8px;
   padding: 6px 12px;
   cursor: pointer;
@@ -2424,7 +2469,7 @@
 .sti-confirm-q {
   margin: 0 0 12px;
   color: var(--warn-fg);
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   line-height: 1.6;
 }
 .sti-confirm-q b {
@@ -2440,7 +2485,7 @@
   background: var(--surface);
   color: var(--text-2);
   font: inherit;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   border-radius: 9px;
   padding: 7px 14px;
@@ -2475,6 +2520,6 @@
   border-radius: 10px;
   background: var(--pdf-bg);
   color: var(--pdf-fg);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.55;
 }

@@ -14,6 +14,8 @@ import {
   toMailRow,
   viewerAgentId,
 } from "../queries";
+import { archiveTicketAction } from "../tickets/[id]/snooze-actions";
+import { trashTicketAction } from "../tickets/[id]/trash-actions";
 
 /**
  * Desktop shows the list beside a "pick a thread" placeholder; the phone shows
@@ -69,6 +71,17 @@ export default async function InboxPage({
         total={total}
         labelId={labelId}
         canPersonalise={agentId !== null}
+        /*
+          Swipe-to-archive/delete on a phone, on the Open folder only. Both
+          actions are the thread header's own and both redirect back here.
+          Archiving from Archived, or deleting from Trash, is the wrong verb,
+          so the other folders get no actions and therefore no swipe.
+        */
+        swipeActions={
+          folder === "inbox"
+            ? { archive: archiveTicketAction, trash: trashTicketAction }
+            : undefined
+        }
       />
       {/*
         The empty thread pane is the only screen space genuinely doing nothing:

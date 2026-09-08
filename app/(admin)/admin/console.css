@@ -80,7 +80,7 @@
 /* The header row of a diagnostic table. Reads as a heading, not as data. */
 .pba-root .pba-row-head {
   font-weight: 700;
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--muted-2);
@@ -110,7 +110,7 @@
   margin: 0 18px 14px;
   padding: 11px 14px;
   border-radius: 12px;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   line-height: 1.6;
   border: 1px solid var(--border);
   background: var(--surface-2);

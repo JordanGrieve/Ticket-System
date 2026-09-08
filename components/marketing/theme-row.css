@@ -114,7 +114,7 @@
 
 .pthemes-label {
   margin: 9px 0 0;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   /* Outside the swatch, so it takes the PAGE's theme, not the swatch's. A
      label painted in the swatch's palette would be unreadable for whichever

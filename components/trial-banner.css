@@ -94,7 +94,7 @@
   padding: 8px 44px 8px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   line-height: 1.45;
   color: var(--text-3);
 }
@@ -109,14 +109,14 @@
 
 .pbt-reassure {
   color: var(--muted-2);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
 }
 
 .pbt-cta {
   flex: none;
   padding: 6px 14px;
   border-radius: 9px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   /* --accent-grad, not --accent: white on the flat accent is 3.20:1 in forest
      and 3.01:1 in slate, under AA. See the note on .pbo-go in onboarding.css. */
@@ -168,7 +168,7 @@
   border-radius: 7px;
   background: transparent;
   color: var(--muted-2);
-  font-size: 17px;
+  font-size: 1.0625rem;
   line-height: 1;
   cursor: pointer;
 }

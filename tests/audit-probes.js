@@ -29,6 +29,46 @@ function inSkeleton(el) {
   return !!(el.closest && el.closest('[aria-busy="true"], .pbk'));
 }
 
+/**
+ * Is this inside a CLOSED off-canvas panel?
+ *
+ * The mobile navigation drawer is `position: fixed` with
+ * `transform: translateX(-300px)` and `data-open="false"` — parked entirely
+ * off the left edge until somebody opens it. Every one of its fifty-odd
+ * descendants therefore sits outside the viewport, and __overflow reported all
+ * of them the first time MailNav was ever rendered (7 Sep 2026).
+ *
+ * None of it is a reflow failure. 1.4.10 is about content that REQUIRES
+ * horizontal scrolling, and the document scrollWidth was exactly the viewport
+ * width — a closed drawer causes no scrolling at all, which is the entire
+ * point of parking it there.
+ *
+ * Deliberately narrow, because the easy version of this exclusion would hide
+ * real findings. All three must hold: the ancestor is taken out of flow with
+ * `position: fixed` or `absolute`, it is *entirely* outside the viewport
+ * rather than merely poking over the edge, and it is MARKED closed. An element
+ * half off the screen, or one with no closed marker, is still reported.
+ *
+ * The panel's contrast and target sizes are still measured — those matter for
+ * when it opens, and it is `visibility: visible` throughout.
+ */
+function offCanvasClosed(el, vw) {
+  for (let a = el; a && a !== document.body; a = a.parentElement) {
+    const cs = getComputedStyle(a);
+    if (cs.position !== "fixed" && cs.position !== "absolute") continue;
+    const r = a.getBoundingClientRect();
+    const fullyOut = r.right <= 0 || r.left >= vw;
+    if (!fullyOut) continue;
+    const closed =
+      a.getAttribute("data-open") === "false" ||
+      a.getAttribute("aria-hidden") === "true" ||
+      a.hasAttribute("inert") ||
+      a.getAttribute("aria-expanded") === "false";
+    if (closed) return true;
+  }
+  return false;
+}
+
 window.__overflow = function () {
   const vw = document.documentElement.clientWidth;
   const clipped = [];
@@ -38,6 +78,7 @@ window.__overflow = function () {
     const r = el.getBoundingClientRect();
     if (r.width === 0) return;
     if (r.right <= vw + 1 && r.left >= -1) return;
+    if (offCanvasClosed(el, vw)) return;
     let a = el.parentElement;
     let verdict = "loose";
     while (a && a !== document.body) {
@@ -175,7 +216,37 @@ const ground = (el, forFg) => {
   return base;
 };
 
-window.__contrast = function () {
+/**
+ * Is this text part of an INACTIVE user interface component?
+ *
+ * 1.4.3 exempts those outright, and the product leans on it: a Save button
+ * stays disabled until a field changes, dimmed to 0.5 opacity, which measures
+ * about 2.1:1 and is correct.
+ *
+ * Exempt findings are RETURNED rather than dropped, on the same principle that
+ * keeps skeletons visible to __ready: an exemption applied silently is
+ * indistinguishable from a probe that stopped looking. The caller filters;
+ * the probe reports what it decided and why.
+ *
+ * Deliberately narrow. `disabled` is a real DOM property on real controls and
+ * aria-disabled is its ARIA equivalent; a merely greyed-out div that is still
+ * clickable is NOT inactive and stays a failure.
+ */
+function inactive(el) {
+  const ctl = el.closest("button,input,select,textarea,fieldset,option,[aria-disabled='true']");
+  if (!ctl) return false;
+  return ctl.disabled === true || ctl.getAttribute("aria-disabled") === "true";
+}
+
+/**
+ * 1.4.3 by default; pass "AAA" for 1.4.6, which asks 7:1 for normal text and
+ * 4.5:1 for large. Same measurement, higher bar — so a AAA run reports the
+ * AA failures too, and an element that fails only AAA is one that passes AA.
+ */
+window.__contrast = function (level) {
+  const aaa = level === "AAA";
+  const normalNeed = aaa ? 7 : 4.5;
+  const largeNeed = aaa ? 4.5 : 3;
   const out = [];
   document.querySelectorAll("*").forEach((el) => {
     if (inSkeleton(el)) return;
@@ -221,7 +292,7 @@ window.__contrast = function () {
       if (stops.length === 0) throw new Error("gradient text with no readable stops: " + cs.backgroundImage);
       const px2 = parseFloat(cs.fontSize);
       const bold2 = parseInt(cs.fontWeight, 10) >= 700;
-      const need2 = px2 >= 24 || (px2 >= 18.66 && bold2) ? 3 : 4.5;
+      const need2 = px2 >= 24 || (px2 >= 18.66 && bold2) ? largeNeed : normalNeed;
       let worst = Infinity;
       for (const stop of stops) worst = Math.min(worst, ratio(over(stop, bgForText), bgForText));
       if (worst < need2) {
@@ -232,6 +303,7 @@ window.__contrast = function () {
           got: Math.round(worst * 100) / 100,
           need: need2,
           note: "gradient text, worst stop",
+          exempt: inactive(el) ? "inactive control (1.4.3)" : null,
         });
       }
       return;
@@ -248,7 +320,7 @@ window.__contrast = function () {
     const px = parseFloat(cs.fontSize);
     const bold = parseInt(cs.fontWeight, 10) >= 700;
     const large = px >= 24 || (px >= 18.66 && bold);
-    const need = large ? 3 : 4.5;
+    const need = large ? largeNeed : normalNeed;
     const got = ratio(fg, bg);
     if (got < need) {
       out.push({
@@ -257,6 +329,7 @@ window.__contrast = function () {
         px: Math.round(px * 10) / 10,
         got: Math.round(got * 100) / 100,
         need,
+        exempt: inactive(el) ? "inactive control (1.4.3)" : null,
       });
     }
   });
@@ -264,7 +337,13 @@ window.__contrast = function () {
 };
 
 /** WCAG 2.2 2.5.8, including the 24px spacing exception. */
-window.__targets = function () {
+/**
+ * 2.5.8 at 24px by default. Pass 44 for 2.5.5 (AAA), which has NO spacing
+ * exception — so at that level read `failing` and `exemptButSmall` together;
+ * the second is what the AA exception would have let through.
+ */
+window.__targets = function (min) {
+  const MIN = min || 24;
   const sel =
     'a,button,input:not([type="hidden"]),select,textarea,summary,[role="button"],[tabindex]:not([tabindex="-1"])';
   const els = [...document.querySelectorAll(sel)].filter((e) => {
@@ -329,7 +408,7 @@ window.__targets = function () {
     return el === t.e || t.e.contains(el) || (el && el.contains(t.e));
   };
   const effectively24 = (t) => {
-    const r = 11.5; // just inside a 24px box, to stay off the boundary
+    const r = MIN / 2 - 0.5; // just inside the box, to stay off the boundary
     return [
       [0, 0], [-r, -r], [r, -r], [-r, r], [r, r], [-r, 0], [r, 0], [0, -r], [0, r],
     ].every(([dx, dy]) => hitsAt(t, dx, dy));
@@ -337,8 +416,8 @@ window.__targets = function () {
 
   const small = [];
   for (const t of c) {
-    if (t.r.width >= 24 && t.r.height >= 24) continue;
-    // Small box, but the pointer still lands on it across a 24px square.
+    if (t.r.width >= MIN && t.r.height >= MIN) continue;
+    // Small box, but the pointer still lands on it across the whole square.
     if (effectively24(t)) continue;
     // The exception is measured as a 24px circle on each centre: if no other
     // target's centre falls inside it, the small target still passes.
@@ -346,7 +425,7 @@ window.__targets = function () {
     for (const o of c) {
       if (o === t) continue;
       const d = Math.hypot(o.cx - t.cx, o.cy - t.cy);
-      if (d < 24) { near = Math.round(d); break; }
+      if (d < MIN) { near = Math.round(d); break; }
     }
     small.push({
       cls: (t.e.className || t.e.tagName).toString().slice(0, 34),
@@ -381,8 +460,17 @@ window.__targets = function () {
  */
 window.__flexSentences = function () {
   const out = [];
+  const vw = document.documentElement.clientWidth;
   document.querySelectorAll("*").forEach((el) => {
     if (inSkeleton(el)) return;
+    /*
+      Same closed-drawer exclusion as __overflow, and for a sharper reason:
+      inside a translated subtree a Range's rect does not always carry the
+      transform, so the nav avatar measured boxRight -242 against contentRight
+      0 and was reported as a sentence overflowing by 242px. It is one letter
+      in a circle. The reading was of the transform, not of the layout.
+    */
+    if (offCanvasClosed(el, vw)) return;
     const cs = getComputedStyle(el);
     if (cs.display !== "flex" && cs.display !== "inline-flex") return;
     if (cs.flexWrap !== "nowrap") return;
@@ -488,7 +576,24 @@ window.__selftest = function () {
   const sawFlexSentence = window.__flexSentences().length > 0;
   row.remove();
 
-  return { sawOverflow, sawContrast, sawTarget, sawFlexSentence };
+  /*
+    A paragraph sized in px — the regression __textZoom exists to catch now
+    that the product is entirely in rem.
+
+    Worth its own case because this probe spent its whole life unable to
+    report the very thing it was named for: it doubled every element inline,
+    so a stylesheet full of px produced a clean 200% reading. A guard that
+    could not fail is worse than no guard, so this one is made to fail here
+    before any page is called clean by it.
+  */
+  const stuck = document.createElement("p");
+  stuck.style.cssText = "font-size:13px";
+  stuck.textContent = "sized in px and cannot be enlarged";
+  host.appendChild(stuck);
+  const sawUnscaled = window.__textZoom().unscaled.length > 0;
+  stuck.remove();
+
+  return { sawOverflow, sawContrast, sawTarget, sawFlexSentence, sawUnscaled };
 };
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -792,24 +897,75 @@ window.__ready = async function (timeoutMs) {
  * different: not a page that scrolls sideways, but a box with a fixed height
  * that swallows its own text once the text grows.
  *
- * Doubling the root font-size is not enough on its own — anything with a
- * font-size in px ignores the root, and would pass this check while failing a
- * real reader — so px-sized elements are doubled explicitly and put back.
+ * ── THIS PROBE USED TO SIMULATE THE THING IT WAS MEANT TO MEASURE ──
+ *
+ * It doubled the root AND then set every element's font-size inline to twice
+ * its computed px, "because anything sized in px ignores the root". That was
+ * a true statement about the stylesheets at the time and exactly the wrong
+ * response to it: the workaround made a product whose text did not respond to
+ * the root at all produce a full, clean 200% reading. The probe reported on a
+ * page that could not happen.
+ *
+ * On 7 Sep 2026 every font-size in the product became rem, so the root is now
+ * the only lever needed. The simulation is gone, and the px case it was
+ * papering over is REPORTED instead: `unscaled` lists text that ignored the
+ * doubling, which is what a regression back to px looks like from here.
  */
 window.__textZoom = function () {
-  const style = document.createElement("style");
-  style.textContent = "html { font-size: 200% !important; }";
-  document.head.appendChild(style);
-
-  const touched = [];
+  const before = new Map();
   document.querySelectorAll("*").forEach((el) => {
     if (inSkeleton(el)) return;
     const px = parseFloat(getComputedStyle(el).fontSize);
-    if (!px) return;
-    touched.push([el, el.style.fontSize]);
-    el.style.fontSize = px * 2 + "px";
+    if (px) before.set(el, px);
   });
+
+  const style = document.createElement("style");
+  style.textContent = "html { font-size: 200% !important; }";
+  document.head.appendChild(style);
   void document.body.offsetHeight;
+
+  /*
+    Text that did not move when the root did is text a reader cannot enlarge.
+
+    ── WHY THE BAR IS 1.1x AND NOT 2x ──
+    The first version asked for 1.5x and reported the homepage h1, which is
+    `clamp(2.375rem, 6.4vw, 4rem)`. At 1440px that clamp lands on its vw term
+    once the root doubles, so it goes 64px -> 92.16px: a 1.44x rise, correctly
+    bounded by the viewport, and not a defect in any sense.
+
+    Fluid display type is SUPPOSED to stop growing at some point; a heading
+    that reached 128px would be the bug. What 1.4.4 is about is text that
+    cannot be enlarged AT ALL, and that has an unmistakable signature -- a px
+    value ignores the root completely and comes back at exactly 1.0x. 1.1x
+    separates "pinned" from "fluid but capped" without needing to know which
+    rule set the size.
+
+    The ratio is reported either way so a borderline case can be judged rather
+    than trusted to the threshold.
+  */
+  const unscaled = [];
+  for (const [el, was] of before) {
+    const now = parseFloat(getComputedStyle(el).fontSize);
+    if (now > was * 1.1) continue;
+    // display:none still has a computed font-size. Nobody can read it, so
+    // nobody is failed by it — the swipe actions above 768px were reported
+    // this way.
+    const box = el.getBoundingClientRect();
+    if (box.width === 0 && box.height === 0) continue;
+    const own = [...el.childNodes].some(
+      (n) => n.nodeType === 3 && n.textContent.trim().length > 1,
+    );
+    // Only elements holding their own text: a wrapper inherits and would
+    // otherwise be reported once per level of nesting.
+    if (!own) continue;
+    unscaled.push({
+      cls: (el.className || el.tagName).toString().slice(0, 38),
+      text: el.textContent.replace(/\s+/g, " ").trim().slice(0, 40),
+      was,
+      now,
+      grew: Math.round((now / was) * 100) / 100,
+    });
+  }
 
   const clipped = [];
   document.querySelectorAll("*").forEach((el) => {
@@ -833,10 +989,9 @@ window.__textZoom = function () {
     }
   });
 
-  for (const [el, inline] of touched) el.style.fontSize = inline;
   style.remove();
   void document.body.offsetHeight;
-  return clipped;
+  return { clipped, unscaled };
 };
 
 /**

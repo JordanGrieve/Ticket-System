@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <article>
-      <h1 style={{ fontSize: 26, fontWeight: 800, margin: "0 0 4px" }}>
+      <h1 style={{ fontSize: "1.625rem", fontWeight: 800, margin: "0 0 4px" }}>
         Privacy Policy
       </h1>
       <p style={{ color: "var(--muted)", marginTop: 0 }}>
@@ -431,7 +431,7 @@ export default function PrivacyPage() {
 }
 
 const h2: React.CSSProperties = {
-  fontSize: 17,
+  fontSize: "1.0625rem",
   fontWeight: 700,
   margin: "26px 0 6px",
 };

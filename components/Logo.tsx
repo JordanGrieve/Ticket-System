@@ -77,13 +77,19 @@ export function PostboxMark({
 
 export function PostboxLockup({
   size = 34,
-  fontSize = 20,
+  fontSize = "1.25rem",
   colors = TOKEN_COLORS,
   color,
   className,
 }: {
   size?: number;
-  fontSize?: number;
+  /*
+    A CSS length, in rem, so the wordmark follows a reader's font-size
+    setting. `size` above stays a number: it is the SVG mark's width and
+    height, an icon rather than text, and it is paired with a viewBox that
+    would distort if the two axes scaled independently.
+  */
+  fontSize?: string;
   colors?: MarkColors;
   /** Wordmark colour. Inherits from the surrounding text when omitted. */
   color?: string;

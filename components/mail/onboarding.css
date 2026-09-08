@@ -29,7 +29,7 @@
 }
 
 .pbo-title {
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   margin: 0 0 5px;
@@ -37,7 +37,7 @@
 }
 
 .pbo-sub {
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   line-height: 1.5;
   color: var(--text-4);
   margin: 0 0 16px;
@@ -108,7 +108,7 @@
 }
 
 .pbo-step-title {
-  font-size: 14.5px;
+  font-size: 0.90625rem;
   font-weight: 600;
   color: var(--text);
   line-height: 1.35;
@@ -128,7 +128,7 @@
 }
 
 .pbo-detail {
-  font-size: 12.8px;
+  font-size: 0.8rem;
   line-height: 1.55;
   color: var(--text-4);
 }
@@ -151,7 +151,7 @@
   align-self: center;
   padding: 6px 13px;
   border-radius: 9px;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   background: var(--accent-grad);
   color: #fff;
@@ -194,7 +194,7 @@
   border: none;
   background: none;
   font: inherit;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   color: var(--muted);
   cursor: pointer;
   border-radius: 8px;

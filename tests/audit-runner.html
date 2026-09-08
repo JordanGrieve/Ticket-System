@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>audit runner</title>
+    <style>
+      body {
+        font: 13px/1.5 ui-monospace, monospace;
+        margin: 12px;
+      }
+      #frame {
+        border: 1px solid #ccc;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <iframe id="frame" title="surface under audit"></iframe>
+    <script>
+      /*
+       * Runs the probes in tests/audit-probes.js across every harness surface
+       * at a chosen viewport width.
+       *
+       * ── WHY AN IFRAME ──
+       * Two reasons, and neither is convenience.
+       *
+       * 1. WIDTH. Media queries, reflow and elementFromPoint all resolve
+       *    against the iframe's own viewport, so one page load can measure a
+       *    surface at 320, 375 and 1440 without resizing the real window
+       *    between every reading.
+       *
+       * 2. IT IS NOT INJECTION. AGENTS.md forbids replacing innerHTML to loop
+       *    over views, because that produced a false 1.12:1 reading twice. Each
+       *    surface here loads its OWN document from its own URL, untouched, and
+       *    brings its own copy of audit.js with it. The runner never writes
+       *    into the page it measures; it only reads across a same-origin
+       *    boundary.
+       *
+       * The harness pages are static HTML with no React, so there is no
+       * Suspense boundary to commit and nothing to wait for beyond load --
+       * which is what makes the hidden-document skeleton trap inapplicable
+       * here. __ready() still runs inside each frame and reports what it saw.
+       */
+      const frame = document.getElementById("frame");
+
+      function load(url, w, h) {
+        return new Promise((resolve, reject) => {
+          frame.style.width = w + "px";
+          frame.style.height = h + "px";
+          frame.onload = () => resolve(frame.contentWindow);
+          frame.onerror = () => reject(new Error("failed to load " + url));
+          frame.src = url;
+        });
+      }
+
+      /**
+       * One surface, one width. Returns only what FAILED, plus the counts
+       * needed to tell "clean" apart from "measured nothing".
+       */
+      window.__run = async function (url, w, h) {
+        const win = await load(url, w, h || (w < 700 ? 812 : 900));
+        if (typeof win.__audit !== "function") {
+          throw new Error("probes missing on " + url + " -- audit.js did not load");
+        }
+        const doc = win.document;
+
+        /*
+         * The probes are called INDIVIDUALLY rather than through __audit().
+         *
+         * __audit() awaits __ready(), and __ready() awaits
+         * requestAnimationFrame -- which does not merely throttle in a hidden
+         * document, it does not fire at all. A pane driven by tooling is always
+         * hidden, so __audit() cannot reach its success path here and hangs
+         * until the 25s limit, then past the tool's own timeout.
+         *
+         * Skipping the wait is correct rather than merely expedient: these
+         * surfaces are static HTML with no React and no Suspense boundary, so
+         * there is nothing to wait FOR. The `measured` block below is what
+         * stands in for __ready's guarantee -- it proves the document had text
+         * and controls in it, so "clean" cannot be confused with "empty".
+         */
+        const targets = win.__targets();
+        const r = {
+          overflow: win.__overflow(),
+          contrast: win.__contrast(),
+          targets: targets.failing,
+          flexSentences: win.__flexSentences(),
+          names: win.__names(),
+          headings: win.__headings(),
+          structure: win.__structure(),
+          textSpacing: win.__textSpacing(),
+          textZoom: win.__textZoom(),
+          focusVisible: win.__focusVisible(),
+          selftest: win.__selftest(),
+        };
+
+        // The canary against a silently empty page: a surface with no text and
+        // no controls cannot fail anything, and must not be reported as clean.
+        r.measured = {
+          elements: doc.querySelectorAll("*").length,
+          textLen: doc.body.innerText.replace(/\s+/g, " ").trim().length,
+          controls: doc.querySelectorAll(
+            "a,button,input,select,textarea,summary,[tabindex]",
+          ).length,
+        };
+        r.url = url;
+        r.width = w;
+        return r;
+      };
+
+      /** Every surface at one width, reduced to the pages with findings. */
+      window.__runAll = async function (urls, w, h) {
+        const out = [];
+        for (const url of urls) {
+          try {
+            out.push(await window.__run(url, w, h));
+          } catch (e) {
+            out.push({ url, width: w, error: String(e && e.message) });
+          }
+        }
+        return out;
+      };
+    </script>
+  </body>
+</html>

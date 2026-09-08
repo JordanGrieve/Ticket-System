@@ -22,7 +22,7 @@ export default function SubscribeLayout({
   return (
     <div className="s-shell">
       <header className="s-header">
-        <PostboxLockup size={30} fontSize={18} color="var(--ink)" />
+        <PostboxLockup size={30} fontSize="1.125rem" color="var(--ink)" />
       </header>
       <main className="s-main">{children}</main>
     </div>

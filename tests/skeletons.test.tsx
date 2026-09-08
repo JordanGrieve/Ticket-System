@@ -78,6 +78,16 @@ describe("every route has a skeleton", () => {
       if (label !== "/") {
         expect(rel(cover!), `${label} falls through to the marketing skeleton`).not.toBe("/");
       }
+      /*
+        The same argument one level down. settings/loading.tsx draws the
+        General tab — a six-card theme grid — and on 8 Sep 2026 five of its
+        sibling tabs were borrowing it: Labels flashed a grid of colour
+        swatches and then replaced them with a list of rows. "Not the root
+        fallback" was true and not enough. Every settings tab draws its own.
+      */
+      if (label.startsWith("/settings/")) {
+        expect(rel(cover!), `${label} borrows the General tab's skeleton`).toBe(label);
+      }
     });
   }
 });
