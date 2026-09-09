@@ -55,9 +55,6 @@ function token(selector: string, name: string): string {
 const PALETTES: { name: string; selector: string; grounds: string[] }[] = [
   { name: "light", selector: '[data-theme="light"] {', grounds: ["--surface", "--surface-2", "--panel"] },
   { name: "dark", selector: '[data-theme="dark"] {', grounds: ["--surface", "--surface-2", "--panel"] },
-  { name: "forest", selector: '[data-theme="forest"] {', grounds: ["--surface", "--surface-2", "--panel"] },
-  { name: "slate", selector: '[data-theme="slate"] {', grounds: ["--surface", "--surface-2", "--panel"] },
-  { name: "ocean", selector: '[data-theme="ocean"] {', grounds: ["--surface", "--surface-2", "--panel"] },
 ];
 
 /*
@@ -625,7 +622,9 @@ describe("muted text clears AA in every theme", () => {
     // If token() ever started returning nothing, every assertion above would
     // vacuously pass. This is the canary for that.
     expect(parseHex(token('[data-theme="light"] {', "--muted"))).not.toBeNull();
-    expect(PALETTES.length).toBeGreaterThanOrEqual(5);
+    // Two since 9 Sep 2026: light and dark. Exact, not a floor — a third
+    // palette appearing here is a decision, not a drift.
+    expect(PALETTES.length).toBe(2);
   });
 });
 

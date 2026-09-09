@@ -51,30 +51,33 @@ export const STATUS_META: Record<
 export const STATUS_ORDER: TicketStatus[] = ["open", "in_progress", "closed"];
 
 /**
- * The six themes from the design. "system" is the absence of a data-theme
- * attribute — globals.css falls back to prefers-color-scheme in that case — so
- * it deliberately has no palette entry here.
+ * TWO themes, from 9 Sep 2026. There were six — light, dark, forest, slate,
+ * ocean and "system" — and Jordan cut them to the pair: "it will just be
+ * light or dark (the purple is the dark one)". Four palettes were four sets
+ * of contrast pairs to keep at AAA for a product with one client, and every
+ * new surface had to be checked six times.
+ *
+ * "System" went with them. It resolved to light or dark from the device, so
+ * nothing is lost that the two cannot express, and a signed-in workspace now
+ * always carries an explicit data-theme — see themeAttr.
  */
 export const THEMES = [
-  { key: "system", label: "System", note: "Match my device" },
   { key: "light", label: "Light", note: "Lavender, always light" },
   { key: "dark", label: "Dark", note: "Purple ink" },
-  { key: "forest", label: "Forest", note: "Deep green" },
-  { key: "slate", label: "Slate", note: "Neutral with amber" },
-  { key: "ocean", label: "Ocean", note: "Midnight blue" },
 ] as const;
 
 export type ThemeKey = (typeof THEMES)[number]["key"];
 
-const THEME_KEYS = new Set<string>(THEMES.map((t) => t.key));
-
 /**
  * Resolve a stored preference to the value of the root data-theme attribute.
- * Returns undefined for "system" and for anything unrecognised, which leaves the
- * attribute off and lets prefers-color-scheme decide.
+ *
+ * Never undefined: a workspace is always light or dark. Anything that is not
+ * "light" — the legacy "terracotta" the column defaults to, a retired
+ * "forest", "system" — is dark, because dark is the palette every existing
+ * workspace was looking at. Pages with no workspace (marketing, the public
+ * forms) never call this and follow prefers-color-scheme in globals.css.
  */
-export function themeAttr(key: string | null | undefined): string | undefined {
-  if (!key || key === "system" || !THEME_KEYS.has(key)) return undefined;
-  return key;
+export function themeAttr(key: string | null | undefined): ThemeKey {
+  return key === "light" ? "light" : "dark";
 }
 

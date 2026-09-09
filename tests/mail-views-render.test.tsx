@@ -346,7 +346,7 @@ function page(title: string, body: string) {
 
     Whatever that is, it is not how the product behaves — ThemeApplier puts the
     attribute on the root element and the page loads in its theme. So the
-    harness does the same: ?theme=slate, set in the head before the body
+    harness does the same: ?theme=dark, set in the head before the body
     parses, and one measurement per load. Reproducing the real mechanism is
     cheaper than explaining a discrepancy in an instrument nobody ships.
   */

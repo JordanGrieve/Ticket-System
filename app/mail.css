@@ -483,7 +483,7 @@
 
 /* The phone's folder strip. Hidden here: above 768px the navigation column
    lists every folder already. The phone block below shows it. */
-.pbm-folders {
+.pbm-folder-strip {
   display: none;
 }
 
@@ -819,24 +819,58 @@
   color: var(--text);
   text-wrap: pretty;
 }
+/*
+  ── ONE ROW OF CHIPS, ALL THE SAME SIZE ──
+  The message count, the status, the source, the labels and "+ Label" are one
+  flex row (the label picker renders `display: contents` into it — see
+  .pbm-labels). They used to be two rows in three sizes: 21px static chips,
+  a 44px status button, 22px labels on a second line 24px below. Jordan on
+  9 Sep 2026: "this is not nice to look at, should be 1 line and same sizes".
+
+  Every chip is 32px tall (--chip-h), 0.75rem, radius 10. The INTERACTIVE
+  ones — status, "+ Label", each label's remove cross — grow a 44px hit area
+  with a pseudo-element rather than a 44px box, so the row stays a row. The
+  vertical gap is 12px because 32 + 12 = 44: a wrapped second row's hit areas
+  start exactly where the first row's end and never overlap.
+*/
 .pbm-subject-chips {
+  --chip-h: 32px;
+  position: relative;
   display: flex;
   align-items: center;
-  /* 16px, not 7: each chip's remove cross carries a 44px hit circle
-     (2.5.5), and the circle must not land on the NEXT chip's body either —
-     the cross sits ~7px in from its chip's edge, so the chips need ~15px of
-     air between them for the whole circle to be the cross's own. */
-  gap: 16px;
+  gap: 12px 8px;
   margin-top: 10px;
   flex-wrap: wrap;
 }
 .pbm-chip-static {
-  font-size: 0.6875rem;
+  display: inline-flex;
+  align-items: center;
+  height: var(--chip-h, 32px);
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 0.75rem;
   font-weight: 700;
-  padding: 5px 10px;
-  border-radius: 9px;
   background: var(--accent-chip);
   color: var(--accent-text);
+}
+/* The label chips, sized to match their neighbours only on this row. On an
+   inbox card (.pbm-label--sm) they keep their own size. */
+.pbm-subject-chips .pbm-label {
+  height: var(--chip-h, 32px);
+  padding: 0 10px 0 12px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  gap: 6px;
+}
+.pbm-subject-chips .pbm-label-x {
+  width: 16px;
+  height: 16px;
+}
+/* 16 + 28 = 44: the square reaches 6px past the chip top and bottom, which
+   is half of the row's 12px gap, so two rows of crosses meet and do not
+   overlap. Outranks the un-scoped -15px in globals.css by specificity. */
+.pbm-subject-chips .pbm-label-x::after {
+  inset: -14px;
 }
 .pbm-chip-static--src {
   background: var(--surface-3);
@@ -847,19 +881,26 @@
   position: relative;
 }
 .pbm-status-btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  /* 23px tall, one pixel under 2.5.8's 24. Nothing about the design wanted
-     23 — it fell out of a 10.5px line plus 4px of padding. */
-  min-height: var(--tap-min, 24px);
-  padding: 4px 10px;
+  height: var(--chip-h, 32px);
+  padding: 0 12px;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--surface);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
+}
+/* 32px drawn, 44px hit: the pseudo-element adds 6px above and below, which
+   the row's 12px vertical gap is sized to leave room for. */
+.pbm-status-btn::before,
+.pbm-label-add::before {
+  content: "";
+  position: absolute;
+  inset: -6px 0;
 }
 .pbm-status-dot {
   width: 7px;
@@ -1045,17 +1086,18 @@
 .pbm-rail-title--sub {
   margin-top: 4px;
 }
-/* 32, up from 26. It cleared the 24px floor, but only just, and it is the
-   control somebody reaches for in a hurry on a sheet that covers the screen.
-   The glyph inside is unchanged; only the box it sits in grew. */
+/* 44px, up from 32: the one control somebody reaches for in a hurry on a
+   sheet that covers the screen (2.5.5). Full-strength ink rather than --text-3
+   — a muted cross on a muted square measured under 3:1 for the glyph itself
+   (1.4.11), which is what "this close button is not accessible" was. */
 .pbm-rail-close {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   flex: none;
   border: none;
-  border-radius: 9px;
+  border-radius: 12px;
   background: var(--surface-3);
-  color: var(--text-3);
+  color: var(--text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1282,32 +1324,30 @@
 }
 
 /* The label row under a thread's subject. */
+/*
+  The label picker is not a row of its own any more: `display: contents`
+  hands its chips and its "+ Label" button to the parent .pbm-subject-chips
+  row, so the labels sit beside the status and source chips at the same
+  size. The picker's menu anchors to that row instead — .pbm-subject-chips is
+  the positioned ancestor now, and an element with display: contents cannot
+  be one.
+*/
 .pbm-labels {
-  position: relative;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  /* 24px between ROWS, 6px between chips. Each chip's remove cross carries a
-     44px hit square (2.5.5); rows of 22px chips 6px apart put those squares
-     5px over each other, and the sweep found the lower row's crosses under
-     the upper row's corners. 22 + 24 = 46, so they clear. */
-  gap: 24px 6px;
-  margin-top: 9px;
+  display: contents;
 }
 .pbm-label-add {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 5px;
   flex: none;
-  /* 22px, for the same reason .pbm-status-btn was 23 — a small font and small
-     padding, not a decision. */
-  min-height: var(--tap-min, 24px);
-  padding: 4px 9px;
+  height: var(--chip-h, 32px);
+  padding: 0 12px;
   border: 1px dashed var(--border-strong);
-  border-radius: 9px;
+  border-radius: 10px;
   background: transparent;
   color: var(--muted-2);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
   transition: color 0.16s ease, border-color 0.16s ease;
@@ -1874,20 +1914,32 @@
   .pbm-chips {
     display: none;
   }
-  .pbm-folders {
+  /*
+    .pbm-folder-strip, NOT .pbm-folders. The strip shipped under the drawer's
+    class name on 8 Sep 2026, and this block turned every folder group in the
+    drawer into a clipped horizontal row: the burger opened on "Awaiting
+    reply" and nothing else. One class per component, however similar.
+
+    It bleeds to both screen edges. The list head has 18px of side padding,
+    and a strip that stopped at that padding looked like a row that ended —
+    Jordan: "this carousel has to go off the screen, as you can see it
+    stops". Negative margins take it to the edges and the same padding inside
+    puts the first chip back in line with the search box.
+  */
+  .pbm-folder-strip {
     display: flex;
-    /* Stated, because a nav in the mail shell is otherwise a column: the
-       first render of this strip stacked eleven full-width chips 572px tall. */
     flex-direction: row;
     gap: 8px;
     overflow-x: auto;
     scrollbar-width: none;
-    padding: 2px 0 6px;
+    margin: 0 -18px;
+    padding: 2px 18px 6px;
+    scroll-padding-inline: 18px;
     /* A strip that scrolls sideways must not hand a horizontal drag to the
        swipe rows below it. */
     touch-action: pan-x;
   }
-  .pbm-folders::-webkit-scrollbar {
+  .pbm-folder-strip::-webkit-scrollbar {
     display: none;
   }
   .pbm-folder-chip {
@@ -2185,6 +2237,10 @@
     border-radius: 28px 28px 0 0;
     box-shadow: 0 -10px 40px var(--shadow-2);
     padding: 8px 18px calc(26px + env(safe-area-inset-bottom, 0px));
+    /* A pull at the top of the sheet is the sheet's to claim (ContactRail's
+       touch handlers). The browser must not rubber-band or pull-to-refresh
+       the page underneath for the same gesture. */
+    overscroll-behavior-y: contain;
   }
   /*
     The grab handle. It is now a real one — see components/mail/SheetGrip.tsx.
@@ -2855,97 +2911,12 @@
   color: var(--text);
 }
 
-/*
- * "More" in the folder list.
- *
- * A button among links, so it has to be reset to match them — and it must not
- * be mistaken for a folder. It carries no count pill (there is nothing to
- * count) and its label is muted, so the eye reads the folders as a set and
- * this as the way to see the rest of them.
- */
-.pbm-folder--more {
-  appearance: none;
-  border: none;
-  background: none;
-  font: inherit;
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  /*
-    Nav ink, like every other row in this column — it sits on --nav, so the
-    page's --muted and --text are the wrong pair. It was the last of the
-    twenty-five light-theme failures, and the only one left after the sidebar
-    and the top bar were fixed, because it sets its own colour rather than
-    inheriting.
-
-    Hover goes to --nav-fg for the same reason: the resting state must not be
-    the more legible of the two.
-  */
-  color: var(--nav-muted, #a9a3c4);
-}
-.pbm-folder--more:hover {
-  color: var(--nav-fg, #f3f0ff);
-}
-.pbm-folder--more svg {
-  transition: transform 160ms ease;
-}
-.pbm-folder--more[data-open] svg {
-  transform: rotate(180deg);
-}
-@media (prefers-reduced-motion: reduce) {
-  .pbm-folder--more svg {
-    transition: none;
-  }
-}
-
 /* Clear, and the way out to workspace-wide search, side by side. */
 .pbm-empty-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
   justify-content: center;
-}
-
-/*
- * The folders behind "More", and their height animation.
- *
- * grid-template-rows 0fr → 1fr is the way to animate to an unknown height. The
- * number of extra folders depends on the plan and on whether the viewer has an
- * agent row, so there is no value to hard-code; a max-height big enough for the
- * longest case makes every shorter case ease at the wrong speed and then stop
- * early, which reads as a stutter.
- *
- * The inner element carries overflow:hidden and min-height:0 — without the
- * min-height a grid item refuses to shrink below its content and the row never
- * collapses.
- */
-.pbm-folders-extra {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 220ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-.pbm-folders-extra[data-open] {
-  grid-template-rows: 1fr;
-}
-.pbm-folders-extra-inner {
-  overflow: hidden;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  /* Matches .pbm-folders so the rows keep an even rhythm across the seam. */
-  gap: 3px;
-}
-/* The gap belongs between the last primary and the first extra, and only
-   while the list is open — otherwise the collapsed list carries 3px of dead
-   space under it. */
-.pbm-folders-extra[data-open] .pbm-folders-extra-inner {
-  padding-top: 3px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pbm-folders-extra {
-    transition: none;
-  }
 }
 
 /*

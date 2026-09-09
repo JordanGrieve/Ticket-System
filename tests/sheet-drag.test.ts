@@ -4,6 +4,7 @@ import {
   shouldCloseOnRelease,
   CLOSE_AFTER_PX,
   RUBBER_BAND_LIMIT_PX,
+  decideSheetTouch,
 } from "../lib/sheet-drag";
 
 /**
@@ -100,5 +101,34 @@ describe("whether releasing closes the sheet", () => {
     // short enough to complete with a thumb without repositioning.
     expect(CLOSE_AFTER_PX).toBeGreaterThan(60);
     expect(CLOSE_AFTER_PX).toBeLessThan(200);
+  });
+});
+
+describe("a touch that starts on the sheet body", () => {
+  it("waits while the finger has not moved", () => {
+    expect(decideSheetTouch(0, 0, 0)).toBe("wait");
+  });
+
+  it("drags the sheet when the body is at its top and the finger goes down", () => {
+    // The case a thumb actually produces. There is nothing above to scroll
+    // to, so the only thing a downward pull can mean is "move the sheet".
+    expect(decideSheetTouch(0, 0, 1)).toBe("drag");
+    expect(decideSheetTouch(0, 3, 12)).toBe("drag");
+  });
+
+  it("scrolls when the body is not at its top", () => {
+    // Half-way through the notes, a downward pull means "show me the top",
+    // and taking the sheet away instead loses the reader's place.
+    expect(decideSheetTouch(40, 0, 12)).toBe("scroll");
+  });
+
+  it("scrolls on an upward pull, even at the top", () => {
+    expect(decideSheetTouch(0, 0, -12)).toBe("scroll");
+  });
+
+  it("scrolls on a sideways pull", () => {
+    // A horizontal swipe is not a dismissal; it is most likely a mis-hit on
+    // a swipe row or a selection, and the sheet must not jump for it.
+    expect(decideSheetTouch(0, 20, 5)).toBe("scroll");
   });
 });

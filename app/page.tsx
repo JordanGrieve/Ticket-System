@@ -276,16 +276,14 @@ export default async function LandingPage() {
           "it looks how you want it to look" is worth selling rather than
           hiding.
 
-          Five, not six. The picker offers six but one is "System", which is
-          not a palette — it is the absence of a choice. Drawing a sixth
-          swatch would mean inventing one.
+          Two, from 9 Sep 2026: light and dark. The other palettes were
+          retired — see lib/theme.ts.
         */}
         <section className="home-section home-wrap">
           <p className="home-kicker">Make it yours</p>
-          <h2 className="home-h2">Five looks, one inbox</h2>
+          <h2 className="home-h2">Light or dark, one inbox</h2>
           <p className="home-sub">
-            Pick the one you can stand to look at all day. It is a per-person
-            setting, so nobody has to agree with anybody else about it.
+            Pick the one you can stand to look at all day.
           </p>
           <ThemeRow />
         </section>

@@ -9,7 +9,8 @@
   margin: 28px 0 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(2, 1fr);
+  max-width: 520px;
   gap: 14px;
 }
 
@@ -125,9 +126,7 @@
 
 @media (max-width: 720px) {
   .pthemes {
-    /* Three then two, rather than five squeezed. Five 60px swatches on a phone
-       shows colour and nothing else, which defeats showing an interface. */
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
   .pthemes-swatch {

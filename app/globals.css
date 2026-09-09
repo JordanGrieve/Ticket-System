@@ -6,13 +6,14 @@
   Tokens come from the Claude Design project "Postmark mobile mailer"; all three
   design files declare the identical set, so this is the shared foundation.
 
-  SIX themes: light (default), dark, forest, slate, ocean, plus "system" which is
-  the absence of a data-theme attribute and follows prefers-color-scheme.
+  TWO themes: light (default, :root) and dark. A document with no data-theme —
+  the marketing and public pages — follows prefers-color-scheme. Forest, slate,
+  ocean and "system" were retired on 9 Sep 2026 (lib/theme.ts).
 
   Only the palette is redefined per theme. Everything below the palette blocks —
   layout, radii, component classes — reads the tokens and never hardcodes a
-  colour, which is what makes six themes cost six token blocks rather than six
-  stylesheets.
+  colour, which is what makes a theme cost one token block rather than a
+  stylesheet.
 
   The legacy aliases at the end of each block keep the pre-pivot component tree
   rendering while it is migrated off inline styles. Delete them once no file
@@ -357,169 +358,6 @@
   }
 }
 
-/* Forest — deep green, dark ground */
-[data-theme="forest"] {
-  --label-bg-l: 0.30;
-  --label-fg-l: 0.9;
-  --page-grad: linear-gradient(135deg, #0c1712 0%, #10201a 50%, #152a21 100%);
-  --screen-grad: linear-gradient(180deg, #101d18 0%, #16261f 100%);
-  --surface: #17251f;
-  --surface-2: #132019;
-  --surface-3: rgba(255, 255, 255, 0.05);
-  --sel: #1d3028;
-  --glass: rgba(23, 37, 31, 0.94);
-  --border: rgba(255, 255, 255, 0.08);
-  --border-soft: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.18);
-  --text: #ebf6f0;
-  --text-2: #c8e0d4;
-  --text-3: #b6d4c6;
-  --text-4: #9fc2b3;
-  /* Lightened 6 Sep with dark, slate and ocean: both inks measured under AA on
-     two stacked --surface-3 washes (3.97:1 and 4.28:1). See the note in the
-     dark palette. */
-  --muted: #97b4a6;
-  --muted-2: #99b4a6;
-  --accent: #1d6442;
-  --accent-text: #7ce0ae;
-  --accent-strong: #1b6440;
-  --accent-grad: linear-gradient(145deg, #236345, #1d6343);
-  --accent-soft: rgba(47, 163, 107, 0.14);
-  --accent-chip: rgba(47, 163, 107, 0.22);
-  --accent-line: rgba(47, 163, 107, 0.3);
-  --glow: rgba(47, 163, 107, 0.18);
-  --nav: #0f1a15;
-  /* This theme's own tint, so the nav keeps the appearance it already had. */
-  --nav-fg: #ebf6f0;
-  --nav-muted: #a5c1b5;
-  --nav-active-bg: rgba(47, 163, 107, 0.18);
-  --nav-active-fg: #7ce0ae;
-  --nav-badge-on: rgba(47, 163, 107, 0.32);
-  --nav-badge-fg: #b6f0d4;
-  --focus-ring: #2fa36b;
-  --shadow: rgba(0, 0, 0, 0.28);
-  --shadow-2: rgba(0, 0, 0, 0.34);
-  --ok-fg: #76dcad;
-  --warn-bg: rgba(208, 135, 0, 0.2);
-  --warn-fg: #f4c87e;
-  --pdf-bg: rgba(255, 95, 126, 0.18);
-  --pdf-fg: #ffb3c1;
-  --tag-a-bg: rgba(46, 158, 104, 0.18);
-  --tag-a-fg: #76dcad;
-  --tag-b-bg: rgba(47, 163, 107, 0.22);
-  --tag-b-fg: #7ce0ae;
-  --tag-c-bg: rgba(208, 135, 0, 0.2);
-  --tag-c-fg: #f4c87e;
-}
-
-/* Slate — neutral ground, amber accent */
-[data-theme="slate"] {
-  --label-bg-l: 0.30;
-  --label-fg-l: 0.9;
-  --page-grad: linear-gradient(135deg, #121212 0%, #1a1a19 50%, #20201f 100%);
-  --screen-grad: linear-gradient(180deg, #1a1a19 0%, #212120 100%);
-  --surface: #232322;
-  --surface-2: #1c1c1b;
-  --surface-3: rgba(255, 255, 255, 0.05);
-  --sel: #2c2c2a;
-  --glass: rgba(35, 35, 34, 0.94);
-  --border: rgba(255, 255, 255, 0.08);
-  --border-soft: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.18);
-  --text: #f2f0ec;
-  --text-2: #d8d4cc;
-  --text-3: #c8c4bb;
-  --text-4: #b2aea6;
-  /* Lightened 6 Sep — 3.95:1 and 3.91:1 on two stacked --surface-3 washes. */
-  --muted: #b1afa7;
-  --muted-2: #b2afa6;
-  --accent: #71512e;
-  --accent-text: #f0cea6;
-  --accent-strong: #74522c;
-  --accent-grad: linear-gradient(145deg, #70522f, #75512a);
-  --accent-soft: rgba(192, 138, 78, 0.14);
-  --accent-chip: rgba(192, 138, 78, 0.22);
-  --accent-line: rgba(192, 138, 78, 0.3);
-  --glow: rgba(192, 138, 78, 0.18);
-  --nav: #141413;
-  /* This theme's own tint, so the nav keeps the appearance it already had. */
-  --nav-fg: #f2f0ec;
-  --nav-muted: #c0bdb5;
-  --nav-active-bg: rgba(192, 138, 78, 0.18);
-  --nav-active-fg: #e7b478;
-  --nav-badge-on: rgba(192, 138, 78, 0.32);
-  --nav-badge-fg: #f0d3ac;
-  --focus-ring: #c08a4e;
-  --shadow: rgba(0, 0, 0, 0.28);
-  --shadow-2: rgba(0, 0, 0, 0.34);
-  --ok-fg: #76dcad;
-  --warn-bg: rgba(208, 135, 0, 0.2);
-  --warn-fg: #f5c980;
-  --pdf-bg: rgba(255, 95, 126, 0.18);
-  --pdf-fg: #ffb7c5;
-  --tag-a-bg: rgba(46, 158, 104, 0.18);
-  --tag-a-fg: #76dcad;
-  --tag-b-bg: rgba(192, 138, 78, 0.22);
-  --tag-b-fg: #f0cea6;
-  --tag-c-bg: rgba(208, 135, 0, 0.2);
-  --tag-c-fg: #f5c980;
-}
-
-/* Ocean — midnight blue */
-[data-theme="ocean"] {
-  --label-bg-l: 0.30;
-  --label-fg-l: 0.9;
-  --page-grad: linear-gradient(135deg, #0a1120 0%, #0e1a2c 50%, #132339 100%);
-  --screen-grad: linear-gradient(180deg, #0e1a2c 0%, #142438 100%);
-  --surface: #182741;
-  --surface-2: #121e33;
-  --surface-3: rgba(255, 255, 255, 0.05);
-  --sel: #1f3253;
-  --glass: rgba(24, 39, 65, 0.94);
-  --border: rgba(255, 255, 255, 0.08);
-  --border-soft: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.18);
-  --text: #edf3ff;
-  --text-2: #c9d8f0;
-  --text-3: #b8cae6;
-  --text-4: #a1b5d4;
-  /* Lightened 6 Sep — 3.95:1 and 3.90:1 on two stacked --surface-3 washes. */
-  --muted: #a5b3ce;
-  --muted-2: #a5b3d0;
-  --accent: #2453b2;
-  /* The ring only. As --accent it measured 2.68:1 on --surface-3, under the
-     3:1 WCAG 1.4.11 needs for a non-text indicator. 3.16:1 at this value. */
-  --focus-ring: #4279e8;
-  --accent-text: #adceff;
-  --accent-strong: #2253b5;
-  --accent-grad: linear-gradient(145deg, #335890, #2453b2);
-  --accent-soft: rgba(46, 107, 230, 0.14);
-  --accent-chip: rgba(46, 107, 230, 0.22);
-  --accent-line: rgba(46, 107, 230, 0.3);
-  --glow: rgba(46, 107, 230, 0.18);
-  --nav: #0d1727;
-  /* This theme's own tint, so the nav keeps the appearance it already had. */
-  --nav-fg: #edf3ff;
-  --nav-muted: #b5c3dc;
-  --nav-active-bg: rgba(46, 107, 230, 0.18);
-  --nav-active-fg: #9cc4ff;
-  --nav-badge-on: rgba(46, 107, 230, 0.32);
-  --nav-badge-fg: #c4dcff;
-  --shadow: rgba(0, 0, 0, 0.28);
-  --shadow-2: rgba(0, 0, 0, 0.34);
-  --ok-fg: #82e0b3;
-  --warn-bg: rgba(208, 135, 0, 0.2);
-  --warn-fg: #f5cb86;
-  --pdf-bg: rgba(255, 95, 126, 0.18);
-  --pdf-fg: #ffbcc9;
-  --tag-a-bg: rgba(46, 158, 104, 0.18);
-  --tag-a-fg: #82e0b3;
-  --tag-b-bg: rgba(46, 107, 230, 0.22);
-  --tag-b-fg: #adceff;
-  --tag-c-bg: rgba(208, 135, 0, 0.2);
-  --tag-c-fg: #f5cb86;
-}
-
 @theme inline {
   --color-app: var(--app-bg);
   --color-sidebar: var(--sidebar-bg);
@@ -661,7 +499,10 @@ body {
     width: 44px;
     height: 44px;
   }
-  html .pbm-label-swatch {
+  /* Only the PICKER's swatches are targets. The bare class is also the 12px
+     dot in front of a label's row in the drawer, and this rule un-suffixed
+     drew that dot 44px wide — "labels are way too big" (Jordan, 9 Sep 2026). */
+  html .pbm-label-swatch--pick {
     width: 44px;
     height: 44px;
   }

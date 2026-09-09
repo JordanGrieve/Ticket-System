@@ -130,7 +130,7 @@ real stylesheets and carrying the probes from `tests/audit-probes.js`:
 SETTINGS_HARNESS_OUT=$PWD/public/_sh npx vitest run tests/settings-views-render
 ```
 
-Then open `/_sh/themes.html?theme=slate` on the dev server and call
+Then open `/_sh/themes.html?theme=dark` on the dev server and call
 `__audit()`, or any probe on its own: `__selftest()`, `__overflow()` (1.4.10),
 `__contrast()` (1.4.3), `__targets()` (2.5.8), `__flexSentences()`,
 `__names()` (1.1.1, 2.4.4, 4.1.2), `__headings()` (1.3.1), `__structure()`

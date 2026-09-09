@@ -4,10 +4,10 @@ import { useState } from "react";
 import "./theme-row.css";
 
 /**
- * The five palettes, side by side — and clicking one repaints the page.
+ * The two palettes, side by side — and clicking one repaints the page.
  *
  * ── WHY THEY ARE BUTTONS ──
- * They were swatches: five little pictures of an interface, each carrying its
+ * They were swatches: little pictures of an interface, each carrying its
  * own data-theme so it rendered in its own palette. They looked clickable
  * because a row of coloured tiles under "Pick the one you can stand to look at
  * all day" is an invitation, and pressing one did nothing at all.
@@ -25,18 +25,14 @@ import "./theme-row.css";
  * asked for. Reloading returns the page to whatever their device implies,
  * which is also the honest default for somebody who has not signed up.
  *
- * ── FIVE, NOT SIX ──
- * The picker in the app offers six and lib/theme.ts calls them six themes, but
- * one is "System", which is not a palette — it is the absence of a choice,
- * resolving to Light or Dark from the device. There are five palettes to show.
+ * ── TWO, FROM 9 SEP 2026 ──
+ * Forest, slate and ocean were retired with "system" (lib/theme.ts). The two
+ * that remain are the two the product has.
  */
 
 const SWATCHES: { theme: string; label: string }[] = [
   { theme: "light", label: "Light" },
   { theme: "dark", label: "Dark" },
-  { theme: "forest", label: "Forest" },
-  { theme: "slate", label: "Slate" },
-  { theme: "ocean", label: "Ocean" },
 ];
 
 export default function ThemeRow() {

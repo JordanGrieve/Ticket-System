@@ -81,10 +81,8 @@ function ThreadSkeleton() {
           <span className="pbm-chip-static pbk-fill" style={{ width: 76 }}>
             &nbsp;
           </span>
-        </div>
-        {/* The label row is present even with no labels — it always renders
-            the dashed "add" control, and it carries a 9px top margin. */}
-        <div className="pbm-labels">
+          {/* "+ Label" is a cell of this same row now (LabelPicker renders
+              display: contents into it), so the skeleton draws it here. */}
           <span className="pbm-label-add pbk-fill" style={{ width: 64 }}>
             &nbsp;
           </span>

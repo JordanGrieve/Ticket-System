@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { THEMES } from "@/lib/theme";
 
 /**
- * The six-theme picker from the design's Settings → General screen.
+ * The theme picker on Settings → General: Light or Dark.
  *
  * It used to live at the bottom of components/InstallView.tsx under the label
  * "Accent", built from <button aria-pressed>. It is a single-choice control, so
  * it is a radio group here: one tab stop into the group, arrow keys between the
- * cards, and screen readers announce "3 of 6" instead of six unrelated toggles.
+ * cards, and screen readers announce "1 of 2" instead of two unrelated toggles.
  *
  * Persistence: PATCH /api/workspace with { accent } — the column is still named
  * `accent` but stores a theme key (see the route). The chosen theme is applied
@@ -47,10 +47,7 @@ export default function ThemePicker({ value }: { value: string }) {
     }
   }
 
-  const note =
-    choice === "system"
-      ? "Postbox follows your operating system appearance."
-      : "Appearance is set manually for this workspace.";
+  const note = "Light or dark, for everyone in this workspace.";
 
   return (
     <fieldset className="stg-themes" disabled={pending}>
@@ -74,7 +71,7 @@ export default function ThemePicker({ value }: { value: string }) {
                 swatch has to show the theme it offers, not the theme currently
                 applied, so it cannot read --surface/--accent. Values are copied
                 from the corresponding palette block in app/globals.css —
-                surface → accent for each theme; "system" is split light/dark.
+                surface → accent for each theme.
                 Keep these in step if those palettes ever move.
               */}
               <span
@@ -106,16 +103,8 @@ export default function ThemePicker({ value }: { value: string }) {
  * at the usage site. Sourced from app/globals.css:
  *   light  --surface #fff over --accent-soft #ede7fe
  *   dark   --surface #241f3c → --accent-grad top stop #8b6bff
- *   forest --surface #17251f → #49c98c
- *   slate  --surface #232322 → #d9a05b
- *   ocean  --surface #182741 → #5b9bff
- *   system light and dark grounds, split down the diagonal
  */
 const SWATCH: Record<string, string> = {
-  system: "linear-gradient(135deg, #ede7fe 0 50%, #241f3c 50% 100%)",
   light: "linear-gradient(140deg, #ede7fe, #ffffff 70%)",
   dark: "linear-gradient(140deg, #241f3c, #8b6bff)",
-  forest: "linear-gradient(140deg, #17251f, #49c98c)",
-  slate: "linear-gradient(140deg, #232322, #d9a05b)",
-  ocean: "linear-gradient(140deg, #182741, #5b9bff)",
 };

@@ -106,11 +106,11 @@ describe("a picked colour never decides its own contrast", () => {
   });
 
   it("every theme sets its own label lightness", () => {
-    // Five palettes plus the system-dark fallback. A theme missing these would
+    // Light, dark and the system-dark fallback. A theme missing these would
     // inherit the light values and paint a pale chip on a dark ground.
     const G = readFileSync(join(process.cwd(), "app/globals.css"), "utf8");
-    expect((G.match(/--label-bg-l:/g) ?? []).length).toBeGreaterThanOrEqual(6);
-    expect((G.match(/--label-fg-l:/g) ?? []).length).toBeGreaterThanOrEqual(6);
+    expect((G.match(/--label-bg-l:/g) ?? []).length).toBe(3);
+    expect((G.match(/--label-fg-l:/g) ?? []).length).toBe(3);
   });
 
   it("keeps a token fallback on every custom chip", () => {

@@ -1,2 +1,3 @@
 @AGENTS.md
 @AWS-RULES.md
+@STYLE-GUIDE.md

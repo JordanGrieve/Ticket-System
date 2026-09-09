@@ -38,7 +38,7 @@ import { DEFAULT_CONFIG } from "../lib/auto-reply";
  *
  *   SETTINGS_HARNESS_OUT=$PWD/public/_sh npx vitest run tests/settings-views-render
  *
- * then open /_sh/general.html?theme=slate and call __selftest(), __overflow(),
+ * then open /_sh/general.html?theme=dark and call __selftest(), __overflow(),
  * __contrast() and __targets(). The theme is set before the first paint rather
  * than switched afterwards — see the note in tests/mail-views-render.test.tsx
  * about why switching at runtime produced numbers that were not true.

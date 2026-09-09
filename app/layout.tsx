@@ -92,10 +92,10 @@ export const metadata: Metadata = {
  * while tabs get a value that at least follows the device's light/dark
  * preference.
  *
- * KNOWN CEILING: media queries can only see the system preference. The three
- * named themes (forest, slate, ocean) are set via a data-theme attribute, which
- * CSS media queries cannot observe — a workspace on Ocean gets the light or
- * dark chrome colour, not a blue one. Matching those needs a client effect
+ * KNOWN CEILING: media queries can only see the system preference. A
+ * workspace theme is set via a data-theme attribute, which
+ * CSS media queries cannot observe — a light workspace on a dark device gets the
+ * dark chrome colour. Matching it needs a client effect
  * rewriting this tag on theme change, which is not worth a hydration-time
  * flicker for a strip of browser chrome.
  *

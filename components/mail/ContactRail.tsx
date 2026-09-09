@@ -1,8 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
 import SheetGrip from "./SheetGrip";
+import {
+  decideSheetTouch,
+  sheetOffset,
+  shouldCloseOnRelease,
+  type SheetTouch,
+} from "@/lib/sheet-drag";
 import type { ContactCard } from "./types";
 import ContactNotes from "./ContactNotes";
 import SharedLinks from "./SharedLinks";
@@ -89,6 +95,86 @@ export default function ContactRail({
     toward your finger lags behind it, which reads as lag rather than polish.
   */
   const [dragY, setDragY] = useState(0);
+  const asideRef = useRef<HTMLElement>(null);
+
+  /*
+    ── DRAGGING THE SHEET FROM ITS BODY, WITH A THUMB ──
+    The grip above the title takes pointer events and works. It was also the
+    ONLY thing that moved the sheet, and on a real phone nobody's thumb finds
+    a 32px strip — it lands on the sheet, which is a scroller, so the pull
+    scrolled (or, at the top, rubber-banded) and the sheet stayed put. That
+    is "this is moveable on desktop but on my phone I can't do it".
+
+    Raw touch listeners rather than pointer events, for one reason: the
+    decision is CONDITIONAL. A pull is a scroll when there is content above
+    and a drag when there is not, and `touch-action` cannot express that —
+    it is static CSS. The only way to claim a touch by condition is to call
+    preventDefault on its first touchmove, which needs a non-passive listener,
+    which React's synthetic onTouchMove does not give. lib/sheet-drag.ts
+    holds the rule; this is the wiring.
+
+    A touch that starts on the grip is left to the grip: it has
+    `touch-action: none` and pointer capture, and handling it here as well
+    would move the sheet twice for one finger.
+  */
+  useEffect(() => {
+    const el = asideRef.current;
+    if (!el || state !== "open") return;
+    let startX = 0;
+    let startY = 0;
+    let mode: SheetTouch = "wait";
+    let travelled = 0;
+
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (e.touches.length !== 1 || !t) return;
+      if ((e.target as Element | null)?.closest(".pbm-rail-grip")) {
+        mode = "scroll";
+        return;
+      }
+      startX = t.clientX;
+      startY = t.clientY;
+      mode = "wait";
+      travelled = 0;
+    };
+    const onMove = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t || mode === "scroll") return;
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      if (mode === "wait") mode = decideSheetTouch(el.scrollTop, dx, dy);
+      if (mode !== "drag") return;
+      if (e.cancelable) e.preventDefault();
+      travelled = sheetOffset(dy);
+      setDragY(travelled);
+    };
+    const onEnd = () => {
+      const wasDrag = mode === "drag";
+      const distance = travelled;
+      mode = "wait";
+      travelled = 0;
+      if (!wasDrag) return;
+      setDragY(0);
+      if (shouldCloseOnRelease(distance)) onClose();
+    };
+    // Taken away by the system — never a close, however far it had moved.
+    const onCancel = () => {
+      if (mode === "drag") setDragY(0);
+      mode = "wait";
+      travelled = 0;
+    };
+
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onEnd);
+    el.addEventListener("touchcancel", onCancel);
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onEnd);
+      el.removeEventListener("touchcancel", onCancel);
+    };
+  }, [state, onClose]);
 
   /*
     Escape closes the sheet — but only while it IS a sheet.
@@ -136,6 +222,7 @@ export default function ContactRail({
         aria-hidden
       />
       <aside
+        ref={asideRef}
         className="pbm-rail pb-scroll"
         data-rail={state}
         data-dragging={dragY !== 0 || undefined}
@@ -146,7 +233,7 @@ export default function ContactRail({
         <div className="pbm-rail-head">
           <h2 className="pbm-rail-title">General info</h2>
           <button className="pbm-rail-close" onClick={onClose} aria-label="Hide contact details">
-            <Icon name="close" size={12} strokeWidth={2.4} />
+            <Icon name="close" size={16} strokeWidth={2.4} />
           </button>
         </div>
 

@@ -182,7 +182,7 @@ export default function MessageList({
           this strip and hides the refine chips below 768px, and the reverse
           above it, where the column is always in view.
         */}
-        <nav className="pbm-folders" aria-label="Folders">
+        <nav className="pbm-folder-strip" aria-label="Folders">
           {MOBILE_FOLDERS.map(([key, label]) => (
             <Link
               key={key}

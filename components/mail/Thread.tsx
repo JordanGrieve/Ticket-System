@@ -582,12 +582,15 @@ export default function Thread({
               )}
             </div>
             <span className="pbm-chip-static pbm-chip-static--src">{src.label}</span>
+            {/* Inside the row, not under it: the picker renders
+                `display: contents`, so its chips and "+ Label" are cells of
+                this one row at the same size as the three above. */}
+            <LabelPicker
+              ticketId={ticket.id}
+              labels={labels}
+              allLabels={allLabels}
+            />
           </div>
-          <LabelPicker
-            ticketId={ticket.id}
-            labels={labels}
-            allLabels={allLabels}
-          />
         </div>
 
         <div className="pbm-transcript pb-scroll">
