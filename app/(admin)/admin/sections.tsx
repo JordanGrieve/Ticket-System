@@ -20,7 +20,7 @@ import {
   sessionStates,
   type SessionState,
 } from "@/lib/impersonation";
-import { formatPrice, TRIAL_LIMITS } from "@/lib/pricing";
+import { formatPrice } from "@/lib/pricing";
 import { entitlement, trialEndsAt } from "@/lib/trial";
 import { billingState, describePlan, planRollup } from "./billing-rollup";
 import type { CampaignTotals, TransactionalTotals, WorkspaceUsage } from "./queries";
@@ -42,7 +42,6 @@ import {
   formatDuration,
   hrefFor,
   KpiGrid,
-  NotBuilt,
   Pill,
   StatusPill,
   type AdminQuery,
@@ -207,27 +206,10 @@ export function AccountsSection({
         </div>
       </div>
 
-      <p className="pba-note">
-        The design asked for <b>Plan</b>, <b>Subscribers</b> and <b>MRR</b>{" "}
-        columns, and for a long time none of the three had anything behind them.
-        Two now do. <b>Plan</b> is above, from the workspace&rsquo;s own billing
-        state &mdash; every workspace is on exactly one, starting at Trial, and
-        only the Stripe webhook ever moves it. <b>Subscribers</b> is counted per
-        account in the drawer and in Billing, where there is room to say which
-        subscribers are being counted: confirmed ones only, because somebody who
-        filled in a form and never clicked the link is not stored at all.{" "}
-        <b>MRR</b> is deliberately not a column here &mdash; a per-row money
-        figure invites adding it up, and the sum has caveats that do not fit in
-        a cell. It is on <b>Overview</b>, with them.
-      </p>
 
       <div className="pba-card" id="new-account">
         <div className="pba-card-head">
           <h2 className="pba-card-title">New account</h2>
-          <p className="pba-card-sub">
-            Creates the workspace now and emails an invite. When the client signs
-            up with this address they land straight in it.
-          </p>
         </div>
         <form action={createClientAction} className="pba-form">
           {/*
@@ -348,15 +330,6 @@ export function OverviewSection({
             <h2 className="pba-card-title">
               Nobody can contact Postbox right now
             </h2>
-            <p className="pba-card-sub">
-              <code>POSTBOX_CONTACT_KEY</code> is not set in this deployment, so
-              /contact renders an honest &ldquo;this form isn&rsquo;t connected
-              yet&rdquo; notice instead of a form. Every &ldquo;Get in touch&rdquo;
-              button on the pricing page leads there. Until it is set, the
-              marketing site advertises three plans and offers no way to ask
-              about any of them &mdash; and no enquiry is being lost visibly,
-              because there is nowhere for one to be lost from.
-            </p>
           </div>
           <p className="pba-note">
             To fix it: create a workspace here for Postbox itself, copy its API
@@ -373,13 +346,6 @@ export function OverviewSection({
           <div className="pba-card">
             <div className="pba-card-head">
               <h2 className="pba-card-title">Subscriptions by plan</h2>
-              <p className="pba-card-sub">
-                The design called this &ldquo;Revenue by plan&rdquo;. It is
-                renamed because it is not revenue: it is the list price of what
-                each account is currently entitled to. Postbox stores no
-                invoices &mdash; those live in Stripe &mdash; so nothing here
-                knows about a discount, a proration, a refund or tax.
-              </p>
             </div>
             <div className="pba-table">
               <div className="pba-scroll">
@@ -430,23 +396,6 @@ export function OverviewSection({
                 </div>
               </div>
             </div>
-            <p className="pba-note">
-              Only a workspace with a Stripe subscription whose paid period has
-              not ended contributes to the total. A <b>comped</b> account is on a
-              paid plan with no subscription behind it &mdash; the pilot client,
-              anything predating billing, or a deliberate grant &mdash; and is
-              worth £0 by decision, not by accident. A <b>lapsed</b> one paid
-              once and its period has run out; it keeps its access until
-              somebody downgrades it, so it is counted as an account and not as
-              money.
-              {rollup.trials === accounts.length && accounts.length > 0 && (
-                <>
-                  {" "}
-                  Every workspace is currently on trial, so this total is £0 and
-                  that is the true figure rather than a missing one.
-                </>
-              )}
-            </p>
             {!gates.stripeConfigured && (
               <p className="pba-note">
                 <b>No Stripe key is set in this deployment.</b> Nobody can reach
@@ -462,19 +411,12 @@ export function OverviewSection({
                 zero here forever and look like a tier nobody wants.
               </p>
             )}
-            <p className="pba-note">
-              The prices come from <code>lib/pricing.ts</code>, where they are
-              recorded as a proposal Jordan has not signed off. They are real
-              enough to charge with once a Stripe price exists for them, and not
-              yet a promise anybody has made.
-            </p>
           </div>
         </div>
         <div className="pba-col-side">
           <div className="pba-card">
             <div className="pba-card-head">
               <h2 className="pba-card-title">Newest workspaces</h2>
-              <p className="pba-card-sub">Most recently created, from the database.</p>
             </div>
             <div className="pba-list">
               {newest.length === 0 && (
@@ -614,13 +556,6 @@ export function AccessSection({
       <div className="pba-card">
         <div className="pba-card-head">
           <h2 className="pba-card-title">Operator access to client data</h2>
-          <p className="pba-card-sub">
-            Every time someone from Postbox entered a client workspace. Our
-            clients are the data controllers and we are their processor, so this
-            is the record we owe them when they ask who read their customers&rsquo;
-            messages. It is append-only — nothing in this console can remove a
-            row, including your own.
-          </p>
         </div>
 
         {/*
@@ -728,25 +663,6 @@ export function AccessSection({
         </div>
       </div>
 
-      <p className="pba-note">
-        A <b>+</b> on a duration means it is a lower bound. Nothing forces an
-        operator to leave cleanly — they can close the tab — so a visit that was
-        never stopped is timed from its start to the last request we actually
-        saw from it, and marked <b>Abandoned</b> once that goes quiet. The gap
-        between &ldquo;last seen&rdquo; and &ldquo;actually stopped looking&rdquo;
-        is not measurable and is not guessed at here.
-      </p>
-      <p className="pba-note">
-        <b>Records opened</b> lists the ticket numbers an operator actually
-        opened during a visit, with a count where they came back to one. Read it
-        as a floor, not an inventory: the write that records a read is allowed to
-        fail without stopping the page, because a client mid-problem should not
-        lose their thread to our audit trail. So an empty cell means{" "}
-        <b>nothing was recorded</b>, which is not the same as nothing was read —
-        and visits made before this column existed have nothing to show at all.
-        Numbers only, deliberately: proving we read a customer&rsquo;s message by
-        reprinting it here would be the same disclosure over again.
-      </p>
       {/*
         A second table, not a second page. "Who went into a client" and "who
         deleted a client" are the same question asked by the same person on the
@@ -756,13 +672,6 @@ export function AccessSection({
       <div className="pba-card">
         <div className="pba-card-head">
           <h2 className="pba-card-title">Operator actions on the platform</h2>
-          <p className="pba-card-sub">
-            Creating and deleting workspaces, and granting or revoking
-            super-admin. Recorded <b>before</b> each action runs, so a deletion
-            that fails halfway still leaves a trace &mdash; and kept with no
-            link to the workspace it names, because a cascade would delete the
-            record of its own deletion.
-          </p>
         </div>
 
         {/*
@@ -785,10 +694,7 @@ export function AccessSection({
           </p>
         )}
         {actions.length === 0 ? (
-          <p className="pba-card-sub" style={{ padding: "0 18px 18px" }}>
-            Nothing recorded. No workspace has been created or deleted, and no
-            super-admin granted or revoked, since this started being kept.
-          </p>
+          <p className="pba-card-sub" style={{ padding: "0 18px 18px" }}>Nothing recorded.</p>
         ) : (
           <div className="pba-table">
             <div className="pba-scroll">
@@ -819,14 +725,6 @@ export function AccessSection({
         )}
       </div>
 
-      <p className="pba-note">
-        Together these record <b>entry into a workspace</b> and{" "}
-        <b>changes to the platform</b> — not individual reads. Neither can tell
-        you which tickets were opened or which customer&rsquo;s details were on
-        screen; no per-record access is captured anywhere in Postbox. Sign-ins,
-        API-key traffic and anything done directly against the database are
-        still uncovered.
-      </p>
     </div>
   );
 }
@@ -852,16 +750,6 @@ export function BillingSection({
       <div className="pba-card">
         <div className="pba-card-head">
           <h2 className="pba-card-title">Where every account stands</h2>
-          <p className="pba-card-sub">
-            The billing state of each workspace, as Postbox understands it. Two
-            different facts sit side by side here on purpose:{" "}
-            <b>Plan</b> is what the workspace is entitled to, and{" "}
-            <b>Stripe says</b> is the last thing the payment provider told us.
-            They are allowed to disagree &mdash; a card retrying for four days
-            reads <code>past_due</code> against a period that is still paid for,
-            and locking somebody out of their customer mail that afternoon would
-            be taking something they bought.
-          </p>
         </div>
         <div className="pba-table">
           <div className="pba-scroll">
@@ -933,16 +821,6 @@ export function BillingSection({
             </div>
           </div>
         </div>
-        <p className="pba-note">
-          <b>Never asked</b> in the Stripe column means this workspace has never
-          reached checkout, which is the expected state for a trial and for a
-          comped account. It is not an error and it is not a missing read.{" "}
-          <b>Subscribers</b> counts confirmed opt-ins only. A trial is measured
-          against {TRIAL_LIMITS.tickets} enquiries and{" "}
-          {TRIAL_LIMITS.subscribers} subscribers as well as against its dates,
-          and whichever runs out first ends it &mdash; so a trial can be
-          blocked with days still on the clock.
-        </p>
         {!gates.stripeConfigured && (
           <p className="pba-note">
             <b>Stripe is not configured in this deployment.</b> Checkout and the
@@ -952,16 +830,6 @@ export function BillingSection({
         )}
       </div>
 
-      <NotBuilt
-        title="Postbox keeps no invoices of its own"
-        text="Checkout, the billing portal and the subscription webhook all exist, and the table above is the state they produce. What does not exist is any record of the money: no invoice, receipt, tax line, refund or dunning attempt is stored in this database. All of it lives in the Stripe dashboard, and this console does not call the Stripe API to fetch it — an operator answering “what did they actually pay in July?” has to open Stripe. That is a deliberate stopping point rather than an oversight: mirroring invoices means storing tax and payment records with the retention and accuracy duties that come with them, and a half-mirrored ledger that disagrees with Stripe is worse than no ledger at all."
-        missing={[
-          "Invoices & receipts",
-          "Tax / VAT records",
-          "Refunds & credit notes",
-          "Dunning attempts",
-        ]}
-      />
     </div>
   );
 }
@@ -1018,18 +886,9 @@ export function DeliverabilitySection({
       <div className="pba-card">
         <div className="pba-card-head">
           <h2 className="pba-card-title">Rejected submissions</h2>
-          <p className="pba-card-sub">
-            Requests the public endpoints turned away, grouped by key. A high
-            count against one key usually means a client&rsquo;s website is
-            posting credentials we don&rsquo;t recognise &mdash; their form has
-            been broken since whenever the count started.
-          </p>
         </div>
         {rejections.length === 0 ? (
-          <p className="pba-card-sub" style={{ padding: "0 18px 18px" }}>
-            Nothing rejected. Either every integration is working, or none has
-            been touched since this started being recorded on 23 August 2026.
-          </p>
+          <p className="pba-card-sub" style={{ padding: "0 18px 18px" }}>Nothing rejected.</p>
         ) : (
           <div className="pba-table">
             <div className="pba-scroll">
@@ -1073,19 +932,9 @@ export function DeliverabilitySection({
       <div className="pba-card">
         <div className="pba-card-head">
           <h2 className="pba-card-title">Bounces we couldn&rsquo;t attribute</h2>
-          <p className="pba-card-sub">
-            Feedback from SES that matched no campaign recipient, so nothing
-            was suppressed. A low background rate is normal &mdash; ticket mail
-            shares the configuration set and has no recipient row. A jump means
-            sends have stopped recording their provider ids, and no bounce is
-            suppressing anybody.
-          </p>
         </div>
         {drops.length === 0 ? (
-          <p className="pba-card-sub" style={{ padding: "0 18px 18px" }}>
-            Nothing dropped. Every bounce and complaint that has arrived was
-            matched to a recipient and acted on.
-          </p>
+          <p className="pba-card-sub" style={{ padding: "0 18px 18px" }}>Nothing dropped.</p>
         ) : (
           <div className="pba-table">
             <div className="pba-scroll">
@@ -1128,12 +977,6 @@ export function DeliverabilitySection({
       <div className="pba-card">
         <div className="pba-card-head">
           <h2 className="pba-card-title">Ticket replies</h2>
-          <p className="pba-card-sub">
-            Every outbound message on a ticket &mdash; a teammate&rsquo;s reply
-            or an out-of-hours acknowledgement &mdash; by what we last heard
-            about it. Counts, not rates: see the note under them for why there
-            is no percentage here.
-          </p>
         </div>
         <div className="pba-tiles">
           <div className="pba-tile">
@@ -1157,15 +1000,6 @@ export function DeliverabilitySection({
             <div className="pba-tile-label">Never left</div>
           </div>
         </div>
-        <p className="pba-note">
-          <b>Never left</b> is a send the provider refused or that we never
-          attempted &mdash; including every reply written while email sending
-          was unconfigured, which is written as a failure rather than as a
-          success nobody checked. Of the {transactional.total} outbound
-          messages, {transactional.byStatus.queued + transactional.unrecorded}{" "}
-          carry no outcome: {transactional.unrecorded} predate the outcome being
-          recorded at all.
-        </p>
         {!gates.transactionalFeedback && (
           <p className="pba-note">
             <b>No delivery webhook is configured for transactional mail.</b> The
@@ -1183,13 +1017,6 @@ export function DeliverabilitySection({
             and no email leaves the building.
           </p>
         )}
-        <p className="pba-note">
-          No delivery <i>rate</i> is shown, and that is deliberate. A percentage
-          needs a denominator everybody agrees on, and here it would be computed
-          over messages whose status was never confirmed by anyone &mdash;
-          &ldquo;98% delivered&rdquo; would mostly be measuring our own
-          optimism at send time.
-        </p>
       </div>
 
       {/*
@@ -1201,13 +1028,6 @@ export function DeliverabilitySection({
       <div className="pba-card">
         <div className="pba-card-head">
           <h2 className="pba-card-title">Newsletter sends</h2>
-          <p className="pba-card-sub">
-            Per-recipient rows across every campaign on the platform.{" "}
-            {campaignTotals.campaigns.sent} campaign
-            {campaignTotals.campaigns.sent === 1 ? " has" : "s have"} been
-            marked finished, {campaignTotals.campaigns.sending} are sending and{" "}
-            {campaignTotals.campaigns.scheduled} are waiting on the clock.
-          </p>
         </div>
         <div className="pba-tiles">
           <div className="pba-tile">
@@ -1236,21 +1056,11 @@ export function DeliverabilitySection({
             <div className="pba-tile-label">Complained</div>
           </div>
         </div>
-        {gates.campaignDeliveryLive ? (
+        {gates.campaignDeliveryLive && (
           <p className="pba-note">
             Newsletter delivery is live, so these rows describe real mail.{" "}
             {campaignTotals.recipients.failed} send
             {campaignTotals.recipients.failed === 1 ? "" : "s"} failed outright.
-          </p>
-        ) : (
-          <p className="pba-note">
-            <b>Nothing here has reached anybody.</b> Campaign delivery is in
-            log-only mode: the sweep runs, claims each recipient row and marks
-            it sent, and the deliverer writes a log line instead of calling a
-            provider. Every figure above is therefore a count of the pipeline
-            working, not of mail arriving, and it stays that way until SES
-            production access comes through and the mode is switched
-            deliberately.
           </p>
         )}
         {!gates.campaignFeedback && (
@@ -1261,25 +1071,10 @@ export function DeliverabilitySection({
         )}
       </div>
 
-      <NotBuilt
-        title="No account has a sending domain of its own"
-        text="Both send paths are measured now — the two cards above are counted from real rows — but every workspace still sends from the platform's own verified subdomain, so one reputation carries every tenant's mail and one client's bounce rate is everybody's problem. sending_domains is the table that would fix that: per-workspace SPF, DKIM and DMARC state, checked against DNS. Not one row has ever been written to it and nothing reads it. It is unbuilt rather than abandoned, and it is not blocked on code: verifying a client's domain against a sandboxed SES account would prove nothing, so it waits on production access with everything else. Until then this pane cannot answer per-account deliverability questions at all — only platform-wide ones."
-        missing={[
-          "Per-account sending domains",
-          "SPF / DKIM / DMARC checks",
-          "Per-account reputation",
-          "Open & click tracking",
-        ]}
-      />
 
       <div className="pba-card">
         <div className="pba-card-head">
           <h2 className="pba-card-title">Configured addresses</h2>
-          <p className="pba-card-sub">
-            This much is real: the address each workspace receives mail on and the
-            address its replies are sent from. Neither is a verified domain — no
-            DNS is checked and no domain is owned per account.
-          </p>
         </div>
         <div className="pba-table">
           <div className="pba-scroll">
@@ -1317,91 +1112,6 @@ export function DeliverabilitySection({
    SUPPORT
    ──────────────────────────────────────────────────────────────────────── */
 
-export function SupportSection({
-  admins,
-  viewerEmail,
-}: {
-  admins: Admin[];
-  viewerEmail: string;
-}) {
-  return (
-    <div className="pba-stack">
-      <NotBuilt
-        title="Operators have no support queue"
-        text="Still true, and unchanged by everything else that has been built. The designed ticket cards need a priority, an assignee and a ticket that belongs to Postbox rather than to a client. None of those exist: tickets are tenant-owned, nothing anywhere has a priority or an assignee column, and there is no channel through which a client can raise anything with us. A client with a problem emails somebody, or does not."
-        missing={["Operator tickets", "Priority", "Assignment", "SLA / response times"]}
-      />
-
-      {/*
-        Not a placeholder — a real conflict between two things that are both
-        shipped. The pricing page sells it; nothing behind it exists. Worth
-        saying on the operator's screen rather than in a task nobody reads.
-      */}
-      <div className="pba-card">
-        <div className="pba-card-head">
-          <h2 className="pba-card-title">We are selling this</h2>
-          <p className="pba-card-sub">
-            The Business plan on the public pricing page lists{" "}
-            <b>&ldquo;Priority support from us&rdquo;</b> among its features.
-            There is no queue, no priority and no channel, so nothing
-            distinguishes a Business customer&rsquo;s request from anybody
-            else&rsquo;s &mdash; it arrives, if it arrives at all, in somebody&rsquo;s
-            personal inbox. That is a promise the product cannot currently keep,
-            and the gap widens with every Business subscription sold.
-          </p>
-        </div>
-      </div>
-
-      <div className="pba-card">
-        <div className="pba-card-head">
-          <h2 className="pba-card-title">Postbox admins</h2>
-          <p className="pba-card-sub">
-            Admins see and act inside every client workspace. This is real and
-            takes effect immediately — it is the only account-level permission
-            the product has.
-          </p>
-        </div>
-        <div className="pba-list">
-          {admins.map((a) => (
-            <div key={a.id} className="pba-list-row">
-              <div className="pba-list-main">
-                <div className="pba-list-name">{a.email}</div>
-                <div className="pba-list-sub">
-                  {a.clerkUserId ? "Signed in" : "Has not signed in yet"}
-                </div>
-              </div>
-              {a.email === viewerEmail ? (
-                <span className="pba-list-sub">you</span>
-              ) : (
-                <form action={removeAdminAction}>
-                  <input type="hidden" name="adminId" value={a.id} />
-                  <button type="submit" className="pba-linkbtn pba-linkbtn-danger">
-                    Remove
-                  </button>
-                </form>
-              )}
-            </div>
-          ))}
-        </div>
-        <form action={addAdminAction} className="pba-form">
-          {/* Named for the same reason as the create-workspace fields above:
-              a placeholder stops naming a field the moment anyone types. */}
-          <input
-            type="email"
-            name="email"
-            required
-            aria-label="Email address of the admin to add"
-            placeholder="teammate@example.com"
-            className="pba-input pba-input-grow"
-          />
-          <button type="submit" className="pba-btn pba-btn-primary">
-            Add admin
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
 
 /* ────────────────────────────────────────────────────────────────────────
    DRAWER (accounts only)
@@ -1429,9 +1139,7 @@ export function AccountDrawer({
   if (!account) {
     return (
       <aside className="pba-drawer">
-        <p className="pba-card-sub">
-          Pick an account from the table to see its details.
-        </p>
+        <p className="pba-card-sub">Pick an account from the table to see its details.</p>
       </aside>
     );
   }
@@ -1503,11 +1211,6 @@ export function AccountDrawer({
       <div className="pba-card">
         <div className="pba-card-head">
           <h2 className="pba-card-title">All time</h2>
-          <p className="pba-card-sub">
-            The design asked for &ldquo;this month&rdquo;. Nothing exposes
-            per-period totals, so these are lifetime counts rather than a window
-            that would be wrong.
-          </p>
         </div>
         <div className="pba-tiles">
           <div className="pba-tile">
@@ -1531,22 +1234,11 @@ export function AccountDrawer({
             <div className="pba-tile-label">Subscribers</div>
           </div>
         </div>
-        <p className="pba-note">
-          Subscribers are confirmed opt-ins only. Somebody who filled in a
-          signup form and never clicked the confirmation link is not stored at
-          all, so this can never be inflated by a stranger typing addresses into
-          a client&rsquo;s public form.
-        </p>
       </div>
 
       <div className="pba-card">
         <div className="pba-card-head">
           <h2 className="pba-card-title">Operator access</h2>
-          <p className="pba-card-sub">
-            Who from Postbox has been inside this workspace. Impersonation only
-            — sign-ins, admin actions and API traffic are still not logged
-            anywhere.
-          </p>
         </div>
         {recentAccess.length === 0 ? (
           <p className="pba-log-entry">
@@ -1622,11 +1314,66 @@ export function AccountDrawer({
           Delete workspace…
         </Link>
       </div>
-      <p className="pba-note">
-        The design&rsquo;s second button was <b>Suspend</b>. An account has no
-        suspended state to move it into — the only destructive action that exists
-        is permanent deletion, so that is what sits here.
-      </p>
     </aside>
+  );
+}
+
+/*
+ * The Postbox admins card. It lived on the Support pane, which was retired on
+ * 9 Sep 2026 (an operator support queue is not built); the one real thing on
+ * that pane was this list, and it moved here rather than going with it.
+ * Adding an admin takes effect immediately and is the only account-level
+ * permission the product has.
+ */
+export function AdminsCard({
+  admins,
+  viewerEmail,
+}: {
+  admins: Admin[];
+  viewerEmail: string;
+}) {
+  return (
+    <div className="pba-card">
+      <div className="pba-card-head">
+        <h2 className="pba-card-title">Postbox admins</h2>
+      </div>
+      <div className="pba-list">
+        {admins.map((a) => (
+          <div key={a.id} className="pba-list-row">
+            <div className="pba-list-main">
+              <div className="pba-list-name">{a.email}</div>
+              <div className="pba-list-sub">
+                {a.clerkUserId ? "Signed in" : "Has not signed in yet"}
+              </div>
+            </div>
+            {a.email === viewerEmail ? (
+              <span className="pba-list-sub">you</span>
+            ) : (
+              <form action={removeAdminAction}>
+                <input type="hidden" name="adminId" value={a.id} />
+                <button type="submit" className="pba-linkbtn pba-linkbtn-danger">
+                  Remove
+                </button>
+              </form>
+            )}
+          </div>
+        ))}
+      </div>
+      <form action={addAdminAction} className="pba-form">
+        {/* Named, because a placeholder stops naming a field the moment
+            anyone types. */}
+        <input
+          type="email"
+          name="email"
+          required
+          aria-label="Email address of the admin to add"
+          placeholder="teammate@example.com"
+          className="pba-input pba-input-grow"
+        />
+        <button type="submit" className="pba-btn pba-btn-primary">
+          Add admin
+        </button>
+      </form>
+    </div>
   );
 }

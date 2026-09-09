@@ -44,7 +44,6 @@ export default function SenderIdentityForm({
     name.trim() !== (legalName ?? "").trim() ||
     address.trim() !== (postalAddress ?? "").trim();
 
-  const willSend = address.trim().length > 0;
 
   async function save() {
     setStatus("idle");

@@ -123,6 +123,8 @@ describe("impersonation reads — ids, not content", () => {
   it("the console says an empty cell means unrecorded, not unread", () => {
     // The honest claim. A best-effort log that presents itself as complete is
     // worse than no log, because a client would rely on it.
-    expect(sections).toContain("nothing was recorded");
+    // The note that explained this went with the rest of the console prose
+    // (9 Sep 2026); the cell itself still says it.
+    expect(sections).toContain("no records recorded as opened");
   });
 });

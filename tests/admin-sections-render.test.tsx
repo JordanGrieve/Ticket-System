@@ -15,10 +15,10 @@ import type { FeedbackDropRow } from "../lib/feedback-log";
 import type { TransactionalTotals, CampaignTotals } from "../app/(admin)/admin/queries";
 import {
   AccessSection,
+  AdminsCard,
   AccountsSection,
   BillingSection,
   DeliverabilitySection,
-  SupportSection,
   AccountDrawer,
   OverviewSection,
 } from "../app/(admin)/admin/sections";
@@ -202,7 +202,6 @@ function shell(pane: string) {
       <a class="pba-navrow"><span class="pba-navlabel">Access log</span></a>
       <a class="pba-navrow"><span class="pba-navlabel">Billing</span></a>
       <a class="pba-navrow"><span class="pba-navlabel">Deliverability</span></a>
-      <a class="pba-navrow"><span class="pba-navlabel">Support</span></a>
     </div>
     <div class="pba-side-foot"><div class="pba-whoami">
       <div class="pba-whoami-label">Signed in as</div>
@@ -211,8 +210,7 @@ function shell(pane: string) {
   </nav>
   <div class="pba-main">
     <header class="pba-header">
-      <div class="pba-htitles"><h1 class="pba-htitle">Operator access</h1>
-        <p class="pba-hsub">Every visit into a client workspace</p></div>
+      <div class="pba-htitles"><h1 class="pba-htitle">Operator access</h1></div>
       <div class="pba-hactions">
         <form class="pba-search"><input type="search" placeholder="Search accounts…" aria-label="Search accounts"></form>
         <a class="pba-btn pba-btn-primary">New account</a>
@@ -224,6 +222,7 @@ function shell(pane: string) {
 }
 
 const panes: Record<string, React.ReactElement> = {
+  admins: <AdminsCard admins={admins} viewerEmail="jordangrieve.dev@gmail.com" />,
       access: (
         <AccessSection
           sessions={sessions}
@@ -312,7 +311,6 @@ const panes: Record<string, React.ReactElement> = {
           gates={gates}
         />
       ),
-  support: <SupportSection admins={admins} viewerEmail="jordangrieve.dev@gmail.com" />,
 };
 
 describe("every admin pane renders", () => {

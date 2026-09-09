@@ -86,11 +86,9 @@ function describeMoment(date: Date, timeZone: string): string {
 
 export default function AutoReplySettings({
   initialConfig,
-  configured,
   workspaceName,
 }: {
   initialConfig: AutoReplyConfig;
-  configured: boolean;
   workspaceName: string;
 }) {
   const [config, setConfig] = useState<AutoReplyConfig>(initialConfig);

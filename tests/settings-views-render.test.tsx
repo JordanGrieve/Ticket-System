@@ -70,12 +70,11 @@ const views: Record<string, React.ReactElement> = {
     <NewsletterBrandForm brandAccentHex={null} brandSignOff={null} workspaceName="Open Door Bakery" />
   ),
   "auto-reply-off": (
-    <AutoReplySettings initialConfig={DEFAULT_CONFIG} configured={false} workspaceName="Open Door Bakery" />
+    <AutoReplySettings initialConfig={DEFAULT_CONFIG} workspaceName="Open Door Bakery" />
   ),
   "auto-reply-on": (
     <AutoReplySettings
       initialConfig={{ ...DEFAULT_CONFIG, enabled: true, scheduleMode: "business_hours", delay: "5min" }}
-      configured
       workspaceName="Open Door Bakery"
     />
   ),

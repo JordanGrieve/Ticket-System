@@ -7,8 +7,8 @@ import { verifyImpersonationLog } from "@/lib/impersonation";
 // signing out from here left their impersonation row open forever.
 import AuditedSignOutButton from "@/components/AuditedSignOutButton";
 import { resolveViewer } from "@/lib/viewer";
-import { listAgentEmails, listWorkspaceSummaries } from "@/lib/data";
 import { listAdmins } from "@/lib/admin";
+import { listAgentEmails, listWorkspaceSummaries } from "@/lib/data";
 import {
   listImpersonationSessions,
   listImpersonationSessionsForWorkspace,
@@ -25,12 +25,12 @@ import {
 import type { ConsoleGates } from "./sections";
 import {
   AccessSection,
+  AdminsCard,
   AccountDrawer,
   AccountsSection,
   BillingSection,
   DeliverabilitySection,
   OverviewSection,
-  SupportSection,
 } from "./sections";
 import {
   EnvelopeIcon,
@@ -67,30 +67,21 @@ import {
  * reasoned about from what it is given.
  */
 
-const PANE: Record<Section, { title: string; subtitle: string }> = {
+const PANE: Record<Section, { title: string }> = {
   accounts: {
     title: "Accounts",
-    subtitle: "Every client workspace, its owner and its enquiry volume.",
   },
   overview: {
     title: "Overview",
-    subtitle: "The whole estate at a glance.",
   },
   access: {
     title: "Access log",
-    subtitle: "Every time one of us went inside a client's data.",
   },
   billing: {
     title: "Billing",
-    subtitle: "Invoices and payment state.",
   },
   deliverability: {
     title: "Deliverability",
-    subtitle: "How mail leaves Postbox, and where it lands.",
-  },
-  support: {
-    title: "Support",
-    subtitle: "Requests from clients, and who on our side can answer them.",
   },
 };
 
@@ -273,7 +264,6 @@ export default async function AdminHomePage({
             <NavRow query={query} to="access" label="Access log" />
             <NavRow query={query} to="billing" label="Billing" />
             <NavRow query={query} to="deliverability" label="Deliverability" />
-            <NavRow query={query} to="support" label="Support" />
           </div>
 
           <div className="pba-side-foot">
@@ -291,7 +281,6 @@ export default async function AdminHomePage({
           <header className="pba-header">
             <div className="pba-htitles">
               <h1 className="pba-htitle">{pane.title}</h1>
-              <p className="pba-hsub">{pane.subtitle}</p>
             </div>
             <div className="pba-hactions">
               <form method="get" action="/admin" className="pba-search">
@@ -332,7 +321,10 @@ export default async function AdminHomePage({
                 />
               )}
               {section === "overview" && (
-                <OverviewSection accounts={accounts} gates={gates} />
+                <>
+                  <OverviewSection accounts={accounts} gates={gates} />
+                  <AdminsCard admins={admins} viewerEmail={viewer.email} />
+                </>
               )}
               {section === "access" && (
                 <AccessSection
@@ -359,9 +351,6 @@ export default async function AdminHomePage({
                   campaignTotals={campaignTotals}
                   gates={gates}
                 />
-              )}
-              {section === "support" && (
-                <SupportSection admins={admins} viewerEmail={viewer.email} />
               )}
             </main>
 

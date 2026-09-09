@@ -24,7 +24,6 @@ export default async function AutoReplyPage() {
   return (
     <AutoReplySettings
       initialConfig={stored ?? DEFAULT_CONFIG}
-      configured={!!stored}
       workspaceName={workspace.name}
     />
   );

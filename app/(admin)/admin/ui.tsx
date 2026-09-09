@@ -16,7 +16,6 @@ export const SECTIONS = [
   "access",
   "billing",
   "deliverability",
-  "support",
 ] as const;
 
 export type Section = (typeof SECTIONS)[number];
