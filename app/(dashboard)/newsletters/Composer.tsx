@@ -1154,8 +1154,7 @@ export default function Composer({
 
         {campaigns.length === 0 ? (
           <p className="nl-rail-empty">
-            No campaigns yet. “New” starts a draft — drafts are saved to your
-            workspace and are not sent to anyone.
+            No campaigns yet.
           </p>
         ) : (
           <ul className="nl-list">
@@ -1316,11 +1315,6 @@ export default function Composer({
 
             <section className="nl-card">
               <h3 className="nl-card-title">Body</h3>
-              <p className="nl-card-sub">
-                Plain text. Blank lines become paragraphs and bare links become
-                links; everything else is escaped, so nothing a subscriber’s
-                name contains can alter what other people receive.
-              </p>
 
               <div className="nl-tokens" role="group" aria-label="Insert a merge tag">
                 {NEWSLETTER_MERGE_TOKENS.map((t) => (

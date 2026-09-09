@@ -247,12 +247,6 @@ export default function AutoReplySettings({
       <header className="st-head">
         <div className="st-head-text">
           <h1 className="st-title">Auto-reply</h1>
-          <p className="st-sub">
-            Send an acknowledgement so people know their message landed. It goes
-            out once per enquiry, never to a robot, and never on top of a
-            teammate&rsquo;s reply — immediately, or held until you open if
-            you&rsquo;ve limited it to business hours.
-          </p>
         </div>
         <div className="st-head-actions">
           {saved && (

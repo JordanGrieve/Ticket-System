@@ -151,11 +151,6 @@ export default function NewsletterBrandForm({
           }}
           placeholder={`— Emma, ${workspaceName}`}
         />
-        <span className="stg-field-hint">
-          Added to the end of every newsletter, above the unsubscribe line, so
-          the message ends with a person rather than with the small print.
-          Leave it empty for none.
-        </span>
       </label>
 
       <div className="stg-identity-actions">
