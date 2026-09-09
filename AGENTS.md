@@ -343,3 +343,21 @@ target-size failure that did not exist.
   through a 1x1 canvas so `oklch()` and `color-mix()` work, over a ground built
   by stacking every translucent layer. A regex-and-nearest-background version
   reported a working pill at 1.61:1 when it was 4.63:1.
+
+# A stylesheet that does not parse passes every check but the build
+
+On 9 Sep 2026 a line-range deletion in app/settings.css left a stray `}`.
+Typecheck, lint and all 1347 tests were green, so it was pushed; the
+production build failed in CI on `CssSyntaxError: Unexpected }`, and the fix
+that was supposed to ship sat undeployed. None of the pre-push checks reads a
+stylesheet as CSS — the token guards regex over it as text, and text with an
+extra brace still matches.
+
+`tests/css-parses.test.ts` runs every `.css` under app/ and components/
+through PostCSS now, which is what the build does. Two rules with it:
+
+- **Never delete a CSS range by line number without printing both ends
+  first.** The stray brace came from `sed -i 'N,Md'` where N was one line
+  early. Print N and M, look at them, then delete.
+- **Run the CSS parse (or `npm run build`) after a stylesheet edit that
+  moved blocks, not only typecheck.** Typecheck proves the TypeScript.
