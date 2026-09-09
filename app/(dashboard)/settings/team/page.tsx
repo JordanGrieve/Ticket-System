@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import DismissibleNotice from "@/components/DismissibleNotice";
 import { resolveViewer } from "@/lib/viewer";
 import { sortTeam, seatLimit } from "@/lib/team";
 import { getWorkspaceEntitlement } from "@/lib/billing-query";
@@ -90,17 +89,13 @@ export default async function TeamSettingsPage({
         <h2 className="stg-section-title">
           {team.length} {team.length === 1 ? "person" : "people"}
         </h2>
-        {!viewerIsOwner && (
-          /*
-            Said once, at the top, rather than as a disabled button on every
-            row. A member is not missing a control they should have — the rule
-            is deliberate, so it is explained rather than implied by absence.
-          */
-          <DismissibleNotice id="team-owner-only-removes">
-            Only the owner can remove people from this team. You can do
-            everything else.
-          </DismissibleNotice>
-        )}
+        {/*
+          No "only the owner can remove people" notice any more. It was said
+          once at the top for members; Jordan on 9 Sep 2026: "these should be
+          known, we will have a FAQ thing later. so remove them." The rule
+          still holds (checkRevoke refuses anybody else) — it is just not
+          explained on this screen.
+        */}
 
         <ul className="stc-list">
           {team.map((m) => {
@@ -205,29 +200,12 @@ export default async function TeamSettingsPage({
             </label>
 
             {/*
-              The consequence, stated before the button rather than after the
-              mistake. This is the whole reason the screen exists in this shape.
-
-              DELIBERATELY NOT DISMISSIBLE, unlike the notice further up. That
-              one explains a rule; this one describes what the button beneath
-              it does — hand a stranger the ability to read every message a
-              client’s customers have ever sent. A warning somebody can
-              permanently silence is one that is absent for the person who
-              silenced it a month ago and has since forgotten. See the header
-              of components/DismissibleNotice.tsx.
+              The "they'll be able to do everything you can / the invite is
+              claimed by whoever signs in with that address" box used to sit
+              here, and the header comment above still argues for it. Removed
+              on Jordan's call, 9 Sep 2026, with the owner-only notice: the
+              FAQ is where this will live. The facts it stated are unchanged.
             */}
-            <p className="stg-identity-warn" role="note">
-              <b>They’ll be able to do everything you can:</b> read every
-              message your customers send, reply as {workspace.name}, change
-              these settings and send newsletters. There are no limited
-              accounts yet.
-              <br />
-              <br />
-              The invite is claimed by <b>whoever signs in with that address</b>
-              , so check it carefully — a typo doesn’t bounce, it lets somebody
-              else in.
-            </p>
-
             <button className="stg-button" type="submit">
               Send invite
             </button>

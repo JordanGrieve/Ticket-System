@@ -54,10 +54,17 @@ export default function ThemePicker({ value }: { value: string }) {
       <legend className="stg-sr-only">Appearance</legend>
       <p className="stg-section-sub">{note}</p>
 
-      <div className="stg-theme-grid">
+      {/*
+        Two 44px icon radios — a sun and a moon — where six swatch cards used
+        to be. With two choices a card each was "way too big" (Jordan, 9 Sep
+        2026); the label text beside the icon keeps the choice legible to
+        someone who does not read the glyphs, and it IS the accessible name.
+      */}
+      <div className="stg-theme-row">
         {THEMES.map((t) => (
-          <label className="stg-theme" key={t.key}>
+          <label className="stg-theme" key={t.key} htmlFor={`theme-${t.key}`}>
             <input
+              id={`theme-${t.key}`}
               className="stg-theme-input"
               type="radio"
               name="theme"
@@ -65,29 +72,11 @@ export default function ThemePicker({ value }: { value: string }) {
               checked={choice === t.key}
               onChange={() => pick(t.key)}
             />
-            <span className="stg-theme-card">
-              {/*
-                The ONE place in this feature that names colours literally: a
-                swatch has to show the theme it offers, not the theme currently
-                applied, so it cannot read --surface/--accent. Values are copied
-                from the corresponding palette block in app/globals.css —
-                surface → accent for each theme.
-                Keep these in step if those palettes ever move.
-              */}
-              <span
-                className="stg-theme-swatch"
-                style={{ background: SWATCH[t.key] }}
-                aria-hidden="true"
-              />
-              <span className="stg-theme-foot">
-                <span className="stg-theme-text">
-                  <span className="stg-theme-label">{t.label}</span>
-                  <span className="stg-theme-note">{t.note}</span>
-                </span>
-                <span className="stg-theme-check" aria-hidden="true">
-                  ✓
-                </span>
+            <span className="stg-theme-chip">
+              <span className="stg-theme-icon" aria-hidden="true">
+                {t.key === "light" ? <SunIcon /> : <MoonIcon />}
               </span>
+              <span className="stg-theme-label">{t.label}</span>
             </span>
           </label>
         ))}
@@ -98,13 +87,22 @@ export default function ThemePicker({ value }: { value: string }) {
   );
 }
 
-/**
- * Swatch gradients, one per theme key. Literal hex on purpose — see the comment
- * at the usage site. Sourced from app/globals.css:
- *   light  --surface #fff over --accent-soft #ede7fe
- *   dark   --surface #241f3c → --accent-grad top stop #8b6bff
- */
-const SWATCH: Record<string, string> = {
-  light: "linear-gradient(140deg, #ede7fe, #ffffff 70%)",
-  dark: "linear-gradient(140deg, #241f3c, #8b6bff)",
-};
+/* Feather-style line icons, 20px, stroke from currentColor. Inline rather
+   than in components/mail/icons.tsx: nothing else in the product needs a
+   sun or a moon, and the mail icon set is for the mail shell. */
+function SunIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+    </svg>
+  );
+}

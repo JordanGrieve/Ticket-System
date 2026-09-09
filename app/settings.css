@@ -660,6 +660,11 @@
 }
 
 .pbs-tab {
+  /* Inline-flex, centred: globals.css gives the tab a 44px floor, and a
+     block link with 8px padding hung its text at the top of that box. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 8px 14px;
   border-radius: 11px;
   font-size: 0.8125rem;
@@ -804,7 +809,7 @@
   white-space: nowrap;
 }
 
-/* â”€â”€ appearance: the six theme cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── appearance: light or dark ─────────────────────────────────── */
 
 .stg-themes {
   border: 0;
@@ -821,11 +826,17 @@
   opacity: 0.7;
 }
 
-.stg-theme-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  max-width: 420px;
-  gap: 14px;
+/*
+  Two chips in a row: a sun and a moon, each with its name beside it. This
+  was a grid of swatch cards, one per theme, 82px of gradient each; with two
+  themes left that was "way too big, just two icons, a sun or moon" (Jordan,
+  9 Sep 2026). The chip is 44px tall for 2.5.5 and the radio inside it keeps
+  the group's arrow-key navigation and "1 of 2" announcement.
+*/
+.stg-theme-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .stg-theme {
@@ -838,9 +849,8 @@
   cursor: progress;
 }
 
-/* The radio itself is the control â€” hidden visually, never from the
-   accessibility tree, so the group keeps arrow-key navigation and its
-   "3 of 6" announcement. */
+/* The radio itself is the control — hidden visually, never from the
+   accessibility tree. */
 .stg-theme-input {
   position: absolute;
   width: 1px;
@@ -850,89 +860,51 @@
   pointer-events: none;
 }
 
-.stg-theme-card {
-  display: block;
-  background: var(--surface);
+.stg-theme-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px 0 12px;
+  border-radius: 14px;
   border: 2px solid var(--border);
-  border-radius: 20px;
-  padding: 14px;
-  box-shadow: 0 8px 18px var(--shadow);
-  transition: border-color 0.16s ease;
+  background: var(--surface);
+  color: var(--text-3);
+  box-shadow: 0 4px 10px var(--shadow);
+  transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
 }
 
-.stg-theme:hover .stg-theme-card {
+.stg-theme:hover .stg-theme-chip {
   border-color: var(--border-strong);
+  color: var(--text);
 }
 
-.stg-theme-input:checked + .stg-theme-card {
+.stg-theme-input:checked + .stg-theme-chip {
   border-color: var(--accent);
+  background: var(--accent-chip);
+  color: var(--accent-text);
 }
 
 /* The input carries focus; the ring has to be drawn on what you can see.
    globals.css puts a default outline on every input, which here would
-   paint a ring around a 1px box in the corner â€” so it is cancelled. */
+   paint a ring around a 1px box in the corner — so it is cancelled. */
 .stg-theme-input:focus-visible {
   outline: none;
 }
 
-.stg-theme-input:focus-visible + .stg-theme-card {
+.stg-theme-input:focus-visible + .stg-theme-chip {
   outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 2px;
 }
 
-.stg-theme-swatch {
-  display: block;
-  height: 82px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-}
-
-.stg-theme-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.stg-theme-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+.stg-theme-icon {
+  display: inline-flex;
+  flex: none;
 }
 
 .stg-theme-label {
   font-size: 0.8125rem;
   font-weight: 800;
-  color: var(--text);
-}
-
-.stg-theme-note {
-  font-size: 0.71875rem;
-  font-weight: 600;
-  color: var(--muted-2);
-}
-
-.stg-theme-check {
-  flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
-  border-radius: 7px;
-  border: 2px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.6875rem;
-  font-weight: 800;
-  color: transparent;
-  background: transparent;
-}
-
-.stg-theme-input:checked + .stg-theme-card .stg-theme-check {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--pbm-on-dark, #fff);
 }
 
 /* â”€â”€ inbox: label / value rows â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -1153,9 +1125,6 @@
 
 /* â”€â”€ responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-@media (max-width: 1080px) {
-  .stg-theme-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .stg-int-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -1165,18 +1134,6 @@
 @media (max-width: 768px) {
   .stg-wrap {
     padding: 18px 14px 40px;
-  }
-  /* Two, not one.
-
-     One column turned six themes into a column half a screen tall that had to
-     be scrolled to compare any two of them — and comparing them is the entire
-     purpose of the control, since each card is a picture of the thing it
-     selects. Two fits the swatch, the name and the "Match my device" note at
-     375px with room to spare; the note is the tightest of those and it wraps
-     rather than truncating. */
-  .stg-theme-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
   }
   .stg-rows {
     padding: 4px 14px;
@@ -1190,12 +1147,6 @@
     justify-content: flex-start;
     flex-wrap: wrap;
     text-align: left;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .stg-theme-card {
-    transition: none;
   }
 }
 

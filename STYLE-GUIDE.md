@@ -143,8 +143,9 @@ group; sharing the name laid the drawer out sideways and emptied the burger.
 ### Navigation
 
 Desktop: a 262px column. Phone: the burger opens an off-canvas drawer with
-**everything** in it — all eleven folders, every label, Newsletters,
-Subscribers, Settings, the account menu. No "More" disclosure, no bottom
+**everything** in it — the working folders, every label, Newsletters,
+Subscribers, Settings, the account menu. Labeled, Snoozed, Archived and
+Trash sit behind a More/Less row (the active one is always shown). No bottom
 tab bar; the burger and the folder strip are the whole navigation. Rows are
 44px; a label's colour dot is 12px (`.pbm-label-swatch`) and only the
 picker's swatches (`--pick`) are 44px targets.
@@ -206,6 +207,20 @@ Transitions 160ms ease; sheet and drawer 220ms. Do not write your own
 
 - `--tap-min` was 24px "because a mail client is dense". It is 44.
 - Six themes was "the design". It is two.
-- "Three folders then More" was "a list you scan". The drawer has everything.
+- "Three folders then More" hid eight. Only the four look-up folders hide.
 - A 44px circle for a cross's hit area. It is a square.
 - `70ch` for 80 characters. It is 54ch in this face.
+
+### Theme toggle (Settings → General)
+
+Two 44px chips in a row, a sun and a moon with the name beside each, built
+on real radios. Not cards, not swatches: with two choices a picture of each
+is furniture.
+
+### Explanatory boxes
+
+Do not add a paragraph explaining a rule or a consequence inside a settings
+screen. Jordan's call, 9 Sep 2026: "these should be known, we will have a
+FAQ thing later." Errors and results of an action (`stg-identity-warn` as
+`role="alert"`, `stg-notice` as `role="status"`) stay; standing explanations
+go.

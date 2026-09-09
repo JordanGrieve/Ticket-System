@@ -94,6 +94,7 @@ export default function MailNavShell({
   isAdmin?: boolean;
 }) {
   const [navOpen, setNavOpen] = useState(false);
+  const [foldersOpen, setFoldersOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [labelsOpen, setLabelsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -157,6 +158,10 @@ export default function MailNavShell({
   // "any label at all", so only one of the two should ever look active.
   const activeFolder =
     onList && !activeLabel ? (searchParams.get("folder") ?? "inbox") : "";
+
+  /* The four you go to look something up, not to work from. See the
+     comment on the folder list below. */
+  const LOOKUP_FOLDERS = ["labeled", "snoozed", "archived", "trash"];
 
   const folders: LiveFolder[] = [
     { key: "all", label: "All mail", icon: "mail", count: counts.all, href: "/inbox?folder=all" },
@@ -245,6 +250,15 @@ export default function MailNavShell({
     },
   ];
 
+  /*
+   * Kept in the order of `folders`, so nothing jumps as the list expands.
+   * The active folder is never behind More.
+   */
+  const shownFolders = folders.filter(
+    (f) => !LOOKUP_FOLDERS.includes(f.key) || f.key === activeFolder,
+  );
+  const extraFolders = folders.filter((f) => !shownFolders.includes(f));
+
   return (
     <>
       {/* Mobile top bar. Hidden above 768px by globals.css. Deliberately not
@@ -329,18 +343,23 @@ export default function MailNavShell({
         )}
 
         {/*
-          EVERY FOLDER, ALWAYS.
+          THE WORKING FOLDERS, THEN "MORE" FOR THE LOOK-UP ONES.
 
-          This was three folders and a "More" disclosure holding the other
-          eight, on the argument that a column of eleven is a list you scan
-          rather than a set of places you go. On a phone the argument
-          inverted: the drawer is the whole navigation there, and a drawer
-          that opens on three rows and a "More" reads as empty — Jordan,
-          9 Sep 2026: "burger menu has nothing, it should have everything".
-          The column scrolls; eleven rows of 44px is less than one screen.
+          Twice around on this. It was three folders and a More holding eight,
+          which on a phone read as an empty drawer (and, for a day, WAS one —
+          a class-name collision). Then it was all eleven. Jordan's call on
+          9 Sep 2026 is the split that matches how the list is used: the
+          folders you work from stay (All mail, Unread, Awaiting, Open,
+          Closed, Sent, Starred) and the four you go to LOOK SOMETHING UP —
+          Labeled, Snoozed, Archived, Trash — sit behind More.
+
+          The active folder is ALWAYS shown, even when it is one of the four.
+          Collapsing the list while somebody is looking at Trash would hide
+          the only thing on screen explaining why the list looks the way it
+          does.
         */}
         <div className="pbm-folders">
-          {folders.map((f) => {
+          {shownFolders.map((f) => {
             const active = activeFolder === f.key;
             return (
               <Link
@@ -356,6 +375,56 @@ export default function MailNavShell({
               </Link>
             );
           })}
+
+          {/*
+            The rest, in a container that animates its own height — the
+            0fr-to-1fr grid trick, since the count varies with the plan. They
+            stay in the DOM and are hidden with inert + aria-hidden, so the
+            height has something to animate from and to.
+          */}
+          {extraFolders.length > 0 && (
+            <div
+              className="pbm-folders-extra"
+              data-open={foldersOpen || undefined}
+              inert={!foldersOpen}
+              aria-hidden={!foldersOpen}
+            >
+              <div className="pbm-folders-extra-inner">
+                {extraFolders.map((f) => {
+                  const active = activeFolder === f.key;
+                  return (
+                    <Link
+                      key={f.key}
+                      href={f.href}
+                      className="pbm-folder"
+                      data-active={active}
+                      aria-current={active ? "page" : undefined}
+                      tabIndex={foldersOpen ? undefined : -1}
+                    >
+                      <Icon name={f.icon} size={18} />
+                      <span className="pbm-folder-label">{f.label}</span>
+                      <span className="pbm-folder-count">{f.count}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {extraFolders.length > 0 && (
+            <button
+              type="button"
+              className="pbm-folder pbm-folder--more"
+              data-open={foldersOpen || undefined}
+              onClick={() => setFoldersOpen((v) => !v)}
+              aria-expanded={foldersOpen}
+            >
+              <Icon name="chevronDown" size={18} />
+              <span className="pbm-folder-label">
+                {foldersOpen ? "Less" : "More"}
+              </span>
+            </button>
+          )}
         </div>
 
         <div className="pbm-nav-divider" />
