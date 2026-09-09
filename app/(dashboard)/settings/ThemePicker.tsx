@@ -76,7 +76,7 @@ export default function ThemePicker({ value }: { value: string }) {
               <span className="stg-theme-icon" aria-hidden="true">
                 {t.key === "light" ? <SunIcon /> : <MoonIcon />}
               </span>
-              <span className="stg-theme-label">{t.label}</span>
+              {t.label}
             </span>
           </label>
         ))}
