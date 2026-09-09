@@ -359,7 +359,7 @@
   justify-content: center;
   margin-top: 12px;
   width: 100%;
-  height: 36px;
+  height: 44px;
   border: none;
   border-radius: 13px;
   background: var(--nav-deep);
@@ -1408,7 +1408,7 @@
    * comfortable ones. 36px also matches the swatch row height, so the whole
    * line shares one baseline instead of three.
    */
-  height: 36px;
+  height: 44px;
   padding: 0 12px;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -1429,7 +1429,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 30px;
+  height: 44px;
   padding: 0 12px;
   border: none;
   border-radius: 12px;
@@ -1552,8 +1552,12 @@
   color: var(--muted);
 }
 .pbm-label-icon {
-  width: 28px;
-  height: 28px;
+  /* 36px drawn, 44px hit: the pseudo-element below adds 4px a side. The
+     row has 10px of padding above and below, so neighbouring rows' hit
+     areas do not meet. */
+  position: relative;
+  width: 36px;
+  height: 36px;
   flex: none;
   display: flex;
   align-items: center;
@@ -1563,6 +1567,11 @@
   background: var(--surface-3);
   color: var(--text-3);
   cursor: pointer;
+}
+.pbm-label-icon::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
 }
 .pbm-label-icon:hover {
   color: var(--accent-text);
@@ -2364,7 +2373,7 @@
 }
 .pbm-search-go {
   flex: none;
-  height: 30px;
+  height: 44px;
   padding: 0 13px;
   border: none;
   border-radius: 10px;

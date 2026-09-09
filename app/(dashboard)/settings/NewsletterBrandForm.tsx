@@ -81,11 +81,6 @@ export default function NewsletterBrandForm({
 
   return (
     <div className="stg-identity">
-      <p className="stg-section-sub">
-        Used for links and the header rule in your newsletters. Your inbox
-        replies are unaffected — those are sent as plain text, so they read
-        like a message from a person rather than a mailout.
-      </p>
 
       <label className="stg-field">
         <span className="stg-field-label">Accent colour</span>

@@ -33,6 +33,7 @@ import {
  */
 
 const DELAYS: AutoReplyDelay[] = ["immediate", "5min", "1hr"];
+const supportedDelays = DELAYS.filter(isDelaySupported);
 const SCHEDULES: AutoReplySchedule[] = ["always", "business_hours", "out_of_hours"];
 
 /** Fallback list when the browser can't enumerate zones. */
@@ -276,13 +277,6 @@ export default function AutoReplySettings({
         </p>
       )}
 
-      {!configured && (
-        <p className="st-note">
-          Auto-replies haven&rsquo;t been set up for this workspace yet — what
-          you see below are suggested defaults. Nothing is sent until you turn
-          them on and save.
-        </p>
-      )}
 
       <div className="st-grid">
         {/* ── Left: the form ─────────────────────────────────── */}
@@ -291,10 +285,6 @@ export default function AutoReplySettings({
             <div className="st-toggle-row">
               <div>
                 <h2 className="st-card-title">Send auto-replies</h2>
-                <p className="st-card-sub">
-                  Applies to new enquiries from your forms and your inbound email
-                  address.
-                </p>
               </div>
               <button
                 type="button"
@@ -313,40 +303,34 @@ export default function AutoReplySettings({
           <section className="st-card">
             <h2 className="st-card-title">When to send</h2>
 
-            <fieldset className="st-field">
-              <legend className="st-label">Delay</legend>
-              <div className="st-seg" role="group" aria-label="Send delay">
-                {DELAYS.map((d) => {
-                  const supported = isDelaySupported(d);
-                  return (
+            {/*
+              Only the delays that WORK are offered. "After 5 minutes" and
+              "After 1 hour" used to render as disabled chips tagged "not
+              built", with a box explaining why; Jordan's call on 9 Sep 2026
+              was to hide unbuilt options rather than show them. While only
+              "Immediately" is supported there is nothing to choose, so the
+              whole fieldset stays out — it returns on its own the day
+              isDelaySupported says yes to a second one.
+            */}
+            {supportedDelays.length > 1 && (
+              <fieldset className="st-field">
+                <legend className="st-label">Delay</legend>
+                <div className="st-seg" role="group" aria-label="Send delay">
+                  {supportedDelays.map((d) => (
                     <button
                       key={d}
                       type="button"
                       className="st-seg-btn"
                       data-on={config.delay === d}
-                      disabled={!supported}
                       aria-pressed={config.delay === d}
-                      title={
-                        supported
-                          ? undefined
-                          : "Delayed sending isn't built. Held out-of-hours replies use a queue, but nothing yet puts a fixed delay on an in-hours one."
-                      }
                       onClick={() => patch({ delay: d })}
                     >
                       {DELAY_LABELS[d]}
-                      {!supported && <span className="st-seg-tag">not built</span>}
                     </button>
-                  );
-                })}
-              </div>
-              <p className="st-help st-help--warn">
-                Only immediate sending is available. A fixed delay isn&rsquo;t
-                wired up: out-of-hours acknowledgements are now held in a queue
-                and released when you open, but nothing yet holds an in-hours
-                one back by five minutes or an hour. Offering the option would
-                mean switching auto-replies on and silently sending nothing.
-              </p>
-            </fieldset>
+                  ))}
+                </div>
+              </fieldset>
+            )}
 
             <fieldset className="st-field">
               <legend className="st-label">Schedule</legend>
@@ -364,35 +348,6 @@ export default function AutoReplySettings({
                   </button>
                 ))}
               </div>
-              <p className="st-help">
-                {config.scheduleMode === "business_hours" && (
-                  <>
-                    Enquiries that arrive while you&rsquo;re closed are{" "}
-                    <b>held, not dropped</b>. The acknowledgement is sent
-                    shortly after you next open — usually within a few minutes
-                    of opening time, not on the dot. Nothing is held for longer
-                    than half a day past its due time; if it goes stale that
-                    long it is dropped rather than sent late.
-                  </>
-                )}
-                {config.scheduleMode === "out_of_hours" && (
-                  <>
-                    Only enquiries arriving while you&rsquo;re <b>closed</b> get
-                    an acknowledgement. One that arrives while you&rsquo;re open
-                    gets nothing and is <b>not</b> held for later — a
-                    &ldquo;we&rsquo;re closed&rdquo; message sent hours after
-                    one of your team has already replied would be worse than
-                    silence.
-                  </>
-                )}
-                {config.scheduleMode === "always" && (
-                  <>
-                    Every enquiry is acknowledged as it arrives, at any hour.
-                    Set an out-of-hours message below if the wording should
-                    change when you&rsquo;re closed.
-                  </>
-                )}
-              </p>
             </fieldset>
 
             {hoursNeeded && (
@@ -456,11 +411,6 @@ export default function AutoReplySettings({
                     </select>
                   </label>
 
-                  <p className="st-help">
-                    Hours are wall-clock time in the zone above, not on the
-                    server — daylight saving is handled for you. Closing time is
-                    exclusive: 17:30 means the last minute inside hours is 17:29.
-                  </p>
                 </fieldset>
 
                 <p className="st-status" role="status">
@@ -588,11 +538,6 @@ export default function AutoReplySettings({
             <div className="st-toggle-row">
               <div>
                 <h2 className="st-card-title">Don&rsquo;t talk over a teammate</h2>
-                <p className="st-card-sub">
-                  Skip the acknowledgement if one of your team has already
-                  replied to the enquiry. An enquiry never gets acknowledged
-                  twice either way — that part is always on.
-                </p>
               </div>
               <button
                 type="button"
@@ -640,12 +585,6 @@ export default function AutoReplySettings({
                 hour.
               </li>
             </ul>
-            <p className="st-help">
-              A held out-of-hours acknowledgement is checked against every one
-              of these again at the moment it goes out — not when it was held.
-              If a teammate answered overnight, or the sender turns out to be
-              another robot, it is dropped in the morning rather than sent.
-            </p>
           </section>
         </div>
 

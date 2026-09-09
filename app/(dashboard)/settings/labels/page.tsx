@@ -35,11 +35,6 @@ export default async function LabelSettingsPage() {
     <div className="stg-wrap">
       <header className="stg-head">
         <h1 className="stg-title">Labels</h1>
-        <p className="stg-sub">
-          Tags you can put on a conversation to group it. Everyone in{" "}
-          <b>{viewer.workspace.name}</b> shares the same set, and customers
-          never see them.
-        </p>
       </header>
 
       <section className="stg-section">

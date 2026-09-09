@@ -112,12 +112,6 @@ export default async function AccessLogPage() {
     <div className="stg-wrap">
       <header className="stg-head">
         <h1 className="stg-title">Access log</h1>
-        <p className="stg-sub">
-          Someone at Postbox can open <b>{workspace.name}</b> to look into a
-          problem. While they are in, they see what your team sees: your inbox,
-          your contacts, your customers&rsquo; messages. Every time that happens
-          we record it, and this page is that record.
-        </p>
       </header>
 
       {sessions.length === 0 ? (
@@ -195,12 +189,6 @@ export default async function AccessLogPage() {
       {dataExports.length > 0 && (
         <section className="stg-section">
           <h2 className="stg-section-title">Copies taken of all your data</h2>
-          <p className="stg-section-sub">
-            Someone at Postbox downloaded everything this workspace holds &mdash;
-            every conversation, every message, and every contact &mdash; as a
-            single file. This is not a conversation being opened; it is all of
-            them leaving at once.
-          </p>
           <ol className="stg-al-list">
             {dataExports.map((e) => (
               <li key={e.id} className="stg-al-visit">

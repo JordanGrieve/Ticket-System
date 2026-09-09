@@ -66,18 +66,7 @@ export default function SenderIdentityForm({
 
   return (
     <div className="stg-identity">
-      <p className="stg-section-sub">
-        Required by law in every marketing email you send. It appears in the
-        footer, beside the unsubscribe link.
-      </p>
 
-      {!willSend && (
-        <p className="stg-identity-warn" role="status">
-          <b>You cannot send a newsletter until this is filled in.</b> Postbox
-          refuses the send rather than leaving the address out — an email
-          missing it is unlawful, and a made-up one is worse.
-        </p>
-      )}
 
       <label className="stg-field">
         <span className="stg-field-label">Registered or trading name</span>
@@ -112,10 +101,6 @@ export default function SenderIdentityForm({
           }}
           placeholder={"12 High Street\nHarrogate\nHG1 1AA"}
         />
-        <span className="stg-field-hint">
-          A real address where you can receive post. A PO box or registered
-          office is fine; an address you do not control is not.
-        </span>
       </label>
 
       <div className="stg-identity-actions">

@@ -392,7 +392,9 @@ describe("the signed-in screens that had no harness", () => {
       blockedReason: null,
     } satisfies Entitlement);
     const html = record("billing", renderToStaticMarkup(await BillingPage()));
-    expect(html.length).toBeGreaterThan(800);
+    // 563 chars since 9 Sep 2026, when the two explanatory paragraphs came
+    // off the page. The bar is "rendered a page", not "rendered the prose".
+    expect(html.length).toBeGreaterThan(400);
   });
 
   it("/settings/forms", async () => {

@@ -45,10 +45,6 @@ export default async function GeneralSettingsPage() {
     <div className="stg-wrap">
       <header className="stg-head">
         <h1 className="stg-title">General</h1>
-        <p className="stg-sub">
-          Workspace preferences for <b>{workspace.name}</b>. Everything here
-          applies to everyone who signs in to this workspace.
-        </p>
       </header>
 
       {/* ── Appearance ─────────────────────────────────────────── */}
@@ -150,9 +146,6 @@ export default async function GeneralSettingsPage() {
       {/* ── Integrations ───────────────────────────────────────── */}
       <section className="stg-section">
         <h2 className="stg-section-title">Integrations</h2>
-        <p className="stg-section-sub">
-          Where enquiries come from and where they go next.
-        </p>
         <ul className="stg-int-grid">
           <li className="stg-int">
             <span className="stg-int-mark" aria-hidden="true">

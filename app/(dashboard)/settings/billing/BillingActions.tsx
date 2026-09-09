@@ -70,9 +70,6 @@ export default function BillingActions({
         <h2 className="stg-section-title">
           {currentPlanId ? "Change plan" : "Choose a plan"}
         </h2>
-        <p className="stg-section-sub">
-          You are taken to Stripe to pay. We never see your card details.
-        </p>
 
         <div className="stb-plans">
           {plans.map((p) => {
@@ -114,11 +111,6 @@ export default function BillingActions({
       {canManage && (
         <section className="stg-section">
           <h2 className="stg-section-title">Invoices, card and cancelling</h2>
-          <p className="stg-section-sub">
-            Update your card, download invoices, or cancel. Cancelling takes
-            effect at the end of the period you have already paid for — you keep
-            what you bought.
-          </p>
           <button
             type="button"
             className="stg-button"

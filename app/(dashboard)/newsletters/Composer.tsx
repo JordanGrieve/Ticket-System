@@ -1196,11 +1196,6 @@ export default function Composer({
             <h2 className="nl-title">
               {draft.id === null ? "New campaign" : draft.name || "Untitled"}
             </h2>
-            <p className="nl-sub">
-              Write it, preview exactly what a recipient would receive, and
-              choose who it is for. Nothing on this page emails anybody — see
-              “What happens when you queue this” below.
-            </p>
           </div>
           <div className="nl-head-actions">
             {saved && !dirty && (
@@ -1251,10 +1246,6 @@ export default function Composer({
                   disabled={!editable}
                   onChange={(e) => patch({ name: e.target.value })}
                 />
-                <p className="nl-help">
-                  Internal only — recipients never see it. Use whatever you will
-                  recognise in the list on the left.
-                </p>
               </div>
 
               <div className="nl-field">
@@ -1299,11 +1290,6 @@ export default function Composer({
                   }}
                   onChange={(e) => patch({ preheader: e.target.value })}
                 />
-                <p className="nl-help">
-                  The line the inbox shows after the subject. Leave it empty and
-                  clients scrape the first visible words instead, so every
-                  campaign previews as your greeting.
-                </p>
               </div>
 
               <div className="nl-field">
@@ -1325,11 +1311,6 @@ export default function Composer({
                     </option>
                   ))}
                 </select>
-                <p className="nl-help">
-                  These are the two layouts the renderer actually has. The
-                  campaign stores which one it uses, not the finished HTML, so a
-                  later fix to a layout also fixes campaigns already written.
-                </p>
               </div>
             </section>
 
@@ -1355,11 +1336,6 @@ export default function Composer({
                   </button>
                 ))}
               </div>
-              <p className="nl-help">
-                Inserted where you last had the cursor — subject, preheader or
-                body. Anything in braces that isn’t one of these is deleted
-                before sending, never passed through.
-              </p>
 
               <div className="nl-field">
                 <label className="nl-label" htmlFor="nl-body">
@@ -1929,13 +1905,6 @@ export default function Composer({
                         setSchedule({ kind: "idle" });
                       }}
                     />
-                    <p className="nl-help">
-                      Your local time. Either way the campaign waits for a
-                      sweep, so &ldquo;as soon as possible&rdquo; means the next
-                      sweep — they run {SWEEP_CADENCE} — not instantly. Sweeps
-                      are best-effort and can be delayed when the scheduler is
-                      busy.
-                    </p>
                   </fieldset>
 
                   {slots.length > 0 && (

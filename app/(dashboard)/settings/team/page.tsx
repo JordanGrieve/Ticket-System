@@ -67,11 +67,6 @@ export default async function TeamSettingsPage({
     <div className="stg-wrap">
       <header className="stg-head">
         <h1 className="stg-title">Team</h1>
-        <p className="stg-sub">
-          Everybody who can sign in to <b>{workspace.name}</b>. They all see the
-          same inbox and reply as the business — customers never see individual
-          names.
-        </p>
       </header>
 
       {error && (

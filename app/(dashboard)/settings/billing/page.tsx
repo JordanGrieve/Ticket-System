@@ -33,9 +33,6 @@ export default async function BillingSettingsPage() {
     <div className="stg-wrap">
       <header className="stg-head">
         <h1 className="stg-title">Billing</h1>
-        <p className="stg-sub">
-          What <b>{viewer.workspace.name}</b> is on, and how to change it.
-        </p>
       </header>
 
       <section className="stg-section">
@@ -81,12 +78,6 @@ export default async function BillingSettingsPage() {
           </p>
         )}
 
-        <p className="stg-section-sub">
-          <b>Your inbox keeps working either way.</b> Enquiries from your
-          customers are always received, recorded and repliable, whatever your
-          billing state. Nothing on this page can cost you a customer&rsquo;s
-          message.
-        </p>
       </section>
 
       {stripeConfigured() ? (

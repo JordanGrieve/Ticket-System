@@ -47,11 +47,6 @@ export default async function FormsSettingsPage() {
     <div className="stg-wrap">
       <header className="stg-head">
         <h1 className="stg-title">Forms</h1>
-        <p className="stg-sub">
-          Give each form on your site its own key, and every enquiry says which
-          one it came through. Useful when the contact page and the wholesale
-          page want different answers.
-        </p>
       </header>
 
       {/*
