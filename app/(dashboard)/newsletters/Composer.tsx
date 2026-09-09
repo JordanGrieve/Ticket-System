@@ -594,7 +594,8 @@ export default function Composer({
 
   async function open(id: number, force = false) {
     if (loadingId !== null) return;
-    if (id !== draft.id && !force && !guardNavigation({ kind: "open", id })) return;
+    if (id !== draft.id && !force && !guardNavigation({ kind: "open", id }))
+      return;
     setLoadingId(id);
     setError(null);
     try {
@@ -1001,7 +1002,8 @@ export default function Composer({
     const end = el.selectionEnd ?? value.length;
     const next = value.slice(0, start) + token + value.slice(end);
 
-    if (key === "subject") patch({ subject: next.slice(0, CAMPAIGN_SUBJECT_MAX) });
+    if (key === "subject")
+      patch({ subject: next.slice(0, CAMPAIGN_SUBJECT_MAX) });
     else if (key === "preheader")
       patch({ preheader: next.slice(0, CAMPAIGN_PREHEADER_MAX) });
     else patch({ body: next.slice(0, CAMPAIGN_BODY_MAX) });
@@ -1153,9 +1155,7 @@ export default function Composer({
         )}
 
         {campaigns.length === 0 ? (
-          <p className="nl-rail-empty">
-            No campaigns yet.
-          </p>
+          <p className="nl-rail-empty">No campaigns yet.</p>
         ) : (
           <ul className="nl-list">
             {campaigns.map((c) => (
@@ -1208,7 +1208,11 @@ export default function Composer({
               onClick={save}
               disabled={!canSave}
             >
-              {saving ? "Saving…" : draft.id === null ? "Create draft" : "Save draft"}
+              {saving
+                ? "Saving…"
+                : draft.id === null
+                  ? "Create draft"
+                  : "Save draft"}
             </button>
           </div>
         </header>
@@ -1316,7 +1320,11 @@ export default function Composer({
             <section className="nl-card">
               <h3 className="nl-card-title">Body</h3>
 
-              <div className="nl-tokens" role="group" aria-label="Insert a merge tag">
+              <div
+                className="nl-tokens"
+                role="group"
+                aria-label="Insert a merge tag"
+              >
                 {NEWSLETTER_MERGE_TOKENS.map((t) => (
                   <button
                     key={t.name}
@@ -1370,7 +1378,8 @@ export default function Composer({
                   disabled={!editable || lists.length === 0}
                   onChange={(e) =>
                     patch({
-                      listId: e.target.value === "" ? null : Number(e.target.value),
+                      listId:
+                        e.target.value === "" ? null : Number(e.target.value),
                     })
                   }
                 >
@@ -1401,11 +1410,7 @@ export default function Composer({
                 <div>
                   <h3 className="nl-card-title">Preview</h3>
                 </div>
-                <div
-                  className="nl-seg"
-                  role="group"
-                  aria-label="Preview width"
-                >
+                <div className="nl-seg" role="group" aria-label="Preview width">
                   <button
                     type="button"
                     className="nl-seg-btn"
@@ -1480,7 +1485,6 @@ export default function Composer({
             {/* ── What queueing does, and does not do ────────── */}
             <section className="nl-card">
               <h3 className="nl-card-title">Recipients</h3>
-
 
               <div className="nl-queue-row">
                 <button
@@ -1561,9 +1565,6 @@ export default function Composer({
                 )}
               </div>
 
-
-
-
               {savedId === null && (
                 <p className="nl-help">Create the draft first.</p>
               )}
@@ -1613,8 +1614,6 @@ export default function Composer({
             {/* ── The draft ⇄ scheduled edge ─────────────────── */}
             <section className="nl-card">
               <h3 className="nl-card-title">Schedule this campaign</h3>
-
-
 
               {draft.recipientCount > 0 && (
                 <p className="nl-note">
@@ -1794,39 +1793,37 @@ export default function Composer({
                       At a time I choose
                     </label>
 
-                    <input
-                      id="nl-when-value"
-                      className="nl-input"
-                      type="datetime-local"
-                      aria-label="Scheduled date and time"
-                      value={whenLocal}
-                      disabled={whenMode !== "at" || !canSchedule(draft.status)}
-                      onChange={(e) => {
-                        setWhenLocal(e.target.value);
-                        setSchedule({ kind: "idle" });
-                      }}
-                    />
+                    {whenMode === "at" && (
+                      <input
+                        id="nl-when-value"
+                        className="nl-input"
+                        type="datetime-local"
+                        aria-label="Scheduled date and time"
+                        value={whenLocal}
+                        disabled={!canSchedule(draft.status)}
+                        onChange={(e) => {
+                          setWhenLocal(e.target.value);
+                          setSchedule({ kind: "idle" });
+                        }}
+                      />
+                    )}
                   </fieldset>
 
                   {slots.length > 0 && (
                     <p className="nl-warn" role="status">
                       <b>
                         {slots.length === 1
-                          ? "One part of this is still a placeholder."
-                          : `${slots.length} parts of this are still placeholders.`}
+                          ? "1 placeholder still in the body:"
+                          : `${slots.length} placeholders still in the body:`}
                       </b>{" "}
-                      {slots[0]} — these go out exactly as written, so replace
-                      them with your own words first. Square brackets you meant
-                      to send are fine; this is only a reminder.
+                      {slots[0]}
                     </p>
                   )}
 
                   {!canSendLegally && (
                     <p className="nl-warn" role="status">
-                      <b>Add your postal address before scheduling.</b> Marketing
-                      email has to carry a real physical address by law, so
-                      Postbox refuses the send rather than leaving it out. Add
-                      it under <b>Settings → Sender identity</b>, then come back.
+                      <b>Postal address missing</b> — Settings → Sender
+                      identity.
                     </p>
                   )}
 
@@ -1919,8 +1916,9 @@ export default function Composer({
                     )}
                   {savedId !== null && !canSchedule(draft.status) && (
                     <p className="nl-help">
-                      This campaign is {STATUS_LABELS[draft.status].toLowerCase()}{" "}
-                      and can’t be scheduled again.
+                      This campaign is{" "}
+                      {STATUS_LABELS[draft.status].toLowerCase()} and can’t be
+                      scheduled again.
                     </p>
                   )}
                 </>
@@ -2029,7 +2027,8 @@ export function AbortPanel({
       <p className="nl-note nl-note--warn" role="status">
         This campaign is <b>sending</b>. It can’t be edited, re-scheduled, or
         have its recipients changed — those rows are already being worked
-        through. {stalled
+        through.{" "}
+        {stalled
           ? "It is also not moving, and it will keep re-entering the sweep every few minutes until something changes."
           : "The sweep is working through it a batch at a time."}
       </p>
@@ -2182,9 +2181,7 @@ function AudienceReadout({
   hasList: boolean;
 }) {
   if (state.kind === "unsaved") {
-    return (
-      <p className="nl-help">Save the draft to count its audience.</p>
-    );
+    return <p className="nl-help">Save the draft to count its audience.</p>;
   }
 
   if (stale) {
@@ -2198,9 +2195,7 @@ function AudienceReadout({
   }
 
   if (state.kind === "no_list") {
-    return (
-      <p className="nl-help">No list chosen.</p>
-    );
+    return <p className="nl-help">No list chosen.</p>;
   }
 
   if (state.kind === "loading") {
@@ -2237,7 +2232,9 @@ function AudienceReadout({
         <ul className="nl-skips">
           {skips.map((r) => (
             <li key={r} className="nl-skip">
-              <span className="nl-skip-n">{data.skipped[r].toLocaleString()}</span>
+              <span className="nl-skip-n">
+                {data.skipped[r].toLocaleString()}
+              </span>
               <span className="nl-skip-l">{SKIP_LABELS[r]}</span>
             </li>
           ))}
