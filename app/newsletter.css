@@ -261,22 +261,6 @@
 }
 
 /*
-  The test-send control. Permanently disabled, and styled as a plainly dead
-  control rather than a greyed-out primary button: there is no route behind it
-  and there is no state of this app in which clicking it would work.
-*/
-.nl-test {
-  border: 1px dashed var(--border-strong);
-  border-radius: 12px;
-  background: none;
-  color: var(--muted);
-  font-size: 0.78125rem;
-  font-weight: 700;
-  padding: 10px 14px;
-  cursor: not-allowed;
-}
-
-/*
   "Remove queued recipients" — the way back out of queueing.
 
   A real, live, secondary control, so it must NOT borrow .nl-test above: that
@@ -578,7 +562,8 @@
 }
 
 .nl-env-key {
-  flex: 0 0 84px;
+  flex: 0 0 96px;
+  white-space: nowrap;
   font-weight: 700;
   color: var(--muted-2);
 }

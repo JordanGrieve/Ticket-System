@@ -1382,11 +1382,7 @@ export default function Composer({
                   ))}
                 </select>
                 {lists.length === 0 && (
-                  <p className="nl-help">
-                    This workspace has no audience lists. There is no list or
-                    subscriber management screen yet — lists exist in the
-                    database and nothing in the app creates them.
-                  </p>
+                  <p className="nl-help">No audience lists yet.</p>
                 )}
               </div>
 
@@ -1404,10 +1400,6 @@ export default function Composer({
               <div className="nl-preview-head">
                 <div>
                   <h3 className="nl-card-title">Preview</h3>
-                  <p className="nl-card-sub">
-                    Rendered by the same function the send path calls, against a
-                    made-up recipient (<code>{SAMPLE_RECIPIENT.email}</code>).
-                  </p>
                 </div>
                 <div
                   className="nl-seg"
@@ -1487,37 +1479,8 @@ export default function Composer({
 
             {/* ── What queueing does, and does not do ────────── */}
             <section className="nl-card">
-              <h3 className="nl-card-title">What happens when you queue this</h3>
+              <h3 className="nl-card-title">Recipients</h3>
 
-              <ul className="nl-facts">
-                <li className="nl-fact nl-fact--yes">
-                  <b>Recipient rows are created</b> — one per person on the list,
-                  suppressed and duplicate addresses excluded by the query that
-                  writes them. Running it twice adds only what was missing.
-                </li>
-                <li className="nl-fact nl-fact--no">
-                  <b>No email is sent.</b> Nothing on this page reaches an email
-                  provider. The send loop takes its delivery function as an
-                  argument and has no default, and there is no live sender
-                  configured — the fallback writes a log line and transmits
-                  nothing.
-                </li>
-                <li className="nl-fact nl-fact--no">
-                  <b>Queueing alone starts nothing.</b> Rows sit at “queued”
-                  until the campaign is scheduled below. Nothing picks up an
-                  unscheduled campaign.
-                </li>
-                <li className="nl-fact nl-fact--yes">
-                  <b>You can undo it.</b> “Remove queued recipients” deletes the
-                  rows again while the campaign is still a draft, so queueing
-                  the wrong list costs nothing.
-                </li>
-                <li className="nl-fact nl-fact--no">
-                  <b>It would not be lawful to send yet.</b> CAN-SPAM requires a
-                  physical postal address in every message and there is no field
-                  to store one, so the footer cannot carry it.
-                </li>
-              </ul>
 
               <div className="nl-queue-row">
                 <button
@@ -1592,43 +1555,14 @@ export default function Composer({
                       draft.recipientCount === 0 ||
                       queue.kind === "working"
                     }
-                    aria-describedby="nl-unqueue-why"
                   >
                     Remove queued recipients
                   </button>
                 )}
               </div>
 
-              <p className="nl-help" id="nl-unqueue-why">
-                Removing recipients deletes the queued rows only, and only while
-                this is a draft — rows that were already sent, bounced or failed
-                are the campaign’s record of what happened and are never
-                deleted. Cancel the schedule first if the campaign is armed.
-              </p>
 
-              <div className="nl-queue-row">
-                {/*
-                  No test-send affordance exists to wire this to: there is no
-                  route that sends a campaign anywhere, to the author or to
-                  anyone else. Rendered disabled with the reason rather than as
-                  a button that quietly does nothing.
-                */}
-                <button
-                  type="button"
-                  className="nl-test"
-                  disabled
-                  aria-describedby="nl-test-why"
-                >
-                  Send a test to {viewerEmail}
-                </button>
-              </div>
 
-              <p className="nl-help" id="nl-test-why">
-                Test sends are off because there is nothing to send through: no
-                API route reaches an email provider with a campaign, and the
-                marketing sending domain isn’t verified. The preview above is
-                the same HTML a test would have carried.
-              </p>
 
               {savedId === null && (
                 <p className="nl-help">Create the draft first.</p>
@@ -1637,10 +1571,7 @@ export default function Composer({
                 <p className="nl-help">Choose an audience list and save.</p>
               )}
               {savedId !== null && dirty && (
-                <p className="nl-help">
-                  Save your changes first — queueing uses what the server holds,
-                  not what is on screen.
-                </p>
+                <p className="nl-help">Save your changes first.</p>
               )}
               {savedId !== null && draft.status === "scheduled" && (
                 <p className="nl-help">
@@ -1683,31 +1614,7 @@ export default function Composer({
             <section className="nl-card">
               <h3 className="nl-card-title">Schedule this campaign</h3>
 
-              <p className="nl-card-sub">
-                Scheduling marks the campaign as due and nothing more. A
-                background sweep picks up due campaigns{" "}
-                <b>{SWEEP_CADENCE}</b> — that cadence is best effort,
-                so an individual run can arrive late or be skipped altogether.
-              </p>
 
-              <ul className="nl-facts">
-                <li className="nl-fact nl-fact--no">
-                  <b>No email leaves the building.</b> The sweep hands every
-                  message to a log-only deliverer. There is no live sending
-                  provider configured in any environment, so a scheduled
-                  campaign writes log lines, marks its rows “sent”, and reaches
-                  nobody.
-                </li>
-                <li className="nl-fact nl-fact--no">
-                  <b>Consent isn’t enforced yet.</b> Until it is, this cannot be
-                  pointed at real inboxes even if a sender were configured.
-                </li>
-                <li className="nl-fact nl-fact--yes">
-                  <b>It is reversible until the sweep starts.</b> Cancel returns
-                  the campaign to draft and leaves its recipients alone. Once
-                  the sweep has begun, it can’t be pulled back.
-                </li>
-              </ul>
 
               {draft.recipientCount > 0 && (
                 <p className="nl-note">
@@ -1945,10 +1852,6 @@ export default function Composer({
                         ? "Sending…"
                         : "Send a test to myself"}
                     </button>
-                    <span className="nl-help">
-                      Goes to <b>{viewerEmail}</b> and nowhere else. Writes
-                      nothing, schedules nothing.
-                    </span>
                   </div>
 
                   {testSend.kind === "ok" && (
@@ -2007,19 +1910,12 @@ export default function Composer({
                     <p className="nl-help">Create the draft first.</p>
                   )}
                   {savedId !== null && savedListId === null && (
-                    <p className="nl-help">
-                      Choose an audience list and save. A campaign with no list
-                      can’t be scheduled.
-                    </p>
+                    <p className="nl-help">Choose an audience list and save.</p>
                   )}
                   {savedId !== null &&
                     savedListId !== null &&
                     draft.recipientCount === 0 && (
-                      <p className="nl-help">
-                        Queue the recipients first. A campaign with nobody
-                        queued would be marked sent without reaching anyone, so
-                        scheduling one is refused.
-                      </p>
+                      <p className="nl-help">Queue the recipients first.</p>
                     )}
                   {savedId !== null && !canSchedule(draft.status) && (
                     <p className="nl-help">
@@ -2287,10 +2183,7 @@ function AudienceReadout({
 }) {
   if (state.kind === "unsaved") {
     return (
-      <p className="nl-help">
-        Save the draft to count its audience. The count comes from the server,
-        which is the only thing that knows who is suppressed.
-      </p>
+      <p className="nl-help">Save the draft to count its audience.</p>
     );
   }
 
@@ -2306,9 +2199,7 @@ function AudienceReadout({
 
   if (state.kind === "no_list") {
     return (
-      <p className="nl-help">
-        No list chosen, so there is no audience and no count.
-      </p>
+      <p className="nl-help">No list chosen.</p>
     );
   }
 
@@ -2339,9 +2230,7 @@ function AudienceReadout({
       </p>
       <p className="nl-help">
         From {data.candidateCount.toLocaleString()} on the list, after removing
-        suppressions, duplicates and anyone unsubscribed. Suppression outranks
-        whatever a subscriber row claims about itself, so this is the number the
-        send would actually use.
+        suppressions, duplicates and anyone unsubscribed.
       </p>
 
       {skips.length > 0 && (
