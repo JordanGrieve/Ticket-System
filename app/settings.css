@@ -1854,6 +1854,9 @@
 
 .stg-button--wide {
   width: 100%;
+  /* The same cap as .stg-field, so on desktop the button ends where the
+     field above it ends. Full width on a phone, where the cap never bites. */
+  max-width: 460px;
   min-height: 48px;
   font-size: 0.875rem;
 }
