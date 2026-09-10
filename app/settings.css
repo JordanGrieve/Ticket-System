@@ -1825,17 +1825,37 @@
   margin-top: 4px;
 }
 
+/*
+  ── THE BUTTON ──
+  The one primary button in Settings, and the reference for the product:
+  Jordan on 10 Sep 2026, pointing at the Forms page's Create — "this should
+  be the main style guide button". Accent gradient, white ink (7:1 on both
+  stops, guarded in tests/contrast-tokens.test.ts), radius 10, 700, 44px.
+  .pbf-btn--primary on Forms is the same drawing; new screens use this
+  class. --wide is the full-width, slightly taller form of it for a form's
+  one committing action, such as Send invite.
+*/
 .stg-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
   background: var(--accent-grad);
   border: 1px solid transparent;
   border-radius: 10px;
-  color: var(--accent-text);
+  color: var(--pbm-on-dark, #fff);
   cursor: pointer;
   font: inherit;
-  font-size: 0.875rem;
-  font-weight: 600;
-  padding: 9px 18px;
+  font-size: 0.8125rem;
+  font-weight: 700;
   transition: box-shadow 140ms ease;
+}
+
+.stg-button--wide {
+  width: 100%;
+  min-height: 48px;
+  font-size: 0.875rem;
 }
 
 .stg-button:hover:not(:disabled) {
@@ -1850,6 +1870,37 @@
 .stg-button:focus-visible {
   outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 2px;
+}
+
+/* Newer / Older under a paginated list. Same shape as the inbox's .pbm-pager
+   so the two read as one control; the links carry the 44px, not the words. */
+.stg-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 0 4px;
+  font-size: 0.78125rem;
+  font-weight: 600;
+}
+
+.stg-pager a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: var(--accent-text);
+}
+
+.stg-pager-off {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.stg-pager-pos {
+  color: var(--muted-2);
+  font-weight: 500;
 }
 
 .stg-identity-ok {

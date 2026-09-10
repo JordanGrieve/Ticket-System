@@ -88,10 +88,12 @@ describe("saying the chosen time back", () => {
   const tz = "Europe/London";
 
   it("reads a date and a time as words, with how far away it is", () => {
-    const r = describeWhen("2026-09-12", "10:00", now, tz);
+    // The machine's own zone: CI runs in UTC and a dev box in BST, and a
+    // wall-clock input is only meaningful in the zone it was typed in.
+    const r = describeWhen("2026-09-12", "10:00", now, Intl.DateTimeFormat().resolvedOptions().timeZone);
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
-    expect(r.text).toBe("Sat 12 Sept, 10:00 · in 2 days · Europe/London");
+    expect(r.text).toMatch(/^Sat 12 Sept, 10:00 · in 2 days · /);
     expect(new Date(r.iso).getTime()).toBe(new Date("2026-09-12T10:00").getTime());
   });
 

@@ -170,7 +170,10 @@ vertical scroll is never captured.
 
 ### Buttons
 
-Filled: `--accent-grad`, white text, 44px, radius 12, 700. Quiet: `--surface-3`
+**The standard button is `.stg-button`** (app/settings.css), the look of the
+Forms page's Create: `--accent-grad`, white text, 44px, radius 10, 0.8125rem/700.
+`.stg-button--wide` is the full-width 48px form for a form's one committing
+action (Send invite). New screens use these classes. Quiet: `--surface-3`
 ground, `--text` ink. Destructive: `--pdf-fg` ink on `--pdf-bg`. Never white
 text on flat `--accent`.
 

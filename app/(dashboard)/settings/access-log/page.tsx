@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ImpersonationEnd, ImpersonationSession } from "@/db/schema";
 import {
@@ -68,7 +69,15 @@ export const metadata = { title: "Access log · Settings · Postbox" };
 /** Newest first. Deliberately larger than the operator console's page. */
 const LIMIT = 200;
 
-export default async function AccessLogPage() {
+/** Visits per page. Eight, Jordan's number (10 Sep 2026). */
+const PAGE_SIZE = 8;
+
+export default async function AccessLogPage({
+  searchParams,
+}: {
+  /** The page number, and NOTHING else — the workspace never comes from the URL. */
+  searchParams?: Promise<{ page?: string }>;
+} = {}) {
   const viewer = await resolveViewer();
   // TENANCY. The workspace comes from the session, via resolveViewer, and from
   // nowhere else — there is no id in this route and no search param that could
@@ -76,10 +85,25 @@ export default async function AccessLogPage() {
   if (!viewer.workspace) redirect(viewer.isAdmin ? "/admin" : "/no-access");
   const workspace = viewer.workspace;
 
-  const sessions = await listImpersonationSessionsForWorkspace(
+  const allSessions = await listImpersonationSessionsForWorkspace(
     workspace.id,
     LIMIT,
   );
+
+  /*
+    Paginated in memory, PAGE_SIZE at a time. The query already caps at LIMIT,
+    which is the whole record for every workspace that exists; slicing here
+    keeps one query and one clock for the tiles, which count everything, while
+    the list shows a page. An out-of-range page shows the last one rather
+    than an empty list.
+  */
+  const params = (await searchParams) ?? {};
+  const pageCount = Math.max(1, Math.ceil(allSessions.length / PAGE_SIZE));
+  const requested = Number.parseInt(params.page ?? "1", 10);
+  const page = Number.isFinite(requested)
+    ? Math.min(Math.max(1, requested), pageCount)
+    : 1;
+  const sessions = allSessions.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   /*
     Which of their conversations were opened during each of those visits.
@@ -104,9 +128,10 @@ export default async function AccessLogPage() {
 
   // One clock for the whole list, so no two rows are classified against
   // different instants and land either side of the abandoned threshold.
-  const states = sessionStates(sessions);
-  const live = states.filter((s) => s === "active").length;
-  const unclosed = states.filter((s) => s === "abandoned").length;
+  const allStates = sessionStates(allSessions);
+  const states = allStates.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const live = allStates.filter((s) => s === "active").length;
+  const unclosed = allStates.filter((s) => s === "abandoned").length;
 
   return (
     <div className="stg-wrap">
@@ -114,7 +139,7 @@ export default async function AccessLogPage() {
         <h1 className="stg-title">Access log</h1>
       </header>
 
-      {sessions.length === 0 ? (
+      {allSessions.length === 0 ? (
         <section className="stg-section">
           <div className="stg-al-none">
             <p className="stg-al-none-lead">
@@ -133,9 +158,9 @@ export default async function AccessLogPage() {
           <section className="stg-section">
             <div className="stg-al-tiles">
               <div className="stg-al-tile">
-                <div className="stg-al-tile-value">{sessions.length}</div>
+                <div className="stg-al-tile-value">{allSessions.length}</div>
                 <div className="stg-al-tile-label">
-                  {sessions.length === 1 ? "Recorded visit" : "Recorded visits"}
+                  {allSessions.length === 1 ? "Recorded visit" : "Recorded visits"}
                 </div>
               </div>
               <div className="stg-al-tile">
@@ -162,10 +187,27 @@ export default async function AccessLogPage() {
                 />
               ))}
             </ol>
-            {sessions.length === LIMIT && (
+            {pageCount > 1 && (
+              <nav className="stg-pager" aria-label="Visit pages">
+                {page > 1 ? (
+                  <Link href={`/settings/access-log?page=${page - 1}`}>← Newer</Link>
+                ) : (
+                  <span className="stg-pager-off">← Newer</span>
+                )}
+                <span className="stg-pager-pos">
+                  Page {page} of {pageCount}
+                </span>
+                {page < pageCount ? (
+                  <Link href={`/settings/access-log?page=${page + 1}`}>Older →</Link>
+                ) : (
+                  <span className="stg-pager-off">Older →</span>
+                )}
+              </nav>
+            )}
+            {allSessions.length === LIMIT && (
               <p className="stg-al-note">
-                This page shows the {LIMIT} most recent visits. There are older
-                ones — ask us and we will send the rest.
+                The {LIMIT} most recent visits are here. There are older ones —
+                ask us and we will send the rest.
               </p>
             )}
           </section>

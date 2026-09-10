@@ -201,7 +201,7 @@ export default async function TeamSettingsPage({
               on Jordan's call, 9 Sep 2026, with the owner-only notice: the
               FAQ is where this will live. The facts it stated are unchanged.
             */}
-            <button className="stg-button" type="submit">
+            <button className="stg-button stg-button--wide" type="submit">
               Send invite
             </button>
           </form>

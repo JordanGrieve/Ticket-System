@@ -59,13 +59,14 @@ describe("access log — tenancy", () => {
     );
   });
 
-  it("accepts no params or searchParams at all", () => {
-    // The strongest form of "never from a URL parameter": there is nothing to
-    // read one out of. If this page ever needs paging, the id still may not
-    // come from the URL — derive it from the viewer and page on an offset.
-    expect(code).not.toMatch(/\bsearchParams\b/);
-    expect(code).not.toMatch(/\bparams\b/);
-    expect(src).toMatch(/export default async function \w+\(\)/);
+  it("the only thing read from the URL is a page number", () => {
+    // Paged since 10 Sep 2026 (eight visits a page), so a searchParams DOES
+    // exist now — typed to carry a page number and nothing else. The
+    // workspace still comes from the viewer: the query is keyed on
+    // workspace.id, and there is no id in the route or the params to change.
+    expect(src).toContain("searchParams?: Promise<{ page?: string }>");
+    expect(code).not.toMatch(/params\.(workspace|id|workspaceId)/);
+    expect(src).toContain("listImpersonationSessionsForWorkspace(\n    workspace.id");
   });
 
   it("does not reach for the platform-wide log", () => {
@@ -76,7 +77,7 @@ describe("access log — tenancy", () => {
 
 describe("access log — says what was observed, not what was inferred", () => {
   it("classifies rows with sessionStates against one clock", () => {
-    expect(src).toContain("sessionStates(sessions)");
+    expect(src).toContain("sessionStates(allSessions)");
     // Reading the clock per row would let a long list come out with two rows
     // either side of the abandoned threshold.
     expect(code).not.toMatch(/sessionState\(/);
@@ -110,7 +111,7 @@ describe("access log — says what was observed, not what was inferred", () => {
   });
 
   it("distinguishes an empty log from an empty table", () => {
-    expect(src).toMatch(/sessions\.length === 0 \?/);
+    expect(src).toMatch(/allSessions\.length === 0 \?/);
     expect(src).toContain("No one from Postbox has entered this workspace.");
     // …and admits what the log cannot speak for.
     expect(src).toMatch(/before this log was switched on/);
