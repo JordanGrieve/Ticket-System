@@ -376,8 +376,25 @@ export default function MailNavShell({
             );
           })}
 
+          {extraFolders.length > 0 && (
+            <button
+              type="button"
+              className="pbm-folder pbm-folder--more"
+              data-open={foldersOpen || undefined}
+              onClick={() => setFoldersOpen((v) => !v)}
+              aria-expanded={foldersOpen}
+            >
+              <Icon name="chevronDown" size={18} />
+              <span className="pbm-folder-label">
+                {foldersOpen ? "Less" : "More"}
+              </span>
+            </button>
+          )}
+
           {/*
-            The rest, in a container that animates its own height — the
+            The rest, BELOW the More/Less row so the row stays put and the
+            folders unfold under it (Jordan, 10 Sep 2026). A container that
+            animates its own height — the
             0fr-to-1fr grid trick, since the count varies with the plan. They
             stay in the DOM and are hidden with inert + aria-hidden, so the
             height has something to animate from and to.
@@ -409,21 +426,6 @@ export default function MailNavShell({
                 })}
               </div>
             </div>
-          )}
-
-          {extraFolders.length > 0 && (
-            <button
-              type="button"
-              className="pbm-folder pbm-folder--more"
-              data-open={foldersOpen || undefined}
-              onClick={() => setFoldersOpen((v) => !v)}
-              aria-expanded={foldersOpen}
-            >
-              <Icon name="chevronDown" size={18} />
-              <span className="pbm-folder-label">
-                {foldersOpen ? "Less" : "More"}
-              </span>
-            </button>
           )}
         </div>
 
