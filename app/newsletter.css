@@ -944,3 +944,175 @@
   background: var(--pdf-bg);
   color: var(--pdf-fg);
 }
+
+/* ── Schedule card: the readiness checklist ───────────────────
+   Every condition the send waits on, ticked as it is met. An unmet step is
+   a button that takes you to where it is fixed, so the disabled primary
+   below explains itself. 44px rows for 2.5.5. */
+.nl-ready {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nl-ready-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.nl-ready-item[data-done] {
+  color: var(--muted-2);
+}
+
+.nl-ready-tick {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--pbm-on-dark, #fff);
+}
+
+.nl-ready-item[data-done] .nl-ready-tick {
+  border-color: transparent;
+  background: var(--accent-grad);
+}
+
+.nl-ready-fix {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nl-ready-fix:hover .nl-ready-label {
+  text-decoration: underline;
+}
+
+.nl-ready-fix:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--accent));
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.nl-ready-go {
+  flex: none;
+}
+
+/* Date and time side by side, and the readout under them. */
+.nl-when-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.nl-field--tight {
+  margin: 0;
+}
+
+.nl-when-readout {
+  margin: 8px 0 0;
+  min-height: 1.5em;
+  font-size: 0.78125rem;
+  line-height: 1.5;
+  color: var(--warn-fg);
+}
+
+.nl-when-readout[data-ok] {
+  color: var(--text-3);
+}
+
+/* The primary and the test send on one row. */
+.nl-send-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+  margin-top: 6px;
+}
+
+/* A link-styled button: the test send and the armed row's Cancel. 44px
+   tall so the target holds without a box being drawn. */
+.nl-linkbtn {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.nl-linkbtn:disabled {
+  color: var(--muted-2);
+  text-decoration: none;
+  cursor: default;
+}
+
+.nl-linkbtn:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--accent));
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* The armed state: one row. */
+.nl-status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.nl-status-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok-fg);
+}
+
+.nl-status-text {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 480px) {
+  .nl-when-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

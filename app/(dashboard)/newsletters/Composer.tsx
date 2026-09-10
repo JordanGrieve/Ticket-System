@@ -26,9 +26,16 @@ import {
   canSchedule,
   describeAbort,
   describeDrain,
-  SWEEP_CADENCE,
 } from "@/lib/campaign-schedule";
 import type { CampaignHealth } from "@/lib/campaign-health";
+import {
+  describeWhen,
+  primaryLabel,
+  readinessSteps,
+  readyToSend,
+  scheduledSummary,
+  type WhenMode,
+} from "@/lib/campaign-readiness";
 import type { RecipientStatus } from "@/db/schema";
 
 /**
@@ -163,8 +170,6 @@ type AbortState =
   | { kind: "error"; message: string }
   | { kind: "stopped"; stopped: number; alreadySent: number };
 
-/** "As soon as the next sweep runs" vs "at a time I pick". One request either way. */
-type WhenMode = "asap" | "at";
 
 // ── Local draft ──────────────────────────────────────────────────
 
@@ -389,9 +394,10 @@ export default function Composer({
     | { kind: "ok"; transmitted: boolean }
     | { kind: "error"; message: string }
   >({ kind: "idle" });
-  const [whenMode, setWhenMode] = useState<WhenMode>("asap");
-  /** A `datetime-local` value — local wall clock, converted on submit. */
-  const [whenLocal, setWhenLocal] = useState("");
+  const [whenMode, setWhenMode] = useState<WhenMode>("now");
+  /** Local wall clock, two fields; lib/campaign-readiness turns them into an instant. */
+  const [whenDate, setWhenDate] = useState("");
+  const [whenTime, setWhenTime] = useState("");
 
   const [view, setView] = useState<"desktop" | "mobile">("desktop");
 
@@ -810,20 +816,13 @@ export default function Composer({
     if (savedId === null || schedule.kind === "working") return;
 
     let scheduledAt: string | null = null;
-    if (whenMode === "at") {
-      if (!whenLocal) {
-        setSchedule({ kind: "error", message: "Pick a date and time first." });
+    if (whenMode === "later") {
+      const w = describeWhen(whenDate, whenTime, new Date(), timeZone);
+      if (!w.ok) {
+        setSchedule({ kind: "error", message: w.text });
         return;
       }
-      const parsed = new Date(whenLocal);
-      if (Number.isNaN(parsed.getTime())) {
-        setSchedule({
-          kind: "error",
-          message: "Couldn’t read that date and time.",
-        });
-        return;
-      }
-      scheduledAt = parsed.toISOString();
+      scheduledAt = w.iso;
     }
 
     setSchedule({ kind: "working" });
@@ -1077,6 +1076,41 @@ export default function Composer({
     screen than the blank box they replaced.
   */
   const slots = unfilledSlots(draft.body);
+
+  /*
+    The checklist and the primary button's state, from lib/campaign-readiness.
+    `ready` is the same set of conditions the Schedule button used to spell
+    out inline; the server still refuses independently (409 from the schedule
+    route), so this is the explanation, not the guard.
+  */
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const steps = readinessSteps({
+    saved: savedId !== null,
+    dirty,
+    listChosen: savedListId !== null,
+    audienceCount: audience.kind === "ready" ? audience.data.recipientCount : null,
+    queued: draft.recipientCount,
+    placeholders: slots.length,
+    postalAddress: canSendLegally,
+  });
+  const ready = readyToSend(steps, draft.status);
+  const when =
+    whenMode === "later" ? describeWhen(whenDate, whenTime, new Date(), timeZone) : null;
+
+  /** Where each unmet step is fixed. Focus or scroll; never a page change except Settings. */
+  function goFix(fix: (typeof steps)[number]["fix"]) {
+    if (fix === "save") {
+      save();
+    } else if (fix === "list") {
+      document.getElementById("nl-list")?.focus();
+    } else if (fix === "queue") {
+      document.getElementById("nl-recipients")?.scrollIntoView({ block: "start", behavior: "smooth" });
+    } else if (fix === "body") {
+      bodyRef.current?.focus();
+    } else {
+      window.location.assign("/settings");
+    }
+  }
 
   /*
     Whether this finished campaign can go back in the queue.
@@ -1484,7 +1518,7 @@ export default function Composer({
 
             {/* ── What queueing does, and does not do ────────── */}
             <section className="nl-card">
-              <h3 className="nl-card-title">Recipients</h3>
+              <h3 className="nl-card-title" id="nl-recipients">Recipients</h3>
 
               <div className="nl-queue-row">
                 <button
@@ -1720,123 +1754,149 @@ export default function Composer({
                   )}
                 </>
               ) : draft.status === "scheduled" ? (
+                /*
+                  Armed. One status row — when, and for how many — with the
+                  way back beside it. The paragraphs about sweeps and log
+                  lines that used to sit here explained the machinery; the
+                  row states the fact.
+                */
+                <div className="nl-status-row" role="status">
+                  <span className="nl-status-dot" aria-hidden />
+                  <span className="nl-status-text">
+                    {scheduledSummary(draft.scheduledAtIso, draft.recipientCount, timeZone)}
+                  </span>
+                  <button
+                    type="button"
+                    className="nl-linkbtn"
+                    onClick={cancelSchedule}
+                    disabled={!canCancelSchedule(draft.status) || schedule.kind === "working"}
+                  >
+                    {schedule.kind === "working" ? "Cancelling…" : "Cancel"}
+                  </button>
+                </div>
+              ) : (
                 <>
-                  <p className="nl-note nl-note--warn" role="status">
-                    Scheduled for{" "}
-                    <b>
-                      {draft.scheduledAtIso
-                        ? new Date(draft.scheduledAtIso).toLocaleString()
-                        : "the next sweep"}
-                    </b>
-                    . The first sweep at or after that time will start working
-                    through the queued rows — writing log lines, not email.
-                  </p>
-                  {schedule.kind === "armed" && (
-                    <p className="nl-note" role="status">
-                      {schedule.immediate
-                        ? `Scheduled for now, which means the next sweep — they run ${SWEEP_CADENCE}.`
-                        : "Scheduled."}{" "}
-                      Nothing has been emailed and nothing will be: the sweep’s
-                      deliverer only writes to the log.
-                    </p>
-                  )}
-                  <div className="nl-queue-row">
+                  {/*
+                    ── THE CHECKLIST ──
+                    Every condition the primary button waits on, as a list
+                    with ticks, each unmet one a link to where it is fixed.
+                    lib/campaign-readiness.ts decides the ticks; this draws
+                    them. Before this there were five disabled buttons and
+                    one grey line naming the first unmet step.
+                  */}
+                  <ol className="nl-ready" aria-label="Before this can send">
+                    {steps.map((s) => (
+                      <li key={s.key} className="nl-ready-item" data-done={s.done || undefined}>
+                        <span className="nl-ready-tick" aria-hidden>
+                          {s.done ? "✓" : ""}
+                        </span>
+                        {s.done ? (
+                          <span className="nl-ready-label">{s.label}</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="nl-ready-fix"
+                            onClick={() => goFix(s.fix)}
+                          >
+                            <span className="nl-ready-label">{s.label}</span>
+                            <span className="nl-ready-go" aria-hidden>
+                              →
+                            </span>
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+
+                  <fieldset className="nl-field">
+                    <legend className="nl-label">Send</legend>
+                    <div className="nl-seg" role="group" aria-label="When to send">
+                      <button
+                        type="button"
+                        className="nl-seg-btn"
+                        data-on={whenMode === "now"}
+                        aria-pressed={whenMode === "now"}
+                        onClick={() => {
+                          setWhenMode("now");
+                          setSchedule({ kind: "idle" });
+                        }}
+                      >
+                        Now
+                      </button>
+                      <button
+                        type="button"
+                        className="nl-seg-btn"
+                        data-on={whenMode === "later"}
+                        aria-pressed={whenMode === "later"}
+                        onClick={() => {
+                          setWhenMode("later");
+                          setSchedule({ kind: "idle" });
+                        }}
+                      >
+                        Later
+                      </button>
+                    </div>
+                    {whenMode === "later" && (
+                      <>
+                        <div className="nl-when-grid">
+                          <label className="nl-field nl-field--tight">
+                            <span className="nl-label">Date</span>
+                            <input
+                              className="nl-input"
+                              type="date"
+                              value={whenDate}
+                              min={todayLocal()}
+                              onChange={(e) => {
+                                setWhenDate(e.target.value);
+                                setSchedule({ kind: "idle" });
+                              }}
+                            />
+                          </label>
+                          <label className="nl-field nl-field--tight">
+                            <span className="nl-label">Time</span>
+                            <input
+                              className="nl-input"
+                              type="time"
+                              value={whenTime}
+                              onChange={(e) => {
+                                setWhenTime(e.target.value);
+                                setSchedule({ kind: "idle" });
+                              }}
+                            />
+                          </label>
+                        </div>
+                        <p className="nl-when-readout" data-ok={when?.ok || undefined}>
+                          {when?.text}
+                        </p>
+                      </>
+                    )}
+                  </fieldset>
+
+                  <div className="nl-send-row">
                     <button
                       type="button"
-                      className="nl-queue"
-                      onClick={cancelSchedule}
+                      className="nl-queue nl-send"
+                      onClick={armSchedule}
                       disabled={
-                        !canCancelSchedule(draft.status) ||
+                        !ready ||
+                        (whenMode === "later" && !(when && when.ok)) ||
                         schedule.kind === "working"
                       }
                     >
                       {schedule.kind === "working"
-                        ? "Cancelling…"
-                        : "Cancel schedule"}
+                        ? "Scheduling…"
+                        : primaryLabel(whenMode, when)}
                     </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <fieldset className="nl-field">
-                    <legend className="nl-label">When</legend>
-
-                    <label className="nl-radio" htmlFor="nl-when-asap">
-                      <input
-                        id="nl-when-asap"
-                        type="radio"
-                        name="nl-when"
-                        value="asap"
-                        checked={whenMode === "asap"}
-                        disabled={!canSchedule(draft.status)}
-                        onChange={() => {
-                          setWhenMode("asap");
-                          setSchedule({ kind: "idle" });
-                        }}
-                      />{" "}
-                      As soon as the next sweep runs
-                    </label>
-
-                    <label className="nl-radio" htmlFor="nl-when-at">
-                      <input
-                        id="nl-when-at"
-                        type="radio"
-                        name="nl-when"
-                        value="at"
-                        checked={whenMode === "at"}
-                        disabled={!canSchedule(draft.status)}
-                        onChange={() => {
-                          setWhenMode("at");
-                          setSchedule({ kind: "idle" });
-                        }}
-                      />{" "}
-                      At a time I choose
-                    </label>
-
-                    {whenMode === "at" && (
-                      <input
-                        id="nl-when-value"
-                        className="nl-input"
-                        type="datetime-local"
-                        aria-label="Scheduled date and time"
-                        value={whenLocal}
-                        disabled={!canSchedule(draft.status)}
-                        onChange={(e) => {
-                          setWhenLocal(e.target.value);
-                          setSchedule({ kind: "idle" });
-                        }}
-                      />
-                    )}
-                  </fieldset>
-
-                  {slots.length > 0 && (
-                    <p className="nl-warn" role="status">
-                      <b>
-                        {slots.length === 1
-                          ? "1 placeholder still in the body:"
-                          : `${slots.length} placeholders still in the body:`}
-                      </b>{" "}
-                      {slots[0]}
-                    </p>
-                  )}
-
-                  {!canSendLegally && (
-                    <p className="nl-warn" role="status">
-                      <b>Postal address missing</b> — Settings → Sender
-                      identity.
-                    </p>
-                  )}
-
-                  {/*
-                    The test send. Above the Schedule button deliberately: it is
-                    the thing you should press first, and it is the only action
-                    on this screen that produces a real message without
-                    committing anything.
-                  */}
-                  <div className="nl-queue-row">
+                    {/*
+                      The test send, beside the primary rather than above it:
+                      it is the thing to press first, and it is the only
+                      action here that produces a real message without
+                      committing anything. It needs a saved draft and the
+                      postal address, not the whole list.
+                    */}
                     <button
                       type="button"
-                      className="nl-secondary"
+                      className="nl-linkbtn"
                       onClick={sendTestToMyself}
                       disabled={
                         savedId === null ||
@@ -1845,9 +1905,7 @@ export default function Composer({
                         testSend.kind === "working"
                       }
                     >
-                      {testSend.kind === "working"
-                        ? "Sending…"
-                        : "Send a test to myself"}
+                      {testSend.kind === "working" ? "Sending…" : "Send me a test first"}
                     </button>
                   </div>
 
@@ -1876,44 +1934,6 @@ export default function Composer({
                       {testSend.message}
                     </p>
                   )}
-
-                  <div className="nl-queue-row">
-                    <button
-                      type="button"
-                      className="nl-queue"
-                      onClick={armSchedule}
-                      disabled={
-                        savedId === null ||
-                        savedListId === null ||
-                        !canSchedule(draft.status) ||
-                        dirty ||
-                        draft.recipientCount === 0 ||
-                        // The server refuses this too (409 from the schedule
-                        // route). Disabling here is not the guard, it is the
-                        // explanation — a button that fails on press teaches
-                        // nothing, and the state it would have created is
-                        // unrecoverable from inside the product.
-                        !canSendLegally ||
-                        schedule.kind === "working"
-                      }
-                    >
-                      {schedule.kind === "working"
-                        ? "Scheduling…"
-                        : "Schedule campaign"}
-                    </button>
-                  </div>
-
-                  {savedId === null && (
-                    <p className="nl-help">Create the draft first.</p>
-                  )}
-                  {savedId !== null && savedListId === null && (
-                    <p className="nl-help">Choose an audience list and save.</p>
-                  )}
-                  {savedId !== null &&
-                    savedListId !== null &&
-                    draft.recipientCount === 0 && (
-                      <p className="nl-help">Queue the recipients first.</p>
-                    )}
                   {savedId !== null && !canSchedule(draft.status) && (
                     <p className="nl-help">
                       This campaign is{" "}
@@ -2242,4 +2262,11 @@ function AudienceReadout({
       )}
     </div>
   );
+}
+
+/** Today as a `date` input value, in local time, for the field's `min`. */
+function todayLocal(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
