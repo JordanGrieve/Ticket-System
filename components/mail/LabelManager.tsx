@@ -261,6 +261,70 @@ export default function LabelManager({
     } — the tickets themselves are not affected.`;
   }
 
+  /*
+    The colour swatches for one label. Drawn in the row on desktop, where
+    there is room for four 18px dots; on a phone the stylesheet shows them
+    only while the row is being edited (data-editing), because four 26px
+    targets on their own line made every row 113px and the sheet could show
+    three labels — Jordan, 10 Sep 2026: "that modal is no good for mobile,
+    it's too big". The pencil opens the row; the colours come with the name.
+  */
+  const swatchesFor = (row: LabelWithCountDTO) => (
+    <div
+      className="pbm-swatches"
+      role="radiogroup"
+      aria-label={`Colour for ${row.name}`}
+    >
+      {COLOR_ORDER.map((c, i) => (
+        <button
+          key={c}
+          type="button"
+          role="radio"
+          /*
+            A PRESET IS ONLY LIT WHEN NO CUSTOM COLOUR IS SET.
+
+            This read `row.color === c` alone. color still holds
+            whatever token the label had before, so after picking
+            a custom colour the preset stayed highlighted and the
+            custom swatch showed nothing — the ring pointed at a
+            colour that was not in force. colorHex is what wins
+            at render time (see labelChipProps), so it has to win
+            here too.
+          */
+          aria-checked={row.colorHex === null && row.color === c}
+          aria-label={`Colour ${i + 1} for ${row.name}`}
+          className="pbm-label-swatch pbm-label-swatch--pick"
+          data-color={c}
+          data-on={
+            (row.colorHex === null && row.color === c) || undefined
+          }
+          onClick={() =>
+            void patch(row.id, { color: c, colorHex: null })
+          }
+        />
+      ))}
+      {/*
+        Choosing a preset clears the hex above, so the two
+        controls cannot disagree about which colour is in force.
+        A native input rather than a drawn wheel: it is the
+        platform's own picker, keyboard-operable and translated,
+        and on a phone it opens the system one.
+      */}
+      <input
+        type="color"
+        className="pbm-label-pick"
+        aria-label={`Pick any colour for ${row.name}`}
+        /* Lit when the custom colour is the one in force, so
+           exactly one swatch in this group is ever ringed. */
+        data-on={row.colorHex !== null || undefined}
+        value={row.colorHex ?? "#8b6bff"}
+        onChange={(e) =>
+          void patch(row.id, { colorHex: e.target.value })
+        }
+      />
+    </div>
+  );
+
   return (
     <>
       {/* Chrome only. Everything below the head is identical in both
@@ -322,7 +386,11 @@ export default function LabelManager({
           )}
 
           {rows.map((row) => (
-            <div key={row.id} className="pbm-label-row">
+            <div
+              key={row.id}
+              className="pbm-label-row"
+              data-editing={editingId === row.id || undefined}
+            >
               {confirmingId === row.id ? (
                 /* The row becomes the question. role="alertdialog" + the
                    aria-describedby pairing is what a native confirm() gave us
@@ -386,6 +454,7 @@ export default function LabelManager({
                   >
                     Save
                   </button>
+                  {swatchesFor(row)}
                 </>
               ) : (
                 <>
@@ -396,59 +465,7 @@ export default function LabelManager({
                     {row.ticketCount}{" "}
                     {row.ticketCount === 1 ? "ticket" : "tickets"}
                   </span>
-                  <div
-                    className="pbm-swatches"
-                    role="radiogroup"
-                    aria-label={`Colour for ${row.name}`}
-                  >
-                    {COLOR_ORDER.map((c, i) => (
-                      <button
-                        key={c}
-                        type="button"
-                        role="radio"
-                        /*
-                          A PRESET IS ONLY LIT WHEN NO CUSTOM COLOUR IS SET.
-
-                          This read `row.color === c` alone. color still holds
-                          whatever token the label had before, so after picking
-                          a custom colour the preset stayed highlighted and the
-                          custom swatch showed nothing — the ring pointed at a
-                          colour that was not in force. colorHex is what wins
-                          at render time (see labelChipProps), so it has to win
-                          here too.
-                        */
-                        aria-checked={row.colorHex === null && row.color === c}
-                        aria-label={`Colour ${i + 1} for ${row.name}`}
-                        className="pbm-label-swatch pbm-label-swatch--pick"
-                        data-color={c}
-                        data-on={
-                          (row.colorHex === null && row.color === c) || undefined
-                        }
-                        onClick={() =>
-                          void patch(row.id, { color: c, colorHex: null })
-                        }
-                      />
-                    ))}
-                    {/*
-                      Choosing a preset clears the hex above, so the two
-                      controls cannot disagree about which colour is in force.
-                      A native input rather than a drawn wheel: it is the
-                      platform's own picker, keyboard-operable and translated,
-                      and on a phone it opens the system one.
-                    */}
-                    <input
-                      type="color"
-                      className="pbm-label-pick"
-                      aria-label={`Pick any colour for ${row.name}`}
-                      /* Lit when the custom colour is the one in force, so
-                         exactly one swatch in this group is ever ringed. */
-                      data-on={row.colorHex !== null || undefined}
-                      value={row.colorHex ?? "#8b6bff"}
-                      onChange={(e) =>
-                        void patch(row.id, { colorHex: e.target.value })
-                      }
-                    />
-                  </div>
+                  {swatchesFor(row)}
                   <button
                     className="pbm-label-icon"
                     aria-label={`Rename ${row.name}`}

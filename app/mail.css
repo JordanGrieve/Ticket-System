@@ -1321,6 +1321,39 @@
     width: 26px;
     height: 26px;
   }
+  /*
+    Only while editing. With the swatches on every row a label was 113px
+    tall and a 375px phone showed three; the row is 56px now and the sheet
+    shows all of them. The pencil opens the row (data-editing) and the
+    colours appear with the name field. The new-label row keeps its swatches,
+    because choosing a colour is part of creating one.
+  */
+  .pbm-label-row:not([data-editing]):not(.pbm-label-row--new) .pbm-swatches {
+    display: none;
+  }
+  .pbm-label-row .pbm-label-icon:first-of-type {
+    margin-left: auto;
+  }
+  /*
+    The label manager is a bottom sheet on a phone, like the contact rail:
+    full width, from 8vh down, rounded at the top. Centred at min(94vw, 560)
+    by min(84vh, 640) it floated as a box with a strip of page either side
+    and its bottom edge nowhere near the thumb.
+  */
+  .pbm-modal:not(.pbm-modal--inline) {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    transform: none;
+    width: auto;
+    max-height: 92vh;
+    border-radius: 24px 24px 0 0;
+    border-bottom: none;
+  }
+  .pbm-modal:not(.pbm-modal--inline) .pbm-modal-body {
+    padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /* The label row under a thread's subject. */
