@@ -1416,6 +1416,52 @@ export type CampaignInputResult =
   | { ok: true; value: CampaignDraftInput }
   | { ok: false; error: string };
 
+/** What a request body may carry. Every field optional; all of it unknown. */
+export type CampaignInputBody = {
+  [K in keyof CampaignDraftInput]?: unknown;
+};
+
+/**
+ * A PATCH body over the campaign that is already stored.
+ *
+ * ── WHY THIS IS NOT WRITTEN OUT AT THE ROUTE ──
+ * It was, and it cost the same bug three times in one feature. An edit is
+ * validated as a WHOLE campaign, so whatever this returns is what gets
+ * written — and the route's literal listed six fields while
+ * CampaignDraftInput had nine. Saving a draft therefore wiped its hero image
+ * and its products every time, including when the composer had sent both:
+ * the route never read them, so `parseCampaignInput` saw undefined and
+ * "no image, no products" is a perfectly valid campaign.
+ *
+ * Nothing failed. The save succeeded, the screen redrew from the row the
+ * server returned, and the work was gone — found on the live site on
+ * 11 Sep 2026 by saving a draft and looking at what came back.
+ *
+ * `satisfies Record<keyof CampaignDraftInput, unknown>` is the guard: the
+ * tenth field will not compile until this function says what happens to it.
+ * `undefined` means "not supplied, keep what is stored" for every one of
+ * them, which is the only rule a partial edit can safely have.
+ */
+export function campaignPatchBody(
+  body: CampaignInputBody,
+  existing: CampaignDraftInput,
+): CampaignInputBody {
+  const keep = <T,>(supplied: unknown, stored: T): unknown =>
+    supplied === undefined ? stored : supplied;
+
+  return {
+    name: keep(body.name, existing.name),
+    subject: keep(body.subject, existing.subject),
+    preheader: keep(body.preheader, existing.preheader),
+    templateKey: keep(body.templateKey, existing.templateKey),
+    body: keep(body.body, existing.body),
+    listId: keep(body.listId, existing.listId),
+    heroImageUrl: keep(body.heroImageUrl, existing.heroImageUrl),
+    heroImageAlt: keep(body.heroImageAlt, existing.heroImageAlt),
+    products: keep(body.products, existing.products),
+  } satisfies Record<keyof CampaignDraftInput, unknown>;
+}
+
 /**
  * Validate a create-campaign body. Returns a message fit to show a client
  * rather than a field path — this is a small form, not an API for machines.

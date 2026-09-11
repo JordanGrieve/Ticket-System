@@ -10,7 +10,12 @@ import {
   updateCampaign,
 } from "@/lib/campaign-send";
 import { diagnoseCampaign } from "@/lib/campaign-health";
-import { parseCampaignInput, type CampaignDraftInput } from "@/lib/newsletter";
+import {
+  campaignPatchBody,
+  isTemplateKey,
+  parseCampaignInput,
+  type CampaignDraftInput,
+} from "@/lib/newsletter";
 
 /**
  * GET   /api/campaigns/:id  → one campaign plus its per-status recipient counts
@@ -133,14 +138,26 @@ export async function PATCH(
   // what is stored, so partial edits go through exactly the same rules a
   // create does. Validating only the supplied keys would let a campaign reach
   // a state the create path would have rejected.
-  const parsed = parseCampaignInput({
-    name: body.name ?? existing.name,
-    subject: body.subject ?? existing.subject,
-    preheader: body.preheader === undefined ? existing.preheader : body.preheader,
-    templateKey: body.templateKey ?? existing.templateKey,
-    body: body.body ?? existing.body,
-    listId: body.listId === undefined ? existing.listId : body.listId,
-  });
+  //
+  // The fallbacks are campaignPatchBody's job rather than a literal here. A
+  // literal is how the image and the products came to be wiped by every save:
+  // it listed six of the nine fields, and a field nobody mentions is a field
+  // that gets written as empty.
+  const parsed = parseCampaignInput(
+    campaignPatchBody(body, {
+      name: existing.name,
+      subject: existing.subject,
+      preheader: existing.preheader,
+      templateKey: isTemplateKey(existing.templateKey)
+        ? existing.templateKey
+        : "plain",
+      body: existing.body,
+      listId: existing.listId,
+      heroImageUrl: existing.heroImageUrl,
+      heroImageAlt: existing.heroImageAlt,
+      products: existing.products ?? [],
+    }),
+  );
   if (!parsed.ok) return json({ error: parsed.error }, { status: 400 });
 
   const patch: Partial<CampaignDraftInput> = parsed.value;
