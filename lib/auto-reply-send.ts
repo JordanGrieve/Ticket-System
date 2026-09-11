@@ -14,6 +14,8 @@ import {
 } from "@/db/schema";
 import { addMessage } from "./data";
 import { recordUsage } from "./usage-store";
+import { isProviderRateLimit } from "./email-quota";
+import { recordTransactionalSend } from "./email-quota-store";
 import { EMAIL_FROM_ADDRESS } from "./config";
 import { buildReplyTo } from "./tickets";
 import { isValidTimeZone } from "./business-hours";
@@ -251,7 +253,17 @@ async function deliverDecidedAutoReply(
   });
 
   if (error) {
-    console.error("[auto-reply] send failed:", error);
+    // Named separately for the same reason as in lib/email.ts: a cap being
+    // hit is ours and affects every tenant; a bad address is one
+    // customer's. See isProviderRateLimit.
+    if (isProviderRateLimit(error)) {
+      console.error(
+        "[auto-reply] REFUSED BY THE PROVIDER'S RATE LIMIT — every tenant's transactional mail is affected:",
+        error,
+      );
+    } else {
+      console.error("[auto-reply] send failed:", error);
+    }
     return { sent: false, reason: "send_failed" };
   }
 
@@ -281,6 +293,9 @@ async function deliverDecidedAutoReply(
   // reply-to — so the counter has to be here too. It is the one send path
   // that does not pass through sendReplyEmail, and lib/email.ts says so.
   await recordUsage(workspace.id, "emails_sent", 1);
+  // And the shared provider's daily ceiling, which is platform-wide rather
+  // than per workspace. Same reason this counter is here at all.
+  await recordTransactionalSend();
 
   return { sent: true, providerId: data?.id };
 }

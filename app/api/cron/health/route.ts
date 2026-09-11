@@ -10,6 +10,7 @@ import { buildHealthReport } from "@/lib/health-report";
 import { pruneRateLimits } from "@/lib/rate-limit-store";
 import { purgeExpiredTrash } from "@/lib/trash-store";
 import { TRASH_RETENTION_DAYS } from "@/lib/trash";
+import { transactionalSentToday } from "@/lib/email-quota-store";
 
 /**
  * GET /api/cron/health — the daily "is anything broken?" sweep.
@@ -92,6 +93,59 @@ export async function GET(req: Request) {
     })),
     now,
   });
+
+  /*
+    ── THE SHARED PROVIDER'S DAILY CEILING ──
+    Every tenant's transactional mail leaves through one Resend account,
+    and the free plan stops at 100 a day. PRICING.md: "the daily cap
+    breaks first, and it breaks silently for the client." This is the
+    un-silencing — one line a day, said the morning BEFORE it bites.
+
+    A read that throws is its own alert rather than a zero. "Nobody sent
+    anything today" and "the counter could not be read" are opposite
+    facts, and reporting the second as the first is how a check comes back
+    healthy every day it is broken.
+  */
+  try {
+    const quota = await transactionalSentToday(now);
+    if (quota.warn) {
+      const message =
+        "Transactional email is near the provider's daily cap: " +
+        quota.used +
+        " of " +
+        quota.cap +
+        " sent today, " +
+        quota.remaining +
+        " left";
+      console.error("[cron/health] %s", message);
+      Sentry.withScope((scope) => {
+        // One issue whose count rises, not one per day — the same
+        // fingerprint discipline as the alerts below.
+        scope.setFingerprint(["email-daily-cap"]);
+        scope.setLevel(quota.exhausted ? "error" : "warning");
+        scope.setTag("alert_kind", "email_daily_cap");
+        scope.setContext("quota", quota);
+        Sentry.captureMessage(
+          quota.exhausted
+            ? "Transactional email has spent the provider's daily cap"
+            : "Transactional email is near the provider's daily cap",
+          quota.exhausted ? "error" : "warning",
+        );
+      });
+    } else {
+      console.info(
+        "[cron/health] transactional email today: %d of %d",
+        quota.used,
+        quota.cap,
+      );
+    }
+  } catch (err) {
+    console.error("[cron/health] could not read the daily email count:", err);
+    Sentry.captureMessage(
+      "Could not read the transactional email day counter",
+      "warning",
+    );
+  }
 
   for (const alert of report.alerts) {
     // withScope, not setTag on the global scope: these run in a loop, and a

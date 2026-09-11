@@ -25,7 +25,7 @@ const counts = {
   all: 7,
   unread: 2,
   awaiting: 1,
-  open: 5,
+  inbox: 5,
   closed: 1,
   sent: 5,
   starred: 0,
@@ -36,7 +36,7 @@ const counts = {
 } satisfies MailCountsDTO;
 
 const labels = [
-  { id: 1, name: "Billing", color: "tag_b", ticketCount: 2 },
+  { id: 1, name: "Billing", color: "tag_b", colorHex: null, ticketCount: 2 },
 ] satisfies LabelWithCountDTO[];
 
 /** Render the nav with one folder selected, and report where things landed. */

@@ -1,5 +1,7 @@
 import { Resend } from "resend";
 import { recordUsage } from "./usage-store";
+import { isProviderRateLimit } from "./email-quota";
+import { recordTransactionalSend } from "./email-quota-store";
 
 /**
  * Resend wrapper. Replies are sent as real email FROM the workspace's
@@ -108,12 +110,28 @@ export async function sendReplyEmail(input: {
   });
 
   if (error) {
-    console.error("[email] send failed:", error);
+    /*
+      A cap being hit and an address being wrong are opposite problems and
+      must not share a log line: one is ours, affects every tenant and
+      clears by itself; the other is one customer's and usually does not.
+      See isProviderRateLimit.
+    */
+    if (isProviderRateLimit(error)) {
+      console.error(
+        "[email] send REFUSED BY THE PROVIDER'S RATE LIMIT — every tenant's transactional mail is affected:",
+        error,
+      );
+    } else {
+      console.error("[email] send failed:", error);
+    }
     return { sent: false, error: error.message };
   }
   if (input.workspaceId !== undefined) {
     await recordUsage(input.workspaceId, "emails_sent", 1);
   }
+  // Platform-wide, not per workspace: the daily ceiling belongs to the shared
+  // provider account. See lib/email-quota.ts.
+  await recordTransactionalSend();
   return { sent: true, id: data?.id };
 }
 
@@ -156,7 +174,20 @@ ${input.ticketUrl}
   });
 
   if (error) {
-    console.error("[email] notification send failed:", error);
+    /*
+      A cap being hit and an address being wrong are opposite problems and
+      must not share a log line: one is ours, affects every tenant and
+      clears by itself; the other is one customer's and usually does not.
+      See isProviderRateLimit.
+    */
+    if (isProviderRateLimit(error)) {
+      console.error(
+        "[email] notification send REFUSED BY THE PROVIDER'S RATE LIMIT — every tenant's transactional mail is affected:",
+        error,
+      );
+    } else {
+      console.error("[email] notification send failed:", error);
+    }
     return { sent: false, error: error.message };
   }
   // Per RECIPIENT, not per call. One API request carrying ten addresses is ten
@@ -165,6 +196,8 @@ ${input.ticketUrl}
   if (input.workspaceId !== undefined) {
     await recordUsage(input.workspaceId, "emails_sent", input.to.length);
   }
+  // One API call, several addresses, several emails against the daily cap.
+  for (let i = 0; i < input.to.length; i += 1) await recordTransactionalSend();
   return { sent: true, id: data?.id };
 }
 
@@ -290,8 +323,22 @@ That's it. Any questions, just reply to this email.
   });
 
   if (error) {
-    console.error("[email] invite send failed:", error);
+    /*
+      A cap being hit and an address being wrong are opposite problems and
+      must not share a log line: one is ours, affects every tenant and
+      clears by itself; the other is one customer's and usually does not.
+      See isProviderRateLimit.
+    */
+    if (isProviderRateLimit(error)) {
+      console.error(
+        "[email] invite send REFUSED BY THE PROVIDER'S RATE LIMIT — every tenant's transactional mail is affected:",
+        error,
+      );
+    } else {
+      console.error("[email] invite send failed:", error);
+    }
     return { sent: false, error: error.message };
   }
+  await recordTransactionalSend();
   return { sent: true, id: data?.id };
 }
