@@ -170,7 +170,9 @@ vertical scroll is never captured.
 
 ### Buttons
 
-**The standard button is `.stg-button`** (app/settings.css), the look of the
+**The standard button is `.stg-button`** (app/globals.css since 11 Sep 2026 —
+it moved out of settings.css the first time a screen outside Settings needed
+it, and kept its name because nine screens carry it), the look of the
 Forms page's Create: `--accent-grad`, white text, 44px, radius 10, 0.8125rem/700.
 `.stg-button--wide` is the full-width 48px form for a form's one committing
 action (Send invite). New screens use these classes. Quiet: `--surface-3`

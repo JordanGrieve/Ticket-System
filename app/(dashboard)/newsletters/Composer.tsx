@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CampaignStatus } from "@/db/schema";
+import type { CampaignProduct, CampaignStatus } from "@/db/schema";
 import { canRequeueFailed, describeRequeue } from "@/lib/campaign-requeue";
 import {
   AUDIENCE_SKIP_REASONS,
@@ -15,6 +15,7 @@ import {
   TEMPLATE_KEYS,
   isEditableStatus,
   renderCampaign,
+  MAX_PRODUCTS,
   safeImageUrl,
   unsubscribeUrl,
   type AudienceSkipReason,
@@ -125,6 +126,7 @@ type CampaignJson = {
   listId: number | null;
   heroImageUrl: string | null;
   heroImageAlt: string | null;
+  products: CampaignProduct[] | null;
   status: CampaignStatus;
   recipientCount: number;
   scheduledAt: string | null;
@@ -188,6 +190,12 @@ type Draft = {
   /** As authored. Validated server-side; empty string means none. */
   heroImageUrl: string;
   heroImageAlt: string;
+  /**
+   * Products, as authored. Strings rather than CampaignProduct, because a
+   * half-typed URL is a normal state of a form and null is not a thing a text
+   * input can hold. Converted on save.
+   */
+  products: DraftProduct[];
   status: CampaignStatus;
   /**
    * Server-held counts and times. Written only from a server response, never
@@ -196,6 +204,28 @@ type Draft = {
   recipientCount: number;
   scheduledAtIso: string | null;
 };
+
+/**
+ * One product row while it is being typed.
+ *
+ * The id is a client-side key and never leaves the browser. React needs a
+ * stable key per row, and the array index is not one: deleting the second of
+ * four rows would have React reuse the third row's DOM for the fourth, so the
+ * text in a focused input would jump to the row above it.
+ */
+type DraftProduct = {
+  id: number;
+  name: string;
+  imageUrl: string;
+  price: string;
+  url: string;
+};
+
+let nextProductId = 1;
+
+function blankProduct(): DraftProduct {
+  return { id: nextProductId++, name: "", imageUrl: "", price: "", url: "" };
+}
 
 function emptyDraft(): Draft {
   return {
@@ -206,6 +236,7 @@ function emptyDraft(): Draft {
     templateKey: "plain",
     heroImageUrl: "",
     heroImageAlt: "",
+    products: [],
     // Not "". See STARTER_CAMPAIGN_BODY — a default turns writing into
     // editing, and it is the only place the merge tokens are demonstrated
     // rather than merely listed.
@@ -230,6 +261,13 @@ function draftFrom(c: CampaignJson): Draft {
     listId: c.listId,
     heroImageUrl: c.heroImageUrl ?? "",
     heroImageAlt: c.heroImageAlt ?? "",
+    products: (c.products ?? []).map((p) => ({
+      id: nextProductId++,
+      name: p.name,
+      imageUrl: p.imageUrl ?? "",
+      price: p.price ?? "",
+      url: p.url ?? "",
+    })),
     status: c.status,
     recipientCount: c.recipientCount,
     scheduledAtIso: c.scheduledAt,
@@ -662,6 +700,17 @@ export default function Composer({
         // the column rather than storing "".
         heroImageUrl: draft.heroImageUrl.trim() || null,
         heroImageAlt: draft.heroImageAlt.trim() || null,
+        // A nameless row is an empty one the author has not filled in yet.
+        // parseProducts skips them too; dropping them here as well keeps the
+        // round-trip stable, so saving twice does not grow the list.
+        products: draft.products
+          .filter((p) => p.name.trim())
+          .map((p) => ({
+            name: p.name.trim(),
+            imageUrl: p.imageUrl.trim() || null,
+            price: p.price.trim() || null,
+            url: p.url.trim() || null,
+          })),
       });
       const res =
         draft.id === null
@@ -1047,6 +1096,16 @@ export default function Composer({
           const alt = draft.heroImageAlt.trim();
           return url && alt ? { url, alt } : null;
         })(),
+        // Same rule as the hero: a row appears in the preview once it has a
+        // name, and a link that is still being typed simply is not one yet.
+        products: draft.products
+          .filter((p) => p.name.trim())
+          .map((p) => ({
+            name: p.name.trim(),
+            imageUrl: p.imageUrl.trim() ? safeImageUrl(p.imageUrl) : null,
+            price: p.price.trim() || null,
+            url: p.url.trim() ? safeImageUrl(p.url) : null,
+          })),
         recipient: SAMPLE_RECIPIENT,
         workspaceName,
         unsubscribeUrl: unsubscribeUrl(appUrl, SAMPLE_TOKEN),
@@ -1072,6 +1131,7 @@ export default function Composer({
       draft.body,
       draft.heroImageUrl,
       draft.heroImageAlt,
+      draft.products,
       workspaceName,
       legalName,
       postalAddress,
@@ -1444,6 +1504,162 @@ export default function Composer({
                   </p>
                 </div>
               )}
+
+              {/*
+                ── PRODUCTS ──
+                A short grid under the message: a photo, a name, a price, a
+                link. The name IS the link when there is one, so a product is
+                one target rather than a name and a "Buy" beside it.
+
+                Rows are added one at a time rather than starting with three
+                blanks. Three empty rows read as three things you are expected
+                to fill in; an empty section with one button reads as optional,
+                which it is.
+              */}
+              <div className="nl-field">
+                <span className="nl-label" id="nl-products-label">
+                  Products <span className="nl-optional">OPTIONAL</span>
+                </span>
+
+                <ul className="nl-products" aria-labelledby="nl-products-label">
+                  {draft.products.map((p, i) => (
+                    <li className="nl-product" key={p.id}>
+                      <div className="nl-product-head">
+                        <span className="nl-product-n">{i + 1}</span>
+                        <button
+                          type="button"
+                          className="nl-product-x"
+                          disabled={!editable}
+                          onClick={() =>
+                            patch({
+                              products: draft.products.filter((q) => q.id !== p.id),
+                            })
+                          }
+                        >
+                          Remove<span className="stg-sr-only"> product {i + 1}</span>
+                        </button>
+                      </div>
+
+                      <label className="nl-sublabel" htmlFor={`nl-p-name-${p.id}`}>
+                        Name
+                      </label>
+                      <input
+                        id={`nl-p-name-${p.id}`}
+                        className="nl-input"
+                        type="text"
+                        placeholder="Sourdough loaf"
+                        value={p.name}
+                        maxLength={120}
+                        disabled={!editable}
+                        onChange={(e) =>
+                          patch({
+                            products: draft.products.map((q) =>
+                              q.id === p.id ? { ...q, name: e.target.value } : q,
+                            ),
+                          })
+                        }
+                      />
+
+                      <label className="nl-sublabel" htmlFor={`nl-p-price-${p.id}`}>
+                        Price
+                      </label>
+                      {/*
+                        Free text, not a number input. "from £2" and "2 for £5"
+                        are prices a bakery actually charges, and a number field
+                        would make them untypable.
+                      */}
+                      <input
+                        id={`nl-p-price-${p.id}`}
+                        className="nl-input"
+                        type="text"
+                        placeholder="£3.50"
+                        value={p.price}
+                        maxLength={40}
+                        disabled={!editable}
+                        onChange={(e) =>
+                          patch({
+                            products: draft.products.map((q) =>
+                              q.id === p.id ? { ...q, price: e.target.value } : q,
+                            ),
+                          })
+                        }
+                      />
+
+                      <label className="nl-sublabel" htmlFor={`nl-p-img-${p.id}`}>
+                        Photo link
+                      </label>
+                      <input
+                        id={`nl-p-img-${p.id}`}
+                        className="nl-input"
+                        type="url"
+                        inputMode="url"
+                        placeholder="https://yourshop.com/loaf.jpg"
+                        value={p.imageUrl}
+                        maxLength={2000}
+                        disabled={!editable}
+                        onChange={(e) =>
+                          patch({
+                            products: draft.products.map((q) =>
+                              q.id === p.id ? { ...q, imageUrl: e.target.value } : q,
+                            ),
+                          })
+                        }
+                      />
+                      {p.imageUrl.trim() && !safeImageUrl(p.imageUrl) && (
+                        <p className="nl-warn" role="status">
+                          That photo link can&rsquo;t be used. It needs to start
+                          with <b>https://</b>
+                        </p>
+                      )}
+
+                      <label className="nl-sublabel" htmlFor={`nl-p-url-${p.id}`}>
+                        Buy link
+                      </label>
+                      <input
+                        id={`nl-p-url-${p.id}`}
+                        className="nl-input"
+                        type="url"
+                        inputMode="url"
+                        placeholder="https://yourshop.com/loaf"
+                        value={p.url}
+                        maxLength={2000}
+                        disabled={!editable}
+                        onChange={(e) =>
+                          patch({
+                            products: draft.products.map((q) =>
+                              q.id === p.id ? { ...q, url: e.target.value } : q,
+                            ),
+                          })
+                        }
+                      />
+                      {p.url.trim() && !safeImageUrl(p.url) && (
+                        <p className="nl-warn" role="status">
+                          That link can&rsquo;t be used. It needs to start with{" "}
+                          <b>https://</b>
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+
+                {draft.products.length < MAX_PRODUCTS ? (
+                  <button
+                    type="button"
+                    className="stg-button"
+                    disabled={!editable}
+                    onClick={() =>
+                      patch({ products: [...draft.products, blankProduct()] })
+                    }
+                  >
+                    Add a product
+                  </button>
+                ) : (
+                  <p className="nl-help" role="status">
+                    That&rsquo;s {MAX_PRODUCTS}, the most one newsletter can
+                    carry.
+                  </p>
+                )}
+              </div>
 
               <div className="nl-field">
                 <label className="nl-label" htmlFor="nl-template">

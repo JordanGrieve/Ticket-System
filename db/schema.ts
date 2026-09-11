@@ -1129,6 +1129,25 @@ export const welcomeEmails = pgTable(
   (t) => [uniqueIndex("welcome_emails_workspace_idx").on(t.workspaceId)],
 );
 
+/**
+ * One entry in campaigns.products. Written only by parseProducts in
+ * lib/newsletter.ts, which refuses anything it does not recognise.
+ */
+export type CampaignProduct = {
+  /** Required. The one field a product cannot do without. */
+  name: string;
+  /** Validated https URL, or null for a text-only entry. */
+  imageUrl: string | null;
+  /**
+   * Free text, not a number. "3.50", "from 2", "2 for 5" — a bakery prices
+   * things in ways a decimal cannot hold, and storing a number would force
+   * Postbox to pick a currency and a format on their behalf.
+   */
+  price: string | null;
+  /** Where to buy it. Validated https, or null. */
+  url: string | null;
+};
+
 export type CampaignStatus =
   | "draft"
   | "scheduled"
@@ -1164,6 +1183,21 @@ export const campaigns = pgTable(
     */
     heroImageUrl: text("hero_image_url"),
     heroImageAlt: text("hero_image_alt"),
+    /*
+      Products shown under the body, in order.
+
+      jsonb rather than a campaign_products table, and the reason is the shape
+      of the data rather than laziness. These belong to exactly one campaign,
+      are edited only as part of it, are never queried across campaigns, and
+      have an inherent order — a child table would buy foreign keys nothing
+      references, an ordering column to keep consistent, and orphan rows when
+      a save half-fails. Saved atomically with the campaign instead.
+
+      Postgres cannot validate the shape, so lib/newsletter.ts parseProducts
+      is the only thing that may write here, and it refuses anything it does
+      not recognise. Same discipline as auto_replies.business_hours.
+    */
+    products: jsonb("products").$type<CampaignProduct[]>(),
     // Audience. Nullable so a draft can exist before an audience is chosen;
     // "set null" keeps a sent campaign's history when its list is deleted.
     listId: integer("list_id").references(() => lists.id, {

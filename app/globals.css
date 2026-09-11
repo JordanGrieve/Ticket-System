@@ -923,6 +923,65 @@ summary:focus-visible,
   line-height: 1.5;
 }
 
+/* ── The standard button ──────────────────────────────────────
+   Lives here rather than in settings.css because it is not a Settings
+   button: it is THE button, and the newsletter composer needed it on
+   11 Sep 2026. The name is unchanged on purpose — .stg-button is what
+   STYLE-GUIDE.md names, what nine screens already carry, and renaming it
+   would be a hundred-line diff to say the same thing.
+
+   Jordan on 10 Sep 2026, pointing at the Forms page's Create:
+   "this should be the main style guide button". Accent gradient, white ink
+   (7:1 on both stops, guarded in tests/contrast-tokens.test.ts), radius 10,
+   700, 44px. .pbf-btn--primary on Forms is the same drawing. --wide is the
+   full-width, slightly taller form for a form's one committing action.
+*/
+.stg-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  background: var(--accent-grad);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--pbm-on-dark, #fff);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  transition: box-shadow 140ms ease;
+}
+
+.stg-button--wide {
+  width: 100%;
+  /* The same cap as .stg-field, so on desktop the button ends where the
+     field above it ends. Full width on a phone, where the cap never bites. */
+  max-width: 460px;
+  min-height: 48px;
+  font-size: 0.875rem;
+}
+
+.stg-button:hover:not(:disabled) {
+  box-shadow: 0 4px 14px var(--glow);
+}
+
+.stg-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.stg-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /*
   ── 2.3.3 ANIMATION FROM INTERACTIONS (AAA), THE BLANKET FORM ──
 

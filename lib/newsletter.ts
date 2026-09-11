@@ -1,4 +1,10 @@
-import type { SubscriberStatus, SuppressionReason } from "@/db/schema";
+import type {
+  CampaignProduct,
+  SubscriberStatus,
+  SuppressionReason,
+} from "@/db/schema";
+
+export type { CampaignProduct };
 import { darkenToContrast, parseHex, toHex } from "./email-colour";
 
 /**
@@ -948,8 +954,186 @@ function heroImageHtml(hero: HeroImage | null): string {
   if (!hero) return "";
   const url = escapeHtml(hero.url);
   const alt = escapeHtml(hero.alt);
-  return `<img src="${url}" alt="${alt}" width="496" style="display:block;width:100%;max-width:496px;height:auto;border:0;border-radius:12px;margin:0 0 20px;" />
-`;
+  return `<img src="${url}" alt="${alt}" width="496" style="display:block;width:100%;max-width:496px;height:auto;border:0;border-radius:12px;margin:0 0 20px;" />\n`;
+}
+
+// ── Products ─────────────────────────────────────────────────────
+
+/**
+ * How many products one campaign may carry.
+ *
+ * Twelve is not a technical limit. It is the point past which a newsletter is
+ * a catalogue, every image is another remote fetch on somebody's phone, and
+ * the message clips in Gmail — which truncates at around 102KB and hides the
+ * unsubscribe footer behind a "View entire message" link when it does.
+ */
+export const MAX_PRODUCTS = 12;
+
+const PRODUCT_NAME_MAX = 120;
+const PRODUCT_PRICE_MAX = 40;
+
+export type ProductsResult =
+  | { ok: true; value: CampaignProduct[] }
+  | { ok: false; error: string };
+
+/**
+ * Validate the products a client submitted.
+ *
+ * Refuses rather than silently dropping, for the same reason the hero image
+ * does: a row that vanishes on save teaches nothing, and "it needs to start
+ * with https" is one sentence.
+ */
+export function parseProducts(raw: unknown): ProductsResult {
+  if (raw === undefined || raw === null) return { ok: true, value: [] };
+  if (!Array.isArray(raw)) return { ok: false, error: "Products must be a list." };
+  if (raw.length > MAX_PRODUCTS) {
+    return { ok: false, error: `A campaign can carry up to ${MAX_PRODUCTS} products.` };
+  }
+
+  const value: CampaignProduct[] = [];
+  for (const entry of raw) {
+    if (typeof entry !== "object" || entry === null) {
+      return { ok: false, error: "Products must be a list." };
+    }
+    const row = entry as Record<string, unknown>;
+
+    const name = normaliseLine(row.name, PRODUCT_NAME_MAX);
+    // A nameless row is how an empty form field reaches here. Skipped rather
+    // than refused: the composer keeps a blank row on screen for the next
+    // entry, and refusing to save because of it would be maddening.
+    if (!name) continue;
+
+    let imageUrl: string | null = null;
+    if (row.imageUrl !== undefined && row.imageUrl !== null && String(row.imageUrl).trim()) {
+      imageUrl = safeImageUrl(String(row.imageUrl));
+      if (!imageUrl) {
+        return {
+          ok: false,
+          error: `The image link for "${name}" can't be used. It needs to start with https://`,
+        };
+      }
+    }
+
+    let url: string | null = null;
+    if (row.url !== undefined && row.url !== null && String(row.url).trim()) {
+      url = safeImageUrl(String(row.url));
+      if (!url) {
+        return {
+          ok: false,
+          error: `The link for "${name}" can't be used. It needs to start with https://`,
+        };
+      }
+    }
+
+    value.push({
+      name,
+      imageUrl,
+      price: normaliseLine(row.price, PRODUCT_PRICE_MAX),
+      url,
+    });
+  }
+
+  return { ok: true, value };
+}
+
+/**
+ * Re-check a stored products list at the point of sending.
+ *
+ * parseProducts REFUSES a bad link, because the client typed it and wants to
+ * know. This does the opposite and DROPS one, because by now the campaign is
+ * already in flight and the client is not at a screen: an unusable URL is a
+ * product without a link, not five hundred emails that never went. Same shape
+ * as the hero image's re-validation in sendCampaignBatch, and the same reason
+ * — this is the last point before a stored string becomes an href in somebody
+ * else's mail.
+ */
+export function sanitiseStoredProducts(raw: unknown): CampaignProduct[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .slice(0, MAX_PRODUCTS)
+    .flatMap((entry) => {
+      if (typeof entry !== "object" || entry === null) return [];
+      const row = entry as Record<string, unknown>;
+      const name = normaliseLine(row.name, PRODUCT_NAME_MAX);
+      if (!name) return [];
+      return [
+        {
+          name,
+          imageUrl: typeof row.imageUrl === "string" ? safeImageUrl(row.imageUrl) : null,
+          price: normaliseLine(row.price, PRODUCT_PRICE_MAX),
+          url: typeof row.url === "string" ? safeImageUrl(row.url) : null,
+        },
+      ];
+    });
+}
+
+/**
+ * The products, as text.
+ *
+ * ── WHY THIS EXISTS WHEN THE HERO IMAGE HAS NO TEXT PART ──
+ * A hero image is decoration: there is no text representation of a
+ * photograph, and its alt in the plain part would read as a stray caption.
+ * A product is CONTENT. The name, the price and the link are facts the
+ * message is about, and a reader on a text-only client — or a screen reader
+ * working through the plain part — must get them. Leaving these out of the
+ * text would make the HTML the only complete version of the email.
+ */
+function productsText(products: CampaignProduct[]): string {
+  if (products.length === 0) return "";
+  const lines = products.map((p) => {
+    const head = p.price ? `${p.name} — ${p.price}` : p.name;
+    return p.url ? `${head}\n${p.url}` : head;
+  });
+  return `\n\n${lines.join("\n\n")}`;
+}
+
+/**
+ * The products, as a two-across grid.
+ *
+ * ── WHY A TABLE AND NOT FLEX OR GRID ──
+ * Outlook on Windows renders through Word, which supports neither. A table
+ * with two cells per row is the only layout that is the same everywhere, and
+ * it is why every commercial email in your inbox is built from them.
+ *
+ * ── WHY TWO ACROSS, AND WHAT HAPPENS ON A PHONE ──
+ * The shell is 560px, so two cells is about 236px each — enough for a
+ * readable photo and a price. The head carries a media query that stacks them
+ * to one column below 480px, which Apple Mail, Outlook mobile and the Gmail
+ * app honour. Where it is stripped the grid stays two-across and the client
+ * scales the email down, which is small but legible rather than broken.
+ *
+ * An odd count leaves the last cell empty rather than stretching the survivor
+ * across the row: a lone product at double width reads as a mistake.
+ */
+function productsHtml(products: CampaignProduct[], accent: string): string {
+  if (products.length === 0) return "";
+
+  const cell = (p: CampaignProduct | null): string => {
+    if (!p) return `<td class="pb-col" width="50%" style="padding:0;">&nbsp;</td>`;
+    const img = p.imageUrl
+      ? `<img src="${escapeHtml(p.imageUrl)}" alt="${escapeHtml(p.name)}" width="236" style="display:block;width:100%;max-width:236px;height:auto;border:0;border-radius:10px;margin:0 0 8px;" />`
+      : "";
+    const price = p.price
+      ? `<div style="font:400 13px/1.4 Arial,sans-serif;color:#57503f;margin:2px 0 0;">${escapeHtml(p.price)}</div>`
+      : "";
+    // The name is the link when there is one, rather than a separate "Buy"
+    // that repeats it. One target per product, and it is the thing itself.
+    const name = p.url
+      ? `<a href="${escapeHtml(p.url)}" style="font:700 14px/1.4 Arial,sans-serif;color:${accent};text-decoration:underline;">${escapeHtml(p.name)}</a>`
+      : `<div style="font:700 14px/1.4 Arial,sans-serif;color:#26221d;">${escapeHtml(p.name)}</div>`;
+    return `<td class="pb-col" width="50%" valign="top" style="padding:0 0 18px;">${img}${name}${price}</td>`;
+  };
+
+  const rows: string[] = [];
+  for (let i = 0; i < products.length; i += 2) {
+    const left = cell(products[i]!);
+    const right = cell(products[i + 1] ?? null);
+    rows.push(
+      `<tr>${left}<td width="16" style="width:16px;font-size:0;line-height:0;">&nbsp;</td>${right}</tr>`,
+    );
+  }
+
+  return `<table role="presentation" class="pb-grid" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 12px;"><tbody>${rows.join("")}</tbody></table>\n`;
 }
 
 /**
@@ -987,6 +1171,11 @@ export function renderCampaign(input: {
    * can tell somebody about it rather than silently here.
    */
   hero?: HeroImage | null;
+  /**
+   * Products to show under the body, or none. Already validated — pass the
+   * result of parseProducts, for the same reason as `hero`.
+   */
+  products?: CampaignProduct[];
 }): RenderedEmail {
   const values = buildCampaignMergeValues({
     name: input.recipient.name,
@@ -1008,6 +1197,9 @@ export function renderCampaign(input: {
 
   const text =
     bodyText +
+    // Content, not decoration — unlike the hero image, which has no text
+    // representation. See productsText.
+    productsText(input.products ?? []) +
     signOffText(input.brand) +
     unsubscribeFooterText(input.unsubscribeUrl, sender);
 
@@ -1027,6 +1219,7 @@ export function renderCampaign(input: {
   const inner =
     heroImageHtml(input.hero ?? null) +
     textToHtmlParagraphs(bodyText, accent) +
+    productsHtml(input.products ?? [], accent) +
     signOffHtml(input.brand) +
     unsubscribeFooterHtml(input.unsubscribeUrl, sender, accent);
 
@@ -1037,9 +1230,44 @@ export function renderCampaign(input: {
   return { subject, text, html };
 }
 
+/**
+ * The <head> both shells share.
+ *
+ * ── IT WAS MISSING ENTIRELY UNTIL 11 SEPTEMBER 2026 ──
+ * Neither shell had one. PROJECT_STATUS.md listed "no charset, no viewport"
+ * as the cheapest fix in the repo and it stayed open for weeks, because
+ * nothing visibly broke: most clients guess UTF-8 correctly. Most is not all,
+ * and the guess fails on exactly the characters a British bakery writes —
+ * £, é, the curly apostrophe in "we're".
+ *
+ * ── THE MEDIA QUERY IS THE REASON IT EXISTS NOW ──
+ * The products grid is two cells across. Below 480px it should be one, and a
+ * media query is the only way to say so. Apple Mail, Outlook mobile and the
+ * Gmail app honour it; Gmail's web client strips <style>, which is a desktop
+ * client where two across is right anyway. Where it is stripped the grid
+ * stays two across and the client scales the message down — small, not
+ * broken, which is the correct thing for a progressive enhancement to
+ * degrade to.
+ *
+ * !important on the overrides: several clients inject their own rules, and a
+ * width they win is a grid that does not stack.
+ */
+const EMAIL_HEAD = `  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <style>
+      @media only screen and (max-width: 480px) {
+        .pb-col { display: block !important; width: 100% !important; max-width: 100% !important; }
+        .pb-grid td { display: block !important; width: 100% !important; }
+      }
+    </style>
+  </head>`;
+
 function plainShell(preheader: string, inner: string): string {
   return `<!doctype html>
 <html>
+${EMAIL_HEAD}
   <body style="margin:0;padding:0;background:#ffffff;">
     ${preheader}<div style="max-width:560px;margin:0 auto;padding:28px 18px;">
 ${inner}
@@ -1057,6 +1285,7 @@ function brandedShell(
   const name = escapeHtml(workspaceName);
   return `<!doctype html>
 <html>
+${EMAIL_HEAD}
   <body style="margin:0;padding:0;background:#faf8f4;">
     ${preheader}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf8f4;padding:32px 16px;">
       <tr><td align="center">
@@ -1147,6 +1376,8 @@ export type CampaignDraftInput = {
   /** Validated https URL, or null. See safeImageUrl. */
   heroImageUrl: string | null;
   heroImageAlt: string | null;
+  /** Validated, in order. See parseProducts. */
+  products: CampaignProduct[];
 };
 
 export type CampaignInputResult =
@@ -1164,6 +1395,7 @@ export function parseCampaignInput(body: {
   templateKey?: unknown;
   heroImageUrl?: unknown;
   heroImageAlt?: unknown;
+  products?: unknown;
   body?: unknown;
   listId?: unknown;
 }): CampaignInputResult {
@@ -1223,6 +1455,9 @@ export function parseCampaignInput(body: {
     }
   }
 
+  const products = parseProducts(body.products);
+  if (!products.ok) return { ok: false, error: products.error };
+
   return {
     ok: true,
     value: {
@@ -1234,6 +1469,7 @@ export function parseCampaignInput(body: {
       listId,
       heroImageUrl,
       heroImageAlt,
+      products: products.value,
     },
   };
 }

@@ -30,6 +30,7 @@ import {
 import {
   isEditableStatus,
   safeImageUrl,
+  sanitiseStoredProducts,
   listUnsubscribeHeaders,
   mailableSender,
   renderCampaign,
@@ -323,6 +324,7 @@ export async function updateCampaign(
   // or a later image inherits a description of the one before it.
   if (patch.heroImageUrl !== undefined) set.heroImageUrl = patch.heroImageUrl;
   if (patch.heroImageAlt !== undefined) set.heroImageAlt = patch.heroImageAlt;
+  if (patch.products !== undefined) set.products = patch.products;
 
   const [updated] = await db
     .update(campaigns)
@@ -1224,6 +1226,9 @@ export async function sendCampaignBatch(input: {
               return url ? { url, alt: campaign.heroImageAlt } : null;
             })()
           : null,
+      // Same re-validation, but dropping rather than refusing — see
+      // sanitiseStoredProducts.
+      products: sanitiseStoredProducts(campaign.products),
     });
 
     try {
