@@ -393,9 +393,22 @@ export type ScheduleError =
  *
  * ── THE TWO FOOTGUN GUARDS, AND WHY THEY ARE IN THE STATEMENT ──
  *
- *   `list_id IS NOT NULL` — a campaign with no audience.
  *   `EXISTS (… cr.status = 'queued')` — a campaign whose audience was never
  *   materialised, or was materialised and then unqueued.
+ *
+ * There used to be a second guard here, `list_id IS NOT NULL`, from when a
+ * campaign targeted a chosen list. Lists were retired — a campaign now goes to
+ * everyone confirmed in the workspace, which is what `workspaceAudience`
+ * selects — so every campaign created since has list_id NULL, and this clause
+ * matched NOTHING. Arming any campaign was impossible, and the diagnostic read
+ * below then reported the only other refusal it knows: "no queued recipients",
+ * pointing the client at an audience they had already queued.
+ *
+ * Found on 11 September 2026 by running the whole journey on a new account —
+ * signup, contact form, newsletter — which is the only way it could have been
+ * found: every unit test passes, the health check reports no blockers, and the
+ * recipients endpoint says one is queued. Three parts of the product agreed
+ * the campaign was ready and a fourth silently disagreed.
  *
  * Either one produces a campaign that would be promoted, drain instantly
  * because there is nothing to drain, and be marked `sent` — a campaign that
@@ -429,7 +442,6 @@ export async function scheduleCampaign(
         eq(campaigns.id, campaignId),
         eq(campaigns.workspaceId, workspaceId),
         inArray(campaigns.status, ["draft", "scheduled"]),
-        sql`${campaigns.listId} IS NOT NULL`,
         sql`EXISTS (
           SELECT 1 FROM campaign_recipients cr
           WHERE cr.campaign_id = ${campaigns.id} AND cr.status = 'queued'
