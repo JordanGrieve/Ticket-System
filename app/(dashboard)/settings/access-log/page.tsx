@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import type { ImpersonationEnd, ImpersonationSession } from "@/db/schema";
+import type { ImpersonationEnd } from "@/db/schema";
+import type { ImpersonationSessionRow as ImpersonationSession } from "@/lib/impersonation";
 import {
   listImpersonationSessionsForWorkspace,
   sessionStates,
@@ -364,7 +365,9 @@ function OperatorLine({ session }: { session: ImpersonationSession }) {
   return (
     <div className="stg-al-who">
       <span className="stg-al-who-email">{session.adminEmail}</span>
-      {session.adminId === null && (
+      {/* adminDeleted, not adminId === null: the id is a frozen snapshot
+          now and no longer nulled on delete (db/schema.ts). */}
+      {session.adminDeleted && (
         <span className="stg-al-who-note">
           this account no longer has operator access
         </span>

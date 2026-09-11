@@ -1,5 +1,6 @@
 import Link from "next/link";
-import type { Admin, ImpersonationEnd, ImpersonationSession } from "@/db/schema";
+import type { Admin, ImpersonationEnd } from "@/db/schema";
+import type { ImpersonationSessionRow as ImpersonationSession } from "@/lib/impersonation";
 import type { WorkspaceSummary } from "@/lib/data";
 import type { IngestionFailureRow } from "@/lib/ingestion-log";
 import type { IngestionFailureReason } from "@/db/schema";
@@ -633,14 +634,17 @@ export function AccessSection({
                     <div>
                       <div className="pba-cell-main">{s.adminEmail}</div>
                       <div className="pba-cell-sub">
-                        {s.adminId === null
+                        {/* `adminDeleted`, not `adminId === null`. The id is a
+                            frozen snapshot now and stays set — see the note on
+                            impersonation_sessions in db/schema.ts. */}
+                        {s.adminDeleted
                           ? "no longer an admin"
                           : (s.adminClerkUserId ?? "no login linked")}
                       </div>
                     </div>
                     <div>
                       <div className="pba-cell-main">{s.workspaceName}</div>
-                      {s.workspaceId === null && (
+                      {s.workspaceDeleted && (
                         <div className="pba-cell-sub">workspace since deleted</div>
                       )}
                     </div>

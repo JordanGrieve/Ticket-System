@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { writeFileSync, mkdirSync, copyFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Admin, ImpersonationSession } from "../db/schema";
+import type { Admin } from "../db/schema";
+import type { ImpersonationSessionRow } from "../lib/impersonation";
 import type { WorkspaceSummary } from "../lib/data";
 import type { ImpersonationReadRow } from "../lib/impersonation-reads";
 import type { ChainVerification } from "../lib/hash-chain";
@@ -73,13 +74,19 @@ const sessions = [
     reason: "Customer reported a reply that never arrived — checking delivery",
     chainPrevHash: "0000000000000000000000000000000000000000000000000000000000000000",
     chainHash: "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90",
+    workspaceDeleted: false,
+    adminDeleted: false,
   },
   {
     id: 2,
     adminEmail: "someone.with.a.long.address@postbox.help",
-    adminId: null,
+    // The ids stay SET. They are frozen snapshots since 11 Sep 2026 — the
+    // foreign keys that used to null them were rewriting columns the hash
+    // chain seals (db/schema.ts). Whether the rows they point at still exist
+    // is a separate question, and these two flags are its answer.
+    adminId: 7,
     adminClerkUserId: null,
-    workspaceId: null,
+    workspaceId: 9,
     workspaceName: "Riverside Framing",
     startedAt: ago(50),
     lastSeenAt: ago(50),
@@ -88,8 +95,10 @@ const sessions = [
     reason: null,
     chainPrevHash: "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90",
     chainHash: "b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1",
+    workspaceDeleted: true,
+    adminDeleted: true,
   },
-] satisfies ImpersonationSession[];
+] satisfies ImpersonationSessionRow[];
 
 const reads = new Map([
   [

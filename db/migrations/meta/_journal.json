@@ -204,6 +204,13 @@
       "when": 1789123988597,
       "tag": "0028_overrated_glorian",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1789159252881,
+      "tag": "0029_hard_talon",
+      "breakpoints": true
     }
   ]
 }

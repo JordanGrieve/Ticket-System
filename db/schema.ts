@@ -519,17 +519,40 @@ export const impersonationSessions = pgTable(
   "impersonation_sessions",
   {
     id: serial("id").primaryKey(),
-    // Nullable + frozen email below: see the header note.
-    adminId: integer("admin_id").references(() => admins.id, {
-      onDelete: "set null",
-    }),
+    /*
+     * ── NO FOREIGN KEYS ON THESE TWO IDS, AND THAT IS THE FIX ──
+     *
+     * Both carried `references(...).onDelete("set null")` until 11 Sep 2026.
+     * Both are also sealed by the hash chain (CHAINED_FIELDS in
+     * lib/impersonation-chain.ts). Those two facts contradict each other: the
+     * chain's whole claim is "nobody edited this row", and the schema
+     * authorised the database to edit it.
+     *
+     * So deleting a workspace an operator had ever entered rewrote a sealed
+     * column and the console reported CHAIN BROKEN — "a row has been deleted
+     * or edited" — about a first-party, audited, deliberate deletion. It
+     * happened for real: deleting the E2E Test Bakery workspace nulled three
+     * rows and broke the chain at session #59. An alarm that fires on
+     * legitimate use is an alarm that gets ignored, which is the one thing a
+     * tamper-evident log cannot afford.
+     *
+     * They are plain snapshot integers now, exactly like `admin_actions`,
+     * which reached this conclusion first and says so in its own comment: the
+     * cascade "would delete the record OF the deletion". A dangling id is the
+     * correct residue — it is what the row said when it was written, which is
+     * the only thing an audit row is ever claiming.
+     *
+     * `adminEmail`, `adminClerkUserId` and `workspaceName` remain the frozen
+     * identity for display. Whether the workspace or admin still EXISTS is now
+     * answered by a join (see listImpersonationSessions), not by reading a
+     * null out of a column the chain depends on.
+     */
+    adminId: integer("admin_id"),
     adminEmail: text("admin_email").notNull(),
     // The Clerk identity that actually held the browser session. Null when the
     // admin row was never linked (admins.clerkUserId is itself nullable).
     adminClerkUserId: text("admin_clerk_user_id"),
-    workspaceId: integer("workspace_id").references(() => workspaces.id, {
-      onDelete: "set null",
-    }),
+    workspaceId: integer("workspace_id"),
     workspaceName: text("workspace_name").notNull(),
     // Free text the operator typed before entering. Optional, and never
     // invented — null means they gave no reason, which is itself worth showing.

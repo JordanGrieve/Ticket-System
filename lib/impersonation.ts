@@ -1,7 +1,9 @@
 import { and, asc, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  admins,
   impersonationSessions,
+  workspaces,
   type Admin,
   type ImpersonationEnd,
   type ImpersonationSession,
@@ -372,27 +374,78 @@ export async function getOpenSession(
 }
 
 /** The whole log, newest first. */
+/**
+ * A session row plus the two facts the row itself cannot carry: whether the
+ * workspace and the admin it names still exist.
+ *
+ * Separate from `ImpersonationSession` (the table row) on purpose. What the
+ * row SAID and what is true NOW are different claims, and collapsing them into
+ * one nullable column is precisely the mistake that broke the chain.
+ */
+export type ImpersonationSessionRow = ImpersonationSession & {
+  workspaceDeleted: boolean;
+  adminDeleted: boolean;
+};
+
 export async function listImpersonationSessions(
   limit = 200,
-): Promise<ImpersonationSession[]> {
-  return db
-    .select()
+): Promise<ImpersonationSessionRow[]> {
+  /*
+   * The two "…since deleted" flags are computed by LOOKING, not by reading a
+   * null out of the id column.
+   *
+   * They used to be `workspaceId === null` and `adminId === null`, which
+   * worked because the foreign keys nulled those columns on delete. Both
+   * columns are sealed by the hash chain, so that cascade was rewriting
+   * evidence — see the note on the table in db/schema.ts. The cascade is gone;
+   * the ids are frozen snapshots now and stay pointing at the row that was
+   * there when the visit happened.
+   *
+   * So the question "is that workspace still around?" is a different question
+   * from "what did this row say", and it gets its own answer. A LEFT JOIN is
+   * the whole cost, on a table read once for one admin screen.
+   */
+  const rows = await db
+    .select({
+      session: impersonationSessions,
+      workspaceStillExists: workspaces.id,
+      adminStillExists: admins.id,
+    })
     .from(impersonationSessions)
+    .leftJoin(workspaces, eq(workspaces.id, impersonationSessions.workspaceId))
+    .leftJoin(admins, eq(admins.id, impersonationSessions.adminId))
     .orderBy(desc(impersonationSessions.startedAt))
     .limit(limit);
+
+  return rows.map((r) => ({
+    ...r.session,
+    workspaceDeleted: r.workspaceStillExists === null,
+    // A session whose admin_id was never set is not an admin who was deleted.
+    // Distinguishing them matters: one is "this login is no longer an
+    // operator", the other is "we never linked a row to this login at all".
+    adminDeleted: r.session.adminId !== null && r.adminStillExists === null,
+  }));
 }
 
 /** One workspace's log, newest first — the client-facing question. */
 export async function listImpersonationSessionsForWorkspace(
   workspaceId: number,
   limit = 10,
-): Promise<ImpersonationSession[]> {
-  return db
-    .select()
+): Promise<ImpersonationSessionRow[]> {
+  const rows = await db
+    .select({ session: impersonationSessions, adminStillExists: admins.id })
     .from(impersonationSessions)
+    .leftJoin(admins, eq(admins.id, impersonationSessions.adminId))
     .where(eq(impersonationSessions.workspaceId, workspaceId))
     .orderBy(desc(impersonationSessions.startedAt))
     .limit(limit);
+
+  return rows.map((r) => ({
+    ...r.session,
+    // Scoped to one workspace, and the caller is signed into it, so it exists.
+    workspaceDeleted: false,
+    adminDeleted: r.session.adminId !== null && r.adminStillExists === null,
+  }));
 }
 
 /**
