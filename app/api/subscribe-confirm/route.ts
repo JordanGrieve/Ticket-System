@@ -2,6 +2,7 @@ import { clientIp } from "@/lib/http";
 import { rateLimitDurable } from "@/lib/rate-limit-store";
 import { APP_URL } from "@/lib/config";
 import { decodeConfirmToken } from "@/lib/subscribe";
+import { sendWelcomeEmail } from "@/lib/welcome-store";
 import {
   confirmSubscription,
   resolveSigningSecret,
@@ -78,6 +79,37 @@ export async function POST(req: Request) {
     outcome.existed,
     outcome.consentRecorded,
   );
+
+  /*
+    The thank-you, if this workspace has one turned on.
+
+    ── ONLY ON A FRESH CONSENT ──
+    `consentRecorded` and not `subscribed`: a second click on the same link
+    re-confirms an address that is already on the list and does NOT re-stamp
+    `consent_at` (see confirmSubscription), so this is the signal that means
+    "somebody genuinely just opted in". Keying on `subscribed` would mail a
+    welcome every time a link was clicked twice, or previewed by a scanner
+    that follows the POST.
+
+    ── AWAITED, NOT FIRE-AND-FORGET ──
+    Vercel freezes the function the moment the response is returned, so a
+    floating promise here would be cancelled somewhere unpredictable —
+    sometimes after the provider call, sometimes before. It adds one provider
+    round trip to a redirect nobody is watching closely, and sendWelcomeEmail
+    never throws and never reports failure upward, so the redirect below is
+    identical either way. Same "no oracle" rule as the confirmation email:
+    the response must not vary on whether an email was sent.
+  */
+  if (outcome.consentRecorded && !outcome.suppressed) {
+    const welcome = await sendWelcomeEmail({ workspaceId, email, name });
+    if (!welcome.sent && welcome.reason !== "disabled" && welcome.reason !== "not_configured") {
+      console.warn(
+        "[subscribe] welcome not sent for workspace=%d reason=%s",
+        workspaceId,
+        welcome.reason,
+      );
+    }
+  }
 
   return redirect("/s/done");
 }

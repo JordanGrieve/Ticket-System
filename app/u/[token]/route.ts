@@ -1,5 +1,7 @@
 import { looksLikeUnsubscribeToken } from "@/lib/newsletter";
 import { unsubscribeByToken } from "@/lib/suppressions";
+import { unsubscribeWelcomeToken } from "@/lib/welcome-store";
+import { WELCOME_TOKEN_PREFIX } from "@/lib/welcome";
 
 /**
  * /u/[token] — the public unsubscribe endpoint.
@@ -92,12 +94,18 @@ export async function POST(req: Request, ctx: Ctx) {
 
   // Junk never reaches the database. An unknown-but-well-formed token still
   // does, so that a real token and a fake one take the same path.
-  if (looksLikeUnsubscribeToken(token)) {
+  //
+  // Two shapes of token arrive here. A campaign's is a random string looked
+  // up in campaign_recipients; a welcome email's is signed and carries its
+  // own workspace and address (lib/welcome.ts), because a welcome has no
+  // recipient row to hang a random token on. The prefix picks the path — it
+  // is not a secret and carries no authority, the signature does.
+  const isWelcome = token.startsWith(WELCOME_TOKEN_PREFIX);
+  if (isWelcome || looksLikeUnsubscribeToken(token)) {
     try {
-      const outcome = await unsubscribeByToken(
-        token,
-        fromWeb ? "link" : "one_click",
-      );
+      const outcome = isWelcome
+        ? await unsubscribeWelcomeToken(token, fromWeb ? "link" : "one_click")
+        : await unsubscribeByToken(token, fromWeb ? "link" : "one_click");
       // Logged, never returned. `matched: false` is a stranger poking at the
       // endpoint; the response below is the same either way.
       if (!outcome.matched) {

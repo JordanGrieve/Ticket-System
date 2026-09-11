@@ -23,6 +23,14 @@ export async function sendReplyEmail(input: {
   to: string;
   subject: string;
   text: string;
+  /**
+   * Optional HTML part. Omitted for ticket replies on purpose — those should
+   * read as a message from a person, and a styled shell is what makes a reply
+   * look like a mailout. The welcome email (lib/welcome-store.ts) sets it,
+   * because that one IS a mailout and should look like the newsletter it
+   * introduces.
+   */
+  html?: string;
   replyTo: string;
   /**
    * Email threading. inReplyTo/references must be REAL delivered Message-IDs
@@ -33,6 +41,12 @@ export async function sendReplyEmail(input: {
     inReplyTo?: string;
     references?: string[];
   };
+  /**
+   * Extra headers, merged after the threading ones. `List-Unsubscribe` and
+   * `List-Unsubscribe-Post` travel this way: any marketing mail sent through
+   * this function needs them, and they are not threading.
+   */
+  headers?: Record<string, string>;
 }): Promise<SendResult> {
   if (!hasKey()) {
     console.warn(
@@ -53,12 +67,14 @@ export async function sendReplyEmail(input: {
   if (input.threading?.references?.length) {
     headers["References"] = input.threading.references.join(" ");
   }
+  Object.assign(headers, input.headers ?? {});
 
   const { data, error } = await resend.emails.send({
     from,
     to: [input.to],
     subject: input.subject,
     text: input.text,
+    ...(input.html ? { html: input.html } : {}),
     replyTo: input.replyTo,
     ...(Object.keys(headers).length > 0 ? { headers } : {}),
   });

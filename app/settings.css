@@ -2527,3 +2527,16 @@
   font-size: 0.78125rem;
   line-height: 1.55;
 }
+
+/* The welcome email's on/off row. A label and the switch it names, with the
+   switch pushed to the end — same geometry as the auto-reply screen's toggle
+   rows so the two read as one control in two places. */
+.stg-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 460px;
+  min-height: 44px;
+  margin: 0 0 16px;
+}

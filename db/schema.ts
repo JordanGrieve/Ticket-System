@@ -1085,6 +1085,50 @@ export const suppressions = pgTable(
   ],
 );
 
+/**
+ * The one email a new subscriber gets the moment they confirm.
+ *
+ * ── WHY IT IS ITS OWN TABLE AND NOT A CAMPAIGN ──
+ * A campaign is addressed to an audience and scheduled; this is addressed to
+ * one person and triggered by their own click. It has no recipients table, no
+ * schedule and no send loop — the confirm route sends it and that is the whole
+ * lifecycle. Modelling it as a campaign would have put a row in
+ * `campaign_recipients` for every signup and made "how did that campaign do"
+ * an unanswerable question.
+ *
+ * Same shape as `auto_replies`, deliberately: one row per workspace, a
+ * toggle, a subject and a body. The two features are the same idea on the two
+ * sides of the product — an automatic acknowledgement of something somebody
+ * just did — so they should be read and edited the same way.
+ *
+ * ── IT IS MARKETING MAIL, WHATEVER TRIGGERED IT ──
+ * It carries the postal address and the unsubscribe link like any campaign,
+ * and lib/welcome.ts refuses to render one without an address. The trigger
+ * being a user action does not make the content transactional.
+ */
+export const welcomeEmails = pgTable(
+  "welcome_emails",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    // Off until somebody turns it on. A workspace that has never opened the
+    // screen must not start mailing its customers because we shipped a
+    // default.
+    enabled: boolean("enabled").notNull().default(false),
+    subject: text("subject").notNull(),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("welcome_emails_workspace_idx").on(t.workspaceId)],
+);
+
 export type CampaignStatus =
   | "draft"
   | "scheduled"
@@ -1628,6 +1672,7 @@ export type Form = typeof forms.$inferSelect;
 export type AutoReply = typeof autoReplies.$inferSelect;
 export type AutoReplyQueueRow = typeof autoReplyQueue.$inferSelect;
 export type Subscriber = typeof subscribers.$inferSelect;
+export type WelcomeEmail = typeof welcomeEmails.$inferSelect;
 export type List = typeof lists.$inferSelect;
 export type ListSubscriber = typeof listSubscribers.$inferSelect;
 export type Suppression = typeof suppressions.$inferSelect;

@@ -8,6 +8,8 @@ import { EMAIL_FROM_ADDRESS } from "@/lib/config";
 import ThemePicker from "./ThemePicker";
 import SenderIdentityForm from "./SenderIdentityForm";
 import NewsletterBrandForm from "./NewsletterBrandForm";
+import WelcomeEmailForm from "./WelcomeEmailForm";
+import { DEFAULT_WELCOME, getWelcomeEmail } from "@/lib/welcome-store";
 
 export const metadata = { title: "General · Settings · Postbox" };
 
@@ -34,10 +36,11 @@ export default async function GeneralSettingsPage() {
   // In the Promise.all rather than after it: neon-http gives every query its
   // own HTTP request, so a third await here would be a third round trip on a
   // page that already blocks on two.
-  const [autoReply, notifyEmails, forms] = await Promise.all([
+  const [autoReply, notifyEmails, forms, welcome] = await Promise.all([
     getAutoReplyConfig(workspace.id),
     listAgentEmails(workspace.id),
     listForms(workspace.id),
+    getWelcomeEmail(workspace.id),
   ]);
   const formCount = forms.length;
 
@@ -73,6 +76,26 @@ export default async function GeneralSettingsPage() {
           brandAccentHex={workspace.brandAccentHex}
           brandSignOff={workspace.brandSignOff}
           workspaceName={workspace.name}
+        />
+      </section>
+
+      {/* ── The welcome email ──────────────────────────────────────
+          Under branding rather than in a tab of its own: the settings strip
+          already overflows at nine tabs, and this is one toggle and two
+          fields about what a newsletter email says. */}
+      <section className="stg-section">
+        <h2 className="stg-section-title">Welcome email</h2>
+        <WelcomeEmailForm
+          initial={
+            welcome
+              ? {
+                  enabled: welcome.enabled,
+                  subject: welcome.subject,
+                  body: welcome.body,
+                }
+              : DEFAULT_WELCOME
+          }
+          hasPostalAddress={(workspace.postalAddress ?? "").trim().length > 0}
         />
       </section>
 

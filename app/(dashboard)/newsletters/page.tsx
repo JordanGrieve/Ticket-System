@@ -3,7 +3,6 @@ import { resolveViewer } from "@/lib/viewer";
 import { listCampaigns } from "@/lib/campaign-send";
 import { APP_URL } from "@/lib/config";
 import { RECIPIENTS_PER_SWEEP } from "@/lib/campaign-cron";
-import { workspaceLists } from "./queries";
 import Composer, { type CampaignRowDTO } from "./Composer";
 import "../../newsletter.css";
 
@@ -44,10 +43,10 @@ export default async function NewslettersPage() {
   if (!viewer.workspace) redirect(viewer.isAdmin ? "/admin" : "/no-access");
   const workspace = viewer.workspace;
 
-  const [campaigns, lists] = await Promise.all([
-    listCampaigns(workspace.id),
-    workspaceLists(workspace.id),
-  ]);
+  // No lists read any more: a campaign goes to everyone confirmed in the
+  // workspace, so there is nothing to choose between. See workspaceAudience
+  // in lib/campaign-send.ts.
+  const campaigns = await listCampaigns(workspace.id);
 
   // Dates cross the server/client boundary as ISO strings and are formatted in
   // the browser, for the same reason lib/serialize.ts does it: formatting on

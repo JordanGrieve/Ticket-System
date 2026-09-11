@@ -23,6 +23,8 @@ import ThemePicker from "../app/(dashboard)/settings/ThemePicker";
 import SettingsTabs from "../app/(dashboard)/settings/SettingsTabs";
 import SenderIdentityForm from "../app/(dashboard)/settings/SenderIdentityForm";
 import NewsletterBrandForm from "../app/(dashboard)/settings/NewsletterBrandForm";
+import WelcomeEmailForm from "../app/(dashboard)/settings/WelcomeEmailForm";
+import { DEFAULT_WELCOME } from "../lib/welcome-store";
 import AutoReplySettings from "../app/(dashboard)/settings/auto-reply/AutoReplySettings";
 import InstallView from "../components/InstallView";
 import { DEFAULT_CONFIG } from "../lib/auto-reply";
@@ -68,6 +70,19 @@ const views: Record<string, React.ReactElement> = {
   ),
   brand: (
     <NewsletterBrandForm brandAccentHex={null} brandSignOff={null} workspaceName="Open Door Bakery" />
+  ),
+  // Both states. Without a postal address the toggle is disabled and the
+  // screen says why — that is the state every new workspace is in, and the
+  // one an accessibility sweep is most likely to find a disabled-control
+  // contrast problem in.
+  "welcome-blocked": (
+    <WelcomeEmailForm initial={DEFAULT_WELCOME} hasPostalAddress={false} />
+  ),
+  "welcome-on": (
+    <WelcomeEmailForm
+      initial={{ ...DEFAULT_WELCOME, enabled: true }}
+      hasPostalAddress
+    />
   ),
   "auto-reply-off": (
     <AutoReplySettings initialConfig={DEFAULT_CONFIG} workspaceName="Open Door Bakery" />

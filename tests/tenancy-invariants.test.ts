@@ -383,6 +383,10 @@ const TENANT_TABLES = [
   // out-of-hours deferral work landed that morning — so every statement
   // touching it had gone unpoliced by this sweep for the whole day.
   "auto_reply_queue",
+  // Added 11 Sep 2026 with the welcome email, and caught by the
+  // classification test below within a minute of the table existing — which
+  // is the whole point of that test.
+  "welcome_emails",
   "subscribers",
   "lists",
   "list_subscribers",
