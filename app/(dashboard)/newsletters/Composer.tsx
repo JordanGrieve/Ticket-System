@@ -28,6 +28,7 @@ import {
   describeDrain,
 } from "@/lib/campaign-schedule";
 import type { CampaignHealth } from "@/lib/campaign-health";
+import { CAMPAIGN_TEMPLATES } from "@/lib/campaign-templates";
 import {
   describeWhen,
   primaryLabel,
@@ -391,6 +392,8 @@ export default function Composer({
     | { kind: "ok"; transmitted: boolean }
     | { kind: "error"; message: string }
   >({ kind: "idle" });
+  /** Which template this draft was started from. Presentational only. */
+  const [startedFrom, setStartedFrom] = useState("blank");
   const [whenMode, setWhenMode] = useState<WhenMode>("now");
   /** Local wall clock, two fields; lib/campaign-readiness turns them into an instant. */
   const [whenDate, setWhenDate] = useState("");
@@ -557,6 +560,7 @@ export default function Composer({
   function startNew(force = false) {
     if (!force && !guardNavigation({ kind: "new" })) return;
     setDraft(emptyDraft());
+    setStartedFrom("blank");
     setSavedId(null);
     setSavedListId(null);
     setDirty(false);
@@ -1265,6 +1269,41 @@ export default function Composer({
         <div className="nl-grid">
           {/* ── Left: the form ───────────────────────────────── */}
           <div className="nl-col">
+            {/*
+              ── START FROM ──
+              Only on a campaign that has never been saved. Once there is a
+              draft on the server, pressing one of these would silently
+              replace work somebody has already done — and the undo for that
+              is "retype it".
+            */}
+            {draft.id === null && editable && (
+              <section className="nl-card">
+                <h3 className="nl-card-title">Start from</h3>
+                <div className="nl-seg" role="group" aria-label="Start from a template">
+                  {CAMPAIGN_TEMPLATES.map((t) => (
+                    <button
+                      key={t.key}
+                      type="button"
+                      className="nl-seg-btn"
+                      data-on={startedFrom === t.key}
+                      aria-pressed={startedFrom === t.key}
+                      onClick={() => {
+                        setStartedFrom(t.key);
+                        // Subject only when the template has one: "From
+                        // scratch" must not wipe a subject already typed.
+                        patch(t.subject ? { subject: t.subject, body: t.body } : { body: t.body });
+                      }}
+                    >
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+                <p className="nl-help">
+                  {CAMPAIGN_TEMPLATES.find((t) => t.key === startedFrom)?.description}
+                </p>
+              </section>
+            )}
+
             <section className="nl-card">
               <h3 className="nl-card-title">The email</h3>
 
