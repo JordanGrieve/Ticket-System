@@ -59,6 +59,17 @@ session and re-scopes the query; no route accepts a workspace id from the
 request. Mutations put the workspace predicate *inside* the statement rather
 than checking first, which is the right pattern.
 
+> **Correction, 11 Sep 2026.** An earlier version of this document claimed
+> the signup-to-newsletter chain was broken because nothing ever wrote to
+> `list_subscribers`. That was wrong. `confirmSubscription` writes one, in
+> raw SQL inside a CTE, and the grep behind the claim only looked for the
+> Drizzle builder form. The real behaviour: the first confirmed signup in a
+> workspace creates a "Newsletter signups" list and every later subscriber
+> joins it. A workspace with no subscribers therefore has no list, which is
+> what made the composer look like a dead end. Lists have since been removed
+> from the send path anyway — see lib/campaign-send.ts — but for a product
+> reason, not a broken one.
+
 ### Newsletters — **complete, and inert behind three gates**
 
 The pipeline is finished and, from what I can see, carefully built. It cannot

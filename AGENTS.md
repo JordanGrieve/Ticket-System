@@ -361,3 +361,51 @@ through PostCSS now, which is what the build does. Two rules with it:
   early. Print N and M, look at them, then delete.
 - **Run the CSS parse (or `npm run build`) after a stylesheet edit that
   moved blocks, not only typecheck.** Typecheck proves the TypeScript.
+
+# A grep for one spelling of a write is not proof that no write exists
+
+On 11 September 2026 an audit concluded that the signup-to-newsletter chain
+was broken, on the strength of this:
+
+```
+grep -rn "insert(lists)" lib app db --include=*.ts   # no matches
+```
+
+The conclusion — "nothing has ever written a row to `list_subscribers`, so
+every list is empty and every campaign is unsendable" — was stated as fact in
+a commit message and in a review document handed to Jordan. It was wrong.
+
+`confirmSubscription` in lib/subscribe-store.ts writes both rows, inside a raw
+``db.execute(sql`…`)`` CTE:
+
+```
+    target_list AS (
+      INSERT INTO lists (workspace_id, name, description) …
+    ),
+    membership AS (
+      INSERT INTO list_subscribers (list_id, subscriber_id) …
+    )
+```
+
+The grep looked for the Drizzle query-builder spelling. This repo writes in
+BOTH styles — the builder for simple statements, raw SQL wherever a CTE, a
+conditional predicate or a `RETURNING` is needed, which is most of the
+interesting writes. Half the writes in the product are invisible to a
+builder-shaped search.
+
+What made it worse: the evidence *looked* corroborating. The composer's list
+dropdown really was empty and really did say "choose a list", so the false
+theory predicted the observed symptom. The actual cause was that the list is
+created lazily by the FIRST confirmed signup, and that workspace had none.
+
+So:
+
+- **Search for the table name, not the call.** `grep -rn "list_subscribers"`
+  would have found it immediately; `insert(lists)` never could.
+- **`tests/unused-tables.test.ts` is not a second opinion here.** It counts
+  references of any kind, so a table with raw-SQL writers looks used to it —
+  it cannot tell a reader from a writer.
+- **Before reporting that a feature cannot work, make it work once.** One
+  confirmed signup in a scratch workspace would have created the list and
+  disproved the whole theory in under a minute. The audit reasoned from
+  absence instead, and absence is exactly what a bad search produces.

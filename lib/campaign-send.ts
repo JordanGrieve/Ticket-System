@@ -671,19 +671,37 @@ async function listBelongsToWorkspace(
  *
  * ── WHY THIS IS NOT A LIST ──
  * It used to join `list_subscribers → lists → subscribers`, and a campaign
- * could not be armed without a `listId`. That chain had no beginning:
- * **nothing in the codebase has ever written a row to `list_subscribers`, and
- * no screen creates a list.** So a person could paste the signup form on their
- * site, a customer could subscribe and confirm, and the resulting subscriber
- * was unreachable by every campaign — the audience query joined through a
- * table that was always empty. Verified on 11 Sep 2026: `lists` and
- * `list_subscribers` had readers and no writers, which is why
- * tests/unused-tables.test.ts never flagged them.
+ * could not be armed without a `listId`.
  *
- * Jordan's call the same day: one automatic thank-you when somebody signs up,
- * and campaigns go to everyone. So the audience IS the workspace, and there is
- * no list to choose. The `lists` tables stay in the schema for named lists
- * later; nothing reads them on this path any more.
+ * ── A CORRECTION, BECAUSE THE FIRST VERSION OF THIS COMMENT WAS WRONG ──
+ * The commit that made this change (ed5d3fe) claimed nothing had ever written
+ * a row to `list_subscribers`. That was false, and the mistake is worth
+ * recording: `confirmSubscription` in lib/subscribe-store.ts DOES write one,
+ * inside a raw `db.execute(sql`…`)` CTE. The grep that "proved" otherwise
+ * looked for the Drizzle query-builder form, `insert(lists)`, and raw SQL is
+ * invisible to it. **A grep for one spelling of a write is not a proof that no
+ * write exists.**
+ *
+ * What was really happening: the first confirmed signup in a workspace
+ * lazily creates a list called "Newsletter signups" and puts every later
+ * subscriber in it. DevBusiness had no confirmed subscribers, so it had no
+ * list, so the composer's picker was empty and its blocker said "choose a
+ * list" — which reads like a dead end and is in fact a chicken-and-egg that
+ * the first confirmation resolves on its own.
+ *
+ * ── SO WHY REMOVE IT ANYWAY ──
+ * Because Jordan asked for it on 11 Sep 2026, and because the picker only
+ * ever had one entry to pick. A required choice with one option is furniture:
+ * it cost a step in the composer, a blocker on the readiness checklist, and
+ * an empty-state that read as broken. His words: one automatic thank-you when
+ * somebody signs up, and campaigns go to everyone.
+ *
+ * The audience IS the workspace now. In practice that is the same set of
+ * people the signup list held — `confirmSubscription` holds the only INSERT
+ * into `subscribers` in the repo, so everyone in the workspace arrived
+ * through it — and it stays the same set unless an import path is ever added.
+ * The `lists` tables stay in the schema, still written on confirm, for named
+ * lists later; nothing on the send path reads them.
  *
  * Every subscriber is returned regardless of status or consent —
  * `selectAudience` is the one place those are judged, and it reports what it
