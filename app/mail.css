@@ -274,7 +274,17 @@
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--nav-muted, #a9a3c4);
-  opacity: 0.75;
+  /*
+    No opacity knock-back. It was `opacity: 0.75`, which cost this 11px
+    heading a different amount in each theme: fading LIGHT ink toward a dark
+    ground barely moves it (7.29:1, scraping AAA), while fading DARK ink
+    toward a pale one collapses it — 4.28:1 in the light nav, under AA, on
+    11px 800-weight text. The trick only ever worked because the column was
+    dark in every theme.
+
+    --nav-muted is already the quiet ink, measured on this exact ground:
+    8.24:1 light, 12.13:1 dark.
+  */
   padding: 0 14px 7px;
 }
 .pbm-nav-spacer {
