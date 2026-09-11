@@ -209,6 +209,66 @@ describe("the products grid", () => {
     expect(empty.html).toBe(without.html);
     expect(empty.text).toBe(without.text);
   });
+
+  /*
+   * ── THE PAIR HAS TO LINE UP ──
+   * On the live site a product with no photo sat with its name at the top of
+   * its cell while its neighbour's sat under a 180px image. Two things fix
+   * it and BOTH have to hold, which is why they are asserted rather than
+   * left to the eye: the cells are bottom-aligned, and every cell has the
+   * same number of text lines whatever the product is missing.
+   */
+  it("bottom-aligns the cells so the text of a pair shares a baseline", () => {
+    const out = renderCampaign({
+      ...base,
+      products: [sourdough, { name: "Cinnamon bun", imageUrl: null, price: null, url: null }],
+    });
+    const cells = out.html.match(/<td class="pb-col"[^>]*>/g) ?? [];
+    expect(cells.length).toBe(2);
+    for (const cell of cells) expect(cell).toContain('valign="bottom"');
+  });
+
+  it("gives a product with no price the same two lines as one with a price", () => {
+    const priced = renderCampaign({ ...base, products: [sourdough] });
+    const free = renderCampaign({
+      ...base,
+      products: [{ ...sourdough, price: null }],
+    });
+    /*
+     * The CONTENT of the price line, not merely its presence. The first
+     * version of this counted the divs, and an empty div passed it happily —
+     * which is the bug it was written to catch, since a div with nothing in
+     * it has no line box and the cell is a line shorter than its neighbour
+     * all the same. It has to be a non-breaking space.
+     */
+    const priceLine = (html: string) => {
+      const m = html.match(/font:400 13px\/1\.4 Arial[^>]*>([^<]*)</);
+      expect(m, "no price line in the rendered product").not.toBeNull();
+      return m![1]!;
+    };
+    expect(priceLine(priced.html)).toBe("£4.50");
+    expect(priceLine(free.html)).toBe("&nbsp;");
+    // And the text part still says nothing about a price it does not have.
+    // The em dash on its own line is the unsubscribe footer's rule, which is
+    // why this looks at the product's line rather than the whole message.
+    expect(free.text).toContain("Sourdough loaf");
+    expect(free.text).not.toContain("Sourdough loaf —");
+  });
+
+  it("wraps the name in the same block whether or not it links", () => {
+    // An inline <a> where the other cell has a <div> is a different line box,
+    // which is the alignment bug in miniature.
+    const linked = renderCampaign({ ...base, products: [sourdough] });
+    const plain = renderCampaign({
+      ...base,
+      products: [{ ...sourdough, url: null }],
+    });
+    const nameDivs = (html: string) =>
+      (html.match(/font:700 14px\/1\.4 Arial/g) ?? []).length;
+    expect(nameDivs(linked.html)).toBe(1);
+    expect(nameDivs(plain.html)).toBe(1);
+    expect(linked.html).toContain('href="https://shop.example.com/sourdough"');
+  });
 });
 
 describe("validating submitted products", () => {

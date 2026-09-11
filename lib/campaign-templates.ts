@@ -55,9 +55,6 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
       "[When they can get it and how — a date, an opening time, or a link.]",
       "",
       "[Anything they need to know: how long it lasts, how much there is, whether to order ahead.]",
-      "",
-      "See you soon,",
-      "{company}",
     ].join("\n"),
   },
 ];

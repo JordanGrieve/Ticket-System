@@ -1113,15 +1113,37 @@ function productsHtml(products: CampaignProduct[], accent: string): string {
     const img = p.imageUrl
       ? `<img src="${escapeHtml(p.imageUrl)}" alt="${escapeHtml(p.name)}" width="236" style="display:block;width:100%;max-width:236px;height:auto;border:0;border-radius:10px;margin:0 0 8px;" />`
       : "";
-    const price = p.price
-      ? `<div style="font:400 13px/1.4 Arial,sans-serif;color:#57503f;margin:2px 0 0;">${escapeHtml(p.price)}</div>`
-      : "";
+    /*
+      Always a line, even with no price — a non-breaking space rather than
+      nothing. With `valign="bottom"` above it, every cell's text block is the
+      same two lines high, so the names in a pair sit on the same line as each
+      other and the prices under them do too.
+    */
+    const price = `<div style="font:400 13px/1.4 Arial,sans-serif;color:#57503f;margin:2px 0 0;">${
+      p.price ? escapeHtml(p.price) : "&nbsp;"
+    }</div>`;
     // The name is the link when there is one, rather than a separate "Buy"
     // that repeats it. One target per product, and it is the thing itself.
-    const name = p.url
-      ? `<a href="${escapeHtml(p.url)}" style="font:700 14px/1.4 Arial,sans-serif;color:${accent};text-decoration:underline;">${escapeHtml(p.name)}</a>`
-      : `<div style="font:700 14px/1.4 Arial,sans-serif;color:#26221d;">${escapeHtml(p.name)}</div>`;
-    return `<td class="pb-col" width="50%" valign="top" style="padding:0 0 18px;">${img}${name}${price}</td>`;
+    // The div is outside the anchor in both cases so the line box is the same
+    // height whether or not the product has a link.
+    const label = p.url
+      ? `<a href="${escapeHtml(p.url)}" style="color:${accent};text-decoration:underline;">${escapeHtml(p.name)}</a>`
+      : escapeHtml(p.name);
+    const name = `<div style="font:700 14px/1.4 Arial,sans-serif;color:#26221d;">${label}</div>`;
+    /*
+      ── WHY BOTTOM, NOT TOP ──
+      Top-aligned, a product with no photo had its name at the top of the cell
+      while its neighbour's sat below a 180px image — seen on the live site on
+      11 Sep 2026, and it reads as a mistake rather than as a layout. Bottom
+      anchors the text of both cells to the same baseline, so whatever the
+      photos do above them (different heights, or none at all) the names line
+      up. Jordan's call: align them.
+
+      The alternative — images in their own table row, text in the next —
+      aligns perfectly and cannot survive the phone: the media query stacks
+      cells, so a split row would stack as image, image, name, name.
+    */
+    return `<td class="pb-col" width="50%" valign="bottom" style="padding:0 0 18px;">${img}${name}${price}</td>`;
   };
 
   const rows: string[] = [];
@@ -1337,6 +1359,19 @@ function normaliseLine(raw: unknown, max: number): string | null {
  * placeholder text to a real list, so unfilledSlots() below exists and the
  * composer surfaces it before anything can be scheduled. A default without
  * that check would be a worse screen than the blank one it replaced.
+ *
+ * ── IT ENDS MID-MESSAGE, AND THAT IS DELIBERATE ──
+ * It used to close with "Thanks for reading, {company}". Products render
+ * BETWEEN the body and the sign-off — the sign-off is meant to be the last
+ * human thing before the unsubscribe block — so a closing inside the body put
+ * the whole product grid underneath a goodbye. Seen on the live site on
+ * 11 Sep 2026 and Jordan's call: drop it.
+ *
+ * The sign-off now comes from where it always should have, `brandSignOff` on
+ * the workspace (Settings → Brand), which renders after the products for
+ * every campaign rather than only for the ones that started from a template.
+ * A workspace that has not set one ends at the unsubscribe footer, which is
+ * why the brand form asks for it.
  */
 export const STARTER_CAMPAIGN_BODY = [
   "Hi {first_name},",
@@ -1344,9 +1379,6 @@ export const STARTER_CAMPAIGN_BODY = [
   "[One or two sentences on what is new. The subject line got them to open it — this is where you tell them the thing.]",
   "",
   "[If there is one thing you would like them to do, say it here and put the link next to it.]",
-  "",
-  "Thanks for reading,",
-  "{company}",
 ].join("\n");
 
 /**

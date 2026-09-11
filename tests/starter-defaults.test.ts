@@ -6,6 +6,7 @@ import {
   renderTemplate,
   buildCampaignMergeValues,
 } from "../lib/newsletter";
+import { CAMPAIGN_TEMPLATES } from "../lib/campaign-templates";
 import { STARTER_LABELS } from "../lib/starter-labels";
 import type { LabelColor } from "../db/schema";
 
@@ -29,7 +30,26 @@ describe("the starter campaign body", () => {
     // The composer lists the tokens in a toolbar. This is the one surface
     // where somebody sees one resolve in the preview beside them.
     expect(STARTER_CAMPAIGN_BODY).toContain("{first_name}");
-    expect(STARTER_CAMPAIGN_BODY).toContain("{company}");
+  });
+
+  it("still demonstrates {company} somewhere a new client will meet it", () => {
+    /*
+     * It used to be in the starter body's closing, which came out on
+     * 11 Sep 2026 because products render between the body and the sign-off
+     * and a goodbye inside the body put the product grid underneath it.
+     *
+     * The guarantee is not "the starter body contains every token" — it is
+     * that somebody who has never seen a merge token meets one resolving in
+     * the preview. Across the templates the composer offers, it still does:
+     * Next drop's subject line carries {company}. Asserted over the whole
+     * template set rather than one string, so moving it again is fine and
+     * losing it is not.
+     */
+    const everything = CAMPAIGN_TEMPLATES.flatMap((t) => [t.subject, t.body]).join(
+      "\n",
+    );
+    expect(everything).toContain("{company}");
+    expect(everything).toContain("{first_name}");
   });
 
   it("uses only tokens that actually exist", () => {
@@ -57,7 +77,9 @@ describe("the starter campaign body", () => {
       }),
     );
     expect(out).toContain("Hi Alex,");
-    expect(out).toContain("Open Door Bakery");
+    // Not "Open Door Bakery" any more: the body no longer closes with
+    // {company}, because the sign-off belongs after the products. What this
+    // test is actually for is that nothing renders as a raw token.
     expect(out).not.toContain("{");
   });
 
