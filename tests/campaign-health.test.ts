@@ -37,7 +37,6 @@ const HEALTHY_ENV = {
 function input(over: Partial<CampaignHealthInput> = {}): CampaignHealthInput {
   return {
     status: "sending" as CampaignStatus,
-    listId: 1,
     recipients: { ...NOBODY, queued: 10 },
     postalAddress: "18 Avonbank Crescent, Hamilton, ML3 7PD",
     emailAllowance: { remaining: 5_000, allowance: 15_000 },
@@ -122,7 +121,6 @@ describe("blockers", () => {
     const h = diagnoseCampaign(
       input({
         postalAddress: null,
-        listId: null,
         env: {
           sweepConfigured: false,
           senderConfigured: false,
@@ -134,15 +132,18 @@ describe("blockers", () => {
     expect(all).not.toMatch(/CRON_SECRET|CAMPAIGN_FROM_ADDRESS|CAMPAIGN_DELIVERY_MODE|env|environment variable/i);
   });
 
-  it("asks for recipients whether or not a list was ever chosen", () => {
+  it("asks for recipients, and has no opinion about lists at all", () => {
     // There are no lists any more — a campaign goes to everyone confirmed in
     // the workspace (lib/campaign-send.ts, workspaceAudience). "Choose a list"
     // was a blocker for a choice the product no longer offers, and with
     // list_subscribers never written it was unsatisfiable besides.
-    for (const listId of [null, 1]) {
-      const h = diagnoseCampaign(input({ listId, recipients: NOBODY }));
-      expect(h.blockers.some((b) => b.code === "no_recipients")).toBe(true);
-    }
+    //
+    // This used to loop over `listId` of null and 1 to prove the answer was
+    // the same either way. The field is gone from CampaignHealthInput now, so
+    // the loop is gone with it — a diagnosis that cannot be told about a list
+    // is a stronger guarantee than one that is told and ignores it.
+    const h = diagnoseCampaign(input({ recipients: NOBODY }));
+    expect(h.blockers.some((b) => b.code === "no_recipients")).toBe(true);
   });
 
   it("flags a campaign that finished with every message failed", () => {

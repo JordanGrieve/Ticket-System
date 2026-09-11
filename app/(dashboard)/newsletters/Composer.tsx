@@ -143,9 +143,27 @@ type AudienceJson = {
   skippedTotal: number;
 };
 
+/*
+ * ── THERE IS NO "no_list" STATE ANY MORE, AND THAT IS THE POINT ──
+ *
+ * There used to be, and it was load-bearing in the worst way. Lists were
+ * retired — a campaign goes to everyone confirmed in the workspace, which is
+ * what `workspaceAudience` selects — so every campaign created since has
+ * `list_id` NULL. Four places still keyed off that column, and together they
+ * made every campaign in the product unsendable: the count was never
+ * requested, the panel said "Nobody has confirmed a subscription yet" to
+ * workspaces with confirmed subscribers, "Queue recipients" was permanently
+ * disabled, and the help text under it told the client to choose a list from
+ * a picker that no longer exists.
+ *
+ * Removing the member from this union is what found all four — each one
+ * stopped compiling. That is the reason it is a union member and not a
+ * boolean: the same retirement had already left `list_id IS NOT NULL` in
+ * scheduleCampaign, where nothing could catch it and nothing did until
+ * somebody ran the whole journey by hand (tests/campaign-arming.test.ts).
+ */
 type AudienceState =
   | { kind: "unsaved" }
-  | { kind: "no_list" }
   | { kind: "loading" }
   | { kind: "error"; message: string }
   | { kind: "ready"; data: AudienceJson };
@@ -393,7 +411,6 @@ export default function Composer({
 
   /** What the server currently holds, which is what the count describes. */
   const [savedId, setSavedId] = useState<number | null>(null);
-  const [savedListId, setSavedListId] = useState<number | null>(null);
   const [audienceTick, setAudienceTick] = useState(0);
   /**
    * The last COMPLETED count, tagged with the request it answered.
@@ -462,13 +479,16 @@ export default function Composer({
   const editable = isEditableStatus(draft.status);
 
   // ── The count ──────────────────────────────────────────────────
-  // Fetched for what the SERVER holds, never for the unsaved form: the endpoint
-  // reads campaigns.list_id, so counting an unsaved list choice would show a
-  // number for the wrong audience.
+  // Fetched for what the SERVER holds, never for the unsaved form: an audience
+  // counted from an unsaved edit is a number for an email nobody will receive.
+  //
+  // `savedListId` is deliberately NOT in this key any more. It used to null the
+  // key out entirely, which meant the request was never made for any campaign
+  // with list_id NULL — i.e. for any campaign at all. The endpoint does not
+  // read list_id either: `previewAudience` calls `workspaceAudience` and
+  // ignores the column.
   const countKey =
-    savedId === null || savedListId === null
-      ? null
-      : `${savedId}:${savedListId}:${audienceTick}`;
+    savedId === null ? null : `${savedId}:${audienceTick}`;
 
   useEffect(() => {
     if (countKey === null) return;
@@ -512,13 +532,11 @@ export default function Composer({
   const audience: AudienceState =
     savedId === null
       ? { kind: "unsaved" }
-      : savedListId === null
-        ? { kind: "no_list" }
-        : counted?.key !== countKey
-          ? { kind: "loading" }
-          : counted.result.ok
-            ? { kind: "ready", data: counted.result.data }
-            : { kind: "error", message: counted.result.message };
+      : counted?.key !== countKey
+        ? { kind: "loading" }
+        : counted.result.ok
+          ? { kind: "ready", data: counted.result.data }
+          : { kind: "error", message: counted.result.message };
 
   function patch(next: Partial<Draft>) {
     setDraft((d) => ({ ...d, ...next }));
@@ -615,7 +633,6 @@ export default function Composer({
     setDraft(emptyDraft());
     setStartedFrom("blank");
     setSavedId(null);
-    setSavedListId(null);
     setDirty(false);
     setSaved(false);
     setError(null);
@@ -713,7 +730,6 @@ export default function Composer({
       }
       setDraft(draftFrom(payload.campaign));
       setSavedId(payload.campaign.id);
-      setSavedListId(payload.campaign.listId);
       setRecipients(payload.recipients ?? null);
       // The server computed this on the way past. It was already being
       // computed before today and thrown away here, which is how a campaign
@@ -783,7 +799,6 @@ export default function Composer({
 
       setDraft(draftFrom(payload.campaign));
       setSavedId(payload.campaign.id);
-      setSavedListId(payload.campaign.listId);
       setDirty(false);
       setSaved(true);
       await refreshList();
@@ -955,7 +970,6 @@ export default function Composer({
         return;
       }
       setDraft(draftFrom(payload.campaign));
-      setSavedListId(payload.campaign.listId);
       setSchedule({ kind: "armed", immediate: payload.immediate === true });
       await refreshList();
     } catch {
@@ -983,7 +997,6 @@ export default function Composer({
         return;
       }
       setDraft(draftFrom(payload.campaign));
-      setSavedListId(payload.campaign.listId);
       setSchedule({ kind: "cancelled" });
       await refreshList();
     } catch {
@@ -1341,11 +1354,17 @@ export default function Composer({
                     </span>
                   </span>
                   <span className="nl-item-sub">{c.subject}</span>
+                  {/*
+                    The queued count, or nothing. It used to lead with
+                    `c.listName ?? "No audience list"`, which since the list
+                    retirement said "No audience list" on every campaign ever
+                    — a fact about a model that no longer exists, sitting where
+                    a client looks for a fact about their campaign.
+                  */}
                   <span className="nl-item-meta">
-                    {c.listName ?? "No audience list"}
                     {c.recipientCount > 0
-                      ? ` · ${c.recipientCount} queued`
-                      : ""}
+                      ? `${c.recipientCount} queued`
+                      : "Nothing queued yet"}
                   </span>
                 </button>
               </li>
@@ -1907,7 +1926,6 @@ export default function Composer({
                   onClick={queueRecipients}
                   disabled={
                     savedId === null ||
-                    savedListId === null ||
                     draft.status !== "draft" ||
                     dirty ||
                     queue.kind === "working"
@@ -1981,9 +1999,6 @@ export default function Composer({
 
               {savedId === null && (
                 <p className="nl-help">Create the draft first.</p>
-              )}
-              {savedId !== null && savedListId === null && (
-                <p className="nl-help">Choose an audience list and save.</p>
               )}
               {savedId !== null && dirty && (
                 <p className="nl-help">Save your changes first.</p>
@@ -2578,13 +2593,6 @@ function AudienceReadout({
 }) {
   if (state.kind === "unsaved") {
     return <p className="nl-help">Save the draft to count its audience.</p>;
-  }
-
-  if (state.kind === "no_list") {
-    // Kept as a state because the audience route can still report it for an
-    // older campaign; there is no list to choose any more, so it reads as the
-    // empty audience it actually is.
-    return <p className="nl-help">Nobody has confirmed a subscription yet.</p>;
   }
 
   if (state.kind === "loading") {

@@ -30,8 +30,10 @@ const campaign = {
   name: "Christmas orders are open",
   subject: "Order by the 12th",
   status: "draft",
-  listId: 1,
-  listName: "Everyone",
+  // Lists were retired; no real row carries one. See the fixture note in
+  // tests/newsletter-views-render.test.tsx.
+  listId: null,
+  listName: null,
   recipientCount: 118,
   updatedAtIso: "2026-09-06T10:00:00.000Z",
   sentAtIso: null,

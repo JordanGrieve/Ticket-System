@@ -55,7 +55,10 @@ export type Blocker = {
 
 export type CampaignHealthInput = {
   status: CampaignStatus;
-  listId: number | null;
+  // No `listId`. There was one, it was never read by any branch below, and a
+  // field a diagnosis takes but never consults invites the next reader to
+  // believe the health of a campaign depends on a list. It does not — lists
+  // were retired and the audience comes from the workspace.
   recipients: Record<RecipientStatus, number>;
   /** From the workspace row. Null or blank means the send is refused. */
   postalAddress: string | null;

@@ -52,11 +52,14 @@ export async function GET(
     return json({ error: "Select a client workspace first." }, { status: 400 });
   }
 
+  // No "has no audience list" branch. There was one, and it could never run:
+  // `previewAudience` returns `AudienceSelection | null`, which has no `error`
+  // member, so `"error" in result` was a narrowing against a type nothing can
+  // satisfy. The POST and DELETE handlers below DO have live `error` arms —
+  // `materialiseAudience` and `discardQueuedRecipients` really can refuse — so
+  // do not read this as the whole pattern being dead.
   const result = await previewAudience(workspace.id, campaignId);
   if (result === null) return json({ error: "Not found" }, { status: 404 });
-  if ("error" in result) {
-    return json({ error: "This campaign has no audience list yet." }, { status: 409 });
-  }
 
   // Addresses are NOT returned — only counts. A preview endpoint that dumps
   // the list would turn "can read one campaign" into "can export the whole

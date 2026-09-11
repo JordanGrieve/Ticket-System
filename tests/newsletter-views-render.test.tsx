@@ -43,20 +43,35 @@ const OUT = process.env.NEWSLETTER_HARNESS_OUT;
 
 const iso = (h: number) => new Date(Date.UTC(2026, 8, 6, 11, 20) - h * 3600_000).toISOString();
 
+/*
+ * Every campaign has `listId: null`, and that is not laziness.
+ *
+ * Two of these carried `listId: 1, listName: "Everyone"` until 11 Sep 2026.
+ * Lists were retired, so no row in the database can look like that any more —
+ * the fixtures described a state the product cannot produce. AGENTS.md calls
+ * this out by name ("Fixtures invent impossible states as readily as wrong
+ * ones"): `satisfies CampaignRowDTO[]` checks the field NAMES and can say
+ * nothing about whether the values could happen.
+ *
+ * It mattered. The composer's audience panel keyed off `listId === null`, so
+ * the bug only showed on the one fixture that had it — id 2, the one no test
+ * ever selected. The harness rendered two campaigns in a state that no longer
+ * exists and reported clean.
+ */
 const campaigns = [
   {
     id: 1,
     name: "Christmas orders are open",
     subject: "Christmas orders are open — order by the 12th",
     status: "draft",
-    listId: 1,
-    listName: "Everyone",
+    listId: null,
+    listName: null,
     recipientCount: 118,
     updatedAtIso: iso(4),
     sentAtIso: null,
   },
   {
-    // A long name with no list chosen and nothing to send to.
+    // A long name and nothing queued to send to.
     id: 2,
     name: "A newsletter with a considerably longer name than the column expects",
     subject: "",
@@ -72,8 +87,8 @@ const campaigns = [
     name: "September specials",
     subject: "This month at the bakery",
     status: "sent",
-    listId: 1,
-    listName: "Everyone",
+    listId: null,
+    listName: null,
     recipientCount: 104,
     updatedAtIso: iso(700),
     sentAtIso: iso(700),

@@ -78,7 +78,6 @@ export async function GET(
   // them. See its header.
   const health = diagnoseCampaign({
     status: campaign.status,
-    listId: campaign.listId,
     recipients,
     postalAddress: workspace.postalAddress,
     emailAllowance,
