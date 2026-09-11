@@ -1228,5 +1228,19 @@
    and have nothing under it.
 */
 body:has(.pbi-banner) .nl-main {
-  padding-top: calc(28px + var(--pbt-h, 0px) + 56px);
+  /* The pill sits at top 10 and measured 192x54 on the live site, so it ends
+     at 64. 84 clears it by 20 and keeps the composer's own 28px above the
+     title. NOT var(--pbt-h) here: that custom property is 46px on :root
+     whether or not a trial banner exists, so a fallback of 0 never applies
+     and the first version of this rule pushed the title to 130px with
+     nothing above it. */
+  padding-top: 84px;
+}
+
+/* An operator inside a client who is ALSO on a trial: the pill moves itself
+   below the trial banner (.pbi-banner:has(~ .pbt-slot) in
+   impersonation-banner.css), so the room has to move with it. Same
+   arithmetic, with the banner's measured height under it. */
+body:has(.pbi-banner):has(.pbt-slot) .nl-main {
+  padding-top: calc(var(--pbt-h, 46px) + 8px + 54px + 20px);
 }
