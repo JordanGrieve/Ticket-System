@@ -409,3 +409,46 @@ So:
   confirmed signup in a scratch workspace would have created the list and
   disproved the whole theory in under a minute. The audit reasoned from
   absence instead, and absence is exactly what a bad search produces.
+
+# A new field reaches the database only where somebody listed it
+
+On 11 September 2026 the products grid was built, typechecked, linted, tested
+(1453 green) and pushed. Opening postbox.help and using it found three things
+in ten minutes, none of which any check in this repo could have seen.
+
+1. **`createCampaign` listed six of the input's nine fields.** The hero image
+   and the products a client had just typed were dropped by the FIRST save.
+   Nothing failed: the insert was valid SQL, the type was satisfied by a
+   subset, the draft saved, and the screen redrew from the row the server
+   returned — with the work gone. A later save persisted them, so it only
+   showed when a draft was created from scratch. The hero image had shipped
+   with this hole the day before.
+
+2. **The test-send endpoint rendered without `hero` or `products`.** Its whole
+   purpose is showing a client what real recipients get, and it was showing a
+   different email.
+
+3. **The impersonation pill made three controls unclickable.** It is fixed at
+   the top right with z-index 200 and the composer puts Save draft there too,
+   so an operator inside a client workspace could not save a draft at all. The
+   click expanded the pill. `elementFromPoint` at each control's own centre is
+   what found it, and finds it in one line.
+
+The shared shape: an OPTIONAL field, and a call site that forgot. A type
+cannot catch it, because every one of those calls was valid.
+
+- **When you add a field to a type that crosses into the database, grep the
+  table's writers and make each one fail if it does not mention the field.**
+  `draftColumns()` in lib/campaign-send.ts does this with
+  `satisfies Record<keyof CampaignDraftInput, unknown>` — the tenth field will
+  not compile until the insert names it.
+- **Where the signature must stay permissive, guard the CALL SITES.**
+  tests/render-campaign-callers.test.ts reads every `renderCampaign` call
+  under lib/ and app/ and requires `hero` and `products` to be named; the
+  renderer keeps them optional, because "not given means none" is what the
+  unit tests assert by omitting them.
+- **Use the feature once, in a browser, before saying it is done.** Every one
+  of these was invisible from the repository and obvious from the screen. The
+  same hour also proved what DID work — the live preview, the two-across grid,
+  the £ in a free-text price, the inline https warning, the server's refusal
+  naming the product it could not use, and the grid arriving intact in Gmail.
