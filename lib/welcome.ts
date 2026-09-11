@@ -37,17 +37,25 @@ export const DEFAULT_WELCOME_SUBJECT = "Thanks for subscribing to {company}";
  * one sends unattended the first time somebody subscribes, so anything left
  * unedited goes to a real customer. Every sentence here is true of any
  * business and safe to send exactly as written.
+ *
+ * ── ONE LINE PER PARAGRAPH, AND THAT IS NOT A STYLE CHOICE ──
+ * The renderer turns a single newline into a line break and a blank line into
+ * a paragraph, so source text wrapped at 78 characters for readability reaches
+ * the reader wrapped at 78 characters — which is not where their mail client
+ * would have wrapped it. The first real send of this email, on 11 Sep 2026,
+ * broke mid-sentence after "at the bottom of" in Gmail. Long lines here,
+ * always; `tests/welcome.test.ts` fails on a mid-sentence break.
  */
-export const DEFAULT_WELCOME_BODY = `Hi {first_name},
-
-Thanks for signing up — you're on the list.
-
-You'll hear from us when there's something worth telling you about, and not
-otherwise. If you ever change your mind, the unsubscribe link at the bottom of
-any email takes one click and takes effect immediately.
-
-Thanks again,
-{company}`;
+export const DEFAULT_WELCOME_BODY = [
+  "Hi {first_name},",
+  "",
+  "Thanks for signing up — you're on the list.",
+  "",
+  "You'll hear from us when there's something worth telling you about, and not otherwise. If you ever change your mind, the unsubscribe link at the bottom of any email takes one click and takes effect immediately.",
+  "",
+  "Thanks again,",
+  "{company}",
+].join("\n");
 
 // ── The unsubscribe token ────────────────────────────────────────
 

@@ -171,4 +171,27 @@ describe("rendering", () => {
     // anything left unedited reaches a real customer.
     expect(DEFAULT_WELCOME_BODY).not.toMatch(/\[.+\]/);
   });
+
+  it("never breaks a sentence mid-line", () => {
+    /*
+      The renderer makes a single newline a line break, so a body wrapped at
+      78 characters for source readability reaches the reader wrapped at 78
+      characters. The first real send did exactly that in Gmail, breaking
+      after "at the bottom of".
+
+      A hard wrap has a signature: a line that does not end a sentence,
+      followed by one that continues it in lower case. The sign-off
+      ("Thanks again," then "{company}") is a deliberate two-line block and is
+      not caught, because the next line starts with a brace rather than a
+      lower-case letter.
+    */
+    const lines = DEFAULT_WELCOME_BODY.split("\n");
+    for (let i = 0; i < lines.length - 1; i++) {
+      const here = lines[i]!;
+      const next = lines[i + 1]!;
+      if (!here.trim() || !next.trim()) continue;
+      const continues = /^[a-z]/.test(next.trim());
+      expect(continues, `line ${i + 1} wraps into the next: "${here}"`).toBe(false);
+    }
+  });
 });
