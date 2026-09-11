@@ -228,6 +228,64 @@ describe("the products grid", () => {
     for (const cell of cells) expect(cell).toContain('valign="bottom"');
   });
 
+  /*
+   * ── THE PHOTOS MUST NOT TOUCH ──
+   * They did, in a real send on 11 Sep 2026. The gutter was a third <td> of
+   * width 16 between two cells that each asked for 50%: that is 116% of the
+   * row, and what a browser gives back is the spacer squeezed to nothing.
+   * The images, being width:100% of their own cells, met in the middle.
+   *
+   * A spacer column cannot be trusted to survive, so there is none — the gap
+   * is padding on each cell, which cannot be squeezed away. This asserts the
+   * shape rather than the appearance, because nothing in CI renders an email.
+   */
+  it("puts the gap between the cells in padding, not a spacer column", () => {
+    const out = renderCampaign({
+      ...base,
+      products: [sourdough, { ...sourdough, name: "Buns" }],
+    });
+    const cells = out.html.match(/<td class="pb-col"[^>]*>/g) ?? [];
+    expect(cells).toHaveLength(2);
+    expect(cells[0]!, "the left cell needs a right-hand gutter").toContain(
+      "padding:0 10px 18px 0;",
+    );
+    expect(cells[1]!, "the right cell needs a left-hand gutter").toContain(
+      "padding:0 0 18px 10px;",
+    );
+    /*
+     * The grid's own row holds the two product cells and nothing else.
+     *
+     * Sliced from `class="pb-grid"`, NOT from the first "<tr>" in the
+     * message: the branded shell opens several tables of its own before the
+     * grid, so the first version of this read the masthead's row and could
+     * not fail. Caught by putting the spacer column back and watching it stay
+     * green.
+     */
+    const gridAt = out.html.indexOf('class="pb-grid"');
+    expect(gridAt, "no products grid in the rendered HTML").toBeGreaterThan(-1);
+    const grid = out.html.slice(gridAt, out.html.indexOf("</table>", gridAt));
+    expect(
+      (grid.match(/<td/g) ?? []).length,
+      "a third cell is a spacer column, and a spacer column is what collapsed",
+    ).toBe(2);
+  });
+
+  it("stacks without the gutter, so a phone does not indent every other product", () => {
+    const out = renderCampaign({ ...base, products: [sourdough] });
+    const head = out.html.slice(0, out.html.indexOf("</head>"));
+    expect(head).toContain("max-width: 480px");
+    expect(head).toContain("padding-left: 0 !important");
+  });
+
+  it("sizes the photo to 216, in the attribute as well as the style", () => {
+    // Outlook ignores max-width and lays out to the width ATTRIBUTE, so the
+    // two have to agree or the grid is 236 wide in Outlook and 216 elsewhere.
+    const out = renderCampaign({ ...base, products: [sourdough] });
+    expect(out.html).toContain('width="216"');
+    expect(out.html).toContain("max-width:216px");
+    expect(out.html).not.toContain("236");
+  });
+
   it("gives a product with no price the same two lines as one with a price", () => {
     const priced = renderCampaign({ ...base, products: [sourdough] });
     const free = renderCampaign({

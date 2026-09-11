@@ -1108,10 +1108,32 @@ function productsText(products: CampaignProduct[]): string {
 function productsHtml(products: CampaignProduct[], accent: string): string {
   if (products.length === 0) return "";
 
-  const cell = (p: CampaignProduct | null): string => {
-    if (!p) return `<td class="pb-col" width="50%" style="padding:0;">&nbsp;</td>`;
+  /*
+    ── THE GUTTER IS PADDING, NOT A SPACER COLUMN ──
+    It was a third <td> of width 16 between the two cells, and on the live
+    site the two photos touched: two cells asking for 50% plus a 16px column
+    is 116% of the row, and what a browser gives back is the spacer squeezed
+    to nothing. The images, being width:100% of their own cells, then met in
+    the middle.
+
+    Padding inside the cell cannot be squeezed away like that, and Outlook's
+    Word renderer honours it. 10px each side of the seam is the 20px gap;
+    the outer edges take none, so the grid still lines up with the body text
+    above it.
+  */
+  const gutter = (side: "left" | "right") =>
+    side === "left" ? "padding:0 10px 18px 0;" : "padding:0 0 18px 10px;";
+
+  const cell = (p: CampaignProduct | null, side: "left" | "right"): string => {
+    if (!p) {
+      return `<td class="pb-col" width="50%" style="${gutter(side)}">&nbsp;</td>`;
+    }
+    // 216, down from 236 on 11 Sep 2026 — Jordan's call, "a tiny bit smaller,
+    // just like 20px off". The `width` attribute has to agree with the
+    // max-width: Outlook ignores max-width entirely and lays out to the
+    // attribute.
     const img = p.imageUrl
-      ? `<img src="${escapeHtml(p.imageUrl)}" alt="${escapeHtml(p.name)}" width="236" style="display:block;width:100%;max-width:236px;height:auto;border:0;border-radius:10px;margin:0 0 8px;" />`
+      ? `<img src="${escapeHtml(p.imageUrl)}" alt="${escapeHtml(p.name)}" width="216" style="display:block;width:100%;max-width:216px;height:auto;border:0;border-radius:10px;margin:0 0 8px;" />`
       : "";
     /*
       Always a line, even with no price — a non-breaking space rather than
@@ -1143,16 +1165,14 @@ function productsHtml(products: CampaignProduct[], accent: string): string {
       aligns perfectly and cannot survive the phone: the media query stacks
       cells, so a split row would stack as image, image, name, name.
     */
-    return `<td class="pb-col" width="50%" valign="bottom" style="padding:0 0 18px;">${img}${name}${price}</td>`;
+    return `<td class="pb-col" width="50%" valign="bottom" style="${gutter(side)}">${img}${name}${price}</td>`;
   };
 
   const rows: string[] = [];
   for (let i = 0; i < products.length; i += 2) {
-    const left = cell(products[i]!);
-    const right = cell(products[i + 1] ?? null);
-    rows.push(
-      `<tr>${left}<td width="16" style="width:16px;font-size:0;line-height:0;">&nbsp;</td>${right}</tr>`,
-    );
+    const left = cell(products[i]!, "left");
+    const right = cell(products[i + 1] ?? null, "right");
+    rows.push(`<tr>${left}${right}</tr>`);
   }
 
   return `<table role="presentation" class="pb-grid" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 12px;"><tbody>${rows.join("")}</tbody></table>\n`;
@@ -1282,6 +1302,11 @@ const EMAIL_HEAD = `  <head>
       @media only screen and (max-width: 480px) {
         .pb-col { display: block !important; width: 100% !important; max-width: 100% !important; }
         .pb-grid td { display: block !important; width: 100% !important; }
+        /* The 10px gutter is a side padding on each cell, which is what puts
+           the gap between two photos in a row. Stacked there is no seam to
+           hold open, and keeping it would indent every other product by
+           10px. */
+        .pb-grid td { padding-left: 0 !important; padding-right: 0 !important; }
       }
     </style>
   </head>`;
