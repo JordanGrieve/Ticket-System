@@ -15,6 +15,7 @@ import {
   TEMPLATE_KEYS,
   isEditableStatus,
   renderCampaign,
+  safeImageUrl,
   unsubscribeUrl,
   type AudienceSkipReason,
   type TemplateKey,
@@ -122,6 +123,8 @@ type CampaignJson = {
   templateKey: string;
   body: string;
   listId: number | null;
+  heroImageUrl: string | null;
+  heroImageAlt: string | null;
   status: CampaignStatus;
   recipientCount: number;
   scheduledAt: string | null;
@@ -182,6 +185,9 @@ type Draft = {
   templateKey: TemplateKey;
   body: string;
   listId: number | null;
+  /** As authored. Validated server-side; empty string means none. */
+  heroImageUrl: string;
+  heroImageAlt: string;
   status: CampaignStatus;
   /**
    * Server-held counts and times. Written only from a server response, never
@@ -198,6 +204,8 @@ function emptyDraft(): Draft {
     subject: "",
     preheader: "",
     templateKey: "plain",
+    heroImageUrl: "",
+    heroImageAlt: "",
     // Not "". See STARTER_CAMPAIGN_BODY — a default turns writing into
     // editing, and it is the only place the merge tokens are demonstrated
     // rather than merely listed.
@@ -220,6 +228,8 @@ function draftFrom(c: CampaignJson): Draft {
       : "plain",
     body: c.body,
     listId: c.listId,
+    heroImageUrl: c.heroImageUrl ?? "",
+    heroImageAlt: c.heroImageAlt ?? "",
     status: c.status,
     recipientCount: c.recipientCount,
     scheduledAtIso: c.scheduledAt,
@@ -648,6 +658,10 @@ export default function Composer({
         templateKey: draft.templateKey,
         body: draft.body,
         listId: draft.listId,
+        // Empty means "no image". Sent as null so clearing the field clears
+        // the column rather than storing "".
+        heroImageUrl: draft.heroImageUrl.trim() || null,
+        heroImageAlt: draft.heroImageAlt.trim() || null,
       });
       const res =
         draft.id === null
@@ -1025,6 +1039,14 @@ export default function Composer({
           templateKey: draft.templateKey,
           body: draft.body,
         },
+        // The preview shows the image the moment a usable URL is typed, and
+        // shows nothing while it is half-typed — which is also what tells the
+        // author their link is wrong, before the server says so.
+        hero: (() => {
+          const url = safeImageUrl(draft.heroImageUrl);
+          const alt = draft.heroImageAlt.trim();
+          return url && alt ? { url, alt } : null;
+        })(),
         recipient: SAMPLE_RECIPIENT,
         workspaceName,
         unsubscribeUrl: unsubscribeUrl(appUrl, SAMPLE_TOKEN),
@@ -1048,6 +1070,8 @@ export default function Composer({
       draft.preheader,
       draft.templateKey,
       draft.body,
+      draft.heroImageUrl,
+      draft.heroImageAlt,
       workspaceName,
       legalName,
       postalAddress,
@@ -1364,6 +1388,62 @@ export default function Composer({
                   onChange={(e) => patch({ preheader: e.target.value })}
                 />
               </div>
+
+              {/*
+                ── THE IMAGE ──
+                A URL the client already has, from their own shop or site.
+                Postbox hosts no files, so there is nothing to upload to.
+
+                The description is not optional and the hint says why: Gmail
+                and Outlook block remote images by default for a sender
+                somebody has not corresponded with, which is most recipients
+                of a first newsletter. For them the description IS the image.
+              */}
+              <div className="nl-field">
+                <label className="nl-label" htmlFor="nl-hero-url">
+                  Image <span className="nl-optional">OPTIONAL</span>
+                </label>
+                <input
+                  id="nl-hero-url"
+                  className="nl-input"
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://yourshop.com/photo.jpg"
+                  value={draft.heroImageUrl}
+                  maxLength={2000}
+                  disabled={!editable}
+                  onChange={(e) => patch({ heroImageUrl: e.target.value })}
+                />
+                {draft.heroImageUrl.trim() && !safeImageUrl(draft.heroImageUrl) && (
+                  <p className="nl-warn" role="status">
+                    That link can&rsquo;t be used. It needs to start with{" "}
+                    <b>https://</b>
+                  </p>
+                )}
+              </div>
+
+              {draft.heroImageUrl.trim() && (
+                <div className="nl-field">
+                  <label className="nl-label" htmlFor="nl-hero-alt">
+                    Describe the image
+                  </label>
+                  <input
+                    id="nl-hero-alt"
+                    className="nl-input"
+                    type="text"
+                    placeholder="A tray of sourdough, just out of the oven"
+                    value={draft.heroImageAlt}
+                    maxLength={200}
+                    disabled={!editable}
+                    onChange={(e) => patch({ heroImageAlt: e.target.value })}
+                  />
+                  <p className="nl-help">
+                    Most people have images turned off, and read this instead.
+                    Keep anything that matters — a price, a date — in the
+                    message as well as the picture.
+                  </p>
+                </div>
+              )}
 
               <div className="nl-field">
                 <label className="nl-label" htmlFor="nl-template">

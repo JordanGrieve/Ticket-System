@@ -885,6 +885,73 @@ function textToHtmlParagraphs(text: string, accent: string): string {
     .join("\n");
 }
 
+// ── Images ───────────────────────────────────────────────────────
+
+export type HeroImage = {
+  /** Absolute https URL. Validated by safeImageUrl before it is rendered. */
+  url: string;
+  /** What a reader with images off sees. Required — see below. */
+  alt: string;
+};
+
+/**
+ * Is this a URL we are willing to put in an <img src> in somebody's email?
+ *
+ * ── WHY A WHITELIST AND NOT AN ESCAPE ──
+ * Escaping would be enough to stop the attribute being broken out of, and it
+ * is applied anyway. This is the other half: a `javascript:` or `data:` URL
+ * is perfectly well-formed and perfectly escapable, and neither belongs in
+ * mail we send on a client's behalf. Only https survives — not even http,
+ * because a mixed-content image in an email is both blocked by some clients
+ * and a downgrade of the client's own site.
+ *
+ * Nothing here fetches the URL. The recipient's mail client does, which is
+ * also why an unreachable one degrades to the alt text rather than to an
+ * error we could have caught.
+ */
+export function safeImageUrl(raw: string | null | undefined): string | null {
+  const value = (raw ?? "").trim();
+  if (!value || value.length > 2000) return null;
+  let u: URL;
+  try {
+    u = new URL(value);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== "https:") return null;
+  // Credentials in a URL are a phishing shape (https://trusted.com@evil.io)
+  // and no image host needs them.
+  if (u.username || u.password) return null;
+  return u.toString();
+}
+
+/**
+ * The hero image, as a table row above the body.
+ *
+ * ── EVERY DECISION HERE IS ABOUT IMAGES BEING OFF ──
+ * Gmail and Outlook block remote images by default for a sender you have not
+ * corresponded with, which is most recipients of a first newsletter. So:
+ *
+ *  - `alt` is required by the type, not optional. A blocked image with no alt
+ *    is a blank gap where the client thought their photo was.
+ *  - The image is never the only place a fact lives. That is a rule for the
+ *    composer to enforce on the author, and it is written on the screen.
+ *  - An explicit `width` attribute AND a max-width style: Outlook ignores the
+ *    style and will render a 3000px photo at 3000px without the attribute.
+ *  - `display:block` kills the baseline gap under the image, which otherwise
+ *    shows as a stripe of card colour that looks like a rendering fault.
+ *
+ * No link around it by default. A picture that navigates somewhere the reader
+ * did not ask to go is a dark pattern, and the body can carry a link.
+ */
+function heroImageHtml(hero: HeroImage | null): string {
+  if (!hero) return "";
+  const url = escapeHtml(hero.url);
+  const alt = escapeHtml(hero.alt);
+  return `<img src="${url}" alt="${alt}" width="496" style="display:block;width:100%;max-width:496px;height:auto;border:0;border-radius:12px;margin:0 0 20px;" />
+`;
+}
+
 /**
  * Render one campaign for one recipient.
  *
@@ -914,6 +981,12 @@ export function renderCampaign(input: {
    * Pass NO_BRAND to mean "none chosen".
    */
   brand: Brand;
+  /**
+   * An image above the body, or null. Already validated — pass the result of
+   * safeImageUrl, not a raw field, so an unusable URL fails at the edge that
+   * can tell somebody about it rather than silently here.
+   */
+  hero?: HeroImage | null;
 }): RenderedEmail {
   const values = buildCampaignMergeValues({
     name: input.recipient.name,
@@ -952,6 +1025,7 @@ export function renderCampaign(input: {
     ? `<div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(preheader)}</div>\n`
     : "";
   const inner =
+    heroImageHtml(input.hero ?? null) +
     textToHtmlParagraphs(bodyText, accent) +
     signOffHtml(input.brand) +
     unsubscribeFooterHtml(input.unsubscribeUrl, sender, accent);
@@ -1070,6 +1144,9 @@ export type CampaignDraftInput = {
   templateKey: TemplateKey;
   body: string;
   listId: number | null;
+  /** Validated https URL, or null. See safeImageUrl. */
+  heroImageUrl: string | null;
+  heroImageAlt: string | null;
 };
 
 export type CampaignInputResult =
@@ -1085,6 +1162,8 @@ export function parseCampaignInput(body: {
   subject?: unknown;
   preheader?: unknown;
   templateKey?: unknown;
+  heroImageUrl?: unknown;
+  heroImageAlt?: unknown;
   body?: unknown;
   listId?: unknown;
 }): CampaignInputResult {
@@ -1113,9 +1192,49 @@ export function parseCampaignInput(body: {
     listId = n;
   }
 
+  /*
+    The hero image. Refused rather than silently dropped: a client who pastes
+    an http URL and sees their photo quietly vanish has no way to learn why,
+    and the answer ("it has to be https") is one sentence.
+
+    An image with no alt text is also refused. That is not pedantry about
+    accessibility — for most recipients of a first newsletter the image is
+    BLOCKED, so the alt is what they actually read. Shipping the field as
+    optional would produce a blank gap where the client thought their photo
+    was, for the majority of their audience.
+  */
+  let heroImageUrl: string | null = null;
+  let heroImageAlt: string | null = null;
+  if (body.heroImageUrl !== undefined && body.heroImageUrl !== null && String(body.heroImageUrl).trim()) {
+    heroImageUrl = safeImageUrl(String(body.heroImageUrl));
+    if (!heroImageUrl) {
+      return {
+        ok: false,
+        error: "That image link can't be used. It needs to start with https://",
+      };
+    }
+    heroImageAlt = normaliseLine(body.heroImageAlt, 200);
+    if (!heroImageAlt) {
+      return {
+        ok: false,
+        error:
+          "Describe the image in a few words. Most people have images turned off, and that description is what they see instead.",
+      };
+    }
+  }
+
   return {
     ok: true,
-    value: { name, subject, preheader, templateKey, body: rawBody, listId },
+    value: {
+      name,
+      subject,
+      preheader,
+      templateKey,
+      body: rawBody,
+      listId,
+      heroImageUrl,
+      heroImageAlt,
+    },
   };
 }
 

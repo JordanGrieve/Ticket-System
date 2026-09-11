@@ -29,6 +29,7 @@ import {
 } from "./campaign-schedule";
 import {
   isEditableStatus,
+  safeImageUrl,
   listUnsubscribeHeaders,
   mailableSender,
   renderCampaign,
@@ -317,6 +318,11 @@ export async function updateCampaign(
   if (patch.templateKey !== undefined) set.templateKey = patch.templateKey;
   if (patch.body !== undefined) set.body = patch.body;
   if (patch.listId !== undefined) set.listId = patch.listId;
+  // Both or neither: parseCampaignInput refuses a URL without alt text, so
+  // these two can never diverge — and clearing the URL must clear the alt,
+  // or a later image inherits a description of the one before it.
+  if (patch.heroImageUrl !== undefined) set.heroImageUrl = patch.heroImageUrl;
+  if (patch.heroImageAlt !== undefined) set.heroImageAlt = patch.heroImageAlt;
 
   const [updated] = await db
     .update(campaigns)
@@ -1207,6 +1213,17 @@ export async function sendCampaignBatch(input: {
       unsubscribeUrl: url,
       brand: input.brand,
       sender,
+      // Re-validated at render time, not trusted from the column. A URL that
+      // was https when it was saved still is, but the check costs nothing and
+      // this is the last point before it becomes an <img src> in somebody
+      // else's mail.
+      hero:
+        campaign.heroImageUrl && campaign.heroImageAlt
+          ? (() => {
+              const url = safeImageUrl(campaign.heroImageUrl);
+              return url ? { url, alt: campaign.heroImageAlt } : null;
+            })()
+          : null,
     });
 
     try {

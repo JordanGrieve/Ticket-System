@@ -1151,6 +1151,19 @@ export const campaigns = pgTable(
     // Layout key resolved in lib/email templates, not stored HTML.
     templateKey: text("template_key").notNull(),
     body: text("body").notNull(),
+    /*
+      An image above the body. The URL is the client's own — their shop, their
+      site — because Postbox hosts no files: `attachments` has never had code
+      behind it and an upload path is a bigger feature than this one.
+      Validated by safeImageUrl (https only, no credentials) before it is ever
+      rendered; stored as authored so a client can see what they typed.
+
+      The alt text is not decoration. Gmail and Outlook block remote images by
+      default for an unfamiliar sender, so for most recipients of a first
+      newsletter the alt IS the image.
+    */
+    heroImageUrl: text("hero_image_url"),
+    heroImageAlt: text("hero_image_alt"),
     // Audience. Nullable so a draft can exist before an audience is chosen;
     // "set null" keeps a sent campaign's history when its list is deleted.
     listId: integer("list_id").references(() => lists.id, {
