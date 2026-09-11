@@ -1177,9 +1177,23 @@
   background: transparent;
   font-size: 0.8125rem;
   font-weight: 700;
-  color: var(--text);
+  /*
+    Quiet by ink, not by fading the whole row.
+
+    It was `color: var(--text)` at `opacity: 0.45`, which measured 4.05:1 in
+    dark and 2.75:1 in light — the same asymmetry that caught the LABELS
+    heading, because fading dark ink toward a pale ground loses far more than
+    fading light ink toward a dark one.
+
+    WCAG 1.4.3 exempts an inactive control and this one is genuinely disabled,
+    so it was not a violation. It was just hard to read, and this row is not
+    decoration: it is the product telling somebody that shared files are
+    coming. --muted says "not now" perfectly well at 7.77:1 in light and
+    9.42:1 in dark, and the "soon" badge, the not-allowed cursor and the
+    `disabled` attribute all still say it is not a thing you can press.
+  */
+  color: var(--muted);
   text-align: left;
-  opacity: 0.45;
   cursor: not-allowed;
 }
 .pbm-rail-soon {

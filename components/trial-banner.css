@@ -149,7 +149,15 @@
    amber in the light themes — --muted-2 washes out against it. */
 .pbt-slot[data-tone="block"] .pbt-reassure {
   color: var(--warn-fg);
-  opacity: 0.85;
+  /*
+    No opacity. At 0.85 this measured 5.26:1 in light and 6.47:1 in dark —
+    AA, but under the 7:1 this product is held to, and it is the line that
+    tells a client their customers' enquiries still arrive while billing is
+    blocked. That is the last sentence on the screen worth fading.
+
+    7.63:1 and 8.32:1 at full strength. It is already the quiet ink on the
+    banner; it does not need to be quieter.
+  */
 }
 
 /* ── dismiss ─────────────────────────────────────────────────── */
