@@ -15,10 +15,18 @@
 */
 
 .pbm {
-  /* Ink on an always-dark surface (nav column, accent-gradient bubbles). */
+  /*
+    Ink on an always-dark surface: the accent gradient, and the brand mark.
+
+    NOT the nav column any more. It said "nav column" until 11 Sep 2026,
+    when --nav started following the theme — and the two rules still
+    reading this for nav text, the workspace name and the account email,
+    rendered white on a #f6f3fc column at 1.1:1. They take --nav-fg now.
+  */
   --pbm-on-dark: #fff;
-  /* Hairline / chip ground knocked out of the always-dark nav. */
-  --pbm-nav-line: rgba(255, 255, 255, 0.08);
+  /* The nav's hairline, per palette — see --nav-line in globals.css. This
+     alias keeps the five rules that use it spelled the way they were. */
+  --pbm-nav-line: var(--nav-line);
   /* Overlay veil behind a drawer or sheet. An ink wash, not a palette colour —
      it has to darken every theme, including the already-dark ones. */
   --pbm-scrim: rgba(14, 10, 28, 0.46);
@@ -174,7 +182,7 @@
   font-size: 1.0625rem;
   font-weight: 800;
   letter-spacing: -0.4px;
-  color: var(--pbm-on-dark);
+  color: var(--nav-fg);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -318,7 +326,7 @@
   display: block;
   font-size: 0.78125rem;
   font-weight: 700;
-  color: var(--pbm-on-dark);
+  color: var(--nav-fg);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
