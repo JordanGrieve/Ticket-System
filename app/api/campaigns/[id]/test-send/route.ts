@@ -15,6 +15,8 @@ import {
   listUnsubscribeHeaders,
   mailableSender,
   renderCampaign,
+  safeImageUrl,
+  sanitiseStoredProducts,
   unsubscribeUrl,
 } from "@/lib/newsletter";
 
@@ -166,6 +168,19 @@ export async function POST(
       signOff: workspace.brandSignOff,
     },
     sender,
+    // The image and the products, for the same reason as the branding above:
+    // a test send that quietly left them out would be a preview of a
+    // DIFFERENT email from the one the campaign will send, which is the one
+    // thing this endpoint must never be. Re-validated here exactly as
+    // sendCampaignBatch re-validates them.
+    hero:
+      campaign.heroImageUrl && campaign.heroImageAlt
+        ? (() => {
+            const src = safeImageUrl(campaign.heroImageUrl);
+            return src ? { url: src, alt: campaign.heroImageAlt } : null;
+          })()
+        : null,
+    products: sanitiseStoredProducts(campaign.products),
   });
 
   const mode = deliveryModeFromEnv(process.env);

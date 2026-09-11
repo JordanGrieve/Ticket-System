@@ -198,5 +198,11 @@ export function renderWelcome(input: {
     unsubscribeUrl: input.unsubscribeUrl,
     sender: input.sender,
     brand: input.brand,
+    // Stated rather than omitted. A welcome email carries neither — there is
+    // no column for either on welcome_emails — and saying so is what
+    // tests/render-campaign-callers.test.ts requires of every call site,
+    // because the two that quietly left them out both shipped as bugs.
+    hero: null,
+    products: [],
   });
 }
