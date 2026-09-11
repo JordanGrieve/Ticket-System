@@ -94,7 +94,14 @@ export default function MailNavShell({
   isAdmin?: boolean;
 }) {
   const [navOpen, setNavOpen] = useState(false);
-  const [foldersOpen, setFoldersOpen] = useState(false);
+  /*
+    The user's OWN choice about the look-up group, or null if they have not
+    made one. Not the open state itself — that is derived below, so that
+    landing on a look-up folder can open the group without an effect writing
+    state during render (react-hooks/set-state-in-effect, and it is right:
+    this is a value, not a side effect).
+  */
+  const [foldersToggled, setFoldersToggled] = useState<boolean | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [labelsOpen, setLabelsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -162,6 +169,26 @@ export default function MailNavShell({
   /* The four you go to look something up, not to work from. See the
      comment on the folder list below. */
   const LOOKUP_FOLDERS = ["labeled", "snoozed", "archived", "trash"];
+
+  /*
+   * Looking at a look-up folder OPENS the group, rather than lifting that
+   * folder out of it.
+   *
+   * This is what keeps the old guarantee — collapsing the list must never
+   * hide the one row explaining why the list looks the way it does — now
+   * that the split above is fixed. It covers the case the ordering trick was
+   * really for: ARRIVING on one of the four from outside the nav, a bookmark,
+   * a redirect after emptying the trash, a link in a notice. The rows
+   * themselves cannot be clicked while the group is shut; they are inert.
+   *
+   * A DEFAULT, not an override: the moment somebody presses More or Less
+   * their choice is recorded and wins from then on. So pressing Less while
+   * standing in Trash leaves it shut and that row hidden — which is a thing
+   * they did deliberately, one press ago, and reopening it under them would
+   * be worse than honouring it.
+   */
+  const lookupActive = LOOKUP_FOLDERS.includes(activeFolder);
+  const foldersOpen = foldersToggled ?? lookupActive;
 
   const folders: LiveFolder[] = [
     { key: "all", label: "All mail", icon: "mail", count: counts.all, href: "/inbox?folder=all" },
@@ -251,13 +278,24 @@ export default function MailNavShell({
   ];
 
   /*
-   * Kept in the order of `folders`, so nothing jumps as the list expands.
-   * The active folder is never behind More.
+   * A FIXED split: the seven working folders above the More/Less row, the
+   * four look-up folders below it. Always, whatever is active.
+   *
+   * ── WHY NOT "HOIST THE ACTIVE ONE" ──
+   * It used to be `|| f.key === activeFolder`, which pulled the active
+   * look-up folder up into the visible group so that collapsing the list
+   * could never hide the thing explaining what you are looking at. Sound
+   * goal, wrong mechanism: it also fired while the list was OPEN, so
+   * clicking Labeled — sitting below Less, in plain sight — made it jump
+   * above Less. Jordan, 11 Sep 2026: "when i click one below the Less it
+   * goes above the Less, it should all stay where it is."
+   *
+   * The goal is met by `foldersOpen` instead (see its initialiser): landing
+   * on a look-up folder OPENS the group rather than reordering it. One
+   * ordering, always, and the active row is still on screen.
    */
-  const shownFolders = folders.filter(
-    (f) => !LOOKUP_FOLDERS.includes(f.key) || f.key === activeFolder,
-  );
-  const extraFolders = folders.filter((f) => !shownFolders.includes(f));
+  const shownFolders = folders.filter((f) => !LOOKUP_FOLDERS.includes(f.key));
+  const extraFolders = folders.filter((f) => LOOKUP_FOLDERS.includes(f.key));
 
   return (
     <>
@@ -381,7 +419,7 @@ export default function MailNavShell({
               type="button"
               className="pbm-folder pbm-folder--more"
               data-open={foldersOpen || undefined}
-              onClick={() => setFoldersOpen((v) => !v)}
+              onClick={() => setFoldersToggled(!foldersOpen)}
               aria-expanded={foldersOpen}
             >
               <Icon name="chevronDown" size={18} />
