@@ -1190,6 +1190,15 @@
   outline-offset: 2px;
 }
 
+/* .nl-field is a column flex, so a default-stretch .stg-button spans the
+   whole form and reads as the page's primary action — on the live site it
+   was a full-width gradient bar directly above Layout, competing with Create
+   draft. The button is inline-flex by design; this only stops the container
+   overriding it. */
+.nl-field > .stg-button {
+  align-self: flex-start;
+}
+
 /* Smaller than .nl-label and in the muted ink: these name a field inside a
    row that already has a label of its own, and at the same weight they
    would compete with it. */
@@ -1199,4 +1208,25 @@
   font-weight: 700;
   letter-spacing: 0.01em;
   color: var(--muted);
+}
+
+/* ── Room for the impersonation pill ─────────────────────────
+   The pill is `position: fixed` at the top right with z-index 200, and the
+   composer is the one screen in the product that puts a control there too.
+   Measured on the live site on 11 Sep 2026 with elementFromPoint: THREE
+   controls were unreachable for an operator — Save draft, and both halves of
+   the preview's Desktop/Mobile toggle. Nothing looked broken; the click
+   simply landed on the pill and expanded it, so a draft could not be saved
+   from inside a client workspace at all.
+
+   The same treatment .pbm-rail already gets in mail.css, and for the same
+   reason: the page makes room, because the pill must not move. `--pbt-h` is
+   the trial banner's measured height (0 when there is none), so an operator
+   inside a client who is ALSO on a trial gets the pill's full offset.
+
+   /subscribers, /settings/team and /settings/forms were checked the same way
+   and have nothing under it.
+*/
+body:has(.pbi-banner) .nl-main {
+  padding-top: calc(28px + var(--pbt-h, 0px) + 56px);
 }

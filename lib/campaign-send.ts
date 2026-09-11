@@ -237,6 +237,36 @@ export async function campaignRecipientBreakdown(
  * quietly ignored later, because a draft that names an audience it cannot read
  * would report "0 recipients" instead of "that isn't your list".
  */
+/**
+ * Every editable column of a draft, from the validated input.
+ *
+ * ── WHY THIS IS A FUNCTION AND NOT A LITERAL AT THE INSERT ──
+ * It was a literal, and on 11 September 2026 a browser pass found what that
+ * costs: createCampaign listed six of the nine fields, so the hero image and
+ * the products a client had just typed were dropped by the FIRST save and
+ * silently came back empty. Nothing failed. The draft saved, the screen
+ * redrew from the row the server returned, and the work was gone.
+ *
+ * The `satisfies` is the guard. Record<keyof CampaignDraftInput, unknown>
+ * requires a property for every key of the input and permits no others, so
+ * the tenth field cannot be added to CampaignDraftInput without tsc stopping
+ * here. A test could not have caught it — the insert was valid SQL and the
+ * type was satisfied by a subset.
+ */
+function draftColumns(input: CampaignDraftInput) {
+  return {
+    name: input.name,
+    subject: input.subject,
+    preheader: input.preheader,
+    templateKey: input.templateKey,
+    body: input.body,
+    listId: input.listId,
+    heroImageUrl: input.heroImageUrl,
+    heroImageAlt: input.heroImageAlt,
+    products: input.products,
+  } satisfies Record<keyof CampaignDraftInput, unknown>;
+}
+
 export async function createCampaign(
   workspaceId: number,
   input: CampaignDraftInput,
@@ -250,12 +280,7 @@ export async function createCampaign(
     .insert(campaigns)
     .values({
       workspaceId,
-      name: input.name,
-      subject: input.subject,
-      preheader: input.preheader,
-      templateKey: input.templateKey,
-      body: input.body,
-      listId: input.listId,
+      ...draftColumns(input),
       status: "draft",
     })
     .returning();
