@@ -177,6 +177,20 @@ const admins = [
   { id: 1, email: "jordangrieve.dev@gmail.com", clerkUserId: "user_2abc", createdAt: ago(2000) },
 ] satisfies Admin[];
 
+/**
+ * A harness page for one console pane.
+ *
+ * ── `?theme=` DOES NOTHING HERE, AND THAT IS CORRECT ──
+ * The other harnesses read the query string and stamp data-theme on <html>,
+ * because the screens they render follow the workspace's theme. The console
+ * does not: app/(admin)/layout.tsx pins `data-theme="dark"` on .pba-root
+ * whatever the workspace is on, and this reproduces that faithfully.
+ *
+ * Worth stating because a sweep of these pages at ?theme=light and
+ * ?theme=dark returns identical results, which reads like two themes checked
+ * and is one theme measured twice. It nearly went into a report that way on
+ * 11 Sep 2026.
+ */
 function page(title: string, body: string) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
