@@ -8,8 +8,9 @@ import { generateUnsubscribeToken } from "@/lib/tokens";
 import {
   createCampaignDeliverer,
   deliveryModeFromEnv,
-  SES_DELIVERY_MODE,
+  isLiveDeliveryMode,
 } from "@/lib/deliver";
+import { recordTransactionalSend } from "@/lib/email-quota-store";
 import { envelopeFromEnv } from "@/lib/campaign-cron";
 import {
   listUnsubscribeHeaders,
@@ -137,7 +138,11 @@ export async function POST(
 
   let deliver;
   try {
-    deliver = createCampaignDeliverer();
+    // A test send is a real email out of the shared Resend account, so it
+    // spends a real unit of the daily ceiling. Counting it is the difference
+    // between the health check's number matching the provider's and drifting
+    // a little further from it every time somebody presses the button.
+    deliver = createCampaignDeliverer({ onSent: recordTransactionalSend });
   } catch (err) {
     console.error("[test-send] deliverer refused to construct:", err);
     return json({ error: "Delivery is misconfigured." }, { status: 503 });
@@ -209,7 +214,7 @@ export async function POST(
       // Stated rather than implied. In log mode nothing was transmitted, and a
       // green tick that means "written to a log file" is the exact dishonesty
       // this whole screen was built to avoid.
-      transmitted: mode === SES_DELIVERY_MODE,
+      transmitted: isLiveDeliveryMode(mode),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -1,6 +1,7 @@
 import { json } from "@/lib/http";
 import { APP_URL } from "@/lib/config";
 import { createCampaignDeliverer } from "@/lib/deliver";
+import { recordTransactionalSend } from "@/lib/email-quota-store";
 import {
   claimDueCampaigns,
   sendCampaignBatch,
@@ -48,15 +49,19 @@ import {
  * on any Vercel-specific header, so the driver can be swapped again without
  * touching auth.
  *
- * ── WHY THIS STILL CANNOT MAIL A REAL PERSON ──
+ * ── WHAT STANDS BETWEEN THIS ROUTE AND A REAL PERSON ──
  *
- * `createCampaignDeliverer()` returns the LOG deliverer unless
- * `CAMPAIGN_DELIVERY_MODE=ses`, which is set in no environment; and the sweep
- * refuses to run at all without `CAMPAIGN_FROM_ADDRESS`, which has no fallback
- * to the transactional sender. Both must be set deliberately, and the
- * prerequisites listed in docs/NEWSLETTER.md §2 and §7 — a cross-invocation
- * rate limiter, the bounce/complaint webhook, a verified marketing domain, and
- * consent enforcement — are not finished.
+ * Three gates, all of which must be opened deliberately:
+ * `authorizeCronRequest` fails closed without `CRON_SECRET`; the sweep returns
+ * 503 without `CAMPAIGN_FROM_ADDRESS`, which has no fallback to the
+ * transactional sender; and `createCampaignDeliverer()` returns the LOG
+ * deliverer unless `CAMPAIGN_DELIVERY_MODE` names a provider.
+ *
+ * As of 11 Sep 2026 all three ARE open in production, on
+ * `CAMPAIGN_DELIVERY_MODE=resend`. Read this route as live. What remains
+ * unfinished from docs/NEWSLETTER.md §2 and §7 is the bounce/complaint webhook
+ * for campaigns and per-workspace send pacing; the provider's own team-wide
+ * rate limit is respected by the Resend deliverer, which paces itself.
  */
 
 // Node, not edge: the deliverer and the auth check both use node:crypto.
@@ -88,12 +93,18 @@ export async function GET(req: Request) {
     return json({ error: "Campaign sending not configured." }, { status: 503 });
   }
 
-  // Log-only unless CAMPAIGN_DELIVERY_MODE=ses. Constructed once per
-  // invocation, and it THROWS if the mode says ses but SES is unconfigured
-  // rather than quietly degrading to the log deliverer — see lib/deliver.ts.
+  // Log-only unless CAMPAIGN_DELIVERY_MODE is `ses` or `resend`. Constructed
+  // ONCE per invocation and reused for every recipient, which is what lets the
+  // Resend deliverer pace itself across the whole sweep rather than per row —
+  // a new one each time would reset the pacer and burst straight through the
+  // team-wide rate limit. It THROWS if the mode names a provider that is not
+  // configured rather than quietly degrading to the log deliverer.
   let deliver;
   try {
-    deliver = createCampaignDeliverer();
+    // Campaign recipients leave through the same Resend allowance as ticket
+    // acknowledgements, so they are counted the same way. Ignored in SES and
+    // log mode, where the transactional pool is not what is being spent.
+    deliver = createCampaignDeliverer({ onSent: recordTransactionalSend });
   } catch (err) {
     console.error("[cron/campaigns] deliverer refused to construct:", err);
     return json({ error: "Delivery misconfigured." }, { status: 503 });

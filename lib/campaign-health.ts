@@ -74,7 +74,7 @@ export type CampaignHealthInput = {
     sweepConfigured: boolean;
     /** CAMPAIGN_FROM_ADDRESS set, so an envelope can be built. */
     senderConfigured: boolean;
-    /** CAMPAIGN_DELIVERY_MODE === "ses". False means nothing is transmitted. */
+    /** CAMPAIGN_DELIVERY_MODE names a real provider. False transmits nothing. */
     deliveryLive: boolean;
   };
 };

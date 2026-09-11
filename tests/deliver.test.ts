@@ -2,10 +2,15 @@ import { describe, it, expect, vi } from "vitest";
 import {
   createCampaignDeliverer,
   deliveryModeFromEnv,
+  isLiveDeliveryMode,
   sesConfigFromEnv,
+  resendConfigFromEnv,
   DELIVERY_MODE_ENV,
   SES_DELIVERY_MODE,
+  RESEND_DELIVERY_MODE,
+  LIVE_DELIVERY_MODES,
   type DeliveryEnv,
+  type DeliveryMode,
 } from "../lib/deliver";
 import {
   createLogDeliverer,
@@ -70,6 +75,11 @@ describe("deliveryModeFromEnv — the opt-in is exact, and absent by default", (
       "production",
       "ses,log",
       "not-ses",
+      "Resend",
+      "RESEND",
+      "resend-api",
+      "re_send",
+      "resend,ses",
     ];
     for (const value of nearMisses) {
       expect(deliveryModeFromEnv({ [DELIVERY_MODE_ENV]: value })).toBe("log");
@@ -85,19 +95,56 @@ describe("deliveryModeFromEnv — the opt-in is exact, and absent by default", (
     expect(deliveryModeFromEnv({ [DELIVERY_MODE_ENV]: " ses " })).toBe("ses");
   });
 
-  it("ignores every other environment variable, including AWS credentials", () => {
-    // Having AWS credentials in the environment must NOT be read as consent to
-    // send. A Vercel project with an unrelated S3 integration would otherwise
-    // start mailing people.
+  it("is 'resend' only for the exact literal", () => {
+    expect(
+      deliveryModeFromEnv({ [DELIVERY_MODE_ENV]: RESEND_DELIVERY_MODE }),
+    ).toBe("resend");
+    expect(deliveryModeFromEnv({ [DELIVERY_MODE_ENV]: " resend " })).toBe(
+      "resend",
+    );
+  });
+
+  it("ignores every other environment variable, including both providers' credentials", () => {
+    /*
+     * Credentials in the environment must NOT be read as consent to send.
+     *
+     * RESEND_API_KEY is the sharper edge of the two: it is set in EVERY
+     * environment, including local development, because every ticket
+     * acknowledgement goes through it. If its presence selected the provider,
+     * then `CAMPAIGN_DELIVERY_MODE` would not be a gate at all and a laptop
+     * running the sweep against production data would mail a real subscriber
+     * list.
+     */
     const env: DeliveryEnv = {
       AWS_REGION: "eu-west-1",
       AWS_ACCESS_KEY_ID: "AKIAIOSFODNN7EXAMPLE",
       AWS_SECRET_ACCESS_KEY: "secret",
       SES_CONFIGURATION_SET: "postbox-campaigns",
       SES_TENANT_NAME: "workspace-1",
+      RESEND_API_KEY: "re_a_real_looking_key",
       NODE_ENV: "production",
     };
     expect(deliveryModeFromEnv(env)).toBe("log");
+  });
+});
+
+describe("which modes actually transmit", () => {
+  it("says log does not and both providers do", () => {
+    expect(isLiveDeliveryMode("log")).toBe(false);
+    expect(isLiveDeliveryMode("ses")).toBe(true);
+    expect(isLiveDeliveryMode("resend")).toBe(true);
+  });
+
+  it("lists every live mode, so a screen cannot know about only one of them", () => {
+    // The admin console and the campaign health endpoint both read this rather
+    // than comparing to a literal. They said `=== "ses"` until 11 Sep 2026,
+    // which would have told a client their campaign could not send on the very
+    // provider it was about to send through.
+    expect([...LIVE_DELIVERY_MODES].sort()).toEqual(["resend", "ses"]);
+    const everyMode: DeliveryMode[] = ["log", "ses", "resend"];
+    for (const mode of everyMode) {
+      expect(LIVE_DELIVERY_MODES.includes(mode)).toBe(isLiveDeliveryMode(mode));
+    }
   });
 });
 
@@ -113,6 +160,19 @@ describe("createCampaignDeliverer — defaults to the log deliverer", () => {
 
     expect(records).toHaveLength(1);
     expect(records[0].to).toBe("sam@example.com");
+    expect(result.id).toMatch(new RegExp(`^${NOT_SENT_ID_PREFIX}`));
+  });
+
+  it("still defaults to log with a live RESEND_API_KEY present", async () => {
+    // The key is present in every environment for transactional mail. This is
+    // the test that proves it cannot, on its own, start a mailout.
+    const records: DeliveryLogRecord[] = [];
+    const deliver = createCampaignDeliverer({
+      env: { RESEND_API_KEY: "re_a_real_looking_key" },
+      sink: (r) => records.push(r),
+    });
+    const result = await deliver(outbound());
+    expect(records).toHaveLength(1);
     expect(result.id).toMatch(new RegExp(`^${NOT_SENT_ID_PREFIX}`));
   });
 
@@ -171,6 +231,96 @@ describe("createCampaignDeliverer — defaults to the log deliverer", () => {
     } finally {
       warn.mockRestore();
     }
+  });
+});
+
+describe("createCampaignDeliverer — the resend mode", () => {
+  it("REFUSES to construct rather than silently logging when the key is absent", () => {
+    expect(() =>
+      createCampaignDeliverer({ env: { [DELIVERY_MODE_ENV]: "resend" } }),
+    ).toThrow(/Resend is not configured/);
+  });
+
+  it("REFUSES the placeholder key, which would look exactly like a working one", () => {
+    // .env.example ships `re_placeholder` so the app boots. lib/email.ts
+    // refuses it for the transactional path; a campaign that "sent" against it
+    // would mark every recipient delivered and mail nobody.
+    expect(() =>
+      createCampaignDeliverer({
+        env: { [DELIVERY_MODE_ENV]: "resend", RESEND_API_KEY: "re_placeholder" },
+      }),
+    ).toThrow(/placeholder/);
+  });
+
+  it("constructs with the flag AND a key, and says so out loud", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const deliver = createCampaignDeliverer({
+        env: { [DELIVERY_MODE_ENV]: "resend", RESEND_API_KEY: "re_live_key" },
+        onSent: () => {},
+      });
+      expect(typeof deliver).toBe("function");
+      expect(warn).toHaveBeenCalledTimes(1);
+      const line = String(warn.mock.calls[0][0]);
+      expect(line).toContain("REAL bulk");
+      // The warning has to name the consequence that is easiest to miss:
+      // campaigns and ticket acknowledgements spend the SAME allowance.
+      expect(line).toContain("SAME Resend allowance");
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("warns when it was built with no send counter, rather than counting nothing quietly", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      createCampaignDeliverer({
+        env: { [DELIVERY_MODE_ENV]: "resend", RESEND_API_KEY: "re_live_key" },
+      });
+      expect(String(warn.mock.calls[0][0])).toContain("no send counter");
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("does not touch AWS at all in resend mode", () => {
+    // An incomplete SES configuration must not stop a Resend send. These were
+    // one function with one credentials check once, and that is exactly how a
+    // provider switch turns into an outage.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(() =>
+        createCampaignDeliverer({
+          env: {
+            [DELIVERY_MODE_ENV]: "resend",
+            RESEND_API_KEY: "re_live_key",
+            AWS_ACCESS_KEY_ID: "",
+          },
+        }),
+      ).not.toThrow();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
+describe("resendConfigFromEnv", () => {
+  it("names the one variable it needs when it is absent", () => {
+    const result = resendConfigFromEnv({});
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.missing).toEqual(["RESEND_API_KEY"]);
+  });
+
+  it("treats whitespace as absent", () => {
+    expect(resendConfigFromEnv({ RESEND_API_KEY: "   " }).ok).toBe(false);
+  });
+
+  it("reads the SAME key the transactional path uses, not a second one", () => {
+    // The rate limit and the quota are per TEAM, not per key, so a separate
+    // campaign key would buy no isolation and add a secret to rotate.
+    const result = resendConfigFromEnv({ RESEND_API_KEY: " re_live_key " });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.config.apiKey).toBe("re_live_key");
   });
 });
 

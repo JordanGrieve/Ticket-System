@@ -17,6 +17,7 @@ import { readsForSessions } from "@/lib/impersonation-reads";
 import { POSTBOX_CONTACT_KEY } from "@/lib/config";
 import { stripeConfigured, stripePriceId } from "@/lib/stripe";
 import { PLANS } from "@/lib/pricing";
+import { deliveryModeFromEnv, isLiveDeliveryMode } from "@/lib/deliver";
 import {
   campaignDeliveryTotals,
   listWorkspaceUsage,
@@ -217,10 +218,12 @@ export default async function AdminHomePage({
    * because their owners are route handlers, and importing a route into a page
    * to borrow a constant is a worse coupling than naming the variable twice.
    *
-   * CAMPAIGN_DELIVERY_MODE is compared to exactly "ses", the same equality
-   * lib/deliver.ts uses. Anything absent, empty or misspelled is log-only,
-   * which is the safe direction: the failure mode of guessing is mailing
-   * forty thousand real people.
+   * CAMPAIGN_DELIVERY_MODE is read through lib/deliver's own parser rather
+   * than compared to a literal, so the console cannot fall behind the set of
+   * live modes — it did not know about "resend" for as long as this line said
+   * `=== "ses"`. Anything absent, empty or misspelled is log-only, which is the
+   * safe direction: the failure mode of guessing is mailing forty thousand real
+   * people.
    */
   const gates: ConsoleGates = {
     stripeConfigured: stripeConfigured(),
@@ -230,8 +233,15 @@ export default async function AdminHomePage({
       process.env.RESEND_DELIVERY_WEBHOOK_SIGNING_SECRET ??
         process.env.RESEND_WEBHOOK_SIGNING_SECRET,
     ),
-    campaignDeliveryLive: process.env.CAMPAIGN_DELIVERY_MODE === "ses",
-    campaignFeedback: Boolean(process.env.SES_SNS_TOPIC_ARN),
+    campaignDeliveryLive: isLiveDeliveryMode(deliveryModeFromEnv(process.env)),
+    // Either provider's feedback channel. SES routes bounces and complaints to
+    // SNS; Resend posts them to the same webhook the transactional path
+    // already verifies, so on Resend this gate is that secret.
+    campaignFeedback: Boolean(
+      process.env.SES_SNS_TOPIC_ARN ??
+        process.env.RESEND_DELIVERY_WEBHOOK_SIGNING_SECRET ??
+        process.env.RESEND_WEBHOOK_SIGNING_SECRET,
+    ),
     contactFormLive: Boolean(POSTBOX_CONTACT_KEY),
   };
 

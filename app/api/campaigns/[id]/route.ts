@@ -11,6 +11,7 @@ import {
   updateCampaign,
 } from "@/lib/campaign-send";
 import { diagnoseCampaign } from "@/lib/campaign-health";
+import { deliveryModeFromEnv, isLiveDeliveryMode } from "@/lib/deliver";
 import {
   campaignPatchBody,
   isTemplateKey,
@@ -86,8 +87,11 @@ export async function GET(
       senderConfigured: Boolean(
         (process.env.CAMPAIGN_FROM_ADDRESS ?? "").trim(),
       ),
-      deliveryLive:
-        (process.env.CAMPAIGN_DELIVERY_MODE ?? "").trim() === "ses",
+      // Asked of lib/deliver rather than compared to a literal here. There are
+      // two live modes now ("ses" and "resend") and a screen that knew only
+      // about one would tell a client their campaign will not send on the very
+      // provider it is about to send through.
+      deliveryLive: isLiveDeliveryMode(deliveryModeFromEnv(process.env)),
     },
   });
 

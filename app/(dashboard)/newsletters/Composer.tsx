@@ -58,15 +58,17 @@ import type { RecipientStatus } from "@/db/schema";
  * demand them, and those bytes are the product. They are quarantined inside a
  * sandboxed document and never touch the app's themed chrome.
  *
- * ── WHAT THIS SCREEN CANNOT DO, AND SAYS SO ──
+ * ── HOW A MESSAGE ON THIS SCREEN REACHES A PERSON ──
  *
- * Nothing on this page can email anybody — including the Schedule button:
- *  - no request handler calls `sendCampaignBatch`. Its one caller is the
- *    scheduled sweep, and it takes its deliverer as an argument with no
- *    default;
- *  - that sweep hands every message to the LOG-ONLY deliverer, because
- *    `CAMPAIGN_DELIVERY_MODE` is set in no environment. It writes a log line
- *    and transmits nothing;
+ * Not from here. No request handler on this page calls `sendCampaignBatch`
+ * except test-send, which mails the viewer and nobody else:
+ *  - the Schedule button ARMS a campaign; it does not send it. The one caller
+ *    of `sendCampaignBatch` is the scheduled sweep, which takes its deliverer
+ *    as an argument with no default;
+ *  - that sweep hands every message to the provider named by
+ *    `CAMPAIGN_DELIVERY_MODE`, and since 11 Sep 2026 that is `resend` in
+ *    production. It used to be unset everywhere, and this comment used to say
+ *    so — do not read the rest of it as if nothing transmits;
  *  - the sweep runs at the cadence in SWEEP_CADENCE (hourly during
  *    development, see SWEEPS_PER_DAY)
  *    (.github/workflows/campaign-sweep.yml), best-effort: GitHub delays or
@@ -2301,7 +2303,7 @@ export default function Composer({
                           <b>Nothing was transmitted.</b> Delivery is still in
                           log-only mode, so this was written to the server log
                           instead of sent. Set{" "}
-                          <code>CAMPAIGN_DELIVERY_MODE=ses</code> to send for
+                          <code>CAMPAIGN_DELIVERY_MODE=resend</code> to send for
                           real.
                         </>
                       )}

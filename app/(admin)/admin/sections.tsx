@@ -80,9 +80,9 @@ export type ConsoleGates = {
    * configuration, not about anybody's mail.
    */
   transactionalFeedback: boolean;
-  /** CAMPAIGN_DELIVERY_MODE is exactly "ses". False means nothing transmits. */
+  /** CAMPAIGN_DELIVERY_MODE names a real provider. False means nothing transmits. */
   campaignDeliveryLive: boolean;
-  /** SES_SNS_TOPIC_ARN is set, so bounce and complaint feedback is accepted. */
+  /** A campaign feedback channel is configured — SES' SNS topic, or Resend's webhook secret. */
   campaignFeedback: boolean;
   /**
    * POSTBOX_CONTACT_KEY is set, so /contact can actually receive an enquiry.
