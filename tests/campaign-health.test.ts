@@ -40,6 +40,7 @@ function input(over: Partial<CampaignHealthInput> = {}): CampaignHealthInput {
     listId: 1,
     recipients: { ...NOBODY, queued: 10 },
     postalAddress: "18 Avonbank Crescent, Hamilton, ML3 7PD",
+    emailAllowance: { remaining: 5_000, allowance: 15_000 },
     env: HEALTHY_ENV,
     ...over,
   };
@@ -184,5 +185,45 @@ describe("healthSummary", () => {
       input({ recipients: { ...NOBODY, queued: 3, sent: 7 } }),
     );
     expect(healthSummary(h)).toBe("Sending — 3 to go");
+  });
+});
+
+describe("the monthly email allowance", () => {
+  it("says so when the month is spent, and tells them what to do", () => {
+    const h = diagnoseCampaign(
+      input({ emailAllowance: { remaining: 0, allowance: 15_000 } }),
+    );
+    const b = h.blockers.find((x) => x.code === "email_allowance_spent");
+    expect(b, "no blocker for a spent allowance").toBeDefined();
+    expect(b!.blocking).toBe(true);
+    // The client can fix this by waiting or upgrading, so it is addressed to
+    // them — unlike the environment gates, which only the operator can clear.
+    expect(b!.operatorOnly).toBe(false);
+    expect(b!.message).toMatch(/15,000/);
+    expect(b!.message).toMatch(/next month|plan/i);
+  });
+
+  it("says nothing while there is allowance left", () => {
+    const h = diagnoseCampaign(
+      input({ emailAllowance: { remaining: 1, allowance: 15_000 } }),
+    );
+    expect(h.blockers.some((x) => x.code === "email_allowance_spent")).toBe(false);
+  });
+
+  it("says nothing when it could not be read", () => {
+    // Null is "we could not tell", not "you are out". Reporting a block we
+    // are not sure about would send somebody to the billing page over a
+    // database hiccup.
+    const h = diagnoseCampaign(input({ emailAllowance: null }));
+    expect(h.blockers.some((x) => x.code === "email_allowance_spent")).toBe(false);
+  });
+
+  it("names no environment variable", () => {
+    // Same rule as every other client-facing blocker in this file.
+    const h = diagnoseCampaign(
+      input({ emailAllowance: { remaining: 0, allowance: 3_000 } }),
+    );
+    const msg = h.blockers.map((b) => b.message).join(" ");
+    expect(msg).not.toMatch(/CAMPAIGN_|CRON_SECRET|env|environment variable/i);
   });
 });

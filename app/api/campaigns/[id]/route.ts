@@ -1,5 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { json } from "@/lib/http";
+import { getWorkspaceEntitlement } from "@/lib/billing-query";
+import { checkAllowance, emailAllowance as emailAllowanceFor } from "@/lib/usage";
+import { usedThisMonth } from "@/lib/usage-store";
 import { activeWorkspace } from "@/lib/viewer";
 import {
   campaignRecipientBreakdown,
@@ -47,6 +50,20 @@ export async function GET(
 
   const recipients = await campaignRecipientBreakdown(workspace.id, campaignId);
 
+  // This month's allowance, so a campaign that has quietly stopped because the
+  // month is spent can say so. Failing to read it yields null, which the
+  // diagnosis treats as "unknown" rather than "fine".
+  const entitlement = await getWorkspaceEntitlement(workspace.id);
+  let emailAllowance: { remaining: number; allowance: number } | null = null;
+  try {
+    const allowance = emailAllowanceFor(entitlement?.plan ?? "trial");
+    const used = await usedThisMonth(workspace.id, "emails_sent");
+    emailAllowance = { allowance, remaining: checkAllowance(used, allowance).remaining };
+  } catch {
+    // Left null on purpose. A health panel is not worth failing the request
+    // for, and "we could not tell" is an honest answer.
+  }
+
   // The environment is read HERE and the answers passed down as booleans —
   // lib/campaign-health.ts reads no env of its own, which is what lets every
   // one of its branches be tested without breaking production to reproduce
@@ -56,6 +73,7 @@ export async function GET(
     listId: campaign.listId,
     recipients,
     postalAddress: workspace.postalAddress,
+    emailAllowance,
     env: {
       sweepConfigured: Boolean((process.env.CRON_SECRET ?? "").trim()),
       senderConfigured: Boolean(

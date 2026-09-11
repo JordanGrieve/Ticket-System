@@ -34,7 +34,8 @@ export type BlockerCode =
   | "sweep_not_configured"
   | "sender_not_configured"
   | "log_only_mode"
-  | "all_recipients_failed";
+  | "all_recipients_failed"
+  | "email_allowance_spent";
 
 export type Blocker = {
   code: BlockerCode;
@@ -58,6 +59,15 @@ export type CampaignHealthInput = {
   recipients: Record<RecipientStatus, number>;
   /** From the workspace row. Null or blank means the send is refused. */
   postalAddress: string | null;
+  /**
+   * This month's email allowance, and what is left of it.
+   *
+   * Null when the caller did not look it up — which must read as "unknown",
+   * not "fine". A campaign that has quietly stopped because the month's
+   * allowance is gone is the newest way for a send to stall, and it is the
+   * one a client is least likely to guess at.
+   */
+  emailAllowance: { remaining: number; allowance: number } | null;
   /** Answers read from the environment by the CALLER. See "pure" above. */
   env: {
     /** CRON_SECRET set, so the scheduled sweep can authenticate. */
@@ -96,6 +106,19 @@ export function diagnoseCampaign(input: CampaignHealthInput): CampaignHealth {
       message:
         "Add your postal address in Settings. Marketing email has to carry a real physical address by law, and we refuse to send without one rather than leave it out.",
       blocking: true,
+      operatorOnly: false,
+    });
+  }
+
+  if (input.emailAllowance && input.emailAllowance.remaining <= 0) {
+    blockers.push({
+      code: "email_allowance_spent",
+      message:
+        `You have used this month's ${input.emailAllowance.allowance.toLocaleString()} emails. ` +
+        "Sending starts again on the first of next month, or straight away if you move up a plan.",
+      blocking: true,
+      // The client can fix this — by waiting or by upgrading — so it is
+      // addressed to them, like the postal address and unlike the env gates.
       operatorOnly: false,
     });
   }
