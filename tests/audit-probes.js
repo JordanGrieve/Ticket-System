@@ -1268,6 +1268,28 @@ window.__textBlocks = function () {
     // asking for. The thread subject and the console's empty-state title
     // were reported this way.
     if (/^H[1-6]$/.test(el.tagName) || el.getAttribute("role") === "heading") return;
+    /*
+      A truncated single line is not a block of text either, for the same
+      reason a heading is not: 1.4.8 is about prose somebody reads across
+      several lines, and `white-space: nowrap` with an ellipsis can only ever
+      be one. Its line-height is a row height, not leading.
+
+      The case is .pshot-row-preview — the fake message previews inside the
+      marketing page's product shot, set at 1.4 and clipped with an ellipsis.
+      Reported on 11 Sep 2026 as failing the 1.5 leading rule, which it is not
+      subject to; "fixing" it would have changed a decorative mock to satisfy
+      a criterion that does not reach it.
+
+      Deliberately narrow: nowrap ALONE is not enough, because a nowrap block
+      with no clipping really does overflow and is worth reporting. The
+      ellipsis or the hidden overflow is what makes it a single clipped line
+      by design.
+    */
+    const csEarly = getComputedStyle(el);
+    const clippedLine =
+      csEarly.whiteSpace === "nowrap" &&
+      (csEarly.textOverflow === "ellipsis" || csEarly.overflow === "hidden");
+    if (clippedLine) return;
     const own = [...el.childNodes]
       .filter((n) => n.nodeType === 3)
       .map((n) => n.textContent)

@@ -62,6 +62,16 @@
   font-size: 0.90625rem;
   line-height: 1.6;
   color: var(--text-2);
+  /*
+    The widest prose in the product: 136 characters in the full-width bento
+    cell, 88 in the narrower ones, measured on 11 Sep 2026. 1.4.8 asks for 80
+    or fewer, and 54ch is the house reading width — the same value carried by
+    .pbm-bubble, .ct-unset and the legal column.
+
+    On the narrow cells this changes nothing; it only bites where a cell runs
+    the width of the page.
+  */
+  max-width: 54ch;
 }
 .pbento-body em {
   font-style: normal;

@@ -139,6 +139,11 @@
   color: var(--warn-fg);
   font-size: 0.875rem;
   line-height: 1.6;
+  /* 1.4.8 wants a reading width of 80 characters or fewer. In Plus Jakarta
+     Sans a ch is 0.73em, so 54ch is the 80 this product uses everywhere else
+     — the same value on .pbm-bubble and the thread's email body. Measured at
+     89 characters before this. */
+  max-width: 54ch;
 }
 
 @media (max-width: 640px) {

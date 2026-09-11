@@ -16,8 +16,10 @@ export default function LegalLayout({
       }}
     >
       <header
+        /* Matches the prose column below, or the lockup floats off its own
+           left margin. */
         style={{
-          maxWidth: 720,
+          maxWidth: 620,
           margin: "0 auto",
           padding: "22px 24px 0",
         }}
@@ -33,8 +35,21 @@ export default function LegalLayout({
       </header>
       <main
         className="legal-prose"
+        /*
+          620, not 720.
+
+          1.4.8 asks for a reading width of 80 characters or fewer, and at 720
+          with 24px of padding this column was 672px of 14.5px text — about 93
+          characters, measured by __textBlocks on 11 Sep 2026. These are the
+          longest prose in the product and the only pages a stranger reads
+          end to end.
+
+          620 leaves 572px, which is 54ch in Plus Jakarta Sans and lands at
+          roughly 79. Same reading width as .pbm-bubble and .ct-unset; the
+          number differs only because this column pads and those do not.
+        */
         style={{
-          maxWidth: 720,
+          maxWidth: 620,
           margin: "0 auto",
           padding: "28px 24px 72px",
           fontSize: "0.90625rem",
