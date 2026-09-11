@@ -1838,8 +1838,17 @@
 }
 
 .stg-pager-off {
+  /*
+    A SPAN, not a disabled control — so 1.4.3's exemption for inactive
+    controls does not apply to it and never did. At `opacity: 0.6` this
+    measured 2.93:1 in light, reported by __contrast as a plain failure
+    once the probe learned to read opacity on 11 Sep 2026.
+
+    --muted at full strength is 7.77:1 and still reads as unavailable: the
+    live end of the pager is an <a> in --accent-text, so purple is what you
+    can press and grey is what you cannot.
+  */
   color: var(--muted);
-  opacity: 0.6;
 }
 
 .stg-pager-pos {

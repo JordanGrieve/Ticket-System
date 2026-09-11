@@ -140,6 +140,15 @@ const over = (fg, bg) => ({
   a: 1,
 });
 
+/**
+ * A colour knocked back by an `opacity` PROPERTY.
+ *
+ * Folded into the colour's own alpha rather than applied afterwards, so a
+ * half-transparent ink inside a faded element composites once, in the right
+ * order. `fade(c, 1)` returns the colour unchanged, which is the common path.
+ */
+const fade = (c, alpha) => (alpha >= 1 ? c : { ...c, a: c.a * alpha });
+
 const lum = (c) => {
   const f = (v) => {
     v /= 255;
@@ -269,6 +278,42 @@ window.__contrast = function (level) {
     if (cs.clipPath === "inset(50%)" || cs.clip === "rect(0px, 0px, 0px, 0px)") return;
 
     /*
+      ── OPACITY IS PART OF THE INK ──
+
+      This probe read `opacity` only as a yes/no — 0 meant hidden, anything
+      else was ignored — so text faded by a PROPERTY measured as if it were
+      at full strength. Two real cases in this product were invisible to it
+      for exactly that reason, and both were found by hand on 11 Sep 2026:
+
+        .pbm-nav-heading   --nav-muted at 0.75, reported ~8:1, actually 4.28
+        .pbm-rail-row      --text at 0.45, reported ~14:1, actually 2.75
+
+      The second is a disabled control and 1.4.3 exempts it, so it would have
+      come back marked `exempt` — but the first is a plain section heading
+      with no exemption at all, and the probe called it clean.
+
+      It matters more in light than in dark: fading dark ink toward a pale
+      ground loses far more contrast than fading light ink toward a dark one,
+      so an opacity chosen while every surface was dark quietly stops working
+      the moment one of them is pale.
+
+      ── THE APPROXIMATION, STATED ──
+      Ancestor opacity is multiplied in, because opacity composites down the
+      tree. Where the fade is on an ANCESTOR its background fades too, and
+      this measures the faded ink over the UNFADED ground — so such a reading
+      is approximate. The element's own opacity, which is the common case and
+      both of the ones above, is exact.
+    */
+    let alpha = 1;
+    for (let node = el; node && node !== document.documentElement; node = node.parentElement) {
+      const o = parseFloat(getComputedStyle(node).opacity);
+      if (!Number.isNaN(o)) alpha *= o;
+    }
+    // Below this the text is decoration or mid-transition, not something a
+    // reader is expected to make out; reporting it would be noise.
+    if (alpha < 0.05) return;
+
+    /*
       ── GRADIENT TEXT IS NOT TRANSPARENT TEXT ──
       The homepage paints its hero emphasis with `background-clip: text` and a
       transparent fill, so `color` computes to rgba(0,0,0,0). Read naively that
@@ -294,7 +339,9 @@ window.__contrast = function (level) {
       const bold2 = parseInt(cs.fontWeight, 10) >= 700;
       const need2 = px2 >= 24 || (px2 >= 18.66 && bold2) ? largeNeed : normalNeed;
       let worst = Infinity;
-      for (const stop of stops) worst = Math.min(worst, ratio(over(stop, bgForText), bgForText));
+      for (const stop of stops) {
+        worst = Math.min(worst, ratio(over(fade(stop, alpha), bgForText), bgForText));
+      }
       if (worst < need2) {
         out.push({
           cls: (el.className || el.tagName).toString().slice(0, 34),
@@ -316,7 +363,7 @@ window.__contrast = function (level) {
     // The ink is passed in so a gradient ground can be judged at its worst
     // stop FOR THIS TEXT rather than at an arbitrary one.
     const bg = ground(el, fgRaw);
-    const fg = over(fgRaw, bg);
+    const fg = over(fade(fgRaw, alpha), bg);
     const px = parseFloat(cs.fontSize);
     const bold = parseInt(cs.fontWeight, 10) >= 700;
     const large = px >= 24 || (px >= 18.66 && bold);
@@ -638,13 +685,46 @@ window.__selftest = function () {
       : "absorbed by a scrolling ancestor (expected above 980px)";
   wide.remove();
 
+  /*
+    `width:240px;display:block` is load-bearing, not styling.
+
+    __contrast skips anything 1px or smaller — the visually-hidden idiom — and
+    on a harness page the host is `document.body`, which lays its children out
+    with no width at all. The canary came back 0x48 and was skipped, so BOTH
+    contrast self-tests reported false on every harness page: the probe looked
+    broken when it was working, which is the same failure as a probe that
+    looks fine when it is broken. Found on 11 Sep 2026 running this against
+    the rail.
+  */
   const faint = document.createElement("p");
   faint.style.cssText =
-    "color:rgba(120,120,140,0.55);font-size:13px;background:rgba(255,255,255,0.04)";
+    "color:rgba(120,120,140,0.55);font-size:13px;background:rgba(255,255,255,0.04);width:240px;display:block";
   faint.textContent = "deliberately illegible probe";
   host.appendChild(faint);
   const sawContrast = window.__contrast().length > 0;
   faint.remove();
+
+  /*
+    The same check for text faded by an OPACITY PROPERTY rather than by its
+    colour's own alpha. Separate from the one above on purpose: until
+    11 Sep 2026 __contrast read opacity as a yes/no and measured faded ink at
+    full strength, so a probe that passed the `faint` case above was still
+    blind to a whole class of real defect — two of which were in this product
+    and were found by hand instead.
+
+    The ink here is near-black on white, which is 19:1 unfaded and about 1.6:1
+    at 0.12. If this comes back false, the opacity path has stopped working
+    and every faded element on the page is being reported as if it were solid.
+  */
+  const faded = document.createElement("p");
+  faded.style.cssText =
+    "color:#111;background:#fff;font-size:13px;opacity:0.12;width:240px;display:block";
+  faded.textContent = "deliberately faded probe";
+  host.appendChild(faded);
+  const sawFadedContrast = window
+    .__contrast()
+    .some((x) => (x.text || "").indexOf("deliberately faded") !== -1);
+  faded.remove();
 
   const a = document.createElement("button");
   const b = document.createElement("button");
@@ -687,7 +767,14 @@ window.__selftest = function () {
   const sawUnscaled = window.__textZoom().unscaled.length > 0;
   stuck.remove();
 
-  return { sawOverflow, sawContrast, sawTarget, sawFlexSentence, sawUnscaled };
+  return {
+    sawOverflow,
+    sawContrast,
+    sawFadedContrast,
+    sawTarget,
+    sawFlexSentence,
+    sawUnscaled,
+  };
 };
 
 /* ────────────────────────────────────────────────────────────────────────
