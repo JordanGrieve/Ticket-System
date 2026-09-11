@@ -200,6 +200,7 @@ export async function sendWelcomeEmail(input: {
     });
 
     const result = await sendReplyEmail({
+      workspaceId: input.workspaceId,
       from: EMAIL_FROM_ADDRESS,
       fromName: ws.name,
       to: input.email,

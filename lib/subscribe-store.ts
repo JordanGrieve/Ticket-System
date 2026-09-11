@@ -150,6 +150,7 @@ export async function sendConfirmationEmail(input: {
 
   try {
     const result = await sendReplyEmail({
+      workspaceId: input.workspaceId,
       from: EMAIL_FROM_ADDRESS,
       fromName: input.workspaceName,
       to: input.email,

@@ -25,6 +25,7 @@ export async function notifyWorkspace(opts: {
 
     await sendTicketNotification({
       to: recipients,
+      workspaceId: opts.workspace.id,
       workspaceName: opts.workspace.name,
       kind: opts.kind,
       ticketId: opts.ticket.id,

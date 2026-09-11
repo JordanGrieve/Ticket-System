@@ -76,6 +76,7 @@ export async function POST(
   // the thread stays accurate even if delivery is misconfigured in dev).
   // From is always our verified domain; the workspace name is the display name.
   const emailResult = await sendReplyEmail({
+    workspaceId: workspace.id,
     from: EMAIL_FROM_ADDRESS,
     fromName: workspace.name,
     to: ticket.customerEmail,

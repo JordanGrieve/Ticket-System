@@ -183,6 +183,13 @@
       "when": 1789119182185,
       "tag": "0025_windy_vulture",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1789122947103,
+      "tag": "0026_outstanding_black_bolt",
+      "breakpoints": true
     }
   ]
 }

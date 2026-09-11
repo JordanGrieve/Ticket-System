@@ -387,6 +387,9 @@ const TENANT_TABLES = [
   // classification test below within a minute of the table existing — which
   // is the whole point of that test.
   "welcome_emails",
+  // Added the same day with the monthly usage counters. Caught by the same
+  // test, for the third time in one session.
+  "usage_counters",
   "subscribers",
   "lists",
   "list_subscribers",
@@ -481,6 +484,20 @@ type Exemption = {
  * stale exemption cannot become cover for a different statement that moved in.
  */
 const EXEMPT: Exemption[] = [
+  {
+    file: "lib/usage-store.ts",
+    match: /INSERT INTO usage_counters/,
+    why:
+      "recordUsage. An INSERT … VALUES has no WHERE to carry a predicate, so " +
+      "the scan's /workspace_id =/ rule cannot see it — but the statement is " +
+      "scoped by construction twice over. The workspace is the first column " +
+      "INSERTED, from the argument, so a new row can only ever belong to it; " +
+      "and ON CONFLICT (workspace_id, metric, period) targets the unique " +
+      "index, so the DO UPDATE branch can only ever reach the row for that " +
+      "same workspace. There is no path here that reads or writes another " +
+      "tenant's counter. The only read of this table, usedThisMonth, is a " +
+      "Drizzle query with eq(workspaceId) in its where and is scanned as one.",
+  },
   {
     file: "lib/campaign-send.ts",
     match: /SET status = 'sending'/,
@@ -656,7 +673,17 @@ describe("every raw statement touching tenant data is scoped or exempted", () =>
       expect(NON_TENANT_TABLES).toContain(table);
       const start = schema.indexOf(`"${table}",`);
       expect(start, `${table} missing from schema`).toBeGreaterThan(0);
-      const block = schema.slice(start, start + 2000);
+      /*
+        To the END of this table's definition, not a fixed 2,000 characters.
+
+        The window used to be `start + 2000`, and on 11 Sep 2026 a new table
+        declared after rate_limits fell inside it — so this test failed
+        reporting a workspaceId that belonged to the NEXT table. A guard that
+        breaks when something unrelated is added nearby is a guard people
+        learn to edit rather than read.
+      */
+      const after = schema.indexOf("export const", start);
+      const block = schema.slice(start, after === -1 ? start + 2000 : after);
       if (table === "rate_limits") {
         expect(block).not.toMatch(/workspaceId:/);
       } else {

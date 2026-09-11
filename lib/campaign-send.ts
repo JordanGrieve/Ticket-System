@@ -13,6 +13,8 @@ import {
 } from "@/db/schema";
 import { generateUnsubscribeToken } from "./tokens";
 import { getWorkspaceEntitlement } from "./billing-query";
+import { budgetFor, emailAllowance } from "./usage";
+import { recordUsage, usedThisMonth } from "./usage-store";
 import {
   groupUnconfirmed,
   UNCONFIRMED_AFTER_MINUTES,
@@ -1059,6 +1061,47 @@ export async function sendCampaignBatch(input: {
     return { claimed: 0, delivered: 0, failed: 0, suppressed: 0, more: true };
   }
 
+  /*
+    ── THE MONTHLY EMAIL ALLOWANCE ──
+    Also before anything is claimed, and for the same reason as the two gates
+    around it: a refusal that leaves every row untouched costs nothing, while
+    running out mid-loop burns claimed recipients nobody will ever retry.
+
+    PARTIAL, not all-or-nothing. A campaign of five hundred against eighty
+    remaining sends eighty and stops; the rest stay queued for next month or
+    for the upgrade. Refusing outright would strand a campaign that could have
+    gone most of the way.
+
+    The read FAILS CLOSED. usedThisMonth throws rather than returning zero on
+    a database error, because a read that failed open would make an unreadable
+    counter mean "unlimited" — which is the failure that empties an SES
+    account. Refusing the batch costs nothing: every row is still queued.
+  */
+  let budget = input.limit;
+  try {
+    const allowance = emailAllowance(billing?.plan ?? "trial");
+    const used = await usedThisMonth(input.workspaceId, "emails_sent");
+    budget = budgetFor(input.limit, used, allowance);
+    if (budget <= 0) {
+      console.warn(
+        "[campaign] workspace %d has used its %d email allowance this month",
+        input.workspaceId,
+        allowance,
+      );
+      // more: true — the rows are untouched and still queued, exactly as for
+      // the billing and postal-address refusals above. Reporting false would
+      // let settleCampaign mark a campaign sent that nobody received.
+      return { claimed: 0, delivered: 0, failed: 0, suppressed: 0, more: true };
+    }
+  } catch (err) {
+    console.error(
+      "[campaign] could not read the email allowance for workspace %d; refusing the batch:",
+      input.workspaceId,
+      err,
+    );
+    return { claimed: 0, delivered: 0, failed: 0, suppressed: 0, more: true };
+  }
+
   // BEFORE anything is claimed. A commercial message must carry a physical
   // postal address, and the column is nullable because inventing one is worse
   // than not sending — so an unset address stops the batch here rather than
@@ -1108,7 +1151,9 @@ export async function sendCampaignBatch(input: {
         eq(campaignRecipients.status, "queued"),
       ),
     )
-    .limit(input.limit);
+    // The BUDGET, not the caller's limit: what is left of this month's
+    // allowance has already narrowed it above.
+    .limit(budget);
 
   // Names live on `subscribers`, not on the recipient row (which freezes only
   // the address). One extra round trip beats a join that would silently drop
@@ -1196,12 +1241,26 @@ export async function sendCampaignBatch(input: {
     }
   }
 
+  /*
+    Count what actually left, after the loop rather than per row.
+
+    `delivered` and not `claimed`: a row claimed but refused by the provider
+    cost us nothing and must not spend somebody's allowance. Best effort — a
+    counter that could not be written is an accounting problem, and the emails
+    have already gone, so recordUsage swallows its own errors rather than
+    turning this into a throw that loses the batch's result.
+  */
+  await recordUsage(input.workspaceId, "emails_sent", delivered);
+
   return {
     claimed,
     delivered,
     failed,
     suppressed,
-    more: queued.length >= input.limit,
+    // Measured against the BUDGET, which is what actually bounded the query.
+    // Against input.limit, a batch trimmed by the allowance would report
+    // "nothing more to do" and let the campaign be marked sent.
+    more: queued.length >= budget,
   };
 }
 

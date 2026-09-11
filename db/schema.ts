@@ -1657,6 +1657,53 @@ export const rateLimits = pgTable(
   (t) => [index("rate_limits_window_idx").on(t.windowStart)],
 );
 
+/**
+ * What a workspace has used this month, per metric.
+ *
+ * ── WHY A COUNTER AND NOT A COUNT(*) ──
+ * `emails_sent` has nothing to count. A campaign recipient row survives the
+ * send, so those could be counted — but an auto-reply, a ticket notification,
+ * a signup confirmation and a welcome leave no row anywhere, and they are
+ * more than half the volume. Counting what happens to be stored would produce
+ * a number that looks authoritative and describes the cheaper half.
+ *
+ * ── THE SHAPE IS rate_limits' SHAPE, ON PURPOSE ──
+ * One row per (workspace, metric, period), incremented by a single
+ * `INSERT … ON CONFLICT DO UPDATE`. That pattern is already carrying every
+ * public endpoint in this product and has no read-then-write race in it: the
+ * new value is computed inside the statement, by the database, under the
+ * row lock the upsert takes.
+ *
+ * `period` is a calendar month as "2026-09", derived in lib/usage.ts from a
+ * clock that is always passed in. A rolling 30-day window would be fairer and
+ * would need a row per day and a sum on every read; a calendar month is what
+ * the plans are sold in and what a customer already understands.
+ *
+ * Rows are never deleted on a schedule. Twelve rows per workspace per year is
+ * not a storage problem, and a usage history is the first thing anybody asks
+ * for when an invoice is disputed.
+ */
+export const usageCounters = pgTable(
+  "usage_counters",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    /** "emails_sent" | "tickets_opened" — see lib/usage.ts UsageMetric. */
+    metric: text("metric").notNull(),
+    /** Calendar month, "YYYY-MM". */
+    period: text("period").notNull(),
+    count: integer("count").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("usage_counters_key_idx").on(t.workspaceId, t.metric, t.period),
+  ],
+);
+
 export type Ticket = typeof tickets.$inferSelect;
 export type TicketMessage = typeof ticketMessages.$inferSelect;
 export type Contact = typeof contacts.$inferSelect;

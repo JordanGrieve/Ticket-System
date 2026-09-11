@@ -13,6 +13,7 @@ import {
   type Workspace,
 } from "@/db/schema";
 import { addMessage } from "./data";
+import { recordUsage } from "./usage-store";
 import { EMAIL_FROM_ADDRESS } from "./config";
 import { buildReplyTo } from "./tickets";
 import { isValidTimeZone } from "./business-hours";
@@ -274,6 +275,12 @@ async function deliverDecidedAutoReply(
     // Deliberately no status change — a robot acknowledging receipt has not
     // put the ticket "in progress".
   });
+
+  // The allowance. This module talks to Resend directly rather than through
+  // lib/email.ts — it needs its own RFC 3834 headers and its own per-ticket
+  // reply-to — so the counter has to be here too. It is the one send path
+  // that does not pass through sendReplyEmail, and lib/email.ts says so.
+  await recordUsage(workspace.id, "emails_sent", 1);
 
   return { sent: true, providerId: data?.id };
 }

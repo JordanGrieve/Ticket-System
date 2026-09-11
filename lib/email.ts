@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { recordUsage } from "./usage-store";
 
 /**
  * Resend wrapper. Replies are sent as real email FROM the workspace's
@@ -8,6 +9,27 @@ import { Resend } from "resend";
  * In development without a real RESEND_API_KEY we skip the network call and
  * report `sent: false` so the dashboard keeps working (the outbound message is
  * still saved by the caller).
+ *
+ * ── WHY THE USAGE COUNTER LIVES HERE AND NOT IN THE CALLERS ──
+ * Ticket replies, notifications, signup confirmations, the welcome email and
+ * team invites all send through this module. Metering at each of those means
+ * a metering gap every time a sixth is added, and a gap in this counter is a
+ * bill we pay and do not charge for. So it is counted here, and the workspace
+ * is a parameter. A caller that omits it is asserting "this is not a tenant's
+ * mail" — true of exactly one case, an operator inviting somebody into a
+ * workspace from the admin console.
+ *
+ * ── ONE PATH DOES NOT COME THROUGH HERE ──
+ * lib/auto-reply-send.ts calls Resend directly, because it needs its own
+ * RFC 3834 headers and its own per-ticket reply-to. It counts its own send.
+ * A third path must do the same. "Everything goes through lib/email.ts" is
+ * very nearly true, and has been false since the auto-reply landed — which is
+ * exactly the shape of nearly-true claim that produces an unmetered send.
+ *
+ * Accepted cost: this module now reaches the database, where before it only
+ * reached Resend. Worth it for a count that cannot silently miss a path.
+ * `recordUsage` swallows its own errors, so a counter that cannot be written
+ * never turns into an email that was not sent.
  */
 
 function hasKey(): boolean {
@@ -47,6 +69,12 @@ export async function sendReplyEmail(input: {
    * this function needs them, and they are not threading.
    */
   headers?: Record<string, string>;
+  /**
+   * Whose monthly allowance this spends. Omit only for mail that is not a
+   * tenant's — see the header. A successful send without one is invisible to
+   * the cap.
+   */
+  workspaceId?: number;
 }): Promise<SendResult> {
   if (!hasKey()) {
     console.warn(
@@ -83,6 +111,9 @@ export async function sendReplyEmail(input: {
     console.error("[email] send failed:", error);
     return { sent: false, error: error.message };
   }
+  if (input.workspaceId !== undefined) {
+    await recordUsage(input.workspaceId, "emails_sent", 1);
+  }
   return { sent: true, id: data?.id };
 }
 
@@ -101,6 +132,8 @@ export async function sendTicketNotification(input: {
   preview: string;
   ticketUrl: string;
   from: string;
+  /** Whose allowance this spends. See the header. */
+  workspaceId?: number;
 }): Promise<SendResult> {
   if (!hasKey() || input.to.length === 0) {
     return { sent: false, error: "Email sending is not configured." };
@@ -125,6 +158,12 @@ ${input.ticketUrl}
   if (error) {
     console.error("[email] notification send failed:", error);
     return { sent: false, error: error.message };
+  }
+  // Per RECIPIENT, not per call. One API request carrying ten addresses is ten
+  // emails on the bill, and a Business workspace with ten people on it spends
+  // most of its allowance here rather than on campaigns.
+  if (input.workspaceId !== undefined) {
+    await recordUsage(input.workspaceId, "emails_sent", input.to.length);
   }
   return { sent: true, id: data?.id };
 }
