@@ -80,17 +80,11 @@ const campaigns = [
   },
 ] satisfies CampaignRowDTO[];
 
-const lists = [
-  { id: 1, name: "Everyone", description: "Every confirmed subscriber" },
-  { id: 2, name: "Wholesale", description: null },
-] satisfies { id: number; name: string; description: string | null }[];
-
 const views: Record<string, React.ReactElement> = {
   // The blocked state: no postal address, so a send is refused.
   composer: (
     <Composer
       initialCampaigns={campaigns}
-      lists={lists}
       workspaceName="Open Door Bakery"
       legalName={null}
       postalAddress={null}
@@ -105,7 +99,6 @@ const views: Record<string, React.ReactElement> = {
   "composer-ready": (
     <Composer
       initialCampaigns={campaigns}
-      lists={lists}
       workspaceName="Open Door Bakery"
       legalName="Open Door Bakery Ltd"
       postalAddress={"12 Mill Lane\nStroud\nGL5 1AB"}
@@ -119,7 +112,6 @@ const views: Record<string, React.ReactElement> = {
   "composer-empty": (
     <Composer
       initialCampaigns={[]}
-      lists={[]}
       workspaceName="Open Door Bakery"
       legalName={null}
       postalAddress={null}

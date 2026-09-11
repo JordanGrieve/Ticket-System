@@ -30,7 +30,6 @@ import type { CampaignStatus, RecipientStatus } from "../db/schema";
 
 export type BlockerCode =
   | "no_postal_address"
-  | "no_list"
   | "no_recipients"
   | "sweep_not_configured"
   | "sender_not_configured"
@@ -101,14 +100,7 @@ export function diagnoseCampaign(input: CampaignHealthInput): CampaignHealth {
     });
   }
 
-  if (input.listId === null) {
-    blockers.push({
-      code: "no_list",
-      message: "Choose which list this campaign goes to.",
-      blocking: true,
-      operatorOnly: false,
-    });
-  } else if (total === 0) {
+  if (total === 0) {
     blockers.push({
       code: "no_recipients",
       message:

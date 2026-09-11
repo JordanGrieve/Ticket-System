@@ -89,12 +89,6 @@ export async function POST(
   const result = await materialiseAudience(workspace.id, campaignId);
   if (result === null) return json({ error: "Not found" }, { status: 404 });
   if ("error" in result) {
-    if (result.error === "no_list") {
-      return json(
-        { error: "Choose an audience list before preparing this campaign." },
-        { status: 409 },
-      );
-    }
     return json(
       { error: "This campaign has already started sending." },
       { status: 409 },

@@ -109,7 +109,6 @@ export type CampaignRowDTO = {
   sentAtIso: string | null;
 };
 
-type ListOption = { id: number; name: string; description: string | null };
 
 // ── Wire shapes ──────────────────────────────────────────────────
 
@@ -289,7 +288,6 @@ type FieldKey = "subject" | "preheader" | "body";
 
 export default function Composer({
   initialCampaigns,
-  lists,
   workspaceName,
   legalName,
   postalAddress,
@@ -300,7 +298,6 @@ export default function Composer({
   recipientsPerSweep,
 }: {
   initialCampaigns: CampaignRowDTO[];
-  lists: ListOption[];
   workspaceName: string;
   /**
    * The CAN-SPAM identity, straight off the workspace row. Both nullable, and
@@ -407,7 +404,6 @@ export default function Composer({
   const lastFocused = useRef<FieldKey>("body");
 
   const editable = isEditableStatus(draft.status);
-  const listStale = savedId !== null && savedListId !== draft.listId;
 
   // ── The count ──────────────────────────────────────────────────
   // Fetched for what the SERVER holds, never for the unsaved form: the endpoint
@@ -1087,7 +1083,6 @@ export default function Composer({
   const steps = readinessSteps({
     saved: savedId !== null,
     dirty,
-    listChosen: savedListId !== null,
     audienceCount: audience.kind === "ready" ? audience.data.recipientCount : null,
     queued: draft.recipientCount,
     placeholders: slots.length,
@@ -1101,8 +1096,10 @@ export default function Composer({
   function goFix(fix: (typeof steps)[number]["fix"]) {
     if (fix === "save") {
       save();
-    } else if (fix === "list") {
-      document.getElementById("nl-list")?.focus();
+    } else if (fix === "signup") {
+      // Nobody has confirmed yet. The fix is the signup form, which lives on
+      // the Install screen — not anything on this page.
+      window.location.assign("/settings/install");
     } else if (fix === "queue") {
       document.getElementById("nl-recipients")?.scrollIntoView({ block: "start", behavior: "smooth" });
     } else if (fix === "body") {
@@ -1401,39 +1398,15 @@ export default function Composer({
             <section className="nl-card">
               <h3 className="nl-card-title">Audience</h3>
 
-              <div className="nl-field">
-                <label className="nl-label" htmlFor="nl-list">
-                  Audience list
-                </label>
-                <select
-                  id="nl-list"
-                  className="nl-select"
-                  value={draft.listId === null ? "" : String(draft.listId)}
-                  disabled={!editable || lists.length === 0}
-                  onChange={(e) =>
-                    patch({
-                      listId:
-                        e.target.value === "" ? null : Number(e.target.value),
-                    })
-                  }
-                >
-                  <option value="">No list chosen</option>
-                  {lists.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
-                </select>
-                {lists.length === 0 && (
-                  <p className="nl-help">No audience lists yet.</p>
-                )}
-              </div>
-
-              <AudienceReadout
-                state={audience}
-                stale={listStale}
-                hasList={draft.listId !== null}
-              />
+              {/*
+                No list picker. A campaign goes to everyone in the workspace
+                who has confirmed and not unsubscribed — Jordan's call,
+                11 Sep 2026: one thank-you on signup, and then everyone. The
+                picker it replaces was worse than redundant: nothing has ever
+                written a row to `list_subscribers`, so every list was empty
+                and every campaign it gated was unsendable.
+              */}
+              <AudienceReadout state={audience} />
             </section>
           </div>
 
@@ -2193,29 +2166,18 @@ export function AbortPanel({
  */
 function AudienceReadout({
   state,
-  stale,
-  hasList,
 }: {
   state: AudienceState;
-  stale: boolean;
-  hasList: boolean;
 }) {
   if (state.kind === "unsaved") {
     return <p className="nl-help">Save the draft to count its audience.</p>;
   }
 
-  if (stale) {
-    return (
-      <p className="nl-note">
-        {hasList
-          ? "You’ve changed the list. Save to count it — the number below would describe the old audience."
-          : "You’ve cleared the list. Save to confirm."}
-      </p>
-    );
-  }
-
   if (state.kind === "no_list") {
-    return <p className="nl-help">No list chosen.</p>;
+    // Kept as a state because the audience route can still report it for an
+    // older campaign; there is no list to choose any more, so it reads as the
+    // empty audience it actually is.
+    return <p className="nl-help">Nobody has confirmed a subscription yet.</p>;
   }
 
   if (state.kind === "loading") {

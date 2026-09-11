@@ -133,14 +133,15 @@ describe("blockers", () => {
     expect(all).not.toMatch(/CRON_SECRET|CAMPAIGN_FROM_ADDRESS|CAMPAIGN_DELIVERY_MODE|env|environment variable/i);
   });
 
-  it("distinguishes no list from an empty list", () => {
-    const noList = diagnoseCampaign(input({ listId: null, recipients: NOBODY }));
-    expect(noList.blockers.some((b) => b.code === "no_list")).toBe(true);
-    // Not both — "choose a list" and "queue recipients" at once is noise.
-    expect(noList.blockers.some((b) => b.code === "no_recipients")).toBe(false);
-
-    const emptyList = diagnoseCampaign(input({ listId: 1, recipients: NOBODY }));
-    expect(emptyList.blockers.some((b) => b.code === "no_recipients")).toBe(true);
+  it("asks for recipients whether or not a list was ever chosen", () => {
+    // There are no lists any more — a campaign goes to everyone confirmed in
+    // the workspace (lib/campaign-send.ts, workspaceAudience). "Choose a list"
+    // was a blocker for a choice the product no longer offers, and with
+    // list_subscribers never written it was unsatisfiable besides.
+    for (const listId of [null, 1]) {
+      const h = diagnoseCampaign(input({ listId, recipients: NOBODY }));
+      expect(h.blockers.some((b) => b.code === "no_recipients")).toBe(true);
+    }
   });
 
   it("flags a campaign that finished with every message failed", () => {

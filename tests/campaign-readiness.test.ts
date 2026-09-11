@@ -18,7 +18,6 @@ import {
 const allDone = {
   saved: true,
   dirty: false,
-  listChosen: true,
   audienceCount: 240,
   queued: 240,
   placeholders: 0,
@@ -31,7 +30,7 @@ describe("the readiness checklist", () => {
     expect(steps.map((s) => s.done)).toEqual([true, true, true, true, true]);
     expect(steps.map((s) => s.label)).toEqual([
       "Draft saved",
-      "Audience chosen (240 people)",
+      "Subscribers to send to (240 people)",
       "Recipients queued (240)",
       "No placeholders left in the body",
       "Postal address on file",
@@ -43,7 +42,6 @@ describe("the readiness checklist", () => {
     const steps = readinessSteps({
       saved: false,
       dirty: true,
-      listChosen: false,
       audienceCount: null,
       queued: 0,
       placeholders: 2,
@@ -62,10 +60,29 @@ describe("the readiness checklist", () => {
     expect(readyToSend(steps, "draft")).toBe(false);
   });
 
-  it("a list chosen but not yet counted does not invent a number", () => {
+  it("an uncounted audience does not invent a number, and is not ticked", () => {
+    // Null means "the server has not told us yet", which is not the same as
+    // zero. It must not read as a confirmed audience, and it must not read as
+    // an empty one either.
     const steps = readinessSteps({ ...allDone, audienceCount: null });
-    expect(steps[1]!.label).toBe("Audience chosen");
-    expect(steps[1]!.done).toBe(true);
+    expect(steps[1]!.label).toBe("Somebody to send to");
+    expect(steps[1]!.done).toBe(false);
+  });
+
+  it("says plainly when nobody has confirmed", () => {
+    // The state every new workspace is in, and the one the old "choose a
+    // list" step described as a menu problem rather than an empty audience.
+    const steps = readinessSteps({ ...allDone, audienceCount: 0 });
+    expect(steps[1]!.label).toBe("Nobody has confirmed a subscription yet");
+    expect(steps[1]!.done).toBe(false);
+    expect(steps[1]!.fix).toBe("signup");
+    expect(readyToSend(steps, "draft")).toBe(false);
+  });
+
+  it("one subscriber is a person, not people", () => {
+    expect(readinessSteps({ ...allDone, audienceCount: 1 })[1]!.label).toBe(
+      "Subscribers to send to (1 person)",
+    );
   });
 
   it("one placeholder is singular", () => {

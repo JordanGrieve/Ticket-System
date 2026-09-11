@@ -41,7 +41,6 @@ function show() {
   render(
     <Composer
       initialCampaigns={[campaign]}
-      lists={[{ id: 1, name: "Everyone", description: null }]}
       workspaceName="Open Door Bakery"
       legalName={null}
       postalAddress={null}

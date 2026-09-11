@@ -106,12 +106,6 @@ export async function POST(
   if (result === null) return json({ error: "Not found" }, { status: 404 });
 
   if ("error" in result) {
-    if (result.error === "no_list") {
-      return json(
-        { error: "Choose an audience list before scheduling this campaign." },
-        { status: 409 },
-      );
-    }
     if (result.error === "no_recipients") {
       // The guard that matters most. A campaign armed with no queued rows
       // would be promoted, drain instantly, and be reported as sent to an

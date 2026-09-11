@@ -72,7 +72,6 @@ export default async function NewslettersPage() {
     <div className="pbm-page pb-scroll">
       <Composer
         initialCampaigns={rows}
-        lists={lists}
         workspaceName={workspace.name}
         legalName={workspace.legalName}
         postalAddress={workspace.postalAddress}

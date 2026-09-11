@@ -20,8 +20,6 @@ export type ReadinessInput = {
   saved: boolean;
   /** Unsaved edits on screen. Queueing and sending use what the server holds. */
   dirty: boolean;
-  /** An audience list is chosen on the saved draft. */
-  listChosen: boolean;
   /** The server's count of people who would be mailed; null until counted. */
   audienceCount: number | null;
   /** Recipient rows queued for this campaign. */
@@ -33,18 +31,17 @@ export type ReadinessInput = {
 };
 
 export type ReadinessStep = {
-  key: "saved" | "list" | "queued" | "placeholders" | "postal";
+  key: "saved" | "audience" | "queued" | "placeholders" | "postal";
   label: string;
   done: boolean;
   /** Where to go to fix it. Only meaningful while not done. */
-  fix: "save" | "list" | "queue" | "body" | "settings";
+  fix: "save" | "signup" | "queue" | "body" | "settings";
 };
 
 export function readinessSteps(i: ReadinessInput): ReadinessStep[] {
+  const n = i.audienceCount;
   const people =
-    i.audienceCount === null
-      ? ""
-      : ` (${i.audienceCount.toLocaleString()} ${i.audienceCount === 1 ? "person" : "people"})`;
+    n === null ? "" : ` (${n.toLocaleString()} ${n === 1 ? "person" : "people"})`;
   return [
     {
       key: "saved",
@@ -53,10 +50,22 @@ export function readinessSteps(i: ReadinessInput): ReadinessStep[] {
       fix: "save",
     },
     {
-      key: "list",
-      label: `Audience chosen${i.listChosen ? people : ""}`,
-      done: i.saved && i.listChosen,
-      fix: "list",
+      /*
+        There is no list to choose any more — a campaign goes to everyone in
+        the workspace who confirmed (lib/campaign-send.ts, workspaceAudience).
+        So the step is "is there anybody to send to", and the way to fix an
+        empty one is to put the signup form on your site, not to pick
+        something from a menu.
+      */
+      key: "audience",
+      label:
+        n === null
+          ? "Somebody to send to"
+          : n > 0
+            ? `Subscribers to send to${people}`
+            : "Nobody has confirmed a subscription yet",
+      done: i.saved && n !== null && n > 0,
+      fix: "signup",
     },
     {
       key: "queued",

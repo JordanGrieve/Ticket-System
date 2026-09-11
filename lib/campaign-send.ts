@@ -4,7 +4,6 @@ import { db } from "@/db";
 import {
   campaignRecipients,
   campaigns,
-  listSubscribers,
   lists,
   subscribers,
   suppressions,
@@ -62,9 +61,10 @@ import {
  *
  * §7's consent enforcement is now CLOSED in `selectAudience`: a candidate with
  * no `consent_at` is skipped as `no_consent` and never becomes a recipient row.
- * `listMembers` selects the column for that purpose. What is still missing is
- * the other half of §7 — a UI that CAPTURES consent — so on today's data that
- * filter removes almost everybody, which is the correct and visible failure.
+ * `workspaceAudience` selects the column for that purpose. The other half of
+ * §7 — a UI that CAPTURES consent — is the double opt-in signup, which does
+ * stamp `consent_at` at confirmation, so a subscriber who came through the
+ * form is mailable and an imported one without provenance is not.
  *
  * Do not add a second caller. In particular, no Server Action and no page may
  * import this: sending is a scheduled activity with a bounded batch, and a
@@ -351,7 +351,6 @@ export async function updateCampaign(
 
 export type ScheduleError =
   | "not_schedulable"
-  | "no_list"
   | "no_recipients";
 
 /**
@@ -409,7 +408,6 @@ export async function scheduleCampaign(
   const existing = await getCampaign(workspaceId, campaignId);
   if (!existing) return null;
   if (!canSchedule(existing.status)) return { error: "not_schedulable" };
-  if (existing.listId === null) return { error: "no_list" };
   return { error: "no_recipients" };
 }
 
@@ -669,21 +667,36 @@ async function listBelongsToWorkspace(
 // ── Audience ─────────────────────────────────────────────────────
 
 /**
- * Everyone on a list, with the fields the selection logic needs.
+ * Everyone in the workspace, with the fields the selection logic needs.
  *
- * `list_subscribers` carries no workspace_id. Both of its parents are filtered
- * here — the list must be this workspace's AND so must the subscriber — which
- * is belt and braces, but it means a mis-set membership row could not leak a
- * subscriber into another tenant's campaign even if one were somehow written.
+ * ── WHY THIS IS NOT A LIST ──
+ * It used to join `list_subscribers → lists → subscribers`, and a campaign
+ * could not be armed without a `listId`. That chain had no beginning:
+ * **nothing in the codebase has ever written a row to `list_subscribers`, and
+ * no screen creates a list.** So a person could paste the signup form on their
+ * site, a customer could subscribe and confirm, and the resulting subscriber
+ * was unreachable by every campaign — the audience query joined through a
+ * table that was always empty. Verified on 11 Sep 2026: `lists` and
+ * `list_subscribers` had readers and no writers, which is why
+ * tests/unused-tables.test.ts never flagged them.
+ *
+ * Jordan's call the same day: one automatic thank-you when somebody signs up,
+ * and campaigns go to everyone. So the audience IS the workspace, and there is
+ * no list to choose. The `lists` tables stay in the schema for named lists
+ * later; nothing reads them on this path any more.
+ *
+ * Every subscriber is returned regardless of status or consent —
+ * `selectAudience` is the one place those are judged, and it reports what it
+ * dropped and why. Filtering here would make the composer's "12 of 40 skipped"
+ * readout quietly wrong.
  *
  * `consentAt` is selected because `selectAudience` refuses candidates without
  * it. Dropping this column from the projection would not be a compile error in
  * some future refactor were the field optional — it is mandatory on
  * `AudienceCandidate` precisely so that it would be.
  */
-async function listMembers(
+async function workspaceAudience(
   workspaceId: number,
-  listId: number,
 ): Promise<AudienceCandidate[]> {
   return db
     .select({
@@ -693,16 +706,8 @@ async function listMembers(
       status: subscribers.status,
       consentAt: subscribers.consentAt,
     })
-    .from(listSubscribers)
-    .innerJoin(lists, eq(lists.id, listSubscribers.listId))
-    .innerJoin(subscribers, eq(subscribers.id, listSubscribers.subscriberId))
-    .where(
-      and(
-        eq(lists.id, listId),
-        eq(lists.workspaceId, workspaceId),
-        eq(subscribers.workspaceId, workspaceId),
-      ),
-    );
+    .from(subscribers)
+    .where(eq(subscribers.workspaceId, workspaceId));
 }
 
 /** Every suppressed address in this workspace. Scoped, and only ever scoped. */
@@ -724,13 +729,12 @@ async function suppressedEmails(workspaceId: number): Promise<string[]> {
 export async function previewAudience(
   workspaceId: number,
   campaignId: number,
-): Promise<AudienceSelection | null | { error: "no_list" }> {
+): Promise<AudienceSelection | null> {
   const campaign = await getCampaign(workspaceId, campaignId);
   if (!campaign) return null;
-  if (campaign.listId === null) return { error: "no_list" };
 
   const [candidates, blocked] = await Promise.all([
-    listMembers(workspaceId, campaign.listId),
+    workspaceAudience(workspaceId),
     suppressedEmails(workspaceId),
   ]);
   return selectAudience(candidates, blocked);
@@ -765,15 +769,14 @@ export async function materialiseAudience(
   workspaceId: number,
   campaignId: number,
 ): Promise<
-  MaterialiseResult | null | { error: "no_list" | "not_editable" }
+  MaterialiseResult | null | { error: "not_editable" }
 > {
   const campaign = await getCampaign(workspaceId, campaignId);
   if (!campaign) return null;
   if (!isEditableStatus(campaign.status)) return { error: "not_editable" };
-  if (campaign.listId === null) return { error: "no_list" };
 
   const [candidates, blocked] = await Promise.all([
-    listMembers(workspaceId, campaign.listId),
+    workspaceAudience(workspaceId),
     suppressedEmails(workspaceId),
   ]);
   const selection = selectAudience(candidates, blocked);
