@@ -105,34 +105,80 @@
   --pro-grad: var(--accent-grad);
   --pro-shadow: rgba(70, 40, 180, 0.28);
 
-  /* navigation — the sidebar stays near-black indigo in every light theme */
-  --nav: #1c1830;
-  --nav-deep: #15122a;
   /*
-   * ── INK FOR A COLUMN THAT IS DARK IN ALL SIX THEMES ──
+    ── THE NAVIGATION FOLLOWS THE THEME, FROM 11 SEPTEMBER 2026 ──
+
+    This used to say "the sidebar stays near-black indigo in every light
+    theme", and that was a reasonable rule when there were six palettes and
+    five of them were dark: one fixed column read as the product's spine.
+
+    With two palettes it reads as a mistake. Light mode was a white product
+    with one near-black column down the side, and the phone drawer did not
+    change at all when the theme did — Jordan, 11 Sep 2026: "light mode looks
+    a bit weird, the burger menu doesn't change".
+
+    So --nav is now what its name says: the navigation SURFACE, per theme.
+    The dark decorative panels that used to borrow it — the marketing hero and
+    closing band, the install snippet's code block, the product shots — have
+    --brand-panel below, which is fixed in both themes because a brand panel
+    is not navigation and never was.
+
+    Every --nav-* ink is now stated in BOTH palettes. They used to be declared
+    here only and inherited by dark, which worked while the ground was the
+    same in both; the moment this ground changed, dark would have inherited
+    ink chosen for a light column.
+  */
+  --nav: #f6f3fc;
+  /* The inset inside the nav — the search field. Deliberately barely there,
+     as it is in dark (1.02:1 between the two): the field reads as a well in
+     the column rather than a box on it. */
+  --nav-deep: #ebe5f7;
+
+  /*
+    The dark brand panel. FIXED in both themes, on purpose.
+
+    The marketing hero, the closing band and the product shots are pictures of
+    the product, not chrome that belongs to a palette — and a visitor who
+    prefers light still gets the dark band, which is the design. The install
+    page's code block is here for the same reason a terminal is dark.
+  */
+  --brand-panel: #1c1830;
+  --brand-panel-deep: #15122a;
+  /*
+    Ink ON the brand panel — light, always, because the panel is dark, always.
+
+    This is the half that is easy to forget and it bit immediately: the
+    install page's code block kept its dark ground but its text still read
+    --nav-badge-fg, which in light is now #3f2b93. Dark purple on #1c1830.
+    A fixed surface needs fixed ink, or it is only half fixed.
+  */
+  --brand-panel-fg: #ece6ff;
+  --brand-panel-pill-fg: #c7b6ff;
+  --brand-panel-pill-bg: rgba(124, 92, 255, 0.18);
+  /*
+   * ── INK FOR THE LIGHT NAVIGATION COLUMN ──
    *
-   * The line above has always said the sidebar stays near-black. What was
-   * missing is a foreground to go with it: .pb-sidebar set `background: var(--nav)`
-   * and no `color`, so the nav inherited the PAGE ink — --text, which flips
-   * with the theme while --nav does not.
+   * The nav sets its own ink because it sets its own background. It did not
+   * once, and inherited the page's --text against a near-black column: 1.05:1
+   * on 7 Sep 2026, on the default theme, on every signed-in screen. It
+   * survived that long because nothing had ever rendered MailNav — the older
+   * harnesses drop their view into a bare shell with no navigation column in
+   * it. That is the reason these tokens exist at all.
    *
-   * In the five dark themes --text is already light, so it read correctly by
-   * coincidence. In LIGHT it is #221b3a against a #1c1830 nav: measured
-   * 1.05:1 on 7 Sep 2026, which is invisible, on the default theme, on every
-   * signed-in screen. It survived because nothing had ever rendered MailNav —
-   * the five older harnesses drop their view into a bare shell with no
-   * navigation column in it.
-   *
-   * Defined HERE rather than per-theme because the nav is dark everywhere, so
-   * these are the right values everywhere. dark and the system-dark block
-   * inherit them unchanged (they equal that palette's own --text and
-   * --muted-2 exactly); forest, slate and ocean override them below only to
-   * keep their existing tint.
+   * They are close to the page's own --text and --muted here, and that is the
+   * point of a light nav, but they are NOT aliases: the ground is --nav and
+   * --nav-deep, not --surface, so they are measured against those. The values
+   * below carry those measurements.
    */
-  --nav-fg: #f3f0ff;
-  --nav-muted: #d6d2e5;
-  --nav-active-bg: rgba(124, 92, 255, 0.18);
-  --nav-active-fg: #c7b6ff;
+  --nav-fg: #221b3a;
+  /* 8.24:1 on --nav and 7.36:1 on --nav-deep. #4d4b58, the page's --muted,
+     measured 6.94 on the deeper ground — under AAA, and this ink is used at
+     11px in the search field's placeholder. */
+  --nav-muted: #494757;
+  --nav-active-bg: #e8e1fd;
+  /* The same pairing as --accent-text on --accent-chip, which is already held
+     to AAA elsewhere: 7.37:1 on the active row, 8.49:1 on the column. */
+  --nav-active-fg: #4730a8;
   /*
    * The dot beside an active nav row. It was USED by app/admin.css and defined
    * nowhere, which does not fail loudly: an undefined var() makes the whole
@@ -145,10 +191,10 @@
    * matching the label it sits beside is what it always should have been.
    */
   --nav-active-dot: var(--nav-active-fg);
-  --nav-badge-on: rgba(124, 92, 255, 0.32);
-  /* #ece6ff from #dcd1ff: the count on the ACTIVE row sits on two purple
-     washes stacked over the nav and read 6.69:1 at 11px — AAA wants 7. */
-  --nav-badge-fg: #ece6ff;
+  --nav-badge-on: #ddd2fb;
+  /* 7.42:1 on the badge. The count is 11px, so it gets the full AAA bar for
+     small text rather than the large-text concession. */
+  --nav-badge-fg: #3f2b93;
   /*
    * The keyboard focus ring, as its own token.
    *
@@ -299,6 +345,23 @@
   --accent-chip: rgba(124, 92, 255, 0.22);
   --accent-line: rgba(124, 92, 255, 0.3);
   --nav: #17142b;
+  /*
+    The navigation, stated rather than inherited.
+  
+    These were declared once in the light block and inherited here,
+    which was safe only while --nav was the same near-black in both.
+    It is not any more: light has a pale column, and inherited ink
+    chosen for it would be dark-on-dark here.
+  */
+  --nav-deep: #15122a;
+  --nav-fg: #f3f0ff;
+  --nav-muted: #d6d2e5;
+  --nav-active-bg: rgba(124, 92, 255, 0.18);
+  --nav-active-fg: #c7b6ff;
+  --nav-badge-on: rgba(124, 92, 255, 0.32);
+  /* #ece6ff from #dcd1ff: the count on the ACTIVE row sits on two purple
+     washes stacked over the nav and read 6.69:1 at 11px — AAA wants 7. */
+  --nav-badge-fg: #ece6ff;
   --shadow: rgba(0, 0, 0, 0.28);
   --shadow-2: rgba(0, 0, 0, 0.34);
   --ok-fg: #7ee0b2;
@@ -342,6 +405,23 @@
     --accent-chip: rgba(124, 92, 255, 0.22);
     --accent-line: rgba(124, 92, 255, 0.3);
     --nav: #17142b;
+    /*
+      The navigation, stated rather than inherited.
+    
+      These were declared once in the light block and inherited here,
+      which was safe only while --nav was the same near-black in both.
+      It is not any more: light has a pale column, and inherited ink
+      chosen for it would be dark-on-dark here.
+    */
+    --nav-deep: #15122a;
+    --nav-fg: #f3f0ff;
+    --nav-muted: #d6d2e5;
+    --nav-active-bg: rgba(124, 92, 255, 0.18);
+    --nav-active-fg: #c7b6ff;
+    --nav-badge-on: rgba(124, 92, 255, 0.32);
+    /* #ece6ff from #dcd1ff: the count on the ACTIVE row sits on two purple
+       washes stacked over the nav and read 6.69:1 at 11px — AAA wants 7. */
+    --nav-badge-fg: #ece6ff;
     --shadow: rgba(0, 0, 0, 0.28);
     --shadow-2: rgba(0, 0, 0, 0.34);
     --ok-fg: #7ee0b2;

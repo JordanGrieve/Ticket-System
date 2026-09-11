@@ -1480,8 +1480,10 @@
 
 .sti-code {
   position: relative;
-  background: var(--nav);
-  border: 1px solid var(--nav-active-bg);
+  /* A code block, dark in both themes like a terminal — --brand-panel, not
+     --nav, which follows the theme now. */
+  background: var(--brand-panel);
+  border: 1px solid var(--brand-panel-pill-bg);
   border-radius: 12px;
 }
 
@@ -1499,7 +1501,7 @@
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 0.78125rem;
   line-height: 1.7;
-  color: var(--nav-badge-fg);
+  color: var(--brand-panel-fg);
   white-space: pre;
 }
 

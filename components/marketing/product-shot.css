@@ -66,7 +66,7 @@
 /* ── sidebar ─────────────────────────────────────────────────── */
 
 .pshot-side {
-  background: var(--nav);
+  background: var(--brand-panel);
   padding: 12px 10px;
   /* --nav is guaranteed a near-black indigo in every theme, so the light
      foregrounds below are safe here without consulting the theme. This is the
