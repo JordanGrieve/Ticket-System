@@ -161,6 +161,46 @@ describe("the products grid", () => {
     expect(out.text).toContain("https://shop.example.com/sourdough");
   });
 
+  /*
+   * ── ONE ANCHOR, WRAPPING EVERYTHING ──
+   * The photo, the name and the price are inside a single <a>, so the whole
+   * card opens the product rather than a ~90px line of text. Two things have
+   * to hold and neither is visible in a rendered screenshot: the anchor must
+   * CONTAIN the image and the price, and there must be exactly one of them —
+   * a name-anchor inside a card-anchor is invalid HTML that clients resolve
+   * however they like.
+   */
+  it("wraps the photo, the name and the price in one anchor", () => {
+    const out = renderCampaign({ ...base, products: [sourdough] });
+    const gridAt = out.html.indexOf('class="pb-grid"');
+    const grid = out.html.slice(gridAt, out.html.indexOf("</table>", gridAt));
+
+    const open = grid.indexOf("<a ");
+    expect(open, "the card is not a link at all").toBeGreaterThan(-1);
+    const card = grid.slice(open, grid.indexOf("</a>", open));
+    expect(card, "the photo is outside the link").toContain("<img");
+    expect(card, "the price is outside the link").toContain("£4.50");
+    expect(card, "the name is outside the link").toContain("Sourdough loaf");
+
+    expect(
+      (grid.match(/<a /g) ?? []).length,
+      "one product, one anchor — a nested link is invalid and resolves differently per client",
+    ).toBe(1);
+  });
+
+  it("gives a product with no link the same box, not a smaller one", () => {
+    const out = renderCampaign({
+      ...base,
+      products: [{ ...sourdough, url: null }],
+    });
+    const gridAt = out.html.indexOf('class="pb-grid"');
+    const grid = out.html.slice(gridAt, out.html.indexOf("</table>", gridAt));
+    expect(grid).not.toContain("<a ");
+    expect(grid, "the card's border is what makes it read as a box").toContain(
+      "border:1px solid #e7e1d6",
+    );
+  });
+
   it("makes the name the link, rather than adding a second one", () => {
     const out = renderCampaign({ ...base, products: [sourdough] });
     expect(out.html).toContain('href="https://shop.example.com/sourdough"');

@@ -1144,14 +1144,20 @@ function productsHtml(products: CampaignProduct[], accent: string): string {
     const price = `<div style="font:400 13px/1.4 Arial,sans-serif;color:#57503f;margin:2px 0 0;">${
       p.price ? escapeHtml(p.price) : "&nbsp;"
     }</div>`;
-    // The name is the link when there is one, rather than a separate "Buy"
-    // that repeats it. One target per product, and it is the thing itself.
-    // The div is outside the anchor in both cases so the line box is the same
-    // height whether or not the product has a link.
-    const label = p.url
-      ? `<a href="${escapeHtml(p.url)}" style="color:${accent};text-decoration:underline;">${escapeHtml(p.name)}</a>`
-      : escapeHtml(p.name);
-    const name = `<div style="font:700 14px/1.4 Arial,sans-serif;color:#26221d;">${label}</div>`;
+    /*
+      The name is still drawn as the link — accent, underlined — but the
+      anchor is the whole card below, not this text. Nested anchors are
+      invalid HTML and clients resolve them unpredictably, so there is
+      exactly one per product.
+
+      Its colour is stated here rather than inherited: an <a> with no colour
+      on its children paints every line inside it link-blue in several
+      clients, price included.
+    */
+    const nameInk = p.url
+      ? `color:${accent};text-decoration:underline;`
+      : "color:#26221d;";
+    const name = `<div style="font:700 14px/1.4 Arial,sans-serif;${nameInk}">${escapeHtml(p.name)}</div>`;
     /*
       ── WHY BOTTOM, NOT TOP ──
       Top-aligned, a product with no photo had its name at the top of the cell
@@ -1165,7 +1171,29 @@ function productsHtml(products: CampaignProduct[], accent: string): string {
       aligns perfectly and cannot survive the phone: the media query stacks
       cells, so a split row would stack as image, image, name, name.
     */
-    return `<td class="pb-col" width="50%" valign="bottom" style="${gutter(side)}">${img}${name}${price}</td>`;
+    /*
+      ── THE WHOLE CARD IS THE TARGET ──
+      Jordan, 11 Sep 2026: "make it so the image, and price are like in a box
+      so its all clickable". The photo, the name and the price sit inside one
+      anchor, so a thumb landing anywhere on the card opens the product —
+      rather than only on a line of text roughly 90px wide, which is what a
+      name-only link gives you on a phone.
+
+      It is a <div> with identical styling when there is no URL, so a product
+      without a link is the same box and not a smaller one. The anchor carries
+      text-decoration:none; the underline lives on the name, which is what
+      still says "this goes somewhere".
+
+      Outlook ignores border-radius and draws square corners. That is the only
+      difference there, and a square card is a card.
+    */
+    const boxStyle =
+      "display:block;padding:10px;border:1px solid #e7e1d6;border-radius:12px;background:#ffffff;";
+    const box = p.url
+      ? `<a href="${escapeHtml(p.url)}" style="${boxStyle}text-decoration:none;">${img}${name}${price}</a>`
+      : `<div style="${boxStyle}">${img}${name}${price}</div>`;
+
+    return `<td class="pb-col" width="50%" valign="bottom" style="${gutter(side)}">${box}</td>`;
   };
 
   const rows: string[] = [];
