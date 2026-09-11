@@ -1255,3 +1255,38 @@ body:has(.pbi-banner):has(.pbt-slot) .nl-main {
   padding-top: calc(var(--pbt-h, 46px) + 8px + 54px + 20px);
 }
 }
+
+/* ── Delete a draft ──────────────────────────────────────────
+   Beside Save in the composer header, and only while a saved draft is open.
+   Destructive ink on its own pale ground (the pair the style guide names),
+   outlined rather than filled so it never competes with Save — the primary
+   action on this screen is keeping the work, not destroying it.
+
+   Two presses rather than a modal: the label becomes "Delete for good?" and
+   blur puts it back. See destroy() in Composer.tsx.
+*/
+.nl-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap-min, 44px);
+  padding: 0 14px;
+  border: 1px solid var(--pdf-fg);
+  border-radius: 10px;
+  background: var(--pdf-bg);
+  color: var(--pdf-fg);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.nl-delete:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.nl-delete:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--accent));
+  outline-offset: 2px;
+}

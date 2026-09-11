@@ -1698,3 +1698,57 @@ export async function requeueFailedRecipients(
   if (!row || row.reopened === 0) return { error: "not_requeueable" };
   return { requeued: row.requeued };
 }
+
+/**
+ * Delete a draft campaign, and only a draft.
+ *
+ * ── WHY THIS DID NOT EXIST UNTIL 11 SEPTEMBER 2026 ──
+ * Nothing in the product could remove a campaign. Five test drafts on one
+ * workspace were the prompt, but the real cost is a client's: a campaign
+ * started by mistake, or named wrongly, sat in their list forever with no way
+ * to be rid of it.
+ *
+ * ── WHAT IT REFUSES, AND WHY EACH ──
+ * `draft` is the only deletable state, and the WHERE clause enforces it
+ * rather than a check above it — a sweep can promote a campaign between the
+ * read and the write.
+ *
+ *  - `sending` is in flight. Deleting it mid-send would cascade away the
+ *    recipient rows the sweep is claiming from, and the remaining batches
+ *    would have nowhere to record what they had already done.
+ *  - `sent` is the record of what reached real people. It is the evidence of
+ *    what a client's customers were told and when, and it is the only place
+ *    that lives. Deleting it is not tidying, it is destroying the receipt.
+ *  - `failed` may have sent to SOME of its audience before it stopped. Same
+ *    argument as `sent`, for the part that got out.
+ *  - `scheduled` is armed, with recipient rows already materialised. Cancel
+ *    the schedule first — that is what DELETE ./schedule is for — and then
+ *    this will take it.
+ *
+ * `campaign_recipients` has `onDelete: "cascade"` on its campaign_id, so the
+ * database removes those rows itself. Nothing else references a campaign.
+ */
+export async function deleteCampaign(
+  workspaceId: number,
+  campaignId: number,
+): Promise<{ deleted: true } | null | { error: "not_deletable" }> {
+  const [removed] = await db
+    .delete(campaigns)
+    .where(
+      and(
+        eq(campaigns.id, campaignId),
+        eq(campaigns.workspaceId, workspaceId),
+        eq(campaigns.status, "draft"),
+      ),
+    )
+    .returning({ id: campaigns.id });
+
+  if (removed) return { deleted: true };
+
+  // Nothing was deleted: either it is not this workspace's (or does not
+  // exist), or it is not a draft. Those are a 404 and a 409, and the caller
+  // cannot tell them apart without this second read.
+  const existing = await getCampaign(workspaceId, campaignId);
+  if (!existing) return null;
+  return { error: "not_deletable" };
+}

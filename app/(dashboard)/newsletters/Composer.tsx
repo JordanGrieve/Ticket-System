@@ -382,6 +382,9 @@ export default function Composer({
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  /** The Delete button's second press. See destroy(). */
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<number | null>(null);
@@ -616,6 +619,48 @@ export default function Composer({
     setError(null);
     setQueue({ kind: "idle" });
     setSchedule({ kind: "idle" });
+  }
+
+  /**
+   * Delete the open draft.
+   *
+   * Two presses, not a modal. The first turns the button into "Delete for
+   * good?" and the second does it; clicking anything else, or saving, puts it
+   * back. A confirm dialog would be the other answer, but this screen already
+   * has a discard-changes panel and a second one arguing about a different
+   * thing would be two dialogs deep on a phone.
+   *
+   * Drafts only, which is why the button is not rendered in any other state:
+   * the server refuses the rest, and offering a control that always fails is
+   * worse than not offering it.
+   */
+  async function destroy() {
+    if (draft.id === null || deleting) return;
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
+    }
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/campaigns/${draft.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(payload.error ?? "Couldn’t delete this campaign.");
+        setConfirmingDelete(false);
+        return;
+      }
+      // `force`: the draft is gone from the server, so the unsaved-changes
+      // guard has nothing left to protect and would only ask about a campaign
+      // that no longer exists.
+      startNew(true);
+      await refreshList();
+    } catch {
+      setError("Couldn’t reach the server. Check your connection and retry.");
+      setConfirmingDelete(false);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function refreshList() {
@@ -1320,6 +1365,31 @@ export default function Composer({
               <span className="nl-saved" role="status">
                 Saved
               </span>
+            )}
+            {/*
+              Only for a saved DRAFT. A campaign that has sent is the record of
+              what a client's customers were told, and the server refuses to
+              delete one — a button that always fails is worse than no button.
+            */}
+            {draft.id !== null && draft.status === "draft" && (
+              <button
+                type="button"
+                className="nl-delete"
+                onClick={destroy}
+                onBlur={() => setConfirmingDelete(false)}
+                disabled={deleting}
+                aria-label={
+                  confirmingDelete
+                    ? `Delete ${draft.name || "this campaign"} for good`
+                    : `Delete ${draft.name || "this campaign"}`
+                }
+              >
+                {deleting
+                  ? "Deleting…"
+                  : confirmingDelete
+                    ? "Delete for good?"
+                    : "Delete"}
+              </button>
             )}
             <button
               type="button"

@@ -6,6 +6,7 @@ import { usedThisMonth } from "@/lib/usage-store";
 import { activeWorkspace } from "@/lib/viewer";
 import {
   campaignRecipientBreakdown,
+  deleteCampaign,
   getCampaign,
   updateCampaign,
 } from "@/lib/campaign-send";
@@ -18,8 +19,9 @@ import {
 } from "@/lib/newsletter";
 
 /**
- * GET   /api/campaigns/:id  → one campaign plus its per-status recipient counts
- * PATCH /api/campaigns/:id  → edit a draft
+ * GET    /api/campaigns/:id  → one campaign plus its per-status recipient counts
+ * PATCH  /api/campaigns/:id  → edit a draft
+ * DELETE /api/campaigns/:id  → remove a draft
  *
  * Both filter on (id, workspace_id), so an id from another tenant matches zero
  * rows and comes back 404 without touching anything. The recipient counts join
@@ -187,4 +189,50 @@ export async function PATCH(
   }
 
   return json({ ok: true, campaign: result });
+}
+
+/**
+ * DELETE /api/campaigns/:id — remove a draft.
+ *
+ * Drafts only. `deleteCampaign` carries `status = 'draft'` inside its own
+ * WHERE, so a campaign the sweep promoted a moment ago is refused rather than
+ * deleted from under the send loop; the reasoning for each refused state is
+ * on that function.
+ *
+ * 404 and 409 are deliberately different answers. An id belonging to another
+ * tenant matches zero rows and is a 404 — the same answer as an id that never
+ * existed, so this endpoint cannot be used to discover that some other
+ * workspace owns a number. A 409 means "yours, but not a draft", which is a
+ * thing the caller can act on.
+ */
+export async function DELETE(
+  _req: Request,
+  ctx: RouteContext<"/api/campaigns/[id]">,
+) {
+  const { userId } = await auth();
+  if (!userId) return json({ error: "Unauthorized" }, { status: 401 });
+
+  const campaignId = Number((await ctx.params).id);
+  if (!Number.isInteger(campaignId)) {
+    return json({ error: "Invalid campaign id" }, { status: 400 });
+  }
+
+  const workspace = await activeWorkspace();
+  if (!workspace) {
+    return json({ error: "Select a client workspace first." }, { status: 400 });
+  }
+
+  const result = await deleteCampaign(workspace.id, campaignId);
+  if (result === null) return json({ error: "Not found" }, { status: 404 });
+  if ("error" in result) {
+    return json(
+      {
+        error:
+          "Only a draft can be deleted. Cancel its schedule first, or leave it — a campaign that has sent is the record of what your customers were told.",
+      },
+      { status: 409 },
+    );
+  }
+
+  return json({ ok: true, deleted: true });
 }
