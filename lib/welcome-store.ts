@@ -113,6 +113,16 @@ export type WelcomeSendResult =
         | "no_postal_address"
         | "no_secret"
         | "send_failed";
+      /**
+       * What the provider or the renderer actually said, for `send_failed`.
+       *
+       * Carried rather than only logged because this project cannot read its
+       * own Vercel logs, so a refusal that lives only in `console.warn` is a
+       * refusal nobody can diagnose. Shown ONLY by /api/welcome/test, which
+       * answers to the authenticated caller about their own address — never
+       * on the public confirm path, where it would be an oracle.
+       */
+      detail?: string;
     };
 
 /**
@@ -206,7 +216,7 @@ export async function sendWelcomeEmail(input: {
     });
     if (!result.sent) {
       console.warn("[welcome] not sent:", result.error);
-      return { sent: false, reason: "send_failed" };
+      return { sent: false, reason: "send_failed", detail: result.error };
     }
     return { sent: true };
   } catch (err) {
@@ -214,7 +224,11 @@ export async function sendWelcomeEmail(input: {
     // so reaching here means something else went wrong and the subscription
     // must not be affected by it.
     console.error("[welcome] send failed:", err);
-    return { sent: false, reason: "send_failed" };
+    return {
+      sent: false,
+      reason: "send_failed",
+      detail: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 

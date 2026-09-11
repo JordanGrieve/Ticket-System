@@ -37,6 +37,9 @@ export default function WelcomeEmailForm({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  /** What the last test send did. The reason is shown, not swallowed. */
+  const [test, setTest] = useState<string | null>(null);
 
   function touch() {
     setSaved(false);
@@ -72,6 +75,37 @@ export default function WelcomeEmailForm({
       if (next) setEnabled(!next.enabled);
     } finally {
       setSaving(false);
+    }
+  }
+
+  /**
+   * Send it to yourself.
+   *
+   * The response carries the refusal REASON, unlike every other send in the
+   * product — safe here because it goes to the caller's own address and the
+   * person reading it is the only one who can fix it. Without this, a welcome
+   * that does not arrive is a silence with five possible causes.
+   */
+  async function sendTest() {
+    if (testing) return;
+    setTesting(true);
+    setTest(null);
+    try {
+      const res = await fetch("/api/welcome/test", { method: "POST" });
+      const p = (await res.json()) as {
+        sent?: boolean;
+        to?: string;
+        message?: string;
+        detail?: string;
+        error?: string;
+      };
+      if (!res.ok) setTest(p.error ?? "Couldn’t send a test.");
+      else if (p.sent) setTest(`Sent to ${p.to}. Check the footer carries your postal address.`);
+      else setTest([p.message, p.detail].filter(Boolean).join(" — "));
+    } catch {
+      setTest("Couldn’t reach the server.");
+    } finally {
+      setTesting(false);
     }
   }
 
@@ -142,6 +176,14 @@ export default function WelcomeEmailForm({
         >
           {saving ? "Saving…" : "Save"}
         </button>
+        <button
+          className="stg-link-btn"
+          type="button"
+          disabled={testing || saving}
+          onClick={() => void sendTest()}
+        >
+          {testing ? "Sending…" : "Send me a test"}
+        </button>
         {saved && (
           <span className="stg-identity-ok" role="status">
             Saved
@@ -153,6 +195,12 @@ export default function WelcomeEmailForm({
           </span>
         )}
       </div>
+
+      {test && (
+        <p className="stg-field-hint" role="status">
+          {test}
+        </p>
+      )}
     </div>
   );
 }
