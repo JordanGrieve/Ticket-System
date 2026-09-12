@@ -158,8 +158,32 @@ export default function InstallView({
   var form = document.querySelector("#contact-form");
   if (!form) return;
 
+  // Where the reply to the visitor appears. Put <p data-postbox-status></p>
+  // anywhere on the page to choose the spot yourself; otherwise one is added
+  // just after the form. It carries no styling of ours — give it a rule in
+  // your own CSS, and use [data-state="error"] if you want failures in red.
+  var status = document.querySelector("[data-postbox-status]");
+  if (!status) {
+    status = document.createElement("p");
+    status.className = "postbox-status";
+    // Marked, so this block finds it again instead of adding a second one.
+    status.setAttribute("data-postbox-status", "");
+    form.insertAdjacentElement("afterend", status);
+  }
+  // A live region, so a screen reader announces the reply without moving focus.
+  status.setAttribute("role", "status");
+
+  function say(text, state) {
+    status.textContent = text;
+    status.setAttribute("data-state", state);
+  }
+
   form.addEventListener("submit", async function (e) {
     e.preventDefault();
+    var button = form.querySelector("[type=submit]");
+    if (button) button.disabled = true;   // no double submissions
+    say("Sending…", "sending");
+
     var f = new FormData(form);
     try {
       var res = await fetch("${endpoint}", {
@@ -174,12 +198,16 @@ export default function InstallView({
       });
       if (res.ok) {
         form.reset();
-        alert("Thanks — we got your message!");
+        say("Thanks — we have your message and will be in touch.", "ok");
+      } else if (res.status === 429) {
+        say("That is a lot of messages at once. Try again in a minute.", "error");
       } else {
-        alert("Sorry, something went wrong. Please try again.");
+        say("That did not send. Please try again, or email us directly.", "error");
       }
     } catch (err) {
-      alert("Sorry, something went wrong. Please try again.");
+      say("That did not send — check your connection and try again.", "error");
+    } finally {
+      if (button) button.disabled = false;
     }
   });
 })();
