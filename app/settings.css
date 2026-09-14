@@ -1514,11 +1514,23 @@
   border-radius: 12px;
 }
 
+/*
+  The panel's controls: "Show more code" then "Copy snippet", top right.
+
+  Both are 44px without anything here asking for it — globals.css already names
+  `.sti-code-copy button` in its 44px block (2.5.5), which is why the heights
+  below read as 30 and measure as 44. Do not add a hit area to either; it is
+  already the real target, and a pseudo-element would only push it out over the
+  code.
+*/
 .sti-code-copy {
   position: absolute;
   top: 10px;
   right: 10px;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .sti-code pre {
@@ -1533,23 +1545,21 @@
 }
 
 /*
-  Collapsed by default, to about a third of a prompt.
+  Collapsed by default, to about a fifth of a prompt.
 
   The AI prompt is seventy lines written for a machine to read. Nobody is meant
-  to read it at all — they copy it — so the block shows just enough to identify
-  itself and hides the rest.
+  to read it at all — they copy it — so the block shows just enough for a client
+  to see what they are handing their developer, and hides the rest.
 
-  92px is three lines and a sliver of the fourth. That lands it on the line
-  carrying the client's own business name, which is the one thing in the whole
-  prompt that tells them it is theirs:
+  300px is roughly fifteen lines: the opening sentence with their own business
+  name in it, the endpoint, and the first few fields. Jordan picked this height
+  on 14 Sep 2026 looking at the live panel.
 
-    You are helping integrate a website's contact form with Postbox, a …
-    inbox used by "AMORIA". When a visitor submits the contact form, the
-    submission must be POSTed to the Postbox API, which turns it into a …
-
-  It was 420px, then 300px, and both still read as a wall of text — the cut has
-  to be short enough that the eye takes it as a label rather than something to
-  start reading.
+  It has been 420, then 300, then 92 and now 300 again, so the reasoning is
+  worth keeping rather than the number: at 92px the box read as a label and a
+  client could not tell what the prompt DID; much past 300 and the steps below
+  it get pushed off the screen. Fifteen lines is enough to recognise and not
+  enough to start reading.
 
   The class is only applied when the content actually exceeds this, so a short
   snippet is never clipped and never grows a pointless button. See CodeBlock.
@@ -1559,7 +1569,7 @@
 }
 
 .sti-code-clip.is-clipped {
-  max-height: 92px;
+  max-height: 300px;
   overflow: hidden;
 }
 
@@ -1580,10 +1590,11 @@
   left: 1px;
   right: 1px;
   bottom: 0;
-  /* Scaled with the block. A 52px fade over 92px of content would dim more
-     than half of it, including the line with their name on it; 22px marks the
-     cut and leaves the three visible lines alone. */
-  height: 22px;
+  /* Scaled with the block: a fade is a hint that the text continues, so it
+     should cover the last line or two and no more. 22px was right for a 92px
+     box and is a hairline under 300px; 44px dims the last two lines of fifteen
+     and leaves the opening sentence — the part with their name in it — clean. */
+  height: 44px;
   pointer-events: none;
   background: linear-gradient(
     to bottom,
@@ -1593,42 +1604,42 @@
 }
 
 /*
-  A text button, not the full-width bar it was.
+  Built to match CopyButton's compact form exactly — same height, radius, ink
+  and type — because the two now sit side by side and a text link beside a chip
+  would read as two different KINDS of thing. They are one pair of controls for
+  one block.
 
-  The bar read as the bottom edge of the panel — a piece of chrome — and at
-  92px of content it would have been almost as tall as the code above it. As
-  text it reads as the one thing to press.
+  It has been a full-width bar and an underlined text button, both under the
+  block. Neither survived the move to the top row.
 
-  --brand-panel-pill-fg is 9.46:1 on --brand-panel, so it clears AAA as small
-  bold text; it is the ink already declared for accent-coloured type on this
-  fixed dark panel. Underlined because it sits on a coloured ground with no
-  border or fill, and colour alone is not a control (1.4.1).
-
-  Still 44px tall (2.5.5) even though the text is smaller than that — the
-  padding does the work, which is the pattern in STYLE-GUIDE.md §4.
+  The values are duplicated from CopyButton's inline styles rather than shared:
+  that component is used on six screens and its look is not this panel's to set.
+  If they drift, this is the one to change.
 */
 .sti-code-more {
   display: inline-flex;
   align-items: center;
-  min-height: var(--tap-min, 44px);
-  padding: 0 18px 4px;
-  border: none;
-  background: none;
-  color: var(--brand-panel-pill-fg);
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-2);
   font-size: 0.78125rem;
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex: 0 0 auto;
   cursor: pointer;
 }
 
 .sti-code-more:hover {
-  color: var(--brand-panel-fg);
+  color: var(--text);
+  border-color: var(--border-strong);
 }
 
 .sti-code-more:focus-visible {
   outline: 2px solid var(--focus-ring, var(--accent));
-  outline-offset: -3px;
+  outline-offset: 2px;
 }
 
 /* ── read-only value + copy button ──────────────────────────── */

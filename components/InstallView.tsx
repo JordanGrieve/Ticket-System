@@ -736,7 +736,23 @@ function CodeBlock({
   collapsible?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [overflows, setOverflows] = useState(false);
+  /*
+    Starts TRUE, which is the whole trick.
+
+    The cap lives in the stylesheet, on `.is-clipped`. So a block that has not
+    been clipped yet has no cap, its scrollHeight EQUALS its clientHeight, and
+    "does this overflow?" is always no — the class can never be applied, and the
+    measurement can never see the thing it exists to measure. Starting false
+    shipped a page where every prompt stood at full height and no Show more
+    appeared at all; the suite stayed green because the test stubbed the two
+    heights to differ unconditionally, which is a state no browser produces.
+
+    Clipped first, then measured: while the class is on, scrollHeight and
+    clientHeight differ for real, so a SHORT snippet reports "fits" and this
+    flips to false. It also means the long prompt never flashes at full height
+    before collapsing.
+  */
+  const [overflows, setOverflows] = useState(true);
   const clipRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -769,7 +785,27 @@ function CodeBlock({
 
   return (
     <div className="sti-code">
+      {/*
+        Both controls in one row at the top right, the opener to the LEFT of
+        Copy.
+
+        It was a text button under the block, which put it at the bottom of a
+        300px box — below the fold on a phone, and far from the only other
+        control on the panel. Jordan, 14 Sep 2026: "add a button next to copy
+        snippet on the left that says show more code."
+      */}
       <div className="sti-code-copy">
+        {clipped && (
+          <button
+            type="button"
+            className="sti-code-more"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            aria-label={`${expanded ? "Show less" : "Show more"} code — ${name}`}
+          >
+            {expanded ? "Show less code" : "Show more code"}
+          </button>
+        )}
         <CopyButton
           value={code}
           label="Copy snippet"
@@ -793,17 +829,6 @@ function CodeBlock({
           <code>{code}</code>
         </pre>
       </div>
-      {clipped && (
-        <button
-          type="button"
-          className="sti-code-more"
-          onClick={() => setExpanded((v) => !v)}
-          aria-expanded={expanded}
-          aria-label={`${expanded ? "Show less" : "Show more"} of ${name}`}
-        >
-          {expanded ? "Show less" : "Show more"}
-        </button>
-      )}
     </div>
   );
 }

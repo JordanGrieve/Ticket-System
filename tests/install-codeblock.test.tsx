@@ -11,9 +11,10 @@ import InstallView from "../components/InstallView";
  * written for a machine. At full height it is the whole screen: the steps
  * around it, the newsletter section and the key rotation all get pushed off,
  * and a client scrolls past text they were never meant to read. Jordan,
- * 14 Sep 2026 — "a third of the size unless they hit show more", then shorter
- * again: "it should go down to their name here, the rest should be hidden". The
- * cut lands on the line carrying the client's own business name.
+ * 14 Sep 2026 — "a third of the size unless they hit show more". It went to
+ * three lines, which turned out to be too far the other way: the box read as a
+ * label and said nothing about what the prompt does. It sits at fifteen lines,
+ * with the opener that carries the client's own business name and the endpoint.
  *
  * ── THE ASSERTION THAT MATTERS ──
  * Copy has to take the WHOLE prompt while the block is collapsed. The obvious
@@ -60,22 +61,35 @@ afterEach(() => {
  * nothing ever overflows. The measurement is the component's job, not this
  * file's — these tests stub the two properties so the clipped branch is
  * reachable at all, and assert on what the component DOES with the answer.
+ *
+ * ── THE PART THAT HAS TO BE RIGHT ──
+ * clientHeight depends on `is-clipped`, because in a browser it does: the cap
+ * is a stylesheet rule on that class, so an unclipped block has no cap and its
+ * two heights are EQUAL. The first version of this stub returned 2000 and 300
+ * whenever it saw a code block, clipped or not — a browser cannot produce that,
+ * and under it a component that waits to detect overflow before clipping looks
+ * like it works. One did. It shipped, every prompt on the live page stood at
+ * full height with no Show more anywhere, and all ten tests here were green.
  */
 function makeEverythingOverflow() {
+  const isBlock = (el: { className?: string }) =>
+    el.className?.includes?.("sti-code-clip") ?? false;
+  const isClipped = (el: { className?: string }) =>
+    el.className?.includes?.("is-clipped") ?? false;
+
   Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
     configurable: true,
     get() {
-      return this.className?.includes?.("sti-code-clip") ? 2000 : 0;
+      return isBlock(this) ? 2000 : 0;
     },
   });
   Object.defineProperty(HTMLElement.prototype, "clientHeight", {
     configurable: true,
     get() {
-      // Any value below the scrollHeight above would do — the component only
-      // compares the two. 92 because that is what the stylesheet caps a clipped
-      // block at, so a reader is not left thinking the number is arbitrary when
-      // it happens to match, or authoritative when it does not.
-      return this.className?.includes?.("sti-code-clip") ? 92 : 0;
+      if (!isBlock(this)) return 0;
+      // Capped only while the class is on — 300px, what the stylesheet says.
+      // Uncapped, the box is as tall as its content and overflows by nothing.
+      return isClipped(this) ? 300 : 2000;
     },
   });
   vi.stubGlobal(
@@ -158,6 +172,26 @@ describe("a long prompt", () => {
     expect(less.getAttribute("aria-expanded")).toBe("true");
     fireEvent.click(less);
     expect(clip()?.className).toContain("is-clipped");
+  });
+
+  it("puts the opener beside Copy snippet, to its left", () => {
+    /*
+     * Where the control IS, not just that it exists. It spent two revisions
+     * under the block, which at 300px of code puts it below the fold on a
+     * phone — a button you have to scroll to in order to learn there is more
+     * to scroll to. Jordan, 14 Sep 2026: "next to copy snippet on the left".
+     */
+    makeEverythingOverflow();
+    show();
+
+    const row = document.querySelector(".sti-code-copy");
+    expect(row, "the code panel has no control row").not.toBeNull();
+
+    const buttons = [...row!.querySelectorAll("button")];
+    expect(
+      buttons.map((b) => (b.textContent ?? "").trim()),
+      "the opener is not in the row with Copy, or is not first in it",
+    ).toEqual(["Show more code", "Copy snippet"]);
   });
 
   it("COPIES THE WHOLE THING while still collapsed", async () => {
