@@ -1531,6 +1531,32 @@ export type CampaignDraftInput = {
   products: CampaignProduct[];
 };
 
+/**
+ * The name a duplicate gets: "Saturday hours" → "Saturday hours (copy)".
+ *
+ * ── PURE, AND HERE RATHER THAN BESIDE THE COPY ──
+ * It is string handling with three rules that are each easy to get wrong and
+ * impossible to see afterwards, so it lives in the half of this feature that
+ * can be run in a test rather than read as source.
+ *
+ *  1. An existing "(copy)" is REPLACED, not appended to. Duplicating a
+ *     duplicate is the normal way to try a third subject line, and by the
+ *     third attempt a naive append produces "Sale (copy) (copy) (copy)" —
+ *     which eats the name it exists to identify.
+ *  2. The NAME is trimmed to make room, never the suffix. A name already at
+ *     CAMPAIGN_NAME_MAX would otherwise produce something the validator that
+ *     accepted the original now refuses, i.e. a button that breaks the next
+ *     save rather than failing honestly.
+ *  3. An empty name still yields something saveable. `name` is notNull, and a
+ *     row with a blank one exists (it was typed, then cleared).
+ */
+export function copyCampaignName(name: string): string {
+  const base = name.replace(/\s*\(copy( \d+)?\)$/i, "").trim() || "Untitled";
+  const suffix = " (copy)";
+  const room = CAMPAIGN_NAME_MAX - suffix.length;
+  return `${base.length > room ? base.slice(0, room).trimEnd() : base}${suffix}`;
+}
+
 export type CampaignInputResult =
   | { ok: true; value: CampaignDraftInput }
   | { ok: false; error: string };

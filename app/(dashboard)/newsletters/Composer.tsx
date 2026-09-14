@@ -410,6 +410,7 @@ export default function Composer({
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   /** The Delete button's second press. See destroy(). */
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -660,6 +661,49 @@ export default function Composer({
    * the server refuses the rest, and offering a control that always fails is
    * worse than not offering it.
    */
+  /**
+   * Copy this campaign into a new draft and open it.
+   *
+   * ── IT ASKS THE SERVER FOR THE COPY ──
+   * Rather than posting the fields currently on screen. Two reasons, and the
+   * second is the one that matters: the open campaign may have unsaved edits,
+   * so "duplicate" would otherwise copy something that was never sent; and the
+   * server builds the copy through `draftColumns`, whose `satisfies` means a
+   * field added to a campaign later cannot be silently dropped from a copy.
+   * The client would have to be remembered to update, and it would not be.
+   *
+   * No unsaved-changes guard: nothing here is discarded. The current draft is
+   * left exactly as it is, and `open()` runs its own guard before replacing it.
+   */
+  async function duplicate() {
+    if (savedId === null || duplicating) return;
+    setDuplicating(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/campaigns/${savedId}/duplicate`, {
+        method: "POST",
+      });
+      const payload = (await res.json()) as {
+        campaign?: { id: number };
+        error?: string;
+      };
+      if (!res.ok || !payload.campaign) {
+        setError(payload.error ?? "Couldn’t duplicate that campaign.");
+        return;
+      }
+      await refreshList();
+      // Straight into the copy. Duplicating in order to change something means
+      // the next act is editing it, and leaving the sent original open would
+      // put the locked banner in front of somebody who had just asked for a
+      // way past it.
+      await open(payload.campaign.id, true);
+    } catch {
+      setError("Couldn’t reach the server.");
+    } finally {
+      setDuplicating(false);
+    }
+  }
+
   async function destroy() {
     if (draft.id === null || deleting) return;
     if (!confirmingDelete) {
@@ -1513,6 +1557,31 @@ export default function Composer({
                   : confirmingDelete
                     ? "Delete for good?"
                     : "Delete"}
+              </button>
+            )}
+            {/*
+              The way FORWARD from the lock.
+
+              A sent campaign cannot be edited, and should not be: the row is
+              what a client's customers were told. Until this button the only
+              route from "send it again with a change" was retyping the whole
+              thing, which made a correct rule read as an obstacle — Jordan,
+              14 Sep 2026: "I can't resend another email if I change it? Why is
+              it locked?"
+
+              Offered on any SAVED campaign rather than only a sent one:
+              copying a draft to try a second subject line is the same wish
+              arriving earlier.
+            */}
+            {draft.id !== null && (
+              <button
+                type="button"
+                className="nl-duplicate"
+                onClick={duplicate}
+                disabled={duplicating}
+                aria-label={`Duplicate ${draft.name || "this campaign"} as a new draft`}
+              >
+                {duplicating ? "Duplicating…" : "Duplicate"}
               </button>
             )}
             <button

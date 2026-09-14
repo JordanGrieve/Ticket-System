@@ -233,3 +233,47 @@ describe("a step points at the thing it is asking for", () => {
     });
   });
 });
+
+describe("a sent campaign offers a way forward", () => {
+  /*
+   * The lock on a sent campaign is right — the row is the record of what a
+   * client's customers were told — but until 14 Sep 2026 it had no exit, so
+   * "send that again with one word changed" meant retyping it. Jordan: "I
+   * can't resend another email if I change it? Why is it locked?"
+   *
+   * Rendered rather than read as source: whether a button EXISTS at the moment
+   * somebody needs it is client state, and the static harness cannot show it
+   * because no campaign is open until one is clicked.
+   */
+  it("offers Duplicate once a campaign is open", async () => {
+    stubFetch();
+    show();
+    // Nothing is open yet, so there is nothing to duplicate.
+    expect(screen.queryByRole("button", { name: /^Duplicate/ })).toBeNull();
+
+    openCampaign();
+    await screen.findByRole("button", { name: /Duplicate Saturday hours/ });
+  });
+
+  it("asks the SERVER for the copy", async () => {
+    /*
+     * Not "post the fields on screen". The open campaign may carry unsaved
+     * edits, so copying the form would duplicate something that was never
+     * sent — and the server builds the copy through draftColumns, whose
+     * `satisfies` is what stops a field being dropped. A client-side copy
+     * would have to be remembered to update, and it would not be.
+     */
+    const calls = stubFetch();
+    show();
+    openCampaign();
+
+    fireEvent.click(await screen.findByRole("button", { name: /Duplicate/ }));
+
+    await waitFor(() => {
+      expect(
+        calls,
+        "the Duplicate button did not ask the server for a copy",
+      ).toContain("POST /api/campaigns/11/duplicate");
+    });
+  });
+});

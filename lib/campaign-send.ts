@@ -30,7 +30,9 @@ import {
 import {
   isEditableStatus,
   safeImageUrl,
+  isTemplateKey,
   sanitiseStoredProducts,
+  copyCampaignName,
   listUnsubscribeHeaders,
   campaignFromHeader,
   mailableSender,
@@ -288,6 +290,64 @@ export async function createCampaign(
 
   return created;
 }
+
+/**
+ * Copy a campaign into a fresh draft.
+ *
+ * ── WHY A SENT CAMPAIGN CANNOT SIMPLY BE REOPENED ──
+ * Because that row is the RECORD of a send, not a reusable document. Every
+ * recipient row points at it and says "this subject reached me at this time";
+ * editing it would leave those rows describing an email that never existed,
+ * with no way afterwards to tell which version anybody actually received. So
+ * the campaign stays closed and the content moves somewhere new.
+ *
+ * Jordan, 14 Sep 2026, on the locked banner: "I can't resend another email if
+ * I change it? Why is it locked?" The lock was right; what was missing was the
+ * way forward from it, which left retyping the whole thing as the only option.
+ *
+ * ── WHAT IS COPIED, AND WHAT IS NOT ──
+ * The content, all of it — via `draftColumns`, so the `satisfies` there means
+ * a field added to CampaignDraftInput later cannot be silently left out of a
+ * copy. That guard exists because createCampaign once listed six of nine
+ * fields and dropped a client's image and products on the first save.
+ *
+ * NOT copied: status, schedule, recipients, sent time, the provider's message
+ * ids. Those describe the ORIGINAL send. A duplicate that carried them would
+ * be a second row claiming the same history.
+ */
+export async function duplicateCampaign(
+  workspaceId: number,
+  campaignId: number,
+): Promise<Campaign | null> {
+  const source = await getCampaign(workspaceId, campaignId);
+  if (!source) return null;
+
+  /*
+    Re-validated on the way out, not trusted because it is already in the
+    database. `products` is jsonb and `template_key` is free text; a row
+    written by an older version of this code is exactly the one that reaches a
+    renderer nobody expected. Same treatment the send path gives it.
+  */
+  const copy: CampaignDraftInput = {
+    name: copyCampaignName(source.name),
+    subject: source.subject,
+    preheader: source.preheader,
+    templateKey: isTemplateKey(source.templateKey) ? source.templateKey : "plain",
+    body: source.body,
+    // Audiences are workspace-wide now; a stored listId is history from when
+    // they were not, and carrying it forward would revive a dead concept.
+    listId: null,
+    heroImageUrl: safeImageUrl(source.heroImageUrl),
+    heroImageAlt: source.heroImageAlt,
+    products: sanitiseStoredProducts(source.products),
+  };
+
+  const created = await createCampaign(workspaceId, copy);
+  // listId is null above, so the only failure createCampaign reports cannot
+  // happen here. Narrowed rather than cast.
+  return "error" in created ? null : created;
+}
+
 
 /**
  * Edit a draft. Null when the id isn't this workspace's; `not_editable` once
