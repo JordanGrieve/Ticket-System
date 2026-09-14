@@ -1505,6 +1505,75 @@
   white-space: pre;
 }
 
+/*
+  Collapsed by default, to about a third of a prompt.
+
+  The AI prompt is seventy lines written for a machine to read. At full height
+  it pushes the rest of the install page off the screen, so it is clipped until
+  somebody asks for it. 420px is roughly a third of a typical prompt and about
+  fifteen lines — enough to see what it is and that it is long.
+
+  The class is only applied when the content actually exceeds this, so a short
+  snippet is never clipped and never grows a pointless button. See CodeBlock.
+*/
+.sti-code-clip {
+  position: relative;
+}
+
+.sti-code-clip.is-clipped {
+  max-height: 420px;
+  overflow: hidden;
+}
+
+/*
+  The fade says "there is more" before the button does.
+
+  --brand-panel is a FIXED colour in both themes (the block is a terminal, not
+  a themed surface), so one gradient is correct everywhere and needs no
+  per-theme value.
+
+  The top stop is the panel colour at zero alpha rather than the bare keyword
+  "transparent", which several engines interpolate through black and render as
+  a grey smear across the last few lines of code.
+*/
+.sti-code-clip.is-clipped::after {
+  content: "";
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  bottom: 0;
+  height: 72px;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--brand-panel) 0%, transparent),
+    var(--brand-panel)
+  );
+}
+
+.sti-code-more {
+  display: block;
+  width: 100%;
+  min-height: var(--tap-min, 44px);
+  border: none;
+  border-top: 1px solid var(--brand-panel-pill-bg);
+  border-radius: 0 0 12px 12px;
+  background: var(--brand-panel);
+  color: var(--brand-panel-fg);
+  font-size: 0.78125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sti-code-more:hover {
+  background: var(--brand-panel-deep);
+}
+
+.sti-code-more:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--accent));
+  outline-offset: -3px;
+}
+
 /* ── read-only value + copy button ──────────────────────────── */
 
 .sti-field {

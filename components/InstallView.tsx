@@ -635,15 +635,85 @@ function Section({
   );
 }
 
+/**
+ * A snippet, shown short until somebody asks for the rest.
+ *
+ * ── WHY ──
+ * Both install sections lead with an AI prompt now, and a prompt is seventy
+ * lines of instructions written for a machine. Rendered in full it is the whole
+ * screen: the steps around it, the newsletter section below it and the key
+ * rotation at the bottom all get pushed off, and a client scrolls past a wall
+ * of text they were never meant to read to reach the thing they were looking
+ * for. Jordan, 14 Sep 2026 — "they don't need to be the full size, just do it a
+ * third of the size unless they hit show more".
+ *
+ * ── THE TOGGLE ONLY APPEARS WHEN IT IS EARNED ──
+ * Measured, not assumed. The contact section shows a six-line form in its
+ * no-code mode and a seventy-line prompt in the other, through this same
+ * component; a "Show more" under six lines that are already all visible is a
+ * control that lies about there being something behind it. So the height is
+ * compared against the content after layout, and the button is rendered only
+ * if the thing genuinely overflows.
+ *
+ * ── COPY TAKES THE WHOLE THING ──
+ * The copy button reads `code`, not the DOM, so a collapsed block still copies
+ * every line. Worth stating because the obvious implementation — read the
+ * rendered text — would silently hand somebody a third of a prompt, and it
+ * would look like it worked.
+ */
 function CodeBlock({ code }: { code: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const clipRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = clipRef.current;
+    if (!el) return;
+    // Compared while collapsed; expanding removes the cap, so measuring then
+    // would always report "fits" and the button would vanish on first press.
+    const check = () => {
+      if (expanded) return;
+      setOverflows(el.scrollHeight > el.clientHeight + 1);
+    };
+    check();
+    // Re-measured on resize: the same prompt wraps differently at phone width,
+    // and a block that overflows on a laptop may not on a wide screen.
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [code, expanded]);
+
   return (
     <div className="sti-code">
       <div className="sti-code-copy">
         <CopyButton value={code} label="Copy snippet" compact />
       </div>
-      <pre>
-        <code>{code}</code>
-      </pre>
+      {/*
+        The clip is a wrapper, not the <pre> itself.
+
+        The <pre> scrolls horizontally, and an absolutely positioned fade inside
+        a horizontally scrolling box slides away sideways with the content. The
+        wrapper does the vertical clipping and carries the fade; the <pre> keeps
+        its own overflow-x and nothing moves.
+      */}
+      <div
+        ref={clipRef}
+        className={`sti-code-clip${!expanded && overflows ? " is-clipped" : ""}`}
+      >
+        <pre>
+          <code>{code}</code>
+        </pre>
+      </div>
+      {overflows && (
+        <button
+          type="button"
+          className="sti-code-more"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
     </div>
   );
 }
