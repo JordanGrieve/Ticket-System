@@ -1461,7 +1461,24 @@ async function promoteDueScheduledCampaigns(): Promise<number> {
  * The EXISTS clause is what makes a drained campaign disappear from the sweep
  * even in the window before `settleCampaign` has marked it `sent`.
  */
-export async function claimDueCampaigns(limit: number): Promise<DueCampaign[]> {
+export async function claimDueCampaigns(
+  limit: number,
+  /**
+   * Restrict to ONE campaign, for the inline send behind "Send now".
+   *
+   * The sweep passes nothing and takes whatever is due, oldest first. The
+   * button passes the campaign somebody just armed, because the person is
+   * waiting for THAT email and has no interest in another workspace's backlog
+   * being worked through first — and because a request holding open while it
+   * drains three tenants' campaigns is a request that times out.
+   *
+   * It narrows and never widens: the `sending` status and the has-queued-rows
+   * predicate below still apply, so this cannot reach a campaign that is not
+   * due, and the workspace scoping that matters is enforced by the caller
+   * having read the campaign through `getCampaign(workspaceId, id)` first.
+   */
+  onlyCampaignId?: number,
+): Promise<DueCampaign[]> {
   await promoteDueScheduledCampaigns();
 
   const rows = await db
@@ -1486,6 +1503,10 @@ export async function claimDueCampaigns(limit: number): Promise<DueCampaign[]> {
           SELECT 1 FROM campaign_recipients cr
           WHERE cr.campaign_id = ${campaigns.id} AND cr.status = 'queued'
         )`,
+        // Added to the existing predicates, never replacing them.
+        ...(onlyCampaignId === undefined
+          ? []
+          : [eq(campaigns.id, onlyCampaignId)]),
       ),
     )
     .orderBy(campaigns.updatedAt)

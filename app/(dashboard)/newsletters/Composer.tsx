@@ -31,6 +31,7 @@ import {
   describeDrain,
 } from "@/lib/campaign-schedule";
 import type { CampaignHealth } from "@/lib/campaign-health";
+import type { SweepSummary } from "@/lib/campaign-cron";
 import { CAMPAIGN_TEMPLATES } from "@/lib/campaign-templates";
 import {
   describeWhen,
@@ -181,7 +182,12 @@ type ScheduleState =
   | { kind: "idle" }
   | { kind: "working" }
   | { kind: "error"; message: string }
-  | { kind: "armed"; immediate: boolean }
+  | {
+      kind: "armed";
+      immediate: boolean;
+      /** The inline pass's own counts, or null when there was not one. */
+      sent: SweepSummary | null;
+    }
   | { kind: "cancelled" };
 
 /**
@@ -1045,6 +1051,7 @@ export default function Composer({
       const payload = (await res.json()) as {
         campaign?: CampaignJson;
         immediate?: boolean;
+        sent?: SweepSummary | null;
         error?: string;
       };
       if (!res.ok || !payload.campaign) {
@@ -1055,7 +1062,11 @@ export default function Composer({
         return;
       }
       setDraft(draftFrom(payload.campaign));
-      setSchedule({ kind: "armed", immediate: payload.immediate === true });
+      setSchedule({
+        kind: "armed",
+        immediate: payload.immediate === true,
+        sent: payload.sent ?? null,
+      });
       await Promise.all([refreshList(), refreshDiagnosis(savedId)]);
     } catch {
       setSchedule({ kind: "error", message: "Couldn’t reach the server." });
@@ -2547,6 +2558,29 @@ export default function Composer({
                 <p className="nl-note" role="status">
                   Schedule cancelled. This campaign is a draft again and its
                   queued recipients are untouched.
+                </p>
+              )}
+              {/*
+                What "Send now" actually did, from the server's own count.
+
+                Reported rather than assumed: the request sends one pass and
+                the sweep drains the rest, so the honest answer after pressing
+                the button is a number, not "sent". Saying "sent" over a list
+                that has three hundred left would be the screen lying about the
+                one thing somebody is watching it for.
+              */}
+              {schedule.kind === "armed" && schedule.sent && (
+                <p className="nl-note" role="status">
+                  {schedule.sent.delivered > 0
+                    ? `${schedule.sent.delivered.toLocaleString()} sent just now.`
+                    : "Nothing went out in that first pass."}{" "}
+                  {schedule.sent.failed > 0 &&
+                    `${schedule.sent.failed.toLocaleString()} failed. `}
+                  {schedule.sent.more
+                    ? "The rest follow on the next sweep, about once an hour."
+                    : schedule.sent.completed > 0
+                      ? "That was everybody — this campaign is done."
+                      : ""}
                 </p>
               )}
             </section>

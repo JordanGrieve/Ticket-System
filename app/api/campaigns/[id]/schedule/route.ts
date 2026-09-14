@@ -4,6 +4,19 @@ import { activeWorkspace } from "@/lib/viewer";
 import { cancelCampaignSchedule, scheduleCampaign } from "@/lib/campaign-send";
 import { parseScheduleTime } from "@/lib/campaign-schedule";
 import { mailableSender } from "@/lib/newsletter";
+import { runCampaignSweep } from "@/lib/campaign-sweep-run";
+import type { SweepSummary } from "@/lib/campaign-cron";
+
+/**
+ * How long "Send now" may spend sending before it stops and leaves the rest
+ * to the sweep.
+ *
+ * Twelve seconds, against the cron's forty-five. This one is in front of a
+ * person watching a button: long enough to finish a small list outright,
+ * short enough that a slow provider does not make the page look broken. The
+ * remainder is not lost — every unreached row is still queued.
+ */
+const INLINE_SEND_DEADLINE_MS = 12_000;
 
 /**
  * POST   /api/campaigns/:id/schedule  → arm the campaign  (draft → scheduled)
@@ -14,25 +27,29 @@ import { mailableSender } from "@/lib/newsletter";
  * so before this route existed `promoteDueScheduledCampaigns` matched zero rows
  * on every tick and the whole send pipeline behind it was dead code.
  *
- * ── THIS ROUTE DOES NOT SEND EMAIL, INCLUDING ON "SEND NOW" ──
+ * ── THIS ROUTE DOES SEND EMAIL NOW, ON "SEND NOW" ONLY ──
  *
- * It writes two columns. What that buys is visibility to the scheduled sweep
- * (app/api/cron/campaigns/route.ts), which runs about every five minutes on a
- * best-effort GitHub Actions schedule and hands each
- * message to the deliverer returned by `createCampaignDeliverer()` — the
- * LOG-ONLY one, unless `CAMPAIGN_DELIVERY_MODE=ses`, which is set in no
- * environment. So a campaign scheduled through here will, at the next sweep,
- * write log lines and mark rows `sent`, and transmit nothing to anybody. The
- * composer says exactly that on screen; see Composer.tsx.
+ * It used to write two columns and leave the rest to the sweep, and this
+ * header said at length that no route ever called `sendCampaignBatch`. That
+ * was true while the sweep ran every five minutes and while the only provider
+ * was a sandboxed SES that could reach nobody. It is not true now: the sweep
+ * is HOURLY (a five-minute one keeps the Neon compute awake past the free
+ * allowance, and Neon answers that by suspending it), and Resend reaches
+ * strangers. "Send now" meaning "within the hour" is not what the button says.
  *
- * There is still deliberately NO route that calls `sendCampaignBatch`.
+ * So an immediate schedule runs ONE pass of the shared send loop —
+ * lib/campaign-sweep-run.ts, the same code the cron calls — before returning.
  *
- * ── "SEND NOW" IS THE SAME CODE PATH ──
+ * ── "SEND NOW" IS STILL THE SAME CODE PATH ──
  *
  * The body carries one optional field, `scheduledAt`. Omitted, null or empty
- * means "now", which the very next sweep finds due. There is no second branch
- * that skips straight to `sending`, because that branch would be the one that
+ * means "now". There is still no second branch that skips straight to
+ * `sending`: the campaign is armed by exactly the same `scheduleCampaign` call
+ * with exactly the same preconditions, and only then is the sweep run against
+ * it. A branch that reached the deliverer another way would be the one that
  * eventually skipped a precondition.
+ *
+ * A future schedule is untouched by any of this and waits for the sweep.
  *
  * ── TENANCY ──
  *
@@ -128,7 +145,60 @@ export async function POST(
     );
   }
 
-  return json({ ok: true, campaign: result, immediate: when.immediate });
+  /*
+    ── "SEND NOW" MEANS NOW ──
+
+    Armed for immediately: run one pass of the send loop here, in this request,
+    rather than leaving it for the hourly sweep. Before this, "Send now" meant
+    "in up to fifty-nine minutes", which for a list of three is a very long
+    time to look at a page wondering whether anything happened. Jordan,
+    14 Sep 2026: "so wait, when I send it out, it's not straight away, but a
+    set time?"
+
+    A faster cron is the obvious alternative and the wrong one: every tick
+    wakes the Neon compute for the autosuspend window whether or not there is
+    work, and five-minute sweeps run at roughly 180 CU-hours against a 100-hour
+    allowance — which Neon Free answers by suspending the compute, i.e. taking
+    the product down. Sending inside a request somebody just made adds no
+    scheduled wakes at all.
+
+    ── IT CANNOT FAIL THE REQUEST ──
+    The campaign IS armed by this point and the row says so. If the pass
+    refuses (no envelope configured) or throws (provider down mid-batch), the
+    right answer is still 200: the campaign is scheduled, the hourly sweep is
+    the safety net it always was, and every unreached row is still `queued`.
+    Reporting a failure here would tell somebody their campaign did not send
+    when it is queued and will.
+
+    A SHORTER deadline than the cron's. A button that holds a request open for
+    forty-five seconds reads as broken; the remainder is exactly what the sweep
+    exists for.
+  */
+  let sent: SweepSummary | null = null;
+  if (when.immediate) {
+    try {
+      const run = await runCampaignSweep({
+        onlyCampaignId: campaignId,
+        deadlineMs: INLINE_SEND_DEADLINE_MS,
+      });
+      if (run.ok) sent = run.summary;
+      else console.error(`[schedule] inline send skipped: ${run.detail}`);
+    } catch (err) {
+      console.error("[schedule] inline send failed:", err);
+    }
+  }
+
+  return json({
+    ok: true,
+    campaign: result,
+    immediate: when.immediate,
+    /**
+     * What the inline pass managed, or null when there was not one (a future
+     * schedule) or it could not run. The composer reports from this rather
+     * than claiming a send it cannot see the result of.
+     */
+    sent,
+  });
 }
 
 export async function DELETE(
