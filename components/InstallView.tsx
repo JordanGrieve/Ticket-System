@@ -184,17 +184,21 @@ export default function InstallView({
     if (button) button.disabled = true;   // no double submissions
     say("Sending…", "sending");
 
-    var f = new FormData(form);
+    // Every field the form has, under whatever it calls them. Postbox works
+    // out which is the name, the email and the message — so this works as-is
+    // on Shopify (contact[name]), WordPress (your-name), Elementor
+    // (form_fields[name]) and a form somebody wrote by hand, with nothing to
+    // edit here.
+    var payload = {};
+    new FormData(form).forEach(function (value, key) {
+      if (typeof value === "string") payload[key] = value;
+    });
+
     try {
       var res = await fetch("${endpoint}", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: f.get("name"),
-          email: f.get("email"),
-          message: f.get("message"),
-          subject: f.get("subject") // optional
-        })
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         form.reset();

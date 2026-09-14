@@ -1,6 +1,7 @@
 import { CORS_HEADERS, json, isValidEmail, clientIp } from "@/lib/http";
 import { rateLimitDurable } from "@/lib/rate-limit-store";
-import { isHoneypotTripped } from "@/lib/subscribe";
+import { isContactHoneypotTripped } from "@/lib/subscribe";
+import { readContactSubmission } from "@/lib/submission-fields";
 import { recordIngestionFailure } from "@/lib/ingestion-log";
 import { previewText } from "@/lib/tickets";
 import { upsertContact, createTicket } from "@/lib/data";
@@ -103,16 +104,19 @@ export async function POST(
   // Public, attacker-reachable input — cap every field's length.
   const fields = await readFields(req);
 
-  // Honeypot, shared with the newsletter signup so both forms trap the same
-  // field names and neither can drift. Answered as if it had worked: a bot
-  // told it failed retries with the field cleared, one told it succeeded goes
-  // away. Checked before validation so a tripped submission never reaches the
-  // database or the mailer.
-  //
-  // ABSENT is fine and always will be — the documented JSON API does not
-  // mention these fields, and the contact snippet that predates them omits
-  // them. This only ever catches a filler that populated one.
-  if (isHoneypotTripped(fields)) {
+  /*
+    Honeypot, on NAMESPACED field names — not the signup's.
+
+    It used to share the signup's list, "website" and "company", on a form we
+    did not write. Those are ordinary fields on a real contact form, so a
+    customer who typed their company name was treated as a bot: discarded
+    before validation, before the database, before the mailer, and thanked for
+    getting in touch. See CONTACT_HONEYPOT_FIELDS in lib/subscribe.ts.
+
+    Answered as if it had worked: a bot told it failed retries with the field
+    cleared, one told it succeeded goes away.
+  */
+  if (isContactHoneypotTripped(fields)) {
     await recordIngestionFailure({
       reason: "honeypot",
       key: apiKey,
@@ -120,10 +124,20 @@ export async function POST(
     });
     return honeypotSuccess(req, workspace.name);
   }
-  const name = (fields.name ?? "").trim().slice(0, 120);
-  const email = (fields.email ?? "").trim();
-  const message = (fields.message ?? "").trim().slice(0, 10_000);
-  const subject = (fields.subject ?? "").trim().slice(0, 200);
+  /*
+    Read by MEANING, not by exact spelling.
+
+    `fields.name` and friends only ever matched a form somebody wrote to our
+    documentation. Shopify posts contact[name], Contact Form 7 posts your-name,
+    Elementor posts form_fields[name] — so "point your form at this URL", the
+    mode a non-technical client picks, posted three empty strings from the two
+    platforms most of them are on. See lib/submission-fields.ts.
+  */
+  const raw = readContactSubmission(fields);
+  const name = raw.name.trim().slice(0, 120);
+  const email = raw.email.trim();
+  const message = raw.message.trim().slice(0, 10_000);
+  const subject = raw.subject.trim().slice(0, 200);
 
   const missing: string[] = [];
   if (!name) missing.push("name");

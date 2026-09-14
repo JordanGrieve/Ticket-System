@@ -179,6 +179,74 @@ describe("a successful submission", () => {
   });
 });
 
+describe("a form the snippet did not write", () => {
+  /**
+   * The point of sending every field rather than four named ones.
+   *
+   * The snippet used to read f.get("name") / "email" / "message", which are the
+   * names on a form written to our documentation and almost nothing else. It is
+   * the server that maps them now (lib/submission-fields.ts), so the snippet's
+   * only job is to hand over everything it can see.
+   */
+  function shopifyPage(): HTMLFormElement {
+    document.body.innerHTML = `
+      <form id="contact-form" action="/contact#contact_form">
+        <input name="form_type" type="hidden" value="contact" />
+        <input name="utf8" type="hidden" value="✓" />
+        <input name="contact[name]" />
+        <input name="contact[email]" />
+        <textarea name="contact[body]"></textarea>
+        <button type="submit">Send</button>
+      </form>`;
+    const form = document.querySelector("#contact-form") as HTMLFormElement;
+    (form.querySelector("[name='contact[name]']") as HTMLInputElement).value = "Priya Raman";
+    (form.querySelector("[name='contact[email]']") as HTMLInputElement).value = "priya@example.com";
+    (form.querySelector("textarea") as HTMLTextAreaElement).value = "Do you ship to Ireland?";
+    return form;
+  }
+
+  it("sends a Shopify form's real field names, untouched", async () => {
+    const fetchMock = vi.fn(async () => reply(201));
+    vi.stubGlobal("fetch", fetchMock);
+    const form = shopifyPage();
+    run();
+    await submit(form);
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const body = JSON.parse(String(init.body));
+    expect(body["contact[name]"]).toBe("Priya Raman");
+    expect(body["contact[email]"]).toBe("priya@example.com");
+    expect(body["contact[body]"]).toBe("Do you ship to Ireland?");
+  });
+
+  it("sends the hidden fields too, so the server can ignore them knowingly", async () => {
+    const fetchMock = vi.fn(async () => reply(201));
+    vi.stubGlobal("fetch", fetchMock);
+    const form = shopifyPage();
+    run();
+    await submit(form);
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body),
+    );
+    expect(body.form_type).toBe("contact");
+  });
+
+  it("does not invent the four documented names out of nothing", async () => {
+    // Sending name:null, email:null, message:null was the old behaviour, and it
+    // is what made a Shopify install fail with "Missing required field(s)".
+    const fetchMock = vi.fn(async () => reply(201));
+    vi.stubGlobal("fetch", fetchMock);
+    const form = shopifyPage();
+    run();
+    await submit(form);
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body),
+    );
+    expect(body).not.toHaveProperty("name");
+    expect(body).not.toHaveProperty("message");
+  });
+});
+
 describe("while the request is in flight", () => {
   it("disables the button, so an impatient visitor cannot send twice", async () => {
     /*

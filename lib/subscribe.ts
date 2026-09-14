@@ -94,9 +94,51 @@ export const HONEYPOT_FIELDS = ["website", "company"] as const;
  * ABSENT is fine — the JSON API is documented without these fields and a
  * legitimate integration will not send them. Only a PRESENT and NON-EMPTY
  * value trips it. Whitespace does not count: some browsers autofill a space.
+ *
+ * ── ONLY SAFE WHERE WE WROTE THE FORM ──
+ *
+ * This is the SIGNUP trap, and it stays on the signup because the signup form
+ * is ours: we emit those two inputs, hidden, and a human never sees them. Do
+ * not reach for it on the contact endpoint. See `isContactHoneypotTripped`.
  */
 export function isHoneypotTripped(fields: Record<string, string>): boolean {
   return HONEYPOT_FIELDS.some((name) => (fields[name] ?? "").trim() !== "");
+}
+
+/**
+ * The contact form's honeypots — namespaced, because that form is NOT ours.
+ *
+ * ── THE BUG THIS CLOSES ──
+ *
+ * The contact endpoint used `isHoneypotTripped` above, on a form somebody else
+ * wrote. "Company" and "Website" are ordinary fields on a real contact form —
+ * they are on most B2B ones — and a submission that filled either was treated
+ * as a bot: discarded before validation, before the database, before the
+ * mailer, and answered with a cheerful success page.
+ *
+ * So a client's customer typed their company name, pressed Send, was thanked,
+ * and no enquiry existed. That is the bakery failure again, in a new place and
+ * with a worse shape: the bakery at least left a trace to find, and this
+ * answers OK to the sender while recording "honeypot" on our side.
+ *
+ * Nothing we hand out has ever injected these on a contact form — modes A and
+ * B both omit them — so the old check could only ever fire on somebody else's
+ * legitimate field. It caught no bot it was not also catching by luck.
+ *
+ * Namespaced so the name cannot collide with anything a human would ask for,
+ * and prefixed so that reading it in a form's source says whose it is.
+ */
+export const CONTACT_HONEYPOT_FIELDS = [
+  "pb_hp_website",
+  "pb_hp_company",
+] as const;
+
+export function isContactHoneypotTripped(
+  fields: Record<string, string>,
+): boolean {
+  return CONTACT_HONEYPOT_FIELDS.some(
+    (name) => (fields[name] ?? "").trim() !== "",
+  );
 }
 
 // ── Input ────────────────────────────────────────────────────────

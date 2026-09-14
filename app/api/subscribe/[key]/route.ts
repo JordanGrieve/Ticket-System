@@ -2,6 +2,7 @@ import { CORS_HEADERS, json, clientIp } from "@/lib/http";
 import { rateLimitDurable } from "@/lib/rate-limit-store";
 import { getWorkspaceByApiKey } from "@/lib/data";
 import { recordIngestionFailure } from "@/lib/ingestion-log";
+import { readSignupSubmission } from "@/lib/submission-fields";
 import { APP_URL } from "@/lib/config";
 import {
   consentSourceFrom,
@@ -111,7 +112,9 @@ export async function POST(
     return accepted(req, workspace.name);
   }
 
-  const parsed = parseSignupInput(fields);
+  // Same liberal read as the contact endpoint: a Shopify signup posts
+  // contact[email], not email. See lib/submission-fields.ts.
+  const parsed = parseSignupInput(readSignupSubmission(fields));
   if (!parsed.ok) {
     return badRequest(req, parsed.error);
   }
