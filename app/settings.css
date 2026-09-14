@@ -1784,35 +1784,6 @@
   height: 24px;
 }
 
-/* Destructive, so it reads as the one warning colour the themes carry
-   rather than as another link. */
-/* Rotate the API key — which breaks every snippet the client has already
-   installed. `padding: 0` made it 15px tall; it clears 2.5.8 only through the
-   spacing exception, which is a thin argument for the most destructive control
-   on the page. The negative inline margin keeps the label flush left. */
-.sti-danger {
-  margin-top: 4px;
-  margin-inline: -6px;
-  min-height: var(--tap-min, 24px);
-  background: none;
-  border: 0;
-  padding: 0 6px;
-  border-radius: 8px;
-  font-size: 0.78125rem;
-  font-weight: 700;
-  color: var(--pdf-fg);
-  cursor: pointer;
-}
-
-.sti-danger:disabled {
-  cursor: wait;
-  color: var(--muted);
-}
-
-.sti-danger:hover:not(:disabled) {
-  text-decoration: underline;
-}
-
 .sti-download {
   display: inline-flex;
   align-items: center;
@@ -2598,75 +2569,6 @@
 .stg-brand-reset:focus-visible {
   outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 2px;
-}
-
-/* ── The rotate-key confirmation ─────────────────────────────────
-   Replaces window.confirm and window.alert in components/InstallView.tsx.
-   Tokens only, so it follows all six themes — which is the whole reason the
-   browser dialogs had to go: they render in exactly one palette, the operating
-   system's, and look like a fault in the other five. */
-.sti-confirm {
-  border: 1px solid var(--warn-fg);
-  background: var(--warn-bg);
-  border-radius: 12px;
-  padding: 14px 16px;
-}
-.sti-confirm-q {
-  margin: 0 0 12px;
-  color: var(--warn-fg);
-  font-size: 0.84375rem;
-  line-height: 1.6;
-}
-.sti-confirm-q b {
-  font-weight: 800;
-}
-.sti-confirm-acts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.sti-confirm-btn {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-2);
-  font: inherit;
-  font-size: 0.78125rem;
-  font-weight: 700;
-  border-radius: 9px;
-  padding: 7px 14px;
-  cursor: pointer;
-}
-.sti-confirm-btn:hover {
-  border-color: var(--border-strong);
-  color: var(--text);
-}
-.sti-confirm-btn:focus-visible {
-  outline: 2px solid var(--focus-ring, var(--accent));
-  outline-offset: 2px;
-}
-/* The destructive choice is the one that has to look different, not the one
-   that has to look inviting. */
-.sti-confirm-btn--danger {
-  border-color: var(--pdf-fg);
-  background: var(--pdf-bg);
-  color: var(--pdf-fg);
-}
-.sti-confirm-btn--danger:hover {
-  border-color: var(--pdf-fg);
-  color: var(--pdf-fg);
-  filter: brightness(1.08);
-}
-
-/* The failure message that used to be a window.alert. */
-.sti-rotate-error {
-  margin: 10px 0 0;
-  padding: 10px 13px;
-  border: 1px solid var(--pdf-fg);
-  border-radius: 10px;
-  background: var(--pdf-bg);
-  color: var(--pdf-fg);
-  font-size: 0.78125rem;
-  line-height: 1.55;
 }
 
 /* The welcome email's on/off row. A label and the switch it names, with the

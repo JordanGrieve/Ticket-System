@@ -37,10 +37,13 @@ import { STARTER_LABELS } from "@/lib/starter-labels";
  * question also puts the consequence beside the thing it applies to, which a
  * system alert with the label's name quoted into a string never managed.
  *
- * components/InstallView.tsx followed with the same pattern for its API-key
- * rotation (.sti-confirm* in app/settings.css), and Composer for stopping a
- * send and for leaving unsaved edits. There are no browser-native dialogs
- * left in the client.
+ * Composer followed with the same pattern for stopping a send and for leaving
+ * unsaved edits. There are no browser-native dialogs left in the client.
+ *
+ * InstallView had one too, for rotating the API key. That whole control moved
+ * to the operator console on 14 Sep 2026 — a client could take their own
+ * contact form offline with it, guarding a key that can read nothing — so the
+ * confirmation it needed went with it.
  */
 
 const COLOR_ORDER: LabelColor[] = ["tag_a", "tag_b", "tag_c"];

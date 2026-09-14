@@ -7,7 +7,7 @@ import type { ImpersonationReadRow } from "@/lib/impersonation-reads";
 import type { WorkspaceUsage } from "./queries";
 import { describePlan } from "./billing-rollup";
 import { createClientAction } from "./actions";
-import { AccountDrawer, DeletePanel } from "./account-panels";
+import { AccountDrawer, DeletePanel, RotateKeyPanel } from "./account-panels";
 import {
   accountStatus,
   formatDate,
@@ -94,6 +94,7 @@ export default function AccountsBrowser({
   usage,
   reads,
   deleteTarget,
+  rotateTarget,
   query,
   banners,
 }: {
@@ -107,6 +108,8 @@ export default function AccountsBrowser({
   reads: Record<number, ImpersonationReadRow[]>;
   /** From ?delete=<id>, which stays in the URL: it is a confirmation step. */
   deleteTarget: WorkspaceSummary | null;
+  /** From ?rotate=<id>. Same shape, same reason — a confirmation step. */
+  rotateTarget: WorkspaceSummary | null;
   query: AdminQuery;
   /** Server-rendered, passed through as a node — not re-rendered on a click. */
   banners: React.ReactNode;
@@ -168,6 +171,7 @@ export default function AccountsBrowser({
         {banners}
 
         {deleteTarget && <DeletePanel target={deleteTarget} />}
+        {rotateTarget && <RotateKeyPanel target={rotateTarget} />}
 
         <KpiGrid accounts={accounts} />
 

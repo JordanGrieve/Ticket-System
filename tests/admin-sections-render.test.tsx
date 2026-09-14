@@ -281,6 +281,7 @@ const panes: Record<string, React.ReactElement> = {
           usage={Object.fromEntries(usage)}
           reads={Object.fromEntries(reads)}
           deleteTarget={null}
+          rotateTarget={null}
           query={query}
           banners={null}
         />
@@ -301,6 +302,26 @@ const panes: Record<string, React.ReactElement> = {
           usage={Object.fromEntries(usage)}
           reads={Object.fromEntries(reads)}
           deleteTarget={accounts[0]!}
+          rotateTarget={null}
+          query={query}
+          banners={null}
+        />
+      ),
+      /*
+        The other type-the-name confirmation. It is a separate surface rather
+        than a variant of the one above because the two are never shown
+        together and their warnings say opposite things — one destroys data we
+        hold, the other breaks a website we do not.
+      */
+      "accounts-rotating": (
+        <AccountsBrowser
+          accounts={accounts}
+          teamSizes={{ 3: 2 }}
+          recentAccess={{ 3: sessions }}
+          usage={Object.fromEntries(usage)}
+          reads={Object.fromEntries(reads)}
+          deleteTarget={null}
+          rotateTarget={accounts[0]!}
           query={query}
           banners={null}
         />

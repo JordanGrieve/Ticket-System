@@ -282,16 +282,31 @@ export function describeAdminAction(action: AdminActionKind): string {
     // every ticket, message and contact, in one file, off our servers.
     case "workspace_exported":
       return "Downloaded all client data";
+    // Named for its consequence, not its mechanism. "Rotated API key" reads
+    // like housekeeping; what happened is that the client's website stopped
+    // being able to reach us until someone re-installs.
+    case "workspace_key_rotated":
+      return "Replaced ingestion key (client must re-install)";
   }
 }
 
 /**
  * Whether an action destroyed something.
  *
- * Used to mark the row in the console. The two destructive entries are the
- * reason the table exists, and a log where a deletion looks the same as a
- * creation makes somebody read every line to find the one that mattered.
+ * Used to mark the row in the console. The destructive entries are the reason
+ * the table exists, and a log where a deletion looks the same as a creation
+ * makes somebody read every line to find the one that mattered.
+ *
+ * A key rotation counts. Nothing is deleted from the database, but the old key
+ * is gone and every form on the client's site posting with it fails from that
+ * moment — silently, at their end, on a page we cannot see. In the one place
+ * an operator goes looking for "what did we do to this client", that belongs
+ * with the deletions rather than with the invites.
  */
 export function isDestructiveAdminAction(action: AdminActionKind): boolean {
-  return action === "workspace_deleted" || action === "admin_revoked";
+  return (
+    action === "workspace_deleted" ||
+    action === "admin_revoked" ||
+    action === "workspace_key_rotated"
+  );
 }

@@ -8,6 +8,7 @@ import { billingState, describePlan } from "./billing-rollup";
 import type { WorkspaceUsage } from "./queries";
 import {
   deleteClientAction,
+  rotateKeyAction,
   resendInviteAction,
   selectWorkspaceAction,
 } from "./actions";
@@ -23,8 +24,8 @@ import {
 } from "./ui";
 
 /**
- * The two panels that hang off a selected account: the drawer and the
- * type-the-name delete confirmation.
+ * The panels that hang off a selected account: the drawer, and the two
+ * type-the-name confirmations (delete, and replace the ingestion key).
  *
  * ── WHY THEY ARE NOT IN sections.tsx ──
  *
@@ -71,6 +72,54 @@ export function DeletePanel({ target }: { target: WorkspaceSummary }) {
         />
         <button type="submit" className="pba-btn pba-btn-danger">
           Permanently delete
+        </button>
+        <Link href="/admin" className="pba-btn">
+          Cancel
+        </Link>
+      </form>
+    </div>
+  );
+}
+
+/**
+ * The confirmation for replacing a client's ingestion key.
+ *
+ * Type-the-name, like the delete, and for a reason that is easy to argue with:
+ * nothing is deleted here, so it looks like the milder action. It is not. A
+ * delete is loud and lands on a client who asked for it; this one is silent and
+ * lands on a client who is not in the room. Their form keeps taking
+ * submissions, we stop receiving them, and nobody finds out until a customer
+ * complains that nobody replied.
+ *
+ * The consequence is stated in full rather than summarised. An operator doing
+ * this at 2am needs to read what has to happen NEXT, not what just happened.
+ */
+export function RotateKeyPanel({ target }: { target: WorkspaceSummary }) {
+  return (
+    <div className="pba-danger-panel">
+      <p className="pba-danger-title">Replace the ingestion key for {target.name}?</p>
+      <p className="pba-danger-text">
+        The current key stops working <b>immediately</b>. Every contact form and
+        newsletter signup on their website is posting with it, so their site
+        stops reaching Postbox — quietly, with no error a visitor can see —
+        until someone re-installs the snippet from their Install page.{" "}
+        <b>Arrange that first.</b> Only rotate if the key is being abused; it
+        cannot read any of their data, so a key on its own is not a leak. To
+        confirm, type the workspace name exactly: <b>{target.name}</b>
+      </p>
+      <form action={rotateKeyAction} className="pba-form">
+        <input type="hidden" name="workspaceId" value={target.id} />
+        <input
+          type="text"
+          name="confirmName"
+          required
+          autoComplete="off"
+          aria-label={`Type the workspace name "${target.name}" to confirm replacing their ingestion key`}
+          placeholder={`Type "${target.name}" to confirm`}
+          className="pba-input pba-input-grow"
+        />
+        <button type="submit" className="pba-btn pba-btn-danger">
+          Replace the key
         </button>
         <Link href="/admin" className="pba-btn">
           Cancel
@@ -284,6 +333,15 @@ export function AccountDrawer({
             </button>
           </form>
         )}
+        {/* Not styled as danger. It is genuinely less severe than the delete
+            below it, and a column of red buttons is a column nobody reads. The
+            panel it opens does the warning. */}
+        <Link
+          href={`${hrefFor(query, { account: account.id })}&rotate=${account.id}`}
+          className="pba-btn pba-btn-block"
+        >
+          Replace ingestion key…
+        </Link>
         <Link
           href={`${hrefFor(query, { account: account.id })}&delete=${account.id}`}
           className="pba-btn pba-btn-danger pba-btn-block"

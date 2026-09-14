@@ -18,8 +18,9 @@ import {
   getWorkspaceById,
   deleteWorkspace,
   getPendingAgent,
+  rotateWorkspaceApiKey,
 } from "@/lib/data";
-import { provisionWorkspace, INVITE_PREFIX } from "@/lib/workspace";
+import { provisionWorkspace, generateApiKey, INVITE_PREFIX } from "@/lib/workspace";
 import { sendInviteEmail } from "@/lib/email";
 import { APP_URL, EMAIL_FROM_ADDRESS } from "@/lib/config";
 import { isValidEmail } from "@/lib/http";
@@ -294,6 +295,78 @@ export async function deleteClientAction(formData: FormData): Promise<void> {
 
   revalidatePath("/admin");
   redirect(`/admin?deleted=${encodeURIComponent(workspace.name)}`);
+}
+
+/**
+ * Replace a client's public ingestion key.
+ *
+ * ── WHY THIS IS HERE AND NOT ON THE CLIENT'S OWN PAGE ──
+ * It was on the Install page: one button, no role check, offered to every team
+ * member a client invites, and irreversible. What it costs is their live
+ * contact form, which goes on posting to a dead key until somebody edits their
+ * website — the failure the ingestion route calls "THE bakery case", which ran
+ * for six weeks before anyone noticed. What it protects is close to nothing:
+ * the key authorises POSTing a ticket or a signup, cannot read a single row,
+ * and ships in the client's own page source by design.
+ *
+ * So it is a repair for abuse we can see and they cannot, and the re-install
+ * afterwards has to be arranged by someone who knows it is coming. Jordan,
+ * 14 Sep 2026: "this should be our call, no? not theirs."
+ *
+ * The new key goes back in the redirect on purpose. It is not a secret — it is
+ * about to be pasted into a public web page — and the operator needs to hand
+ * it to whoever is doing the re-install.
+ */
+export async function rotateKeyAction(formData: FormData): Promise<void> {
+  const actor = await requireAdminRow();
+
+  const id = Number(formData.get("workspaceId"));
+  if (!Number.isInteger(id)) redirect("/admin?error=Invalid workspace.");
+
+  const workspace = await getWorkspaceById(id);
+  if (!workspace) redirect("/admin?error=That workspace no longer exists.");
+
+  // Same shape of confirmation as the delete: the name, typed. Both actions
+  // break something at the client's end that they did not ask for, and this is
+  // the one that looks harmless in a list of buttons.
+  const confirmName = String(formData.get("confirmName") ?? "").trim();
+  if (confirmName !== workspace.name) {
+    redirect(
+      `/admin?rotate=${id}&error=${encodeURIComponent(
+        "The name you typed didn't match — the key was not changed.",
+      )}`,
+    );
+  }
+
+  const updated = await rotateWorkspaceApiKey(workspace.id, generateApiKey());
+  if (!updated) redirect("/admin?error=That workspace no longer exists.");
+
+  /*
+    Recorded AFTER the rotation, unlike the delete above, and the difference is
+    deliberate: a delete destroys the row the record names, so it has to be
+    written while there is still something to name. Here the workspace survives
+    and the thing worth recording is that the key actually changed — logging an
+    intention that then failed would put a rotation in the log that never
+    happened, and send somebody hunting for a re-install nobody needs.
+
+    The old key is not stored. It is dead, it identifies nothing, and writing
+    it down would only make the log a list of keys.
+  */
+  await recordAdminAction({
+    action: "workspace_key_rotated",
+    actorAdminId: actor.id,
+    actorEmail: actor.email,
+    targetId: workspace.id,
+    targetLabel: workspace.name,
+    detail: `new key ${updated.apiKey}`,
+  });
+
+  revalidatePath("/admin");
+  redirect(
+    `/admin?account=${workspace.id}&rotated=${encodeURIComponent(
+      workspace.name,
+    )}&key=${encodeURIComponent(updated.apiKey)}`,
+  );
 }
 
 /** Grant super-admin to another email (a collaborator who can help clients). */

@@ -1623,7 +1623,24 @@ export type AdminActionKind =
    * portability and is not logged, the same way their own staff reading their
    * own inbox is not. This fires only during an impersonation.
    */
-  | "workspace_exported";
+  | "workspace_exported"
+  /*
+   * An operator replaced a client's public ingestion key.
+   *
+   * It is an OPERATOR action rather than a client one because the button used
+   * to sit on the client's own Install page, where it was one click, offered
+   * to every team member, and irreversible — and what it breaks is their live
+   * contact form, which keeps posting to a key that no longer exists until
+   * somebody edits their website. The ingestion route's own comments record
+   * the bakery that did exactly that for six weeks without knowing.
+   *
+   * The key protects nothing on the read side: it authorises POSTing a ticket
+   * or a newsletter signup and nothing else, and it ships in the client's page
+   * source by design. So rotating is a repair for abuse, which we notice and
+   * they do not — and the re-install afterwards is the part that actually
+   * needs a person who knows it has to happen.
+   */
+  | "workspace_key_rotated";
 
 /**
  * WHICH client records an operator actually opened, during an impersonation.

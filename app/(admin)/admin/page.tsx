@@ -106,6 +106,9 @@ export default async function AdminHomePage({
     deleted?: string;
     removed?: string;
     delete?: string;
+    rotate?: string;
+    rotated?: string;
+    key?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -143,6 +146,10 @@ export default async function AdminHomePage({
   // ?delete=<id> opens the type-the-name confirmation for that workspace.
   const deleteTarget =
     accounts.find((w) => String(w.id) === params.delete) ?? null;
+
+  // ?rotate=<id> does the same for replacing their ingestion key.
+  const rotateTarget =
+    accounts.find((w) => String(w.id) === params.rotate) ?? null;
 
   /*
     Team size and recent access for EVERY workspace, not for the selected one.
@@ -319,6 +326,7 @@ export default async function AdminHomePage({
                 usage={Object.fromEntries(usage)}
                 reads={Object.fromEntries(reads)}
                 deleteTarget={deleteTarget}
+                rotateTarget={rotateTarget}
                 query={query}
                 banners={<Banners params={params} />}
               />
@@ -401,9 +409,11 @@ function Banners({
     emailed?: string;
     deleted?: string;
     removed?: string;
+    rotated?: string;
+    key?: string;
   };
 }) {
-  const { error, created, emailed, deleted, removed } = params;
+  const { error, created, emailed, deleted, removed, rotated, key } = params;
   return (
     <>
       {error && <div className="pba-banner pba-banner-err">{error}</div>}
@@ -415,6 +425,20 @@ function Banners({
       {removed && (
         <div className="pba-banner pba-banner-ok">
           <b>{removed}</b> is no longer an admin.
+        </div>
+      )}
+      {/*
+        Not "ok" styling. The rotation succeeded, but the client's site is
+        broken until somebody acts on this banner, so it is the one message in
+        this console that reports a success and still needs reading. The key is
+        here because whoever does the re-install needs it, and it is a public
+        ingestion key — it is about to live in a public web page.
+      */}
+      {rotated && (
+        <div className="pba-banner pba-banner-err">
+          <b>{rotated}</b> has a new ingestion key{key ? <>: <b>{key}</b></> : null}.
+          Their contact form and newsletter signup are not reaching Postbox until
+          the snippet on their website is replaced. Tell them now.
         </div>
       )}
       {created && (
