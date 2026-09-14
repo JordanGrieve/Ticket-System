@@ -1186,6 +1186,20 @@ const BUILDER_EXEMPT: Exemption[] = [
       "by the same campaign_recipients.id from the same policed claim.",
   },
   {
+    file: "lib/campaign-feedback.ts",
+    match: /status: recipientStatusFor\(input\.event\)/,
+    why:
+      "applyCampaignFeedback: updates by campaign_recipients.id taken from " +
+      "the select four lines above, which inner-joins campaigns and reads " +
+      "campaigns.workspace_id off that row. So the workspace is not merely " +
+      "absent from this statement — it was DERIVED from the same row this " +
+      "updates, and it is what the suppression is written against. A " +
+      "workspace predicate here would re-assert what the join already " +
+      "established; a primary key is the narrower constraint of the two. The " +
+      "id itself comes from the provider's message id, which we wrote at send " +
+      "time and which no webhook payload can point at another tenant's row.",
+  },
+  {
     file: "app/api/webhooks/resend/route.ts",
     match: /eq\(ticketMessages\.providerMessageId, providerId\)/,
     why:

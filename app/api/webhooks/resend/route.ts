@@ -3,18 +3,26 @@ import { db } from "@/db";
 import { ticketMessages } from "@/db/schema";
 import { verifySvixSignature } from "@/lib/svix";
 import { RANK, statusForEvent, shouldSuppressAddress } from "@/lib/delivery-events";
+import {
+  applyCampaignFeedback,
+  recordUnattributableFeedback,
+} from "@/lib/campaign-feedback";
 
 /**
- * POST /api/webhooks/resend — delivery events for TRANSACTIONAL mail.
+ * POST /api/webhooks/resend — delivery events for every kind of mail we send.
  *
  * Ticket replies and auto-acknowledgements go out through Resend. Until 23
  * August 2026 nothing recorded what happened to them: a reply to a dead
  * address failed and nobody was told, because the provider's id was discarded
  * at send time, so an event naming it had nothing to match against.
  *
- * Newsletters are a separate path entirely — SES, with its own webhook. Do not
- * merge them: different providers, different payloads, different reputations,
- * and a bug in one should not be able to silence the other.
+ * ── NEWSLETTERS ARRIVE HERE TOO, SINCE 14 SEP 2026 ──
+ * This file used to say they were a separate path — SES, with its own webhook
+ * — and not to merge them. SES never got production access and was removed, so
+ * there is one provider now and one endpoint, and the separation that matters
+ * moved INSIDE: a campaign bounce suppresses an address, a transactional one
+ * must not, and the two are told apart by matching the provider's id against
+ * `campaign_recipients`. See the suppression branch at the bottom.
  *
  * ── THE SIGNATURE IS THE WHOLE OF THE AUTHORISATION ──
  * This endpoint is public and it writes. It FAILS CLOSED: with no
@@ -100,6 +108,19 @@ export async function POST(req: Request): Promise<Response> {
   const providerId = event.data?.email_id;
   if (!providerId) {
     console.warn("[resend-webhook] %s with no email_id", type || "(no type)");
+    /*
+      A feedback event with no id is unattributable by definition, and unlike
+      the unmapped case it is never normal. Counted rather than only logged:
+      this project cannot read its own production logs, so a `console.warn` is
+      a signal nobody will ever see, and a systematic failure here looks
+      exactly like clean sending.
+    */
+    if (shouldSuppressAddress(type, event.data?.bounce?.type)) {
+      await recordUnattributableFeedback({
+        providerMessageId: null,
+        eventType: type,
+      });
+    }
     return new Response("ok", { status: 200 });
   }
 
@@ -143,27 +164,62 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   /*
-   * Suppression is deliberately NOT wired up here, and this logs rather than
-   * doing it silently.
+   * ── SUPPRESSION: CAMPAIGN MAIL ONLY ──
    *
-   * `suppressions` is keyed by (workspace_id, email) and exists for the
-   * NEWSLETTER path. Feeding a transactional bounce into it would stop the
-   * marketing sender writing to somebody whose support address merely had a
-   * full mailbox — and worse, a shared list means it could block a business
-   * replying to their own customer's open enquiry. Different system,
-   * different consent, different consequence.
+   * This endpoint receives both kinds of event and they are not the same
+   * thing. A campaign bounce is about a marketing list and belongs in
+   * `suppressions`; a bounced ticket reply is between a business and their own
+   * customer, and suppressing on it would stop that business emailing somebody
+   * with an open enquiry. Different system, different consent, different
+   * consequence — so which one this is gets decided by whether the provider's
+   * id matches a campaign recipient row, never by guessing from the address.
    *
-   * What a permanent transactional bounce SHOULD do is surface on the contact,
+   * Wired up on 14 Sep 2026. Before that this branch only logged, because
+   * campaign feedback went through the SES webhook; SES never got production
+   * access and was removed, so a live campaign path was running with no
+   * feedback loop — every hard bounce mailed again next month, and every
+   * complaint too, which is the reliable way to lose a sending domain for
+   * every tenant at once.
+   *
+   * What a permanent TRANSACTIONAL bounce should do is surface on the contact,
    * beside the mistyped-address warning. That needs per-contact deliverability
-   * state, which is a schema decision, so it is on the board rather than
-   * guessed at here.
+   * state, which is a schema decision, so it is still on the board.
    */
   if (shouldSuppressAddress(type, event.data?.bounce?.type)) {
-    console.warn(
-      "[resend-webhook] %s for %s is grounds for suppression, but transactional suppression is not wired up — see the note in this file",
-      type,
-      providerId,
-    );
+    const feedback = await applyCampaignFeedback({
+      providerMessageId: providerId,
+      event: type === "email.complained" ? "complained" : "bounced",
+      eventType: type,
+      note: event.data?.bounce?.subType
+        ? `Resend ${type} (${event.data.bounce.subType})`
+        : `Resend ${type}`,
+    });
+
+    if (feedback.matched) {
+      console.info(
+        "[resend-webhook] %s for %s: suppressed in workspace %d (%s)",
+        type,
+        providerId,
+        feedback.workspaceId,
+        feedback.suppressed ? "new" : "already suppressed",
+      );
+    } else {
+      /*
+        Not a campaign recipient. Either transactional — normal, and left for
+        the contact-level work above — or attributable to nothing at all,
+        which is the state worth being able to see: it means ids have stopped
+        being stored and every bounce has silently stopped suppressing anyone.
+      */
+      await recordUnattributableFeedback({
+        providerMessageId: providerId,
+        eventType: type,
+      });
+      console.warn(
+        "[resend-webhook] %s for %s matched no campaign recipient — transactional suppression is not wired up",
+        type,
+        providerId,
+      );
+    }
   }
 
   return new Response("ok", { status: 200 });
