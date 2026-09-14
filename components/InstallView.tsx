@@ -289,11 +289,29 @@ integration, however well the submission works.
         </Section>
 
         {/* ── Inbound email ── */}
-        <Section title="3 · Forward your email here">
+        {/*
+          Optional, and it says so first.
+
+          This is the only step on the page a client cannot do from here, and
+          the only one that needs their mail provider's admin — Google
+          Workspace, Outlook, whoever runs their domain. It is also the one
+          plenty of clients never want: a contact form is a complete
+          installation on its own.
+
+          It cannot be done for them. The intake address is on OUR domain, so
+          mail sent to their own support address only reaches us if their
+          provider forwards it, and we have no access to that. The alternatives
+          are publishing an @inbound.postbox.help address to their customers,
+          or pointing their domain's MX at us, which nothing here supports.
+        */}
+        <Section title="3 · Forward your email here (optional)">
           <p className="sti-help">
-            Set up forwarding from your support inbox to the address below.
-            Emails become tickets automatically; anything mentioning an order id
-            (like <code className="sti-inline-code">ORD-1234</code> or{" "}
+            Only if you want email sent to your support address to become
+            tickets too — your contact form works without this. Set up
+            forwarding from your support inbox to the address below, in whoever
+            runs your email (Google Workspace, Outlook, your host). Emails
+            become tickets automatically; anything mentioning an order id (like{" "}
+            <code className="sti-inline-code">ORD-1234</code> or{" "}
             <code className="sti-inline-code">#4821</code>) is flagged as a
             higher-priority order.
           </p>
@@ -305,38 +323,45 @@ integration, however well the submission works.
           />
         </Section>
 
-        {/* ── Steps ── */}
-        <Section title="4 · You're done">
-          <ol className="sti-steps">
-            <Step n={1}>
-              Paste the snippet above onto your site (or point your form at the
-              URL).
-            </Step>
-            <Step n={2}>
-              Add email forwarding from your inbox to <b>{inboundEmail}</b>.
-            </Step>
-            <Step n={3}>
-              Reply to tickets from here — your replies send as real email from{" "}
-              <b>{replyFrom}</b>, and customer responses thread right back.
-            </Step>
-          </ol>
-        </Section>
+        {/*
+          ── WHAT USED TO BE HERE ──
+
+          A fourth section, "4 · You're done", listing three steps. It was cut
+          on 14 Sep 2026 (Jordan: "I don't think they need this, the page is
+          false") and the reasons are worth keeping, because a summary at the
+          end of a setup page is a thing somebody will want to add back.
+
+          It was not a checklist. It re-issued the instructions the three
+          sections above had already given, so a client who had just done them
+          reached the bottom of the page and was told to do them again.
+
+          Its step 2 asserted that forwarding was required. For most clients it
+          is not — a contact form works with no forwarding at all — so the page
+          ended by telling somebody who was finished that they were not.
+
+          And its step 3 was not a step. "Reply to tickets from here" is a
+          description of how the product works; it now sits beside the reply
+          address below, which is where it was answering a question.
+        */}
 
         {/* ── Settings ── */}
         <Section title="Settings">
-          <Label>Workspace API key</Label>
-          <Field
-            value={apiKey}
-            copyLabel="Copy key"
-            copyOf="your workspace API key"
-            mono
-          />
+          {/*
+            The workspace API key was the first field here, with a Copy button.
 
-          <div className="sti-gap" />
+            It is in the prompt at the top of this page, in the subscribe
+            endpoint in section 2, and on Settings → Forms, which lists it as
+            "your original form key" beside the enquiries arriving on it — with
+            the context that makes the value mean something. A fourth copy, with
+            nothing to do and no action attached, is a credential-shaped string
+            on screen for its own sake. It had one once: the rotate button,
+            which moved to the operator console.
+          */}
           <Label>Replies send from</Label>
           <p className="sti-help sti-help--tight">
             Your replies are delivered from this address, with your business name
-            shown as the sender.
+            shown as the sender, and a customer&rsquo;s response threads straight
+            back into the ticket.
           </p>
           <Field
             value={replyFrom}
@@ -772,17 +797,6 @@ function Toggle({
     >
       {children}
     </button>
-  );
-}
-
-function Step({ n, children }: { n: number; children: React.ReactNode }) {
-  return (
-    <li className="sti-step">
-      <span className="sti-step-n" aria-hidden>
-        {n}
-      </span>
-      <span className="sti-step-body">{children}</span>
-    </li>
   );
 }
 

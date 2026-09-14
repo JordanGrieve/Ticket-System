@@ -203,8 +203,19 @@ describe("only an operator can replace a client's ingestion key", () => {
   );
 
   it("the client's page offers no way to do it", () => {
-    expect(INSTALL).not.toContain("rotate");
-    expect(INSTALL).not.toContain("Rotate");
+    /*
+     * Comments stripped first, and that is not a loophole — it is the
+     * difference between the page OFFERING rotation and the file EXPLAINING
+     * why it no longer does. The first version of this failed on the note left
+     * behind for the next reader, which would have taught somebody to delete
+     * the explanation to get the suite green. Same mistake this repo has made
+     * before, asserting against prose in a comment.
+     */
+    const code = INSTALL.replace(/\/\*[\s\S]*?\*\//g, "").replace(
+      /\/\/[^\n]*/g,
+      "",
+    );
+    expect(code.toLowerCase()).not.toContain("rotate");
   });
 
   it("and no endpoint a client's session could POST to", () => {

@@ -1397,8 +1397,7 @@
   STYLE-GUIDE.md §3 about 54ch/70ch, which is the same arithmetic.
 */
 .sti-sub,
-.sti-help,
-.sti-step {
+.sti-help {
   max-width: 62ch;
 }
 
@@ -1417,8 +1416,7 @@
   color: var(--muted-2);
 }
 
-.sti-sub b,
-.sti-step b {
+.sti-sub b {
   color: var(--text-2);
   font-weight: 700;
 }
@@ -1724,45 +1722,6 @@
 
 .sti-field-value--mono {
   font-family: var(--font-mono, ui-monospace, monospace);
-}
-
-/* ── steps ──────────────────────────────────────────────────── */
-
-.sti-steps {
-  margin: 0;
-  padding-left: 0;
-  list-style: none;
-  display: grid;
-  gap: 12px;
-}
-
-.sti-step {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  font-size: 0.84375rem;
-  line-height: 1.55;
-  color: var(--text-3);
-}
-
-.sti-step-n {
-  flex: 0 0 auto;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent-text);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.78125rem;
-  font-weight: 800;
-}
-
-.sti-step-body {
-  min-width: 0;
-  padding-top: 2px;
-  overflow-wrap: anywhere;
 }
 
 /* ── settings block ─────────────────────────────────────────── */
