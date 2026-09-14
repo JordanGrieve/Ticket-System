@@ -2,9 +2,12 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import {
   renderCampaign,
   type Brand,
+  type HeroImage,
   type RenderedEmail,
   type SenderIdentity,
+  type TemplateKey,
 } from "./newsletter";
+import type { CampaignProduct } from "@/db/schema";
 
 /**
  * The thank-you a new subscriber gets the moment they confirm.
@@ -174,6 +177,24 @@ export function decodeWelcomeUnsubToken(
 export function renderWelcome(input: {
   subject: string;
   body: string;
+  /**
+   * The layout, from the client. Defaults to "branded" at the column, because
+   * a thank-you that looks nothing like the newsletter it introduces is a
+   * worse first impression than no thank-you — but a client who writes plainly
+   * everywhere else may say so.
+   */
+  templateKey?: TemplateKey;
+  /**
+   * The photograph. Already validated — pass safeImageUrl's result, never a
+   * raw field, for the same reason renderCampaign demands it.
+   *
+   * This is the change Jordan asked for on 14 Sep 2026: a welcome that could
+   * only carry text was "nothing to do with Postbox" in its branding and
+   * nothing like the brand in what it could actually show.
+   */
+  hero?: HeroImage | null;
+  /** Already validated — parseProducts' result. */
+  products?: CampaignProduct[];
   recipient: { email: string; name: string | null };
   workspaceName: string;
   unsubscribeUrl: string;
@@ -188,21 +209,18 @@ export function renderWelcome(input: {
       // and an empty preview line lets the client see their own opening
       // sentence in the inbox list instead of a second summary of it.
       preheader: null,
-      // Branded, so it inherits the workspace's accent colour and sign-off.
-      // A thank-you that looks nothing like the newsletter it introduces is a
-      // worse first impression than no thank-you.
-      templateKey: "branded",
+      templateKey: input.templateKey ?? "branded",
     },
     recipient: input.recipient,
     workspaceName: input.workspaceName,
     unsubscribeUrl: input.unsubscribeUrl,
     sender: input.sender,
     brand: input.brand,
-    // Stated rather than omitted. A welcome email carries neither — there is
-    // no column for either on welcome_emails — and saying so is what
-    // tests/render-campaign-callers.test.ts requires of every call site,
-    // because the two that quietly left them out both shipped as bugs.
-    hero: null,
-    products: [],
+    // Named explicitly even when absent, which is what
+    // tests/render-campaign-callers.test.ts requires of every call site: the
+    // two that quietly left them out both shipped as bugs, dropping a client's
+    // image from the email they were previewing.
+    hero: input.hero ?? null,
+    products: input.products ?? [],
   });
 }

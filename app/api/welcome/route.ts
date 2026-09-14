@@ -4,9 +4,11 @@ import { activeWorkspace } from "@/lib/viewer";
 import {
   DEFAULT_WELCOME,
   getWelcomeEmail,
+  welcomeConfigFrom,
   upsertWelcomeEmail,
   type WelcomeConfig,
 } from "@/lib/welcome-store";
+import { isTemplateKey, parseProducts, safeImageUrl } from "@/lib/newsletter";
 
 /**
  * GET   /api/welcome  (authed) → this workspace's welcome email
@@ -20,6 +22,8 @@ import {
 
 const MAX_SUBJECT = 200;
 const MAX_BODY = 5000;
+// Matches the campaign composer's cap (lib/newsletter.ts normaliseLine).
+const HERO_ALT_MAX = 200;
 
 export async function GET() {
   const { userId } = await auth();
@@ -37,7 +41,7 @@ export async function GET() {
   return json({
     ok: true,
     config: row
-      ? { enabled: row.enabled, subject: row.subject, body: row.body }
+      ? welcomeConfigFrom(row)
       : DEFAULT_WELCOME,
     configured: !!row,
   });
@@ -61,7 +65,7 @@ export async function PATCH(req: Request) {
 
   const existing = await getWelcomeEmail(workspace.id);
   const base: WelcomeConfig = existing
-    ? { enabled: existing.enabled, subject: existing.subject, body: existing.body }
+    ? welcomeConfigFrom(existing)
     : DEFAULT_WELCOME;
 
   const next: WelcomeConfig = { ...base };
@@ -107,13 +111,55 @@ export async function PATCH(req: Request) {
     next.body = text;
   }
 
+  /*
+    ── THE PIECES A CAMPAIGN HAS, VALIDATED THE WAY A CAMPAIGN VALIDATES THEM ──
+
+    Same validators, deliberately: `safeImageUrl` and `parseProducts` are the
+    only things allowed to write these columns on either table. A second,
+    laxer check here would make the welcome the way an unvalidated image URL or
+    a malformed product reaches a renderer — and this email sends unattended,
+    to a real customer, without anybody looking at it first.
+  */
+  if (body.templateKey !== undefined) {
+    if (!isTemplateKey(body.templateKey)) {
+      return json({ error: "Unknown layout." }, { status: 400 });
+    }
+    next.templateKey = body.templateKey;
+  }
+
+  if (body.heroImageUrl !== undefined) {
+    const raw = typeof body.heroImageUrl === "string" ? body.heroImageUrl.trim() : "";
+    if (!raw) {
+      // Cleared. The alt goes with it: alt text for an image that is not there
+      // renders as a stray line in clients that block images.
+      next.heroImageUrl = null;
+      next.heroImageAlt = null;
+    } else {
+      const safe = safeImageUrl(raw);
+      if (!safe) {
+        return json(
+          {
+            error:
+              "That image link can't be used. It needs to be an https:// address with no username or password in it.",
+          },
+          { status: 400 },
+        );
+      }
+      next.heroImageUrl = safe;
+    }
+  }
+
+  if (body.heroImageAlt !== undefined && next.heroImageUrl) {
+    const alt = typeof body.heroImageAlt === "string" ? body.heroImageAlt.trim() : "";
+    next.heroImageAlt = alt.slice(0, HERO_ALT_MAX) || null;
+  }
+
+  if (body.products !== undefined) {
+    const parsed = parseProducts(body.products);
+    if (!parsed.ok) return json({ error: parsed.error }, { status: 400 });
+    next.products = parsed.value;
+  }
+
   const saved = await upsertWelcomeEmail(workspace.id, next);
-  return json({
-    ok: true,
-    config: {
-      enabled: saved.enabled,
-      subject: saved.subject,
-      body: saved.body,
-    },
-  });
+  return json({ ok: true, config: welcomeConfigFrom(saved) });
 }

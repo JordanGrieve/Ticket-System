@@ -188,3 +188,97 @@ describe("integrations built against the old prompt keep working", () => {
     expect(ROUTE).toContain("readSignupSubmission(fields)");
   });
 });
+
+/**
+ * The safety valve has to be OPEN by default.
+ *
+ * Single opt-in was argued for on the grounds that the welcome email gives
+ * somebody an unsubscribe instead of a spam button. That argument is only true
+ * if the welcome actually sends, and on 14 Sep 2026 it did not: `enabled`
+ * defaulted to false and a row only existed once a client had opened a
+ * settings screen most had never seen. Three real people subscribed to a
+ * client's newsletter that afternoon and heard nothing at all.
+ *
+ * Both halves are guarded here because either one alone restores the silence.
+ */
+describe("a workspace that has never configured a welcome still sends one", () => {
+  const STORE = readFileSync(join(process.cwd(), "lib/welcome-store.ts"), "utf8");
+  const SCHEMA_SRC = readFileSync(join(process.cwd(), "db/schema.ts"), "utf8");
+
+  /**
+   * One exported function's body.
+   *
+   * Bounded by the next top-level `export`, not by the first "\n}" — which is
+   * the closing brace of whatever block happens to come first inside it, so
+   * the slice stopped a few lines in and every assertion below read an empty
+   * tail and failed.
+   */
+  function fn(source: string, name: string): string {
+    const at = source.indexOf(`export async function ${name}`);
+    expect(at, `${name} not found — this check is reading nothing`).
+      toBeGreaterThan(-1);
+    const end = source.indexOf("\nexport ", at + 1);
+    return source.slice(at, end === -1 ? undefined : end);
+  }
+
+  /**
+   * A table's definition, and nothing else's.
+   *
+   * `enabled` is a column name several tables use. Searching the whole file
+   * for it found auto_replies first — which defaults to false, correctly — so
+   * the assertion below was measuring a different table and reporting on this
+   * one. It failed, which is the only reason anybody looked.
+   */
+  function table(name: string): string {
+    const at = SCHEMA_SRC.indexOf(`export const ${name} = pgTable`);
+    expect(at, `${name} not found in the schema`).toBeGreaterThan(-1);
+    const end = SCHEMA_SRC.indexOf("\n);", at);
+    return SCHEMA_SRC.slice(at, end);
+  }
+
+  it("the default config is enabled", () => {
+    const at = STORE.indexOf("export const DEFAULT_WELCOME");
+    expect(at).toBeGreaterThan(-1);
+    const block = STORE.slice(at, STORE.indexOf("};", at));
+    expect(block).toContain("enabled: true");
+  });
+
+  it("no row means the default rather than a refusal", () => {
+    /*
+     * The half that is easy to miss. Flipping the default to true fixes
+     * nothing on its own while the send path still bails out with
+     * "not_configured" for a workspace that has no row — which is every
+     * workspace that has never opened the screen, i.e. all the ones this is
+     * for.
+     */
+    const body = fn(STORE, "sendWelcomeEmail");
+
+    /*
+     * The FALLBACK, named exactly.
+     *
+     * The first version of this forbade the string "not_configured" anywhere
+     * in the function, which was too blunt and failed honestly: that reason is
+     * still returned, correctly, when the WORKSPACE row is missing. That is a
+     * deleted workspace, not an unconfigured welcome, and refusing there is
+     * right. Asserting the absence of an error string is a poor way to say
+     * "the default applies" — this says it.
+     */
+    expect(
+      body,
+      "the missing-row case no longer falls back to DEFAULT_WELCOME, so a workspace that never opened the screen sends nothing",
+    ).toMatch(/row\s*\?\s*welcomeConfigFrom\(row\)\s*:\s*DEFAULT_WELCOME/);
+  });
+
+  it("a client who turned it OFF stays off", () => {
+    // The other direction, and it matters just as much: a default changing
+    // must never re-enable something somebody deliberately switched off.
+    const body = fn(STORE, "sendWelcomeEmail");
+    expect(body).toContain("!config.enabled");
+  });
+
+  it("the column agrees with the code", () => {
+    // A default declared in TypeScript and contradicted in the database is a
+    // difference nothing here would notice until a row was written.
+    expect(table("welcomeEmails")).toContain('enabled: boolean("enabled").notNull().default(true)');
+  });
+});

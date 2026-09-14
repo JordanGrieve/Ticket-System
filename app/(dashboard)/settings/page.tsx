@@ -9,7 +9,11 @@ import ThemePicker from "./ThemePicker";
 import SenderIdentityForm from "./SenderIdentityForm";
 import NewsletterBrandForm from "./NewsletterBrandForm";
 import WelcomeEmailForm from "./WelcomeEmailForm";
-import { DEFAULT_WELCOME, getWelcomeEmail } from "@/lib/welcome-store";
+import {
+  DEFAULT_WELCOME,
+  getWelcomeEmail,
+  welcomeConfigFrom,
+} from "@/lib/welcome-store";
 
 export const metadata = { title: "General · Settings · Postbox" };
 
@@ -79,23 +83,27 @@ export default async function GeneralSettingsPage() {
         />
       </section>
 
-      {/* ── The welcome email ──────────────────────────────────────
+      {/* ── The welcome newsletter ─────────────────────────────────
           Under branding rather than in a tab of its own: the settings strip
-          already overflows at nine tabs, and this is one toggle and two
-          fields about what a newsletter email says. */}
+          already overflows at nine tabs, and this is about what a newsletter
+          email says. It is the one email in the product that sends with
+          nobody watching, which is why it carries its own preview. */}
       <section className="stg-section">
-        <h2 className="stg-section-title">Welcome email</h2>
+        <h2 className="stg-section-title">Welcome newsletter</h2>
+        <p className="stg-sub">
+          Sent automatically the moment somebody subscribes. It goes out under
+          your name, with your colours, and carries the unsubscribe link every
+          newsletter has.
+        </p>
         <WelcomeEmailForm
-          initial={
-            welcome
-              ? {
-                  enabled: welcome.enabled,
-                  subject: welcome.subject,
-                  body: welcome.body,
-                }
-              : DEFAULT_WELCOME
-          }
+          initial={welcome ? welcomeConfigFrom(welcome) : DEFAULT_WELCOME}
           hasPostalAddress={(workspace.postalAddress ?? "").trim().length > 0}
+          workspaceName={workspace.name}
+          legalName={workspace.legalName}
+          postalAddress={workspace.postalAddress}
+          brandAccentHex={workspace.brandAccentHex}
+          brandSignOff={workspace.brandSignOff}
+          viewerEmail={viewer.email}
         />
       </section>
 

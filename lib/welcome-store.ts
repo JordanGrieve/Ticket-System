@@ -5,12 +5,17 @@ import { welcomeEmails, workspaces, type WelcomeEmail } from "@/db/schema";
 import { APP_URL, EMAIL_FROM_ADDRESS } from "./config";
 import { sendReplyEmail } from "./email";
 import {
+  isTemplateKey,
   listUnsubscribeHeaders,
   mailableSender,
   NO_BRAND,
+  parseProducts,
+  safeImageUrl,
   unsubscribeUrl,
   type Brand,
+  type TemplateKey,
 } from "./newsletter";
+import type { CampaignProduct } from "@/db/schema";
 import { resolveSigningSecret } from "./subscribe-store";
 import { suppressAddress } from "./suppressions";
 import {
@@ -50,13 +55,36 @@ export type WelcomeConfig = {
   enabled: boolean;
   subject: string;
   body: string;
+  /** A layout from TEMPLATE_KEYS. "branded" unless the client picks another. */
+  templateKey: TemplateKey;
+  /** Validated by safeImageUrl before it renders; stored as authored. */
+  heroImageUrl: string | null;
+  heroImageAlt: string | null;
+  /** Validated by parseProducts before it renders; never written raw. */
+  products: CampaignProduct[];
 };
 
-/** What a workspace that has never opened the screen should be shown. */
+/**
+ * What a workspace that has never opened the screen gets.
+ *
+ * ── ENABLED, SINCE 14 SEP 2026 ──
+ * It was false, and absence therefore meant silence. Under single opt-in the
+ * welcome is the only acknowledgement a new subscriber receives and the only
+ * unsubscribe route for somebody a stranger signed up, so absence now means
+ * "the default, and the default sends". See the column's note in db/schema.ts.
+ *
+ * Every word of the default copy is safe to send unedited to a real customer,
+ * which is what makes defaulting to on defensible: nothing here is a
+ * placeholder, and there are no square brackets waiting to be filled in.
+ */
 export const DEFAULT_WELCOME: WelcomeConfig = {
-  enabled: false,
+  enabled: true,
   subject: DEFAULT_WELCOME_SUBJECT,
   body: DEFAULT_WELCOME_BODY,
+  templateKey: "branded",
+  heroImageUrl: null,
+  heroImageAlt: null,
+  products: [],
 };
 
 /**
@@ -66,6 +94,37 @@ export const DEFAULT_WELCOME: WelcomeConfig = {
  * shows the defaults as a starting point for the first case, and what they
  * actually saved for the second.
  */
+/**
+ * A stored row as a config, with everything it holds re-validated.
+ *
+ * ── WHY IT IS RE-VALIDATED ON THE WAY OUT ──
+ * `products` is jsonb, which Postgres will store any shape in, and
+ * `template_key` and the hero URL are plain text columns. The writers all
+ * validate — parseProducts and safeImageUrl are the only things allowed near
+ * them — but a column that was written by a different version of this code, by
+ * a migration, or by hand in a console is exactly the row that reaches a
+ * renderer nobody expected it to. The renderer's guarantees are about what it
+ * is GIVEN, so what it is given is checked here.
+ *
+ * An unreadable value degrades to the default rather than throwing: a welcome
+ * that renders without its photograph is a smaller failure than a signup that
+ * gets no acknowledgement at all.
+ */
+export function welcomeConfigFrom(row: WelcomeEmail): WelcomeConfig {
+  const parsed = parseProducts(row.products ?? []);
+  return {
+    enabled: row.enabled,
+    subject: row.subject,
+    body: row.body,
+    templateKey: isTemplateKey(row.templateKey)
+      ? row.templateKey
+      : DEFAULT_WELCOME.templateKey,
+    heroImageUrl: safeImageUrl(row.heroImageUrl),
+    heroImageAlt: row.heroImageAlt,
+    products: parsed.ok ? parsed.value : [],
+  };
+}
+
 export async function getWelcomeEmail(
   workspaceId: number,
 ): Promise<WelcomeEmail | null> {
@@ -143,8 +202,18 @@ export async function sendWelcomeEmail(input: {
   email: string;
   name: string | null;
 }): Promise<WelcomeSendResult> {
-  const config = await getWelcomeEmail(input.workspaceId);
-  if (!config) return { sent: false, reason: "not_configured" };
+  /*
+    No row means the default, and the default sends.
+
+    This returned "not_configured" and gave up, which meant every workspace
+    that had never opened the settings screen acknowledged its signups with
+    silence — including, on 14 Sep 2026, the three real people who had just
+    subscribed to a client's newsletter minutes after single opt-in shipped.
+    A row that says `enabled: false` is still honoured: that is a client who
+    turned it off, which is a decision, unlike never having been asked.
+  */
+  const row = await getWelcomeEmail(input.workspaceId);
+  const config = row ? welcomeConfigFrom(row) : DEFAULT_WELCOME;
   if (!config.enabled) return { sent: false, reason: "disabled" };
 
   const [ws] = await db
@@ -192,6 +261,11 @@ export async function sendWelcomeEmail(input: {
     const rendered = renderWelcome({
       subject: config.subject,
       body: config.body,
+      templateKey: config.templateKey,
+      hero: config.heroImageUrl
+        ? { url: config.heroImageUrl, alt: config.heroImageAlt ?? "" }
+        : null,
+      products: config.products,
       recipient: { email: input.email, name: input.name },
       workspaceName: ws.name,
       unsubscribeUrl: unsubUrl,

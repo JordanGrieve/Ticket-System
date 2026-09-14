@@ -195,3 +195,72 @@ describe("rendering", () => {
     }
   });
 });
+
+/**
+ * The welcome carries what a campaign carries.
+ *
+ * ── WHY THIS IS TESTED AT THE RENDERER AND NOT ONLY AT THE FORM ──
+ * A field can be added to a table, to a type, to a form and to an API without
+ * ever reaching the email. That is not hypothetical here: this renderer passed
+ * `hero: null, products: []` as hardcoded literals, so until 14 Sep 2026 a
+ * welcome could not have shown an image even if every other layer had one —
+ * and every layer would have looked correct in a diff. The same shape of
+ * defect shipped twice before on campaigns, which is why
+ * tests/render-campaign-callers.test.ts exists.
+ */
+describe("the welcome is a newsletter, not a note", () => {
+  const base = {
+    subject: "Welcome to {company}",
+    body: "Hi {first_name},\n\nThanks for joining.",
+    recipient: { email: "alex@example.com", name: "Alex" },
+    workspaceName: "Open Door Bakery",
+    unsubscribeUrl: "https://postbox.help/u/w1.abc.def",
+    sender: SENDER,
+    brand: NO_BRAND,
+  };
+
+  it("renders the image it is given", () => {
+    const out = renderWelcome({
+      ...base,
+      hero: {
+        url: "https://opendoorbakery.co.uk/counter.jpg",
+        alt: "The counter on a Saturday",
+      },
+    });
+    expect(out.html).toContain("https://opendoorbakery.co.uk/counter.jpg");
+    // The alt is not decoration: most recipients of a first email from an
+    // unfamiliar sender have images blocked, so this text IS the picture.
+    expect(out.html).toContain("The counter on a Saturday");
+  });
+
+  it("renders the products it is given, in order", () => {
+    const out = renderWelcome({
+      ...base,
+      products: [
+        { name: "Sourdough", price: "4.20", imageUrl: null, url: null },
+        { name: "Cinnamon bun", price: "2 for 5", imageUrl: null, url: null },
+      ],
+    });
+    expect(out.html).toContain("Sourdough");
+    expect(out.html).toContain("Cinnamon bun");
+    expect(out.html.indexOf("Sourdough")).toBeLessThan(
+      out.html.indexOf("Cinnamon bun"),
+    );
+    // Free text, never parsed as a number — a bakery prices things "2 for 5".
+    expect(out.html).toContain("2 for 5");
+  });
+
+  it("shows neither when it is given neither", () => {
+    const out = renderWelcome(base);
+    expect(out.html).not.toContain("<img");
+  });
+
+  it("honours the layout it is given", () => {
+    // Two layouts, and they have to differ somewhere visible or the control is
+    // a lie. Compared against each other rather than against a fixed string,
+    // so a change to either template does not make this a false alarm.
+    const branded = renderWelcome({ ...base, templateKey: "branded" }).html;
+    const plain = renderWelcome({ ...base, templateKey: "plain" }).html;
+    expect(branded).not.toBe(plain);
+  });
+});

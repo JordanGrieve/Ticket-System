@@ -1168,12 +1168,51 @@ export const welcomeEmails = pgTable(
     workspaceId: integer("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    // Off until somebody turns it on. A workspace that has never opened the
-    // screen must not start mailing its customers because we shipped a
-    // default.
-    enabled: boolean("enabled").notNull().default(false),
+    /*
+      ── THIS DEFAULT FLIPPED ON 14 SEP 2026, AND THE OLD REASONING IS WORTH
+         KEEPING ──
+
+      It was false, with the note: "a workspace that has never opened the
+      screen must not start mailing its customers because we shipped a
+      default." That was right while signups were double opt-in. A confirmed
+      subscriber had just clicked a link and been shown a page saying they were
+      on the list, so silence afterwards was merely unfriendly.
+
+      Single opt-in changed what silence means. Now the welcome is the ONLY
+      acknowledgement a person gets, and — for someone an acquaintance or a bot
+      typed into a public form — the only route to an unsubscribe that is not
+      the spam button. Shipping single opt-in with welcomes off by default left
+      that valve shut for every workspace, which made the delivery argument for
+      single opt-in untrue in practice.
+
+      A row is still only written when somebody saves the screen, and a row
+      that says false stays false: a client who deliberately turned this off
+      does not get it turned back on by a default changing. Absence now means
+      "the default, and the default is on" — see getWelcomeEmail.
+    */
+    enabled: boolean("enabled").notNull().default(true),
     subject: text("subject").notNull(),
     body: text("body").notNull(),
+    /*
+      ── THE SAME PIECES A CAMPAIGN HAS ──
+
+      A welcome used to be subject + body and nothing else, rendered through
+      renderCampaign with `hero: null, products: []` hardcoded. Jordan,
+      14 Sep 2026: the welcome should be "customised so it's personal and
+      nothing to do with Postbox" — which it already was in its branding, but
+      not in what it could contain. A clothing brand's welcome that cannot
+      carry a photograph is a worse first impression than the newsletter that
+      follows it.
+
+      Same columns, same names and same validators as `campaigns`, on purpose.
+      lib/newsletter.ts parseProducts is still the only thing that may write
+      `products`, and safeImageUrl still guards the hero. Two shapes for the
+      same idea is how one of them stops being validated.
+    */
+    templateKey: text("template_key").notNull().default("branded"),
+    heroImageUrl: text("hero_image_url"),
+    heroImageAlt: text("hero_image_alt"),
+    products: jsonb("products").$type<CampaignProduct[]>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

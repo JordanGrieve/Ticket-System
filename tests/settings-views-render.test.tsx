@@ -77,12 +77,69 @@ const views: Record<string, React.ReactElement> = {
   // one an accessibility sweep is most likely to find a disabled-control
   // contrast problem in.
   "welcome-blocked": (
-    <WelcomeEmailForm initial={DEFAULT_WELCOME} hasPostalAddress={false} />
+    <WelcomeEmailForm
+      initial={DEFAULT_WELCOME}
+      hasPostalAddress={false}
+      workspaceName="Open Door Bakery"
+      legalName={null}
+      postalAddress={null}
+      brandAccentHex={null}
+      brandSignOff={null}
+      viewerEmail="hello@opendoorbakery.co.uk"
+    />
   ),
   "welcome-on": (
     <WelcomeEmailForm
       initial={{ ...DEFAULT_WELCOME, enabled: true }}
       hasPostalAddress
+      workspaceName="Open Door Bakery"
+      legalName="Open Door Bakery Ltd"
+      postalAddress={"12 Mill Lane\nStroud\nGL5 1AB"}
+      brandAccentHex={null}
+      brandSignOff={null}
+      viewerEmail="hello@opendoorbakery.co.uk"
+    />
+  ),
+  /*
+    The welcome with everything in it — a photograph, three products, the
+    client's own accent.
+
+    This surface exists because the welcome is the ONE email in the product
+    that sends with nobody watching: no draft, no send button, no preview
+    anybody is obliged to look at. Every other email has a human between the
+    template and the recipient. So the richest version of it needs to be
+    renderable here, where the probes can measure it, rather than first
+    appearing in a stranger's inbox.
+  */
+  "welcome-rich": (
+    <WelcomeEmailForm
+      initial={{
+        ...DEFAULT_WELCOME,
+        enabled: true,
+        heroImageUrl: "https://opendoorbakery.co.uk/img/counter.jpg",
+        heroImageAlt: "The counter on a Saturday morning, trays still steaming",
+        products: [
+          {
+            name: "Sourdough loaf",
+            price: "4.20",
+            imageUrl: "https://opendoorbakery.co.uk/img/sourdough.jpg",
+            url: "https://opendoorbakery.co.uk/shop/sourdough",
+          },
+          {
+            name: "Cinnamon bun",
+            price: "2 for 5",
+            imageUrl: null,
+            url: null,
+          },
+        ],
+      }}
+      hasPostalAddress
+      workspaceName="Open Door Bakery"
+      legalName="Open Door Bakery Ltd"
+      postalAddress={"12 Mill Lane\nStroud\nGL5 1AB"}
+      brandAccentHex="#7a4a2b"
+      brandSignOff="See you Saturday,\nAda"
+      viewerEmail="hello@opendoorbakery.co.uk"
     />
   ),
   "auto-reply-off": (

@@ -2570,3 +2570,109 @@
   outline-offset: 2px;
   border-radius: 6px;
 }
+
+/* ── The welcome newsletter's extra pieces ──────────────────────
+   Layout, a photograph and products — the same fields a campaign has, on the
+   one email that sends with nobody watching. The controls are modelled on the
+   composer's (.nl-seg-btn) rather than invented, so the two screens that edit
+   newsletter content do not look like two products. */
+
+.stg-fieldset {
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+  max-width: 460px;
+}
+
+.stg-seg {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0 6px;
+}
+
+.stg-seg-btn {
+  min-height: var(--tap-min, 44px);
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--text-4);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.stg-seg-btn:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.stg-seg-btn[data-on="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+
+.stg-seg-btn:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--accent));
+  outline-offset: 2px;
+}
+
+/* One product per row on a phone, because four inputs side by side at 375px
+   is four inputs nobody can type in. */
+.stg-product {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--surface-3);
+}
+
+@media (min-width: 720px) {
+  .stg-product {
+    grid-template-columns: 1.4fr 0.7fr 1.2fr 1.2fr auto;
+    align-items: center;
+  }
+}
+
+/* ── The preview ────────────────────────────────────────────────
+   The email's own HTML, quarantined in a sandboxed iframe. It carries the
+   colours a mail client demands inline, and none of them may touch the app's
+   themed chrome — so the frame gets a white ground of its own rather than
+   inheriting a surface token, because white is what a mail client shows. */
+
+.stg-preview {
+  margin: 0 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.stg-preview-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface-3);
+}
+
+.stg-preview-subject {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  color: var(--muted-2);
+}
+
+.stg-preview-frame {
+  display: block;
+  width: 100%;
+  height: 520px;
+  border: 0;
+  background: #ffffff;
+}
