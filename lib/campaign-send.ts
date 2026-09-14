@@ -32,6 +32,7 @@ import {
   safeImageUrl,
   sanitiseStoredProducts,
   listUnsubscribeHeaders,
+  campaignFromHeader,
   mailableSender,
   renderCampaign,
   selectAudience,
@@ -1271,7 +1272,9 @@ export async function sendCampaignBatch(input: {
     try {
       const res = await input.deliver({
         to: row.email,
-        from: input.from,
+        // The client's name over the shared verified address — see
+        // campaignFromHeader. The ADDRESS is unchanged.
+        from: campaignFromHeader(input.workspaceName, input.from),
         subject: rendered.subject,
         text: rendered.text,
         html: rendered.html,

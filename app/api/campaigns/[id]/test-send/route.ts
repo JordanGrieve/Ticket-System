@@ -14,6 +14,7 @@ import { recordTransactionalSend } from "@/lib/email-quota-store";
 import { envelopeFromEnv } from "@/lib/campaign-cron";
 import {
   listUnsubscribeHeaders,
+  campaignFromHeader,
   mailableSender,
   renderCampaign,
   safeImageUrl,
@@ -193,7 +194,11 @@ export async function POST(
   try {
     const res = await deliver({
       to,
-      from: envelope.envelope.from,
+      // The same From a real recipient gets. The whole point of this route is
+      // that a client inspects the real thing before it goes out, and the
+      // sender line is the first thing anybody reads — a test that showed a
+      // different one would hide exactly the detail it exists to show.
+      from: campaignFromHeader(workspace.name, envelope.envelope.from),
       // Prefixed so a test can never be mistaken for the real campaign sitting
       // in the same inbox. The BODY is left exactly as it will be sent — the
       // point is to inspect the real thing.

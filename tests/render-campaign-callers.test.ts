@@ -123,3 +123,62 @@ describe("every production renderCampaign call names its image and products", ()
     ).toEqual([]);
   });
 });
+
+/**
+ * Every message handed to a deliverer carries the CLIENT's name in its From.
+ *
+ * ── WHY IT IS THE SAME SHAPE OF GUARD ──
+ * `CAMPAIGN_FROM_ADDRESS` is one address for the whole platform. Passed
+ * through untouched it makes every client's newsletter arrive from
+ * "newsletter@news.postbox.help", which is what AMORIA's first real campaign
+ * did on 14 Sep 2026: Gmail showed the sender as "newsletter".
+ *
+ * `campaignFromHeader` fixes it, and has unit tests — which is precisely why
+ * this is needed. Reverting the SEND PATH to `from: input.from` left all ten
+ * of those tests green: they prove the function is right, not that anybody
+ * calls it. Same blind spot, same remedy, and the same reason the guards above
+ * this one exist.
+ */
+describe("every deliverer call builds its From from the workspace", () => {
+  const files = DIRS.flatMap((d) => sourceFiles(d)).filter(
+    (f) => f !== DEFINITION,
+  );
+
+  /** Calls of the form `deliver({ … })` / `input.deliver({ … })`. */
+  const calls = files.flatMap((file) => {
+    const src = readFileSync(file, "utf8");
+    const out: { file: string; args: string }[] = [];
+    for (const marker of ["deliver({", "deliver(\n"]) {
+      let from = 0;
+      for (;;) {
+        const at = src.indexOf(marker, from);
+        if (at === -1) break;
+        from = at + 1;
+        const args = callArguments(src, at + marker.length - 1);
+        // Only the ones that actually pass a From — the deliverer's own
+        // definition and its type declarations do not.
+        if (args.includes("from:")) out.push({ file, args });
+      }
+    }
+    return out;
+  });
+
+  it("found the call sites", () => {
+    // The canary. Renaming the deliverer or reformatting a call would
+    // otherwise leave this suite passing over nothing at all.
+    expect(
+      calls.length,
+      "no deliver({ … }) calls with a From were found under lib/ or app/",
+    ).toBeGreaterThanOrEqual(2);
+  });
+
+  it("never passes the raw envelope address", () => {
+    const raw = calls
+      .filter((c) => !/from:\s*campaignFromHeader\(/.test(c.args))
+      .map((c) => c.file);
+    expect(
+      raw,
+      "these send with the platform's address as the sender name, so a client's subscribers see us instead of them",
+    ).toEqual([]);
+  });
+});

@@ -757,6 +757,59 @@ export function emailAccent(
  * nobody retries. Refusing the whole batch up front costs nothing and loses
  * no one.
  */
+/**
+ * The From header: the client's name over the shared sending address.
+ *
+ * ── WHY THIS EXISTS ──
+ * `CAMPAIGN_FROM_ADDRESS` is ONE address for the whole platform, on the
+ * verified marketing subdomain, and it was passed to the deliverer verbatim.
+ * So AMORIA's first campaign arrived from "newsletter@news.postbox.help" and
+ * Gmail showed the sender as "newsletter" — while that same client's ticket
+ * replies and welcome emails arrive from "AMORIA", because those go through
+ * lib/email.ts, which has composed a display name all along.
+ *
+ * That is worse than untidy. The From line is the first thing a subscriber
+ * judges, they signed up to a shop rather than to us, and an unrecognised
+ * sender is markedly likelier to be reported as spam — which on a shared
+ * domain is a cost every other client pays.
+ *
+ * The ADDRESS is unchanged: one verified domain, one envelope, the
+ * reputation-isolation argument for the marketing subdomain intact. Only the
+ * display name varies, per workspace.
+ *
+ * ── QUOTING ──
+ * A display name containing a comma, a quote or any other RFC 5322 "special"
+ * has to be a quoted-string, or the header parses as two addresses and the
+ * message is rejected or mangled. "Smith, Baker & Co" is an ordinary business
+ * name, so this is a real case and not a theoretical one.
+ */
+export function campaignFromHeader(
+  workspaceName: string,
+  address: string,
+): string {
+  /*
+    An address already carrying a display name keeps it.
+
+    CAMPAIGN_FROM_ADDRESS may be set to `Postbox <news@…>` by whoever
+    configured the environment, and wrapping that again produces
+    `"AMORIA" <Postbox <news@…>>`, which is not an address at all. Take what is
+    inside the angle brackets and use that.
+  */
+  const angled = /<([^>]+)>/.exec(address);
+  const bare = (angled ? angled[1] : address).trim();
+
+  const name = workspaceName.trim();
+  if (!name) return bare;
+
+  // Quote only when it is needed, so the common case stays readable in a
+  // header a person may have to debug.
+  const needsQuoting = /[(),.:;<>@[\]\\"]/.test(name);
+  if (!needsQuoting) return `${name} <${bare}>`;
+
+  const escaped = name.replace(/([\\"])/g, "\\$1");
+  return `"${escaped}" <${bare}>`;
+}
+
 export function mailableSender(
   sender: SenderIdentity,
 ): SenderIdentity | null {
@@ -858,11 +911,24 @@ function senderBlockText(sender: SenderIdentity): string {
     );
   }
   const name = (sender.legalName ?? "").trim() || sender.workspaceName.trim();
-  // Single-line: a multi-line address pasted by the client is normalised to
-  // comma separation so it reads as an address rather than as body copy.
+  /*
+    Single-line: a multi-line address pasted by the client is normalised to
+    comma separation so it reads as an address rather than as body copy.
+
+    The trailing separator strip is not tidiness. People write addresses with
+    a comma at the end of each line — it is how an address is written — and
+    this joiner then adds its own, so AMORIA's first real campaign carried
+    "AMORIA, 12 High Street,, Edinburgh,, EH13 9LN" in the footer on
+    14 Sep 2026. That block is the CAN-SPAM identification, the one part of a
+    marketing email the law is specific about, and it went out looking like a
+    string-handling bug because it was one.
+
+    Only a trailing comma or semicolon goes, and only at the end of a line:
+    the punctuation a person typed INSIDE a line is theirs.
+  */
   const oneLine = address
     .split(/\n+/)
-    .map((line) => line.trim())
+    .map((line) => line.trim().replace(/[,;]+$/, "").trim())
     .filter(Boolean)
     .join(", ");
   return name ? `${name}, ${oneLine}` : oneLine;
