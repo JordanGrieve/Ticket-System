@@ -114,13 +114,15 @@ const moreButtons = () => screen.queryAllByRole("button", { name: /show more/i }
 const moreButton = () => moreButtons()[0] ?? null;
 
 /*
-  BOTH sections offer a toggle labelled "No code" — the contact form's and the
-  newsletter's. An unscoped getByRole throws on the pair, which is worth knowing
-  in its own right: two identically named buttons on one page are only told
-  apart by the section heading above them.
+  The contact section's second mode. It is queried by its FULL accessible name
+  on purpose: both sections used to offer a toggle reading just "No code", and
+  `/^No code$/` matched the pair — the newsletter's is "Just a link" now and
+  each name says which form it wires up, so a single getByRole resolves. If this
+  query ever finds two again, the labels have collapsed back together and the
+  duplicate-name test below is about to go red for the same reason.
 */
 const noCodeToggle = () =>
-  screen.getAllByRole("button", { name: /^No code$/i })[0]!;
+  screen.getByRole("button", { name: /^No code — point your contact form/i });
 
 describe("a long prompt", () => {
   it("is clipped on arrival, not shown in full", () => {
@@ -220,5 +222,68 @@ describe("the No-code form is never collapsed", () => {
     fireEvent.click(noCodeToggle());
     // Only the newsletter prompt's button should remain.
     expect(moreButtons()).toHaveLength(1);
+  });
+});
+
+describe("every control on the page has its own name", () => {
+  /*
+   * ── THE DEFECT ──
+   *
+   * Two sections offer the same two choices, so the page rendered two buttons
+   * named "✨ AI prompt (recommended)" and two named "No code". A sighted
+   * person tells them apart by the heading above each. Anyone LISTING the
+   * controls — a screen reader's control list, voice control saying "click AI
+   * prompt" — got two identical names and no way to pick.
+   *
+   * Found on 14 Sep 2026 by a test that could not query a button, which is a
+   * better detector for this than reading the markup: if the test cannot say
+   * which one it means, neither can a person.
+   */
+  it("no two buttons share an accessible name", () => {
+    show();
+    const names = screen
+      .getAllByRole("button")
+      .map((b) => (b.getAttribute("aria-label") ?? b.textContent ?? "").trim())
+      .filter(Boolean);
+
+    const seen = new Map<string, number>();
+    for (const n of names) seen.set(n, (seen.get(n) ?? 0) + 1);
+    const duplicates = [...seen].filter(([, n]) => n > 1).map(([name]) => name);
+
+    expect(
+      duplicates,
+      `these names appear on more than one control: ${duplicates.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("each toggle's accessible name CONTAINS its visible text (WCAG 2.5.3)", () => {
+    /*
+     * Label in Name. An aria-label that replaces the visible words rather than
+     * extending them breaks voice control: the button reads "No code", the
+     * user says "click No code", and nothing happens because the accessible
+     * name is "Point your form at Postbox". Every label here has to keep the
+     * written words intact.
+     */
+    show();
+    for (const button of document.querySelectorAll(".sti-mode")) {
+      const visible = (button.textContent ?? "").replace(/[✨]/g, "").trim();
+      const accessible = button.getAttribute("aria-label") ?? "";
+      expect(accessible, `${visible} has no aria-label`).not.toBe("");
+      expect(
+        accessible.toLowerCase(),
+        `"${accessible}" does not contain its visible text "${visible}"`,
+      ).toContain(visible.toLowerCase());
+    }
+  });
+
+  it("and each one names the section it belongs to", () => {
+    // The point of the label. "AI prompt" twice is the bug; naming the form
+    // each one wires up is the fix.
+    show();
+    const labels = [...document.querySelectorAll(".sti-mode")].map(
+      (b) => b.getAttribute("aria-label") ?? "",
+    );
+    expect(labels.filter((l) => /contact form/i.test(l))).toHaveLength(2);
+    expect(labels.filter((l) => /newsletter|signup page/i.test(l))).toHaveLength(2);
   });
 });

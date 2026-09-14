@@ -277,10 +277,18 @@ integration, however well the submission works.
         */}
         <Section title="1 · Connect your contact form">
           <div className="sti-modes">
-            <Toggle active={mode === "ai"} onClick={() => setMode("ai")}>
+            <Toggle
+              active={mode === "ai"}
+              onClick={() => setMode("ai")}
+              label="AI prompt (recommended) — for your contact form"
+            >
               ✨ AI prompt (recommended)
             </Toggle>
-            <Toggle active={mode === "a"} onClick={() => setMode("a")}>
+            <Toggle
+              active={mode === "a"}
+              onClick={() => setMode("a")}
+              label="No code — point your contact form at Postbox"
+            >
               No code
             </Toggle>
           </div>
@@ -289,7 +297,11 @@ integration, however well the submission works.
               ? "Paste this into Claude, ChatGPT, Cursor or whatever built your site. It carries your endpoint and tells the assistant to wire up the form you already have — keeping your own markup, classes and styling exactly as they are."
               : "No JavaScript, nothing to install: point your form's action at this endpoint. Your page is untouched, but the visitor leaves it — they land on a Postbox confirmation page after pressing send."}
           </p>
-          <CodeBlock code={snippet} collapsible={mode === "ai"} />
+          <CodeBlock
+            code={snippet}
+            name={mode === "ai" ? "the contact form prompt" : "the contact form snippet"}
+            collapsible={mode === "ai"}
+          />
         </Section>
 
         {/* ── Newsletter signup ──
@@ -298,11 +310,19 @@ integration, however well the submission works.
             later. They share the workspace key and nothing else. */}
         <Section title="2 · Add a newsletter signup">
           <div className="sti-modes">
-            <Toggle active={nlMode === "ai"} onClick={() => setNlMode("ai")}>
+            <Toggle
+              active={nlMode === "ai"}
+              onClick={() => setNlMode("ai")}
+              label="AI prompt (recommended) — for your newsletter signup"
+            >
               ✨ AI prompt (recommended)
             </Toggle>
-            <Toggle active={nlMode === "link"} onClick={() => setNlMode("link")}>
-              No code
+            <Toggle
+              active={nlMode === "link"}
+              onClick={() => setNlMode("link")}
+              label="Just a link — send people to a signup page we host"
+            >
+              Just a link
             </Toggle>
           </div>
 
@@ -329,7 +349,11 @@ integration, however well the submission works.
                 subscribed&rdquo; when the confirmation email has only just been
                 sent.
               </p>
-              <CodeBlock code={newsletterAiPrompt} collapsible />
+              <CodeBlock
+                code={newsletterAiPrompt}
+                name="the newsletter prompt"
+                collapsible
+              />
             </>
           )}
 
@@ -341,7 +365,12 @@ integration, however well the submission works.
                 button, a link in your footer, a social bio or a QR code at this
                 address and we host the signup form for you.
               </p>
-              <Field value={hostedSignupUrl} copyLabel="Copy link" mono />
+              <Field
+                value={hostedSignupUrl}
+                copyLabel="Copy link"
+                copyOf="your hosted newsletter signup page"
+                mono
+              />
             </>
           )}
         </Section>
@@ -355,7 +384,12 @@ integration, however well the submission works.
             <code className="sti-inline-code">#4821</code>) is flagged as a
             higher-priority order.
           </p>
-          <Field value={inboundEmail} copyLabel="Copy address" mono />
+          <Field
+            value={inboundEmail}
+            copyLabel="Copy address"
+            copyOf="your inbound intake address"
+            mono
+          />
         </Section>
 
         {/* ── Steps ── */}
@@ -378,7 +412,12 @@ integration, however well the submission works.
         {/* ── Settings ── */}
         <Section title="Settings">
           <Label>Workspace API key</Label>
-          <Field value={apiKey} copyLabel="Copy key" mono />
+          <Field
+            value={apiKey}
+            copyLabel="Copy key"
+            copyOf="your workspace API key"
+            mono
+          />
           {confirming ? (
             /* The control becomes the question, so the consequence sits beside
                the thing it applies to. Same shape as LabelManager's delete
@@ -454,7 +493,12 @@ integration, however well the submission works.
             Your replies are delivered from this address, with your business name
             shown as the sender.
           </p>
-          <Field value={replyFrom} copyLabel="Copy address" mono />
+          <Field
+            value={replyFrom}
+            copyLabel="Copy address"
+            copyOf="the address your replies are sent from"
+            mono
+          />
 
           <div className="sti-gap--lg" />
           <Label>Your data</Label>
@@ -663,9 +707,19 @@ function Section({
  */
 function CodeBlock({
   code,
+  name,
   collapsible = false,
 }: {
   code: string;
+  /**
+   * What this block holds, for the controls' accessible names — e.g. "the
+   * contact form prompt".
+   *
+   * The page carries two of these, so without it there were two buttons named
+   * "Copy snippet" and two named "Show more". Reads into a sentence: "Copy
+   * snippet — the newsletter prompt", "Show more of the newsletter prompt".
+   */
+  name: string;
   /**
    * Whether this block may be clipped.
    *
@@ -716,7 +770,12 @@ function CodeBlock({
   return (
     <div className="sti-code">
       <div className="sti-code-copy">
-        <CopyButton value={code} label="Copy snippet" compact />
+        <CopyButton
+          value={code}
+          label="Copy snippet"
+          ariaLabel={`Copy snippet — ${name}`}
+          compact
+        />
       </div>
       {/*
         The clip is a wrapper, not the <pre> itself.
@@ -740,6 +799,7 @@ function CodeBlock({
           className="sti-code-more"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
+          aria-label={`${expanded ? "Show less" : "Show more"} of ${name}`}
         >
           {expanded ? "Show less" : "Show more"}
         </button>
@@ -751,10 +811,20 @@ function CodeBlock({
 function Field({
   value,
   copyLabel,
+  copyOf,
   mono,
 }: {
   value: string;
   copyLabel: string;
+  /**
+   * What this field holds, for the copy button's accessible name.
+   *
+   * Two fields on this page use the label "Copy address" — the inbound intake
+   * address and the address replies are sent from — and they are very different
+   * things to paste somewhere. Appended after the visible words, never
+   * replacing them (WCAG 2.5.3).
+   */
+  copyOf: string;
   mono?: boolean;
 }) {
   return (
@@ -765,18 +835,42 @@ function Field({
       >
         {value}
       </div>
-      <CopyButton value={value} label={copyLabel} />
+      <CopyButton
+        value={value}
+        label={copyLabel}
+        ariaLabel={`${copyLabel} — ${copyOf}`}
+      />
     </div>
   );
 }
 
+/**
+ * One mode toggle.
+ *
+ * ── WHY IT TAKES A LABEL ──
+ *
+ * This page has two sections offering the same two choices, so before 14 Sep
+ * 2026 it rendered two buttons reading "✨ AI prompt (recommended)" and two
+ * reading "No code". Sighted people tell them apart by the heading above each;
+ * anyone listing the page's controls — a screen reader's control list, voice
+ * control saying "click AI prompt" — got two identical names and no way to
+ * choose.
+ *
+ * `label` is the accessible name and always NAMES THE SECTION. It must contain
+ * the visible text word for word: WCAG 2.5.3 Label in Name, so that saying what
+ * is written on the button still activates it. "AI prompt for your contact
+ * form" contains "AI prompt"; "AI prompt · contact" would not.
+ */
 function Toggle({
   active,
   onClick,
+  label,
   children,
 }: {
   active: boolean;
   onClick: () => void;
+  /** The accessible name. Must contain the visible text — see above. */
+  label: string;
   children: React.ReactNode;
 }) {
   return (
@@ -784,6 +878,7 @@ function Toggle({
       className="sti-mode"
       data-on={active}
       aria-pressed={active}
+      aria-label={label}
       onClick={onClick}
     >
       {children}

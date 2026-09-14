@@ -14,10 +14,22 @@ import { useState } from "react";
 export default function CopyButton({
   value,
   label = "Copy",
+  ariaLabel,
   compact = false,
 }: {
   value: string;
   label?: string;
+  /**
+   * A longer accessible name, for a page carrying more than one of these.
+   *
+   * The install page has two code blocks, so it had two buttons both named
+   * "Copy snippet" — indistinguishable to anyone listing the controls instead
+   * of looking at them, and ambiguous to voice control.
+   *
+   * MUST contain `label` word for word (WCAG 2.5.3, Label in Name): the words
+   * printed on the button have to keep working as the thing you say.
+   */
+  ariaLabel?: string;
   compact?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
@@ -41,6 +53,7 @@ export default function CopyButton({
   return (
     <button
       onClick={copy}
+      aria-label={ariaLabel}
       style={{
         height: compact ? 30 : 34,
         padding: compact ? "0 11px" : "0 14px",
