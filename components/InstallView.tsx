@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CopyButton from "./CopyButton";
+import { highlight, type Language } from "../lib/highlight";
 
 /**
  * The Install tab.
@@ -300,6 +301,7 @@ integration, however well the submission works.
           <CodeBlock
             code={snippet}
             name={mode === "ai" ? "the contact form prompt" : "the contact form snippet"}
+            language={mode === "ai" ? "prompt" : "html"}
             collapsible={mode === "ai"}
           />
         </Section>
@@ -708,9 +710,17 @@ function Section({
 function CodeBlock({
   code,
   name,
+  language = "prompt",
   collapsible = false,
 }: {
   code: string;
+  /**
+   * Which grammar colours this block. See lib/highlight.ts.
+   *
+   * It returns kinds, not colours; the inks are --code-* tokens, measured at
+   * 7:1 on --code-bg in tests/code-contrast.test.ts and different per theme.
+   */
+  language?: Language;
   /**
    * What this block holds, for the controls' accessible names — e.g. "the
    * contact form prompt".
@@ -826,7 +836,18 @@ function CodeBlock({
         className={`sti-code-clip${!expanded && clipped ? " is-clipped" : ""}`}
       >
         <pre>
-          <code>{code}</code>
+          {/*
+            One span per run. The tokeniser is asserted to round-trip, so the
+            text rendered here is the text the copy button sends — a client can
+            trust that what they are looking at is what they are handing over.
+          */}
+          <code>
+            {highlight(code, language).map((token, i) => (
+              <span key={i} className={`hl-${token.kind}`}>
+                {token.text}
+              </span>
+            ))}
+          </code>
         </pre>
       </div>
     </div>

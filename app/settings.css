@@ -1507,10 +1507,12 @@
 
 .sti-code {
   position: relative;
-  /* A code block, dark in both themes like a terminal — --brand-panel, not
-     --nav, which follows the theme now. */
-  background: var(--brand-panel);
-  border: 1px solid var(--brand-panel-pill-bg);
+  /* Follows the theme. It was --brand-panel — dark in both, "like a terminal"
+     — which made a light-mode client read a near-black slab in the middle of a
+     white page. --code-bg is pale in light and keeps the near-black in dark,
+     and every ink on it is measured per theme in tests/code-contrast.test.ts. */
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
   border-radius: 12px;
 }
 
@@ -1540,8 +1542,58 @@
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 0.78125rem;
   line-height: 1.7;
-  color: var(--brand-panel-fg);
+  color: var(--code-fg);
   white-space: pre;
+}
+
+/*
+  ── SYNTAX COLOURS ──
+
+  One class per kind from lib/highlight.ts. Every value is a token, measured at
+  7:1 on --code-bg in BOTH palettes (tests/code-contrast.test.ts) — which is
+  why these are not an editor's hexes: at AAA, Dark+'s comment green is 4.2:1
+  on its own ground and would fail here twice over.
+
+  Nothing below carries meaning by colour alone (1.4.1). The prompt is a
+  document to be copied; the highlighting tells a client it is code, and that
+  is all it is for. `head` is bold as well as coloured because a heading is
+  structure — the one distinction worth making twice.
+*/
+.sti-code .hl-head {
+  color: var(--code-head);
+  font-weight: 700;
+}
+
+.sti-code .hl-comment {
+  color: var(--code-comment);
+}
+
+.sti-code .hl-str {
+  color: var(--code-str);
+}
+
+.sti-code .hl-num {
+  color: var(--code-num);
+}
+
+.sti-code .hl-url {
+  color: var(--code-url);
+}
+
+.sti-code .hl-key {
+  color: var(--code-key);
+}
+
+.sti-code .hl-tag {
+  color: var(--code-tag);
+}
+
+.sti-code .hl-attr {
+  color: var(--code-attr);
+}
+
+.sti-code .hl-punct {
+  color: var(--code-punct);
 }
 
 /*
@@ -1576,9 +1628,11 @@
 /*
   The fade says "there is more" before the button does.
 
-  --brand-panel is a FIXED colour in both themes (the block is a terminal, not
-  a themed surface), so one gradient is correct everywhere and needs no
-  per-theme value.
+  It fades to --code-bg, which is now per-theme — so the gradient follows the
+  block automatically and there is still only one of it. This used to read
+  --brand-panel and say that one gradient was correct everywhere because the
+  panel was fixed; the day the block stopped being fixed, that sentence would
+  have become a pale fade over a dark block in the other theme.
 
   The top stop is the panel colour at zero alpha rather than the bare keyword
   "transparent", which several engines interpolate through black and render as
@@ -1598,8 +1652,8 @@
   pointer-events: none;
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--brand-panel) 0%, transparent),
-    var(--brand-panel)
+    color-mix(in srgb, var(--code-bg) 0%, transparent),
+    var(--code-bg)
   );
 }
 

@@ -199,6 +199,41 @@
   /* 7.42:1 on the badge. The count is 11px, so it gets the full AAA bar for
      small text rather than the large-text concession. */
   --nav-badge-fg: #3f2b93;
+
+  /*
+   * ── THE CODE BLOCK, PER THEME ──
+   *
+   * The install page's snippets used to borrow --brand-panel, on the argument
+   * that a terminal is dark. Jordan, 14 Sep 2026: "the code does not have a
+   * light theme, also the code should be colourful like vscode." He is right
+   * about the first part for the same reason the sidebar stopped being fixed —
+   * one near-black slab in the middle of a light page reads as a hole in it.
+   * --brand-panel keeps its meaning and its users (the marketing hero, the
+   * closing band, the product shots); the code block gets its own ground.
+   *
+   * These are NOT an editor theme's values. Every ink here is measured at 7:1
+   * against --code-bg in tests/code-contrast.test.ts, which is the bar this
+   * product is held to (1.4.6) and roughly twice what Dark+ or GitHub Light
+   * are built for — their comment greens land near 4:1. So the hues follow the
+   * conventions an editor taught everyone to read (strings green, numbers
+   * amber, keywords purple, comments grey) and the VALUES are ours.
+   *
+   * Colour is decoration here, never information (1.4.1): the prompt is text
+   * to be copied, and nothing in it means something different for being amber.
+   */
+  --code-bg: #f3f1f9;
+  --code-border: #e2ddf0;
+  --code-fg: #201c33;
+  --code-head: #6b21a8;
+  --code-comment: #4a4560;
+  --code-str: #0f5132;
+  --code-num: #7a3500;
+  --code-url: #0a4a94;
+  --code-key: #5b21b6;
+  --code-tag: #13457f;
+  --code-attr: #0b4f56;
+  --code-punct: #3d3654;
+
   /*
    * The keyboard focus ring, as its own token.
    *
@@ -367,6 +402,24 @@
   /* #ece6ff from #dcd1ff: the count on the ACTIVE row sits on two purple
      washes stacked over the nav and read 6.69:1 at 11px — AAA wants 7. */
   --nav-badge-fg: #ece6ff;
+
+  /* The code block in dark. The ground is --brand-panel's old value, because
+     that part of it was right — this is the one surface where a near-black
+     slab is what people expect. The inks are far brighter than an editor's:
+     7:1 on a ground this dark needs a relative luminance around 0.38, which
+     rules out every saturated mid-tone Dark+ uses. */
+  --code-bg: #1c1830;
+  --code-border: #2b2545;
+  --code-fg: #ece6ff;
+  --code-head: #e2c9ff;
+  --code-comment: #b3aac9;
+  --code-str: #9be8b8;
+  --code-num: #ffd08a;
+  --code-url: #8fd0ff;
+  --code-key: #d9b8ff;
+  --code-tag: #7cc9f0;
+  --code-attr: #86e5d5;
+  --code-punct: #c9c2e0;
   --shadow: rgba(0, 0, 0, 0.28);
   --shadow-2: rgba(0, 0, 0, 0.34);
   --ok-fg: #7ee0b2;
@@ -428,6 +481,19 @@
     /* #ece6ff from #dcd1ff: the count on the ACTIVE row sits on two purple
        washes stacked over the nav and read 6.69:1 at 11px — AAA wants 7. */
     --nav-badge-fg: #ece6ff;
+    /* Mirrors the dark block above, values and all. */
+    --code-bg: #1c1830;
+    --code-border: #2b2545;
+    --code-fg: #ece6ff;
+    --code-head: #e2c9ff;
+    --code-comment: #b3aac9;
+    --code-str: #9be8b8;
+    --code-num: #ffd08a;
+    --code-url: #8fd0ff;
+    --code-key: #d9b8ff;
+    --code-tag: #7cc9f0;
+    --code-attr: #86e5d5;
+    --code-punct: #c9c2e0;
     --shadow: rgba(0, 0, 0, 0.28);
     --shadow-2: rgba(0, 0, 0, 0.34);
     --ok-fg: #7ee0b2;

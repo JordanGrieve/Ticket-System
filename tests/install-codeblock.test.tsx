@@ -224,6 +224,47 @@ describe("a long prompt", () => {
   });
 });
 
+describe("the colouring does not change the code", () => {
+  /*
+   * lib/highlight.ts is tested on its own, round-trip included. This is the
+   * seam it cannot see: the component could colour one string and copy
+   * another, or wrap the tokens in a way that adds whitespace the source never
+   * had. What a client reads and what they paste have to be one document.
+   */
+  it("renders the prompt as coloured runs that still spell the prompt", async () => {
+    makeEverythingOverflow();
+    const writeText = vi.fn<(text: string) => Promise<void>>(async () => {});
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    show();
+
+    const pre = document.querySelector(".sti-code pre");
+    expect(pre, "no code block rendered").not.toBeNull();
+
+    const spans = [...pre!.querySelectorAll("span")];
+    expect(spans.length, "the block is not coloured at all").toBeGreaterThan(20);
+    // More than one ink, or the "highlighting" is one grey wall.
+    const kinds = new Set(spans.map((s) => s.className));
+    expect(kinds.size).toBeGreaterThan(3);
+
+    fireEvent.click(screen.getAllByRole("button", { name: /copy snippet/i })[0]);
+    expect(pre!.textContent).toBe(writeText.mock.calls[0][0]);
+  });
+
+  it("colours the no-code form as HTML, not as prose", () => {
+    // The two blocks are different languages. One grammar for both would paint
+    // the form's tags as sentences and vice versa — a small thing that makes
+    // the page look like it does not know what it is showing.
+    makeEverythingOverflow();
+    show();
+    fireEvent.click(noCodeToggle());
+
+    const kinds = [...document.querySelectorAll(".sti-code pre span")].map(
+      (s) => s.className,
+    );
+    expect(kinds).toContain("hl-tag");
+  });
+});
+
 describe("the No-code form is never collapsed", () => {
   /*
    * The clip is 92px — three lines. That is right for a seventy-line prompt
