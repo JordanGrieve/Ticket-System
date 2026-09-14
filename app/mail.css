@@ -371,6 +371,23 @@
   for free, and must lose the opacity and not-allowed cursor that used to
   announce it was dead.
 */
+/*
+  ── WHY NOT --nav-deep ──
+
+  It was `--nav-deep` with `--pbm-on-dark` ink, and that was unreadable in the
+  light theme. --nav-deep follows the palette — #15122a in dark, #ebe5f7 in
+  light — while --pbm-on-dark is a fixed #fff, so in light mode this was white
+  text on near-white: about 1.1:1, on the one control in the sidebar anybody is
+  meant to press.
+
+  The CARD behind it is `--pro-grad`, the brand purple, in BOTH themes. So the
+  button cannot take a per-theme surface token at all: it does not sit on the
+  page, it sits on a fixed-colour panel. --brand-panel-deep and
+  --brand-panel-fg are the pair already declared for exactly that — a surface
+  that paints its own background and therefore carries its own ink, which is
+  the rule in STYLE-GUIDE.md §2. Both are fixed in both themes, so this is dark
+  with light ink everywhere, which is what it always looked like in dark mode.
+*/
 .pbm-pro-btn {
   display: flex;
   align-items: center;
@@ -380,8 +397,8 @@
   height: 44px;
   border: none;
   border-radius: 13px;
-  background: var(--nav-deep);
-  color: var(--pbm-on-dark);
+  background: var(--brand-panel-deep);
+  color: var(--brand-panel-fg);
   font-size: 0.75rem;
   font-weight: 700;
   text-decoration: none;

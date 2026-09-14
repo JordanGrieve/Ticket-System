@@ -688,3 +688,98 @@ describe("the focus ring clears 3:1 on the grounds it is drawn over", () => {
     }
   }
 });
+
+/*
+  ── CONTROLS THAT SIT ON A FIXED-COLOUR PANEL ──
+
+  STYLE-GUIDE.md §2: "a surface that paints its own background sets its own
+  ink." The sidebar's plan card is `--pro-grad` — the brand purple, the SAME in
+  both themes — and the button inside it took `--nav-deep`, which follows the
+  palette, with `--pbm-on-dark`, which is a fixed white.
+
+  In dark mode that was near-black under white and looked deliberate. In light
+  mode `--nav-deep` is #ebe5f7 and it became white text on near-white: about
+  1.1:1, on the only control in the sidebar anyone is meant to press. Nobody
+  caught it because the component was only ever looked at in one theme.
+
+  This is the pairing assertion the style guide asks for whenever a fixed
+  surface meets an ink: it is checked ONCE rather than per palette, because
+  that is precisely the claim — neither token may start following the theme.
+*/
+describe("the plan card's button is dark with light ink in BOTH themes", () => {
+  /*
+    Read from the LIGHT selector, which is where :root lives.
+    globals.css opens `:root,\n[data-theme="light"] {` — one block serving both
+    — so these tokens are declared on :root and the light palette at once.
+    Looking for a bare `:root {` finds a different, later block and throws,
+    which is how the first version of this test failed against correct CSS.
+  */
+  const ROOT = '[data-theme="light"] {';
+
+  it("--brand-panel-fg on --brand-panel-deep clears AAA", () => {
+    const fg = parseHex(token(ROOT, "--brand-panel-fg"));
+    const bg = parseHex(token(ROOT, "--brand-panel-deep"));
+    expect(fg, "--brand-panel-fg did not parse").not.toBeNull();
+    expect(bg, "--brand-panel-deep did not parse").not.toBeNull();
+    const got = contrastRatio(fg!, bg!);
+    expect(
+      got,
+      `--brand-panel-fg on --brand-panel-deep is ${got.toFixed(2)}:1 — AAA needs 7`,
+    ).toBeGreaterThanOrEqual(7);
+  });
+
+  it("neither token is redefined in the DARK palette", () => {
+    /*
+     * The defect this guards: a pair that holds at :root and then drifts apart
+     * because one half gets a dark-mode value "to match the theme". That is
+     * exactly what --nav-deep did, and it is why the button it used to take was
+     * white-on-near-white in light mode.
+     *
+     * Only the dark block is checked, because the light one IS the :root
+     * declaration — see ROOT above. A value there is the definition, not a
+     * redefinition.
+     */
+    const darkBlock = '[data-theme="dark"] {';
+    for (const name of ["--brand-panel-deep", "--brand-panel-fg"]) {
+      expect(
+        rawToken(darkBlock, name),
+        `${name} is redefined for dark — it is meant to be fixed in both themes`,
+      ).toBeNull();
+    }
+  });
+});
+
+/*
+  ── THE SECONDARY BUTTON ──
+
+  New on 14 Sep 2026, and the first shared quiet button in the product — the
+  style guide had described one ("Quiet: --surface-3 ground, --text ink") since
+  11 Sep without anyone writing it, so each screen improvised, usually as an
+  underlined link beside a solid primary.
+
+  Both tokens follow the palette, so unlike the card above this IS checked per
+  theme. --surface-3 is an rgba overlay in dark, which is why it is composited
+  rather than read as a flat colour.
+*/
+describe("the secondary button's ink clears AAA on its own ground", () => {
+  for (const palette of PALETTES) {
+    it(`${palette.name}: --text on --surface-3`, () => {
+      const base = parseHex(token(palette.selector, "--surface"));
+      expect(base, `${palette.name} --surface did not parse`).not.toBeNull();
+
+      const raw = rawToken(palette.selector, "--surface-3");
+      expect(raw, `${palette.name} has no --surface-3`).not.toBeNull();
+      const ground = raw!.startsWith("#")
+        ? parseHex(raw!)
+        : composite(raw!, base!);
+      expect(ground, `${palette.name} --surface-3 did not resolve: ${raw}`).not.toBeNull();
+
+      const ink = parseHex(token(palette.selector, "--text"));
+      const got = contrastRatio(ink!, ground!);
+      expect(
+        got,
+        `${palette.name} --text on --surface-3 is ${got.toFixed(2)}:1 — AAA needs 7`,
+      ).toBeGreaterThanOrEqual(7);
+    });
+  }
+});

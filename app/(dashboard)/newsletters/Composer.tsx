@@ -2289,9 +2289,20 @@ export default function Composer({
                       committing anything. It needs a saved draft and the
                       postal address, not the whole list.
                     */}
+                    {/*
+                      A secondary BUTTON, not a link-button.
+
+                      It sat beside "Save" as underlined text, which reads as a
+                      footnote rather than the other half of a pair of choices —
+                      and this is the action that shows a client what their
+                      subscribers will actually receive, so it is the one thing
+                      on the screen most worth pressing before the real send.
+                      .stg-button--secondary is new (app/globals.css); the style
+                      guide had described it for days without anyone writing it.
+                    */}
                     <button
                       type="button"
-                      className="nl-linkbtn"
+                      className="stg-button stg-button--secondary"
                       onClick={sendTestToMyself}
                       disabled={
                         savedId === null ||

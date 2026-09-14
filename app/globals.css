@@ -1039,6 +1039,38 @@ summary:focus-visible,
   transition: box-shadow 140ms ease;
 }
 
+/*
+  ── THE SECONDARY BUTTON ──
+
+  STYLE-GUIDE.md has described this since 11 Sep 2026 — "Quiet: --surface-3
+  ground, --text ink" — and no such class was ever written. So every screen
+  that needed a second, less important action invented something: the newsletter
+  composer's "Send me a test first" was an underlined link-button sitting beside
+  a solid primary, which reads as a footnote rather than the other half of a
+  pair of choices.
+
+  One class, both themes, no new colours: --surface-3 and --text are per-palette
+  and already measured against each other, so this is AAA in light and dark
+  without a second definition. The border is what separates it from the page —
+  a quiet button with no border and no fill is a link.
+
+  Use it for the second action in a pair. Destructive still gets its own
+  treatment (--pdf-fg on --pdf-bg); this is not that.
+*/
+.stg-button--secondary {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.stg-button--secondary:hover:not(:disabled) {
+  /* No glow: the glow is the primary's, and two glowing buttons side by side
+     say the choice is between two equally-weighted things. */
+  box-shadow: none;
+  border-color: var(--text-3);
+  background: var(--surface-2);
+}
+
 .stg-button--wide {
   width: 100%;
   /* The same cap as .stg-field, so on desktop the button ends where the

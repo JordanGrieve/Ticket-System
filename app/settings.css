@@ -1369,10 +1369,37 @@
   color: var(--text);
 }
 
+/*
+  Full width, like every other settings tab.
+
+  This was capped at 760px and centred, so Install was visibly narrower than
+  General, Auto-reply, Forms, Team, Billing and the access log — all of which
+  use .stg-wrap and fill the pane. On a wide screen it read as a different
+  screen in the same product.
+
+  The cap made sense when the page was mostly prose. It is mostly CODE now: two
+  seventy-line AI prompts and an endpoint URL, none of which wants a 760px
+  column — a wrapped endpoint is harder to read and harder to copy by eye.
+
+  Prose does NOT follow it out. Every paragraph keeps its own reading width
+  below (1.4.8: lines of body text stay under 80 characters), so widening the
+  container widens the code and the cards and leaves the sentences alone.
+*/
 .sti-col {
-  max-width: 760px;
-  margin: 0 auto;
   min-width: 0;
+}
+
+/*
+  The reading width, applied to the text and not to the container.
+
+  62ch matches .stg-sub on the other settings tabs. In this face that is
+  comfortably inside the 80-character line 1.4.8 asks for — see the note in
+  STYLE-GUIDE.md §3 about 54ch/70ch, which is the same arithmetic.
+*/
+.sti-sub,
+.sti-help,
+.sti-step {
+  max-width: 62ch;
 }
 
 .sti-title {
