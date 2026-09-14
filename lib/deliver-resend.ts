@@ -54,7 +54,10 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { Resend } from "resend";
 import type { OutboundCampaignEmail } from "./campaign-send";
-import { isRetryableFailure, type DeliveryFailureKind } from "./deliver-ses";
+import {
+  isRetryableFailure,
+  type DeliveryFailureKind,
+} from "./delivery-failure";
 
 // ── The provider call, narrowed ──────────────────────────────────
 

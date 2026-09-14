@@ -238,12 +238,18 @@ export default async function AdminHomePage({
         process.env.RESEND_WEBHOOK_SIGNING_SECRET,
     ),
     campaignDeliveryLive: isLiveDeliveryMode(deliveryModeFromEnv(process.env)),
-    // Either provider's feedback channel. SES routes bounces and complaints to
-    // SNS; Resend posts them to the same webhook the transactional path
-    // already verifies, so on Resend this gate is that secret.
+    /*
+      The feedback channel. It read `SES_SNS_TOPIC_ARN` first until 14 Sep 2026,
+      when SES was removed; with Resend the gate is the webhook secret the
+      transactional path already verifies.
+
+      Worth reading honestly: this says a channel is CONFIGURED, not that
+      campaign bounces reach suppressions. They do not yet — the only consumer
+      of feedback drops went with the SES webhook, and Resend's delivery events
+      are not wired to campaign recipients. See tests/feedback-drops.test.ts.
+    */
     campaignFeedback: Boolean(
-      process.env.SES_SNS_TOPIC_ARN ??
-        process.env.RESEND_DELIVERY_WEBHOOK_SIGNING_SECRET ??
+      process.env.RESEND_DELIVERY_WEBHOOK_SIGNING_SECRET ??
         process.env.RESEND_WEBHOOK_SIGNING_SECRET,
     ),
     contactFormLive: Boolean(POSTBOX_CONTACT_KEY),

@@ -15,24 +15,22 @@
  * ── THE DEFAULT IS THE LOG DELIVERER, AND THAT IS THE POINT ──
  *
  * `createCampaignDeliverer()` returns the log deliverer unless
- * `CAMPAIGN_DELIVERY_MODE` is set to exactly `"ses"` or exactly `"resend"`. A
- * mode string that is absent, empty, misspelled, or set to anything else at all
- * yields the log deliverer. There is no "auto-detect the provider" path,
- * because the failure mode of auto-detection here is mailing forty thousand
- * real people — which is also why AWS credentials, or a `RESEND_API_KEY` that
- * every transactional send already uses, merely being present in the
- * environment is deliberately not read as consent to send a campaign.
+ * `CAMPAIGN_DELIVERY_MODE` is set to exactly `"resend"`. A mode string that is
+ * absent, empty, misspelled, or set to anything else at all yields the log
+ * deliverer. There is no "auto-detect the provider" path, because the failure
+ * mode of auto-detection here is mailing forty thousand real people — which is
+ * also why a `RESEND_API_KEY` that every transactional send already uses,
+ * merely being present in the environment, is deliberately not read as consent
+ * to send a campaign.
  *
- * ── WHY THERE ARE TWO REAL PROVIDERS ──
+ * ── ONE PROVIDER, SINCE 14 SEP 2026 ──
  *
- * SES is the one the design argued for (docs/NEWSLETTER.md §1.2): per-tenant
- * reputation isolation is a thing only it offers. It is also still in the
- * sandbox — production access was DENIED on 26 Aug 2026 — so it can reach
- * verified addresses only. Resend is live, already carries every transactional
- * message, and can reach a stranger today. `"resend"` is the mode that actually
- * mails a subscriber; `"ses"` stays because the sandbox is a state the account
- * can leave, and deleting a working adapter to celebrate a support ticket would
- * be the wrong order.
+ * There were two. SES was the one the design argued for — per-tenant
+ * reputation isolation is a thing only it offers — and AWS denied production
+ * access on 26 Aug 2026, leaving it sandboxed and able to reach only verified
+ * addresses. It was never what production ran. It is gone now, adapter,
+ * webhook and env vars together; see the note by `RESEND_DELIVERY_MODE` for
+ * why an unused provider is worse than no provider.
  *
  * The cron route carries a second, independent gate that trips BEFORE this
  * factory is ever called: it returns 503 when `CAMPAIGN_FROM_ADDRESS` is unset,
@@ -53,7 +51,7 @@
  *
  * ── CONFIG ──
  *
- * This module reads `process.env` in exactly one function (`sesConfigFromEnv`)
+ * This module reads `process.env` in exactly one function (`resendConfigFromEnv`)
  * and passes the values on as ARGUMENTS. It does not import lib/config, and
  * neither does anything it imports — see the header of lib/newsletter.ts for
  * what happened the one time that boundary was crossed.
@@ -65,7 +63,6 @@ import "server-only";
 // lets tests/deliver*.test.ts run in CI with no database.
 import type { CampaignDeliverer } from "./campaign-send";
 import { createLogDeliverer, type DeliveryLogRecord } from "./deliver-log";
-import { createSesDeliverer, type SesDelivererConfig } from "./deliver-ses";
 import {
   createResendDeliverer,
   type ResendDelivererConfig,
@@ -79,14 +76,9 @@ export type {
 export type { DeliveryLogRecord };
 export { createLogDeliverer } from "./deliver-log";
 export {
-  createSesDeliverer,
-  SesDeliveryError,
-  classifySesError,
   isRetryableFailure,
-  buildRawMessage,
   type DeliveryFailureKind,
-  type SesDelivererConfig,
-} from "./deliver-ses";
+} from "./delivery-failure";
 export {
   createResendDeliverer,
   ResendDeliveryError,
@@ -104,21 +96,35 @@ export {
  */
 export const DELIVERY_MODE_ENV = "CAMPAIGN_DELIVERY_MODE";
 
-/** Selects Amazon SES. Sandbox-bound as of 26 Aug 2026 — see the header. */
-export const SES_DELIVERY_MODE = "ses";
-
 /** Selects Resend's `/emails` API. The mode that can reach a stranger. */
 export const RESEND_DELIVERY_MODE = "resend";
 
-export type DeliveryMode = "log" | "ses" | "resend";
+/*
+  ── SES WAS HERE, AND IS NOT COMING BACK ──
+
+  A second mode, "ses", sent campaigns through Amazon SES. It was the original
+  plan — one SES tenant per workspace, so one client's complaint rate could not
+  sink another's — and AWS refused production access on 26 Aug 2026, leaving it
+  sandboxed and able to reach only verified addresses. It was never the mode
+  production ran. Jordan, 14 Sep 2026: "we are not using amazon anymore."
+
+  Removed entirely rather than left switched off, because a provider nobody
+  uses is a provider nobody maintains: the deliverer, its raw-MIME builder, its
+  error classifier, an SNS webhook with signature verification, and a set of
+  env vars all had to stay correct against an API no call would ever reach
+  again. The webhook was the sharp end — a public endpoint parsing signed
+  messages from a service we had stopped using.
+
+  If a second provider is ever wanted, this constant and `DeliveryMode` are
+  where it goes; the shape that made two modes possible is still here.
+*/
+export type DeliveryMode = "log" | "resend";
 
 /**
- * The modes that transmit. Used wherever a screen or a health check has to say
- * whether real people receive this — written once, so a third provider does not
- * need every `=== "ses"` in the product found and corrected.
+ * The modes that transmit. Still a list rather than an equality check, so
+ * adding a provider does not mean finding every `=== "resend"` in the product.
  */
 export const LIVE_DELIVERY_MODES: readonly DeliveryMode[] = [
-  SES_DELIVERY_MODE,
   RESEND_DELIVERY_MODE,
 ];
 
@@ -139,54 +145,11 @@ export type DeliveryEnv = Record<string, string | undefined>;
  */
 export function deliveryModeFromEnv(env: DeliveryEnv): DeliveryMode {
   const raw = (env[DELIVERY_MODE_ENV] ?? "").trim();
-  if (raw === SES_DELIVERY_MODE) return "ses";
   if (raw === RESEND_DELIVERY_MODE) return "resend";
+  // Includes "ses", which is now just another unrecognised string and so means
+  // log — the safe answer, and the same one an environment left over from the
+  // SES experiment gets.
   return "log";
-}
-
-export type SesConfigResult =
-  | { ok: true; config: SesDelivererConfig }
-  | { ok: false; missing: string[] };
-
-/**
- * Gather the SES settings from the environment.
- *
- * Region and credentials are required; the configuration set, the tenant and
- * the return path are optional but each is called out in the report below,
- * because "it sent, but with no configuration set" means the bounce and
- * complaint events go nowhere and the feedback loop in docs/NEWSLETTER.md §6
- * silently does not exist.
- */
-export function sesConfigFromEnv(env: DeliveryEnv): SesConfigResult {
-  const region = (env.SES_REGION ?? env.AWS_REGION ?? "").trim();
-  const accessKeyId = (env.AWS_ACCESS_KEY_ID ?? "").trim();
-  const secretAccessKey = (env.AWS_SECRET_ACCESS_KEY ?? "").trim();
-
-  const missing: string[] = [];
-  if (!region) missing.push("SES_REGION (or AWS_REGION)");
-  if (!accessKeyId) missing.push("AWS_ACCESS_KEY_ID");
-  if (!secretAccessKey) missing.push("AWS_SECRET_ACCESS_KEY");
-  if (missing.length > 0) return { ok: false, missing };
-
-  const optional = (name: string): string | null => {
-    const value = (env[name] ?? "").trim();
-    return value || null;
-  };
-
-  return {
-    ok: true,
-    config: {
-      region,
-      credentials: {
-        accessKeyId,
-        secretAccessKey,
-        sessionToken: optional("AWS_SESSION_TOKEN"),
-      },
-      configurationSetName: optional("SES_CONFIGURATION_SET"),
-      tenantName: optional("SES_TENANT_NAME"),
-      returnPath: optional("SES_RETURN_PATH"),
-    },
-  };
 }
 
 export type ResendConfigResult =
@@ -225,13 +188,6 @@ export type DelivererFactoryOptions = {
   env?: DeliveryEnv;
   /** Where the log deliverer writes. Defaults to console.info. */
   sink?: (record: DeliveryLogRecord) => void;
-  /**
-   * Per-workspace SES tenant name, when the caller knows it. Overrides
-   * SES_TENANT_NAME — one SES tenant per workspace is the whole reason SES was
-   * chosen (docs/NEWSLETTER.md §1.4), and a per-process env var cannot express
-   * that. Ignored in log mode.
-   */
-  tenantName?: string | null;
   /**
    * Called after each send the provider ACCEPTED. Resend mode only.
    *
@@ -291,36 +247,16 @@ export function createCampaignDeliverer(
     return createResendDeliverer({ ...resend.config, onSent: options.onSent });
   }
 
-  const result = sesConfigFromEnv(env);
-  if (!result.ok) {
-    throw new Error(
-      `${DELIVERY_MODE_ENV}=${SES_DELIVERY_MODE} but SES is not configured. ` +
-        `Missing: ${result.missing.join(", ")}. Refusing to construct a ` +
-        `deliverer rather than falling back to the log deliverer, which would ` +
-        `look like a successful send.`,
-    );
-  }
+  /*
+    Unreachable, and deliberately an exhaustiveness check rather than a
+    fallthrough to the log deliverer.
 
-  const config: SesDelivererConfig = {
-    ...result.config,
-    tenantName:
-      options.tenantName !== undefined
-        ? options.tenantName
-        : result.config.tenantName,
-  };
-
-  // Loud on purpose. This line appearing in production logs is the signal that
-  // the safety catch described at the top of this file has been released.
-  console.warn(
-    `[deliver] ${DELIVERY_MODE_ENV}=${SES_DELIVERY_MODE}: REAL bulk email is ` +
-      `enabled (region ${config.region}` +
-      `${config.tenantName ? `, tenant ${config.tenantName}` : ", NO tenant"}` +
-      `${
-        config.configurationSetName
-          ? `, configuration set ${config.configurationSetName}`
-          : ", NO configuration set — bounce/complaint events will not be delivered"
-      }).`,
-  );
-
-  return createSesDeliverer(config);
+    `DeliveryMode` is "log" | "resend" and both are handled above, so this
+    cannot run today. If a third mode is added and its branch forgotten, the
+    alternative — quietly returning the log deliverer — is a campaign that
+    reports every recipient delivered and mails nobody. Failing to compile is
+    the better outcome, and `never` is what produces it.
+  */
+  const unhandled: never = mode;
+  throw new Error(`Unhandled ${DELIVERY_MODE_ENV}: ${String(unhandled)}`);
 }

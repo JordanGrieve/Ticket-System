@@ -7,14 +7,28 @@ import type { FeedbackDropReason } from "../db/schema";
 /**
  * Unattributable bounces are counted, not just logged.
  *
- * ── THE FAILURE THIS GUARDS ──
- * The SES webhook drops feedback it cannot map to a campaign recipient. That
- * is correct — suppressing globally would let one tenant's bounce silence an
- * address for every other tenant — but until now the drop reached only
- * `console.warn`.
+ * ── THE CALLER IS GONE, AND THE RULES ARE NOT ──
+ * This guarded the SES webhook, which was deleted on 14 Sep 2026 along with
+ * the rest of Amazon ("we are not using amazon anymore"). Its assertions about
+ * that file went with it; everything below is about lib/feedback-log.ts and
+ * the table, which remain.
  *
- * Which means a systematic attribution failure is indistinguishable from clean
- * sending. If a deploy stopped recording provider message ids, every bounce
+ * Kept rather than deleted with it, because `recordFeedbackDrop` has NO caller
+ * now and that is a gap somebody will close: campaign bounce and complaint
+ * feedback reached suppressions only through SES, and SES never sent in
+ * production, so the capability was theoretical — but it is the thing that has
+ * to exist before a real list is mailed at volume. Whoever wires Resend's
+ * delivery events to it inherits these rules, which is the point of them
+ * surviving the provider they were written for.
+ *
+ * ── THE FAILURE THEY GUARD ──
+ * A webhook drops feedback it cannot map to a campaign recipient. That is
+ * correct — suppressing globally would let one tenant's bounce silence an
+ * address for every other tenant — but a drop that reaches only
+ * `console.warn` means a systematic attribution failure is indistinguishable
+ * from clean sending.
+ *
+ * In detail: If a deploy stopped recording provider message ids, every bounce
  * would quietly stop suppressing anybody, the campaign reports would still
  * look healthy, and the first symptom would be the shared domain's reputation
  * falling months later — for every tenant at once.
@@ -25,59 +39,15 @@ import type { FeedbackDropReason } from "../db/schema";
  * record, and that recording can never turn a handled notification into a 500.
  */
 
-const WEBHOOK = readFileSync(
-  join(process.cwd(), "app/api/webhooks/ses/route.ts"),
-  "utf8",
-);
 const LOG = readFileSync(join(process.cwd(), "lib/feedback-log.ts"), "utf8");
 const SCHEMA = readFileSync(join(process.cwd(), "db/schema.ts"), "utf8");
-
-describe("both ways a bounce can go unattributed are recorded", () => {
-  it("records when SES sends no message id", () => {
-    expect(WEBHOOK).toMatch(/reason:\s*"no_message_id"/);
-  });
-
-  it("records when the message id matches no recipient row", () => {
-    expect(WEBHOOK).toMatch(/reason:\s*"unmapped_message_id"/);
-  });
-
-  it("carries the message id on the unmapped path", () => {
-    /*
-     * A percentage is not something anybody can act on; one real SES id can be
-     * traced through CloudWatch to the send that produced it. If this ever
-     * stops being passed, the card in the admin console still shows a count
-     * and quietly loses the only field that makes it actionable.
-     */
-    const at = WEBHOOK.indexOf('reason: "unmapped_message_id"');
-    expect(at).toBeGreaterThan(-1);
-    const call = WEBHOOK.slice(at, at + 220);
-    expect(call).toContain("messageId: feedback.messageId");
-  });
-
-  it("still drops rather than suppressing — the recording changed nothing", () => {
-    // The whole point is that behaviour is unchanged and only visibility is
-    // added. A `continue` after the unmapped branch is what keeps it a drop.
-    const at = WEBHOOK.indexOf("if (!outcome.matched)");
-    expect(at).toBeGreaterThan(-1);
-
-    /*
-     * Bounded by the next line that ACTS on a bounce rather than by a brace
-     * count — the first version sliced a fixed 400 characters and broke the
-     * moment the branch grew by the recording call, which is a test that
-     * fails for a reason unrelated to what it is checking.
-     */
-    const acted = WEBHOOK.indexOf("suppressed += 1", at);
-    expect(acted).toBeGreaterThan(at);
-    expect(WEBHOOK.slice(at, acted)).toContain("continue;");
-  });
-});
 
 describe("recording can never break the webhook", () => {
   it("swallows its own errors", () => {
     /*
-     * The 200 this endpoint returns tells Amazon the notification was handled.
-     * If the logging write could throw, SNS would retry a bounce that was
-     * already processed — a worse bug than the invisibility it was added to
+     * The 200 a feedback webhook returns tells the provider the notification
+     * was handled. If the logging write could throw, the provider would retry
+     * a bounce that was already processed — a worse bug than the invisibility it was added to
      * fix. Same rule as lib/ingestion-log.ts.
      */
     expect(LOG).toMatch(/catch\s*\(err\)\s*\{[\s\S]*?console\.error/);

@@ -3,10 +3,10 @@ import {
   createCampaignDeliverer,
   deliveryModeFromEnv,
   isLiveDeliveryMode,
-  sesConfigFromEnv,
+
   resendConfigFromEnv,
   DELIVERY_MODE_ENV,
-  SES_DELIVERY_MODE,
+
   RESEND_DELIVERY_MODE,
   LIVE_DELIVERY_MODES,
   type DeliveryEnv,
@@ -86,13 +86,18 @@ describe("deliveryModeFromEnv — the opt-in is exact, and absent by default", (
     }
   });
 
-  it("is 'ses' only for the exact literal", () => {
-    expect(deliveryModeFromEnv({ [DELIVERY_MODE_ENV]: SES_DELIVERY_MODE })).toBe(
-      "ses",
-    );
-    // Surrounding whitespace is trimmed — a value pasted into a dashboard with
-    // a trailing space is still a deliberate act of typing "ses".
-    expect(deliveryModeFromEnv({ [DELIVERY_MODE_ENV]: " ses " })).toBe("ses");
+  it("is 'log' for 'ses', which used to be a live provider", () => {
+    /*
+     * The retired mode, kept as a case on purpose.
+     *
+     * SES was removed on 14 Sep 2026 ("we are not using amazon anymore"), and
+     * an environment somewhere may still carry CAMPAIGN_DELIVERY_MODE=ses. The
+     * safe reading of a mode we no longer implement is "send nothing" — the
+     * alternative is a factory that throws on every sweep, or worse, one that
+     * finds some other provider to use instead. This pins which.
+     */
+    expect(deliveryModeFromEnv({ [DELIVERY_MODE_ENV]: "ses" })).toBe("log");
+    expect(deliveryModeFromEnv({ [DELIVERY_MODE_ENV]: " ses " })).toBe("log");
   });
 
   it("is 'resend' only for the exact literal", () => {
@@ -129,19 +134,25 @@ describe("deliveryModeFromEnv — the opt-in is exact, and absent by default", (
 });
 
 describe("which modes actually transmit", () => {
-  it("says log does not and both providers do", () => {
+  it("says log does not and the provider does", () => {
     expect(isLiveDeliveryMode("log")).toBe(false);
-    expect(isLiveDeliveryMode("ses")).toBe(true);
     expect(isLiveDeliveryMode("resend")).toBe(true);
   });
 
   it("lists every live mode, so a screen cannot know about only one of them", () => {
-    // The admin console and the campaign health endpoint both read this rather
-    // than comparing to a literal. They said `=== "ses"` until 11 Sep 2026,
-    // which would have told a client their campaign could not send on the very
-    // provider it was about to send through.
-    expect([...LIVE_DELIVERY_MODES].sort()).toEqual(["resend", "ses"]);
-    const everyMode: DeliveryMode[] = ["log", "ses", "resend"];
+    /*
+     * The admin console and the campaign health endpoint both read this rather
+     * than comparing to a literal. They said `=== "ses"` until 11 Sep 2026,
+     * which would have told a client their campaign could not send on the very
+     * provider it was about to send through.
+     *
+     * It is a one-element list today and stays a LIST for that reason. The
+     * loop below is what keeps the two in step: every mode the type admits is
+     * checked both ways, so a provider added without updating the list fails
+     * here rather than on somebody's screen.
+     */
+    expect([...LIVE_DELIVERY_MODES].sort()).toEqual(["resend"]);
+    const everyMode: DeliveryMode[] = ["log", "resend"];
     for (const mode of everyMode) {
       expect(LIVE_DELIVERY_MODES.includes(mode)).toBe(isLiveDeliveryMode(mode));
     }
@@ -176,61 +187,32 @@ describe("createCampaignDeliverer — defaults to the log deliverer", () => {
     expect(result.id).toMatch(new RegExp(`^${NOT_SENT_ID_PREFIX}`));
   });
 
-  it("still defaults to log with a complete SES configuration present", async () => {
+  it("logs for a retired mode rather than throwing or guessing", async () => {
+    /*
+     * CAMPAIGN_DELIVERY_MODE=ses with the whole AWS block beside it: an
+     * environment left exactly as it was before 14 Sep 2026, when SES was
+     * removed. It must send nothing, quietly.
+     *
+     * The two alternatives are both worse. Throwing turns a stale variable
+     * into an hourly failing sweep. Reaching for whatever provider IS
+     * configured — RESEND_API_KEY is present in every environment — would mean
+     * a deployment nobody touched starting to mail real subscribers.
+     */
     const records: DeliveryLogRecord[] = [];
     const deliver = createCampaignDeliverer({
       env: {
+        [DELIVERY_MODE_ENV]: "ses",
         AWS_REGION: "eu-west-1",
         AWS_ACCESS_KEY_ID: "AKIAIOSFODNN7EXAMPLE",
         AWS_SECRET_ACCESS_KEY: "secret",
         SES_CONFIGURATION_SET: "postbox-campaigns",
+        RESEND_API_KEY: "re_a_real_looking_key",
       },
       sink: (r) => records.push(r),
     });
-    await deliver(outbound());
+    const result = await deliver(outbound());
     expect(records).toHaveLength(1);
-  });
-
-  it("REFUSES to construct rather than silently logging when mode=ses is misconfigured", () => {
-    // Falling back to the log deliverer here would be the worst of both: an
-    // operator who believes they launched a live send watches every recipient
-    // march to `sent` with a synthetic id and no email arrives.
-    expect(() =>
-      createCampaignDeliverer({ env: { [DELIVERY_MODE_ENV]: "ses" } }),
-    ).toThrow(/SES is not configured/);
-  });
-
-  it("names every missing variable so the fix is one read of the error", () => {
-    let message = "";
-    try {
-      createCampaignDeliverer({ env: { [DELIVERY_MODE_ENV]: "ses" } });
-    } catch (err) {
-      message = err instanceof Error ? err.message : String(err);
-    }
-    expect(message).toContain("SES_REGION");
-    expect(message).toContain("AWS_ACCESS_KEY_ID");
-    expect(message).toContain("AWS_SECRET_ACCESS_KEY");
-  });
-
-  it("constructs an SES deliverer only with the flag AND full credentials", () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    try {
-      const deliver = createCampaignDeliverer({
-        env: {
-          [DELIVERY_MODE_ENV]: "ses",
-          SES_REGION: "eu-west-1",
-          AWS_ACCESS_KEY_ID: "AKIAIOSFODNN7EXAMPLE",
-          AWS_SECRET_ACCESS_KEY: "secret",
-        },
-      });
-      expect(typeof deliver).toBe("function");
-      // Constructing is loud. This line in production logs is the signal that
-      // the safety catch has been released.
-      expect(warn).toHaveBeenCalledTimes(1);
-      expect(String(warn.mock.calls[0][0])).toContain("REAL bulk email");
-    } finally {
-      warn.mockRestore();
-    }
+    expect(result.id).toMatch(new RegExp(`^${NOT_SENT_ID_PREFIX}`));
   });
 });
 
@@ -324,43 +306,6 @@ describe("resendConfigFromEnv", () => {
   });
 });
 
-describe("sesConfigFromEnv", () => {
-  it("reports exactly which required variables are absent", () => {
-    const result = sesConfigFromEnv({ SES_REGION: "eu-west-1" });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.missing).toEqual([
-        "AWS_ACCESS_KEY_ID",
-        "AWS_SECRET_ACCESS_KEY",
-      ]);
-    }
-  });
-
-  it("accepts SES_REGION or AWS_REGION, preferring the specific one", () => {
-    const result = sesConfigFromEnv({
-      SES_REGION: "eu-west-1",
-      AWS_REGION: "us-east-1",
-      AWS_ACCESS_KEY_ID: "k",
-      AWS_SECRET_ACCESS_KEY: "s",
-    });
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.config.region).toBe("eu-west-1");
-  });
-
-  it("leaves the optional identifiers null rather than inventing them", () => {
-    const result = sesConfigFromEnv({
-      AWS_REGION: "us-east-1",
-      AWS_ACCESS_KEY_ID: "k",
-      AWS_SECRET_ACCESS_KEY: "s",
-    });
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.config.configurationSetName).toBeNull();
-      expect(result.config.tenantName).toBeNull();
-      expect(result.config.returnPath).toBeNull();
-    }
-  });
-});
 
 describe("the log deliverer", () => {
   it("records recipient, subject, part sizes and headers", async () => {

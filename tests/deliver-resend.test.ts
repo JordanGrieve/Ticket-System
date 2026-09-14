@@ -7,7 +7,7 @@ import {
   IDEMPOTENCY_PREFIX,
   type ResendSendFn,
 } from "../lib/deliver-resend";
-import { isRetryableFailure } from "../lib/deliver-ses";
+import { isRetryableFailure } from "../lib/delivery-failure";
 import type { OutboundCampaignEmail } from "../lib/campaign-send";
 
 /**

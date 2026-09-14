@@ -39,9 +39,16 @@ on:
   schedule:
     # HOURLY during development, not every five minutes.
     #
-    # Nothing can send right now: SES production access was DENIED (case
-    # 178747420600793) and the account is still sandboxed, so every tick finds
-    # nothing to do. The cost of an idle tick is not Actions minutes -- this
+    # It was hourly because nothing could send: the only provider was SES,
+    # whose production access AWS denied, so every tick found nothing to do.
+    # SES is gone and Resend can reach a stranger, so that reason has expired —
+    # the one below has not, and it is the one that decides the cadence.
+    #
+    # Worth knowing when this is raised: at 75 recipients per invocation, an
+    # hourly sweep moves 1,800 a day. A list larger than that takes more than a
+    # day to drain, and the composer says so from the same constants.
+    #
+    # The cost of an idle tick is not Actions minutes -- this
     # repo is public, so those are free -- it is Neon compute. Each tick wakes
     # the compute, which then idles for the autosuspend window before going
     # back to sleep. Two five-minute workflows keep it awake more or less
