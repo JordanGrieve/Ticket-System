@@ -1535,14 +1535,21 @@
 /*
   Collapsed by default, to about a third of a prompt.
 
-  The AI prompt is seventy lines written for a machine to read. At full height
-  it pushes the rest of the install page off the screen, so it is clipped until
-  somebody asks for it.
+  The AI prompt is seventy lines written for a machine to read. Nobody is meant
+  to read it at all — they copy it — so the block shows just enough to identify
+  itself and hides the rest.
 
-  300px is about twelve lines once the padding is taken off — enough to see
-  what the thing is and that there is plenty more of it, and not so much that
-  the section below it is pushed off a laptop screen. It was 420px first, which
-  still read as a wall of text.
+  92px is three lines and a sliver of the fourth. That lands it on the line
+  carrying the client's own business name, which is the one thing in the whole
+  prompt that tells them it is theirs:
+
+    You are helping integrate a website's contact form with Postbox, a …
+    inbox used by "AMORIA". When a visitor submits the contact form, the
+    submission must be POSTed to the Postbox API, which turns it into a …
+
+  It was 420px, then 300px, and both still read as a wall of text — the cut has
+  to be short enough that the eye takes it as a label rather than something to
+  start reading.
 
   The class is only applied when the content actually exceeds this, so a short
   snippet is never clipped and never grows a pointless button. See CodeBlock.
@@ -1552,7 +1559,7 @@
 }
 
 .sti-code-clip.is-clipped {
-  max-height: 300px;
+  max-height: 92px;
   overflow: hidden;
 }
 
@@ -1573,9 +1580,10 @@
   left: 1px;
   right: 1px;
   bottom: 0;
-  /* Scaled down with the block. 72px over 300 dimmed a quarter of what is
-     left; 52px says "there is more" without greying out readable lines. */
-  height: 52px;
+  /* Scaled with the block. A 52px fade over 92px of content would dim more
+     than half of it, including the line with their name on it; 22px marks the
+     cut and leaves the three visible lines alone. */
+  height: 22px;
   pointer-events: none;
   background: linear-gradient(
     to bottom,
@@ -1584,22 +1592,38 @@
   );
 }
 
+/*
+  A text button, not the full-width bar it was.
+
+  The bar read as the bottom edge of the panel — a piece of chrome — and at
+  92px of content it would have been almost as tall as the code above it. As
+  text it reads as the one thing to press.
+
+  --brand-panel-pill-fg is 9.46:1 on --brand-panel, so it clears AAA as small
+  bold text; it is the ink already declared for accent-coloured type on this
+  fixed dark panel. Underlined because it sits on a coloured ground with no
+  border or fill, and colour alone is not a control (1.4.1).
+
+  Still 44px tall (2.5.5) even though the text is smaller than that — the
+  padding does the work, which is the pattern in STYLE-GUIDE.md §4.
+*/
 .sti-code-more {
-  display: block;
-  width: 100%;
+  display: inline-flex;
+  align-items: center;
   min-height: var(--tap-min, 44px);
+  padding: 0 18px 4px;
   border: none;
-  border-top: 1px solid var(--brand-panel-pill-bg);
-  border-radius: 0 0 12px 12px;
-  background: var(--brand-panel);
-  color: var(--brand-panel-fg);
+  background: none;
+  color: var(--brand-panel-pill-fg);
   font-size: 0.78125rem;
   font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
   cursor: pointer;
 }
 
 .sti-code-more:hover {
-  background: var(--brand-panel-deep);
+  color: var(--brand-panel-fg);
 }
 
 .sti-code-more:focus-visible {

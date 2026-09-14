@@ -11,7 +11,9 @@ import InstallView from "../components/InstallView";
  * written for a machine. At full height it is the whole screen: the steps
  * around it, the newsletter section and the key rotation all get pushed off,
  * and a client scrolls past text they were never meant to read. Jordan,
- * 14 Sep 2026 — "a third of the size unless they hit show more".
+ * 14 Sep 2026 — "a third of the size unless they hit show more", then shorter
+ * again: "it should go down to their name here, the rest should be hidden". The
+ * cut lands on the line carrying the client's own business name.
  *
  * ── THE ASSERTION THAT MATTERS ──
  * Copy has to take the WHOLE prompt while the block is collapsed. The obvious
@@ -70,10 +72,10 @@ function makeEverythingOverflow() {
     configurable: true,
     get() {
       // Any value below the scrollHeight above would do — the component only
-      // compares the two. 300 because that is what the stylesheet caps a
-      // clipped block at, so a reader is not left thinking the number is
-      // arbitrary when it happens to match, or authoritative when it does not.
-      return this.className?.includes?.("sti-code-clip") ? 300 : 0;
+      // compares the two. 92 because that is what the stylesheet caps a clipped
+      // block at, so a reader is not left thinking the number is arbitrary when
+      // it happens to match, or authoritative when it does not.
+      return this.className?.includes?.("sti-code-clip") ? 92 : 0;
     },
   });
   vi.stubGlobal(
@@ -110,6 +112,15 @@ const clips = () => [...document.querySelectorAll(".sti-code-clip")];
 const clip = () => clips()[0];
 const moreButtons = () => screen.queryAllByRole("button", { name: /show more/i });
 const moreButton = () => moreButtons()[0] ?? null;
+
+/*
+  BOTH sections offer a toggle labelled "No code" — the contact form's and the
+  newsletter's. An unscoped getByRole throws on the pair, which is worth knowing
+  in its own right: two identically named buttons on one page are only told
+  apart by the section heading above them.
+*/
+const noCodeToggle = () =>
+  screen.getAllByRole("button", { name: /^No code$/i })[0]!;
 
 describe("a long prompt", () => {
   it("is clipped on arrival, not shown in full", () => {
@@ -149,8 +160,8 @@ describe("a long prompt", () => {
 
   it("COPIES THE WHOLE THING while still collapsed", async () => {
     /*
-     * The one that would fail silently. A collapsed block shows perhaps fifteen
-     * of seventy lines; if copy read the DOM instead of the source string, an
+     * The one that would fail silently. A collapsed block shows three of
+     * seventy lines; if copy read the DOM instead of the source string, an
      * assistant would be handed a prompt that stops mid-sentence and would wire
      * up somebody's contact form from it.
      */
@@ -177,26 +188,37 @@ describe("a long prompt", () => {
   });
 });
 
-describe("a short snippet", () => {
-  it("is not clipped, and grows no button", () => {
-    /*
-     * The contact section's other mode is a six-line form, through the same
-     * component. A "Show more" under content that is entirely visible is a
-     * control that lies about there being something behind it — so the
-     * component measures rather than assuming every block is long.
-     *
-     * Nothing is stubbed here: with no layout, nothing overflows, which is the
-     * same answer the browser gives for six lines.
-     */
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe() {}
-        disconnect() {}
-      },
-    );
+describe("the No-code form is never collapsed", () => {
+  /*
+   * The clip is 92px — three lines. That is right for a seventy-line prompt
+   * nobody reads and WRONG for the six-line form in the No-code mode, which is
+   * meant to be taken whole; hiding half of it behind a button hides the thing
+   * itself. So collapsing is opted into per block, not decided by height.
+   *
+   * This has to force overflow to mean anything. Without the stub happy-dom
+   * lays nothing out, every block measures zero, and the assertion passes
+   * whether or not the opt-in exists — which is exactly how the six-line form
+   * came to be clipped in the browser while the suite stayed green.
+   */
+  it("stays whole even when it would overflow", () => {
+    makeEverythingOverflow();
     show();
-    expect(clip()?.className).not.toContain("is-clipped");
-    expect(moreButton()).toBeNull();
+
+    // Switch the contact section to its No-code mode.
+    fireEvent.click(noCodeToggle());
+
+    const contactClip = clips()[0];
+    expect(
+      contactClip?.className,
+      "the pasteable form was clipped — it is meant to be copied whole",
+    ).not.toContain("is-clipped");
+  });
+
+  it("and offers no Show more of its own", () => {
+    makeEverythingOverflow();
+    show();
+    fireEvent.click(noCodeToggle());
+    // Only the newsletter prompt's button should remain.
+    expect(moreButtons()).toHaveLength(1);
   });
 });

@@ -289,7 +289,7 @@ integration, however well the submission works.
               ? "Paste this into Claude, ChatGPT, Cursor or whatever built your site. It carries your endpoint and tells the assistant to wire up the form you already have — keeping your own markup, classes and styling exactly as they are."
               : "No JavaScript, nothing to install: point your form's action at this endpoint. Your page is untouched, but the visitor leaves it — they land on a Postbox confirmation page after pressing send."}
           </p>
-          <CodeBlock code={snippet} />
+          <CodeBlock code={snippet} collapsible={mode === "ai"} />
         </Section>
 
         {/* ── Newsletter signup ──
@@ -329,7 +329,7 @@ integration, however well the submission works.
                 subscribed&rdquo; when the confirmation email has only just been
                 sent.
               </p>
-              <CodeBlock code={newsletterAiPrompt} />
+              <CodeBlock code={newsletterAiPrompt} collapsible />
             </>
           )}
 
@@ -661,14 +661,40 @@ function Section({
  * rendered text — would silently hand somebody a third of a prompt, and it
  * would look like it worked.
  */
-function CodeBlock({ code }: { code: string }) {
+function CodeBlock({
+  code,
+  collapsible = false,
+}: {
+  code: string;
+  /**
+   * Whether this block may be clipped.
+   *
+   * Off by default, and opted into only by the two AI prompts. The cut is 92px
+   * — three lines — which is right for a seventy-line document nobody reads and
+   * wrong for the six-line form in the no-code mode: that one is meant to be
+   * taken whole, and hiding half of it behind a button would be hiding the
+   * thing itself.
+   *
+   * A height threshold was the alternative and it is the worse one. It would
+   * make "is this collapsible" depend on how a snippet happens to wrap today,
+   * so a form that grew one line would silently start hiding itself.
+   */
+  collapsible?: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [overflows, setOverflows] = useState(false);
   const clipRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = clipRef.current;
-    if (!el) return;
+    /*
+      Return without touching state. Setting `overflows` to false here would be
+      a setState inside an effect (react-hooks/set-state-in-effect, and the rule
+      is right — it is a value, not a side effect), so a stale `true` from a
+      previous render is simply never READ: `clipped` below is gated on
+      `collapsible` as well.
+    */
+    if (!collapsible || !el) return;
     // Compared while collapsed; expanding removes the cap, so measuring then
     // would always report "fits" and the button would vanish on first press.
     const check = () => {
@@ -681,7 +707,11 @@ function CodeBlock({ code }: { code: string }) {
     const ro = new ResizeObserver(check);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [code, expanded]);
+  }, [code, expanded, collapsible]);
+
+  /* Derived, so a stale measurement from a collapsible block cannot leak into
+     one that opted out. */
+  const clipped = collapsible && overflows;
 
   return (
     <div className="sti-code">
@@ -698,13 +728,13 @@ function CodeBlock({ code }: { code: string }) {
       */}
       <div
         ref={clipRef}
-        className={`sti-code-clip${!expanded && overflows ? " is-clipped" : ""}`}
+        className={`sti-code-clip${!expanded && clipped ? " is-clipped" : ""}`}
       >
         <pre>
           <code>{code}</code>
         </pre>
       </div>
-      {overflows && (
+      {clipped && (
         <button
           type="button"
           className="sti-code-more"
