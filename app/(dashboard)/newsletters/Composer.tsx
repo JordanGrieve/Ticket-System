@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CampaignProduct, CampaignStatus } from "@/db/schema";
@@ -365,6 +366,7 @@ export default function Composer({
   appUrl,
   viewerEmail,
   recipientsPerSweep,
+  welcomeEnabled,
 }: {
   initialCampaigns: CampaignRowDTO[];
   workspaceName: string;
@@ -397,6 +399,11 @@ export default function Composer({
    * screen cannot describe a throughput the deployed cron does not have.
    */
   recipientsPerSweep: number;
+  /**
+   * Whether the welcome newsletter is sending. Shown on the pinned row so the
+   * rail answers "is anything going out automatically?" without a click.
+   */
+  welcomeEnabled: boolean;
 }) {
   const [campaigns, setCampaigns] = useState(initialCampaigns);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
@@ -1332,6 +1339,36 @@ export default function Composer({
             </div>
           </div>
         )}
+
+        {/*
+          The welcome newsletter, pinned above the campaigns.
+
+          It is not a campaign and cannot be one: it has no audience, no
+          schedule and no send button, because it goes to exactly one person at
+          the moment they subscribe. But this is where a client comes looking
+          for "the emails my newsletter sends", and it was in Settings — Jordan,
+          14 Sep 2026, on this page: "I don't see the newsletter on AMORIA's
+          page." A thing nobody can find is a thing nobody edits, and this one
+          sends to real customers unedited.
+
+          A link rather than a row that loads into the composer beside it: the
+          composer is built around a campaign's lifecycle, and giving it a
+          second kind of thing to hold would put scheduling and audience
+          controls one state bug away from something that has neither.
+        */}
+        <Link
+          href="/newsletters/welcome"
+          className="nl-item nl-item--welcome"
+          aria-label={`Welcome newsletter — sent automatically on signup, currently ${
+            welcomeEnabled ? "on" : "off"
+          }`}
+        >
+          <span className="nl-item-name">Welcome newsletter</span>
+          <span className="nl-item-meta">
+            <span className="nl-dot" data-on={welcomeEnabled} aria-hidden />
+            {welcomeEnabled ? "Sends on signup" : "Off"}
+          </span>
+        </Link>
 
         {campaigns.length === 0 ? (
           <p className="nl-rail-empty">No campaigns yet.</p>

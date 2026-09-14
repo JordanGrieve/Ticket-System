@@ -3,6 +3,7 @@ import { resolveViewer } from "@/lib/viewer";
 import { listCampaigns } from "@/lib/campaign-send";
 import { APP_URL } from "@/lib/config";
 import { RECIPIENTS_PER_SWEEP } from "@/lib/campaign-cron";
+import { DEFAULT_WELCOME, getWelcomeEmail } from "@/lib/welcome-store";
 import Composer, { type CampaignRowDTO } from "./Composer";
 import "../../newsletter.css";
 
@@ -46,7 +47,13 @@ export default async function NewslettersPage() {
   // No lists read any more: a campaign goes to everyone confirmed in the
   // workspace, so there is nothing to choose between. See workspaceAudience
   // in lib/campaign-send.ts.
-  const campaigns = await listCampaigns(workspace.id);
+  const [campaigns, welcome] = await Promise.all([
+    listCampaigns(workspace.id),
+    // For the pinned row's on/off state. Absence means the default, which
+    // sends — see lib/welcome-store.
+    getWelcomeEmail(workspace.id),
+  ]);
+  const welcomeSends = welcome ? welcome.enabled : DEFAULT_WELCOME.enabled;
 
   // Dates cross the server/client boundary as ISO strings and are formatted in
   // the browser, for the same reason lib/serialize.ts does it: formatting on
@@ -79,6 +86,7 @@ export default async function NewslettersPage() {
         appUrl={APP_URL}
         viewerEmail={viewer.email}
         recipientsPerSweep={RECIPIENTS_PER_SWEEP}
+        welcomeEnabled={welcomeSends}
       />
     </div>
   );

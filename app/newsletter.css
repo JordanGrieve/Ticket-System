@@ -1290,3 +1290,46 @@ body:has(.pbi-banner):has(.pbt-slot) .nl-main {
   outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 2px;
 }
+
+/* ── The welcome newsletter's pinned row ────────────────────────
+   It sits above the campaigns because it is the one email that sends without
+   anybody pressing anything, and it was previously only reachable from
+   Settings — where no client thought to look for a newsletter.
+
+   A link, not a button, so it reuses .nl-item's shape but needs the two things
+   an <a> does not inherit from it: no underline, and a separating rule so a
+   permanent entry does not read as the first campaign in the list. */
+.nl-item--welcome {
+  display: flex;
+  text-decoration: none;
+  margin-bottom: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-soft);
+  border-radius: 13px 13px 0 0;
+}
+
+.nl-item--welcome:hover {
+  background: var(--surface-3);
+}
+
+.nl-item--welcome:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--accent));
+  outline-offset: -2px;
+}
+
+/* The state dot. --ok-fg when it is sending, a plain border when it is not:
+   colour is never the only signal — the words beside it say "Sends on signup"
+   or "Off" (1.4.1). */
+.nl-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  vertical-align: middle;
+}
+
+.nl-dot[data-on="true"] {
+  background: var(--ok-fg);
+}

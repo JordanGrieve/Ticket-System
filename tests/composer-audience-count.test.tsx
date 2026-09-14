@@ -133,6 +133,7 @@ function show() {
       appUrl="https://postbox.help"
       viewerEmail="jordangrieve.dev@gmail.com"
       recipientsPerSweep={75}
+      welcomeEnabled
     />,
   );
 }

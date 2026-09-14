@@ -51,6 +51,7 @@ function show() {
       appUrl="https://postbox.help"
       viewerEmail="hello@opendoorbakery.co.uk"
       recipientsPerSweep={250}
+      welcomeEnabled
     />,
   );
 }

@@ -8,12 +8,8 @@ import { EMAIL_FROM_ADDRESS } from "@/lib/config";
 import ThemePicker from "./ThemePicker";
 import SenderIdentityForm from "./SenderIdentityForm";
 import NewsletterBrandForm from "./NewsletterBrandForm";
-import WelcomeEmailForm from "./WelcomeEmailForm";
-import {
-  DEFAULT_WELCOME,
-  getWelcomeEmail,
-  welcomeConfigFrom,
-} from "@/lib/welcome-store";
+
+import { DEFAULT_WELCOME, getWelcomeEmail } from "@/lib/welcome-store";
 
 export const metadata = { title: "General · Settings · Postbox" };
 
@@ -47,6 +43,12 @@ export default async function GeneralSettingsPage() {
     getWelcomeEmail(workspace.id),
   ]);
   const formCount = forms.length;
+
+  // Absence means the default, and the default sends — see lib/welcome-store.
+  // Reading `welcome?.enabled` alone would report "Off" for every workspace
+  // that has never opened the editor, which is most of them and exactly the
+  // ones that ARE sending.
+  const welcomeSends = welcome ? welcome.enabled : DEFAULT_WELCOME.enabled;
 
   return (
     <div className="stg-wrap">
@@ -84,27 +86,31 @@ export default async function GeneralSettingsPage() {
       </section>
 
       {/* ── The welcome newsletter ─────────────────────────────────
-          Under branding rather than in a tab of its own: the settings strip
-          already overflows at nine tabs, and this is about what a newsletter
-          email says. It is the one email in the product that sends with
-          nobody watching, which is why it carries its own preview. */}
+          A POINTER, not the editor.
+
+          The form lived here, under branding, because the settings strip
+          already overflows at nine tabs. That answered where a tab should go
+          and not where a client would look: they look under Newsletters, and
+          it was not there. It moved on 14 Sep 2026 and this row stays so the
+          old place is a signpost rather than a dead end — one editor, one
+          home, no second copy to drift. */}
       <section className="stg-section">
         <h2 className="stg-section-title">Welcome newsletter</h2>
-        <p className="stg-sub">
-          Sent automatically the moment somebody subscribes. It goes out under
-          your name, with your colours, and carries the unsubscribe link every
-          newsletter has.
-        </p>
-        <WelcomeEmailForm
-          initial={welcome ? welcomeConfigFrom(welcome) : DEFAULT_WELCOME}
-          hasPostalAddress={(workspace.postalAddress ?? "").trim().length > 0}
-          workspaceName={workspace.name}
-          legalName={workspace.legalName}
-          postalAddress={workspace.postalAddress}
-          brandAccentHex={workspace.brandAccentHex}
-          brandSignOff={workspace.brandSignOff}
-          viewerEmail={viewer.email}
-        />
+        <dl className="stg-rows">
+          <Row label="Sent on signup">
+            <span className="stg-row-value">
+              <span
+                className="stg-dot"
+                data-on={welcomeSends ? "true" : "false"}
+                aria-hidden="true"
+              />
+              {welcomeSends ? "On" : "Off"}
+            </span>
+            <Link className="stg-row-link" href="/newsletters/welcome">
+              Edit
+            </Link>
+          </Row>
+        </dl>
       </section>
 
       {/* ── Inbox ──────────────────────────────────────────────── */}

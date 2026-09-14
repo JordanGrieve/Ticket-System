@@ -108,6 +108,7 @@ const views: Record<string, React.ReactElement> = {
       appUrl="https://postbox.help"
       viewerEmail="hello@opendoorbakery.co.uk"
       recipientsPerSweep={250}
+      welcomeEnabled
     />
   ),
   // Everything supplied, so the refusal copy is out of the way.
@@ -122,6 +123,7 @@ const views: Record<string, React.ReactElement> = {
       appUrl="https://postbox.help"
       viewerEmail="hello@opendoorbakery.co.uk"
       recipientsPerSweep={250}
+      welcomeEnabled
     />
   ),
   "composer-empty": (
@@ -135,6 +137,7 @@ const views: Record<string, React.ReactElement> = {
       appUrl="https://postbox.help"
       viewerEmail="hello@opendoorbakery.co.uk"
       recipientsPerSweep={250}
+      welcomeEnabled
     />
   ),
 };
