@@ -8,10 +8,10 @@ import { verifyImpersonationLog } from "@/lib/impersonation";
 import AuditedSignOutButton from "@/components/AuditedSignOutButton";
 import { resolveViewer } from "@/lib/viewer";
 import { listAdmins } from "@/lib/admin";
-import { listAgentEmails, listWorkspaceSummaries } from "@/lib/data";
+import { listWorkspaceSummaries } from "@/lib/data";
 import {
   listImpersonationSessions,
-  listImpersonationSessionsForWorkspace,
+  recentAccessByWorkspace,
 } from "@/lib/impersonation";
 import { readsForSessions } from "@/lib/impersonation-reads";
 import { POSTBOX_CONTACT_KEY } from "@/lib/config";
@@ -19,16 +19,17 @@ import { stripeConfigured, stripePriceId } from "@/lib/stripe";
 import { PLANS } from "@/lib/pricing";
 import { deliveryModeFromEnv, isLiveDeliveryMode } from "@/lib/deliver";
 import {
+  agentCountsByWorkspace,
   campaignDeliveryTotals,
+  providerAllowance,
   listWorkspaceUsage,
   transactionalDeliveryTotals,
 } from "./queries";
 import type { ConsoleGates } from "./sections";
+import AccountsBrowser from "./AccountsBrowser";
 import {
   AccessSection,
   AdminsCard,
-  AccountDrawer,
-  AccountsSection,
   BillingSection,
   DeliverabilitySection,
   OverviewSection,
@@ -36,10 +37,7 @@ import {
 import {
   EnvelopeIcon,
   FILTERS,
-  SearchIcon,
   SECTIONS,
-  accountStatus,
-  needsAttention,
   hrefFor,
   type AdminQuery,
   type Filter,
@@ -134,8 +132,6 @@ export default async function AdminHomePage({
   const q = (params.q ?? "").trim();
 
   const requestedAccount = Number(params.account);
-  const selected =
-    accounts.find((w) => w.id === requestedAccount) ?? accounts[0] ?? null;
 
   const query: AdminQuery = {
     section,
@@ -144,27 +140,23 @@ export default async function AdminHomePage({
     account: Number.isInteger(requestedAccount) ? requestedAccount : null,
   };
 
-  // Search matches on the things an operator actually knows: the business
-  // name, the owner's login and the workspace's inbound address.
-  const needle = q.toLowerCase();
-  const visible = accounts.filter((w) => {
-    const matchesQuery =
-      !needle ||
-      w.name.toLowerCase().includes(needle) ||
-      (w.ownerEmail ?? "").toLowerCase().includes(needle) ||
-      w.inboundEmail.toLowerCase().includes(needle);
-    const matchesFilter =
-      filter === "all" ||
-      (filter === "attention" ? needsAttention(w) : accountStatus(w) === filter);
-    return matchesQuery && matchesFilter;
-  });
-
   // ?delete=<id> opens the type-the-name confirmation for that workspace.
   const deleteTarget =
     accounts.find((w) => String(w.id) === params.delete) ?? null;
 
-  // Real: how many agent logins the selected workspace has.
-  const teamSize = selected ? (await listAgentEmails(selected.id)).length : 0;
+  /*
+    Team size and recent access for EVERY workspace, not for the selected one.
+
+    The accounts table is interactive now — picking a client is React state, not
+    a navigation — so the drawer has to be able to render any of them without
+    going back to the server. Two bulk reads rather than a query per row: see
+    the header of AccountsBrowser.tsx for why that trade is deliberate and
+    where it stops being right.
+  */
+  const teamSizes =
+    section === "accounts"
+      ? Object.fromEntries(await agentCountsByWorkspace())
+      : {};
 
   // The access log: the whole thing for its own pane, and the selected
   // account's slice for the drawer. Both are only fetched where they're shown.
@@ -177,12 +169,16 @@ export default async function AdminHomePage({
     not tamper-evident, it is two extra columns. Same shape of gap as
     suppressAddress having no callers and /search having no way in.
   */
+  // Our own provider allowance, only where it is shown.
+  const allowance =
+    section === "deliverability" ? await providerAllowance() : null;
   const chain = section === "access" ? await verifyImpersonationLog() : null;
   const actionChain = section === "access" ? await verifyAdminActionLog() : null;
-  const recentAccess =
-    section === "accounts" && selected
-      ? await listImpersonationSessionsForWorkspace(selected.id, 5)
-      : [];
+  const recentAccessByAccount =
+    section === "accounts"
+      ? Object.fromEntries(await recentAccessByWorkspace(5))
+      : {};
+  const recentAccess = Object.values(recentAccessByAccount).flat();
 
   /*
     Which client records were opened during each of those visits.
@@ -292,44 +288,44 @@ export default async function AdminHomePage({
             <div className="pba-htitles">
               <h1 className="pba-htitle">{pane.title}</h1>
             </div>
-            <div className="pba-hactions">
-              <form method="get" action="/admin" className="pba-search">
-                <SearchIcon />
-                {section !== "accounts" && (
-                  <input type="hidden" name="section" value={section} />
-                )}
-                {filter !== "all" && (
-                  <input type="hidden" name="filter" value={filter} />
-                )}
-                <input
-                  type="search"
-                  name="q"
-                  defaultValue={q}
-                  placeholder="Search accounts…"
-                  aria-label="Search accounts"
-                />
-              </form>
-              <Link
-                href={`${hrefFor(query, { section: "accounts" })}#new-account`}
-                className="pba-btn pba-btn-primary"
-              >
-                New account
-              </Link>
-            </div>
+            {/*
+              The header's actions are gone, both of them.
+
+              The search moved down into the accounts pane, inline with the
+              filter tabs, because that is the only thing it has ever filtered —
+              sitting up here beside the page title it read as a search of the
+              whole console, and it worked by reloading the page on Enter.
+
+              The "New account" button went with it: it scrolled to a form that
+              is already on the accounts screen, and from any other section it
+              did nothing a person could see. Jordan, 14 Sep 2026 — "New account
+              button does not work, so remove that button". The form it pointed
+              at is untouched and still at the bottom of the accounts table.
+            */}
           </header>
 
           <div className="pba-body">
+            {/*
+              The accounts section renders its own <main> AND its own drawer,
+              because one piece of React state — the selected row — has to drive
+              both, and they are siblings here rather than parent and child. See
+              the header of AccountsBrowser.tsx.
+            */}
+            {section === "accounts" ? (
+              <AccountsBrowser
+                accounts={accounts}
+                teamSizes={teamSizes}
+                recentAccess={recentAccessByAccount}
+                usage={Object.fromEntries(usage)}
+                reads={Object.fromEntries(reads)}
+                deleteTarget={deleteTarget}
+                query={query}
+                banners={<Banners params={params} />}
+              />
+            ) : (
             <main className="pba-content">
               <Banners params={params} />
 
-              {section === "accounts" && (
-                <AccountsSection
-                  accounts={accounts}
-                  visible={visible}
-                  query={query}
-                  deleteTarget={deleteTarget}
-                />
-              )}
               {section === "overview" && (
                 <>
                   <OverviewSection accounts={accounts} gates={gates} />
@@ -352,27 +348,18 @@ export default async function AdminHomePage({
                   gates={gates}
                 />
               )}
-              {section === "deliverability" && transactional && campaignTotals && (
+              {section === "deliverability" && transactional && campaignTotals && allowance && (
                 <DeliverabilitySection
                   accounts={accounts}
                   rejections={rejections}
                   drops={drops}
                   transactional={transactional}
                   campaignTotals={campaignTotals}
+                  allowance={allowance}
                   gates={gates}
                 />
               )}
             </main>
-
-            {section === "accounts" && (
-              <AccountDrawer
-                account={selected}
-                teamSize={teamSize}
-                query={query}
-                recentAccess={recentAccess}
-                reads={reads}
-                usage={selected ? (usage.get(selected.id) ?? null) : null}
-              />
             )}
           </div>
         </div>

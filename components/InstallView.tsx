@@ -54,7 +54,7 @@ export default function InstallView({
   // The newsletter section has its own toggle. Separate state from the contact
   // form above on purpose: they are different jobs and a client who has already
   // wired up one should not have the other silently switch tab underneath them.
-  const [nlMode, setNlMode] = useState<"form" | "ai" | "link">("form");
+  const [nlMode, setNlMode] = useState<"ai" | "link">("ai");
   const [rotating, setRotating] = useState(false);
   /** The rotate control has become its own "are you sure?". */
   const [confirming, setConfirming] = useState(false);
@@ -233,11 +233,6 @@ integration, however well the submission works.
 
   const snippet = mode === "a" ? snippetA : snippetAI;
 
-  const newsletterSnippet = buildNewsletterSnippet(
-    subscribeEndpoint,
-    honeypotFields,
-  );
-
   const newsletterAiPrompt = buildNewsletterAiPrompt(
     subscribeEndpoint,
     honeypotFields,
@@ -303,14 +298,11 @@ integration, however well the submission works.
             later. They share the workspace key and nothing else. */}
         <Section title="2 · Add a newsletter signup">
           <div className="sti-modes">
-            <Toggle active={nlMode === "form"} onClick={() => setNlMode("form")}>
-              Paste a form
-            </Toggle>
             <Toggle active={nlMode === "ai"} onClick={() => setNlMode("ai")}>
-              ✨ AI prompt
+              ✨ AI prompt (recommended)
             </Toggle>
             <Toggle active={nlMode === "link"} onClick={() => setNlMode("link")}>
-              Just a link
+              No code
             </Toggle>
           </div>
 
@@ -320,19 +312,6 @@ integration, however well the submission works.
             link, so the addresses you collect are real and the consent is
             evidenced.
           </p>
-
-          {nlMode === "form" && (
-            <>
-              <h3 className="sti-sub-title">Paste this form on your site</h3>
-              <p className="sti-help sti-help--tight">
-                Plain HTML, no JavaScript needed. Style it however you like, but
-                keep the field names — and the two anti-spam fields — exactly as
-                they are. After submitting, the visitor is shown a hosted
-                &ldquo;check your email&rdquo; page.
-              </p>
-              <CodeBlock code={newsletterSnippet} />
-            </>
-          )}
 
           {nlMode === "ai" && (
             <>
@@ -640,50 +619,6 @@ confirmation email arrives. Do not press the link if you are only testing the
 form — pressing it creates a real subscriber.`;
 }
 
-/**
- * The hosted-signup form a client pastes into their own page.
- *
- * `fields` is HONEYPOT_FIELDS, threaded down from lib/subscribe.ts rather than
- * written out here: the endpoint discards a submission whose trap fields arrive
- * non-empty, so a snippet naming the wrong fields is a form that silently stops
- * working the day the list changes.
- *
- * The traps are NOT `type="hidden"`. A form-filling bot populates a hidden
- * input exactly as happily as a visible one, and a real person never sees
- * either — so `hidden` costs the same and catches nothing. Off-screen plus
- * `tabindex="-1"` plus `aria-hidden` is invisible to eyes, to the keyboard and
- * to screen readers, while still looking like an ordinary text input to
- * anything parsing the markup.
- */
-function buildNewsletterSnippet(
-  endpoint: string,
-  fields: readonly string[],
-): string {
-  const traps = fields
-    .map(
-      (name) =>
-        `    <input name="${name}" type="text" tabindex="-1" autocomplete="off"\n` +
-        `           style="position:absolute;left:-9999px" />`,
-    )
-    .join("\n");
-
-  return `<form action="${endpoint}" method="POST">
-  <label for="pb-signup-email">Email</label>
-  <input id="pb-signup-email" name="email" type="email"
-         placeholder="you@example.com" autocomplete="email" required />
-
-  <label for="pb-signup-name">Name (optional)</label>
-  <input id="pb-signup-name" name="name" type="text" autocomplete="name" />
-
-  <button type="submit">Subscribe</button>
-
-  <!-- Spam trap. Leave these empty and leave them exactly as they are:
-       nobody sees them, and a bot that fills them in is discarded. -->
-  <div aria-hidden="true">
-${traps}
-  </div>
-</form>`;
-}
 
 function Section({
   title,

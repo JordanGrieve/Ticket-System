@@ -37,6 +37,33 @@
  */
 export const PROVIDER_DAILY_CAP = 100;
 
+/**
+ * The same plan's MONTHLY allowance.
+ *
+ * Free is 3,000 a month; Pro is 50,000 with no daily cap at all. Both numbers
+ * are on resend.com/pricing and both move together, which is why they are two
+ * constants side by side rather than one derived from the other — a plan change
+ * is one edit to this block and a deploy, and nothing else in the product needs
+ * to know.
+ *
+ * ── ONE POOL, BOTH KINDS OF MAIL ──
+ * Campaigns go out through the same `/emails` API as ticket acknowledgements
+ * (lib/deliver-resend.ts), so this allowance covers both. Resend's OTHER
+ * product, Broadcasts, is billed by contacts and would not touch it; we do not
+ * use it, and the reason is in that file's header.
+ */
+export const PROVIDER_MONTHLY_CAP = 3_000;
+
+/**
+ * What the two numbers above describe, for a screen that shows them.
+ *
+ * On screen rather than in a comment because an operator looking at "412 of
+ * 3,000" needs to know which plan that is measured against before they can
+ * decide whether it is a problem — and because it is the thing that will be
+ * out of date first.
+ */
+export const PROVIDER_PLAN_NAME = "Resend Free";
+
 /** Past this share of the cap, the health check says something. */
 export const WARN_AT = 0.8;
 

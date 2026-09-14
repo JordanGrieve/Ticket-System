@@ -91,13 +91,24 @@ describe("the newsletter signup's honeypot is untouched", () => {
     expect(isHoneypotTripped({ company: "Spam Co" })).toBe(true);
   });
 
-  it("and the signup form is still built from that list", () => {
-    // The names are not literals in the install view — they are threaded
-    // through from HONEYPOT_FIELDS so the form and the check cannot drift.
-    // Asserting the wiring is the honest version; asserting the literals would
-    // pass only by accident of where the strings happen to live.
+  it("and something we hand out still emits them", () => {
+    /*
+     * This assertion had to change on 14 Sep 2026 and the change is the point.
+     *
+     * It used to check that the pasteable signup FORM was built from
+     * HONEYPOT_FIELDS. That form is gone — the newsletter section is the AI
+     * prompt plus a hosted link now, same as the contact form — so the emitter
+     * is the prompt, which interpolates the same list under "Anti-spam fields
+     * — copy these in exactly".
+     *
+     * Worth stating why that mattered: a honeypot with no emitter is not a
+     * weaker trap, it is an inert one, and the contact endpoint spent months in
+     * exactly that state while still being able to throw real enquiries away.
+     * If the prompt ever stops carrying these, the signup check above becomes
+     * decoration and this is where it should be noticed.
+     */
     expect(INSTALL).toContain("honeypotFields");
-    expect(INSTALL).toContain("buildNewsletterSnippet(");
+    expect(INSTALL).toContain("Anti-spam fields");
   });
 });
 

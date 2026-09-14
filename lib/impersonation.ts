@@ -448,31 +448,46 @@ export async function listImpersonationSessionsForWorkspace(
   }));
 }
 
-/**
- * How a row should be described. "abandoned" is the honest name for an open
- * session that stopped talking to us: we know when it started and when we last
- * saw it, and nothing more.
- */
-export type SessionState = "active" | "abandoned" | "ended";
-
-export function sessionState(
-  session: ImpersonationSession,
-  now: number = Date.now(),
-): SessionState {
-  if (session.endedAt) return "ended";
-  return now - new Date(session.lastSeenAt).getTime() > ABANDONED_AFTER_MS
-    ? "abandoned"
-    : "active";
-}
 
 /**
- * Classify a whole list against one instant, so a long log can't come out with
- * a row on either side of the abandoned threshold. Lives here rather than in
- * the component because reading the clock is not something a render may do.
+ * The most recent visits for EVERY workspace, bucketed, in one statement.
+ *
+ * ── WHY BULK ──
+ * The operator console's accounts table became interactive on 14 Sep 2026:
+ * selecting a client no longer navigates, so every drawer's data has to be on
+ * the page before anybody clicks. Calling the single-workspace read per row
+ * would be a query per client on every render — fine at four, the slowest page
+ * in the product at four hundred.
+ *
+ * One ordered read, bucketed in memory, capped per workspace. The cap is the
+ * point: without it a single busy workspace's log would fill the window and the
+ * quiet ones would come back empty, which reads as "nobody has been in there"
+ * rather than "we stopped looking".
  */
-export function sessionStates(
-  sessions: ImpersonationSession[],
-): SessionState[] {
-  const now = Date.now();
-  return sessions.map((s) => sessionState(s, now));
+export async function recentAccessByWorkspace(
+  perWorkspace = 5,
+  scan = 400,
+): Promise<Map<number, ImpersonationSessionRow[]>> {
+  const rows = await db
+    .select({ session: impersonationSessions, adminStillExists: admins.id })
+    .from(impersonationSessions)
+    .leftJoin(admins, eq(admins.id, impersonationSessions.adminId))
+    .orderBy(desc(impersonationSessions.startedAt))
+    .limit(scan);
+
+  const out = new Map<number, ImpersonationSessionRow[]>();
+  for (const r of rows) {
+    const id = r.session.workspaceId;
+    // A session whose workspace was deleted belongs to no drawer.
+    if (id === null) continue;
+    const bucket = out.get(id) ?? [];
+    if (bucket.length >= perWorkspace) continue;
+    bucket.push({
+      ...r.session,
+      workspaceDeleted: false,
+      adminDeleted: r.session.adminId !== null && r.adminStillExists === null,
+    });
+    out.set(id, bucket);
+  }
+  return out;
 }

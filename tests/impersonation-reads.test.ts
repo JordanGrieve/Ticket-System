@@ -33,6 +33,8 @@ const thread = read(
   "page.tsx",
 );
 const sections = read("app", "(admin)", "admin", "sections.tsx");
+/** The account drawer's home since 14 Sep 2026. See the assertion below. */
+const panels = read("app", "(admin)", "admin", "account-panels.tsx");
 
 describe("impersonation reads — best effort, never fatal", () => {
   it("every exported query is wrapped so a failure cannot reach the caller", () => {
@@ -121,10 +123,19 @@ describe("impersonation reads — ids, not content", () => {
   });
 
   it("the console says an empty cell means unrecorded, not unread", () => {
-    // The honest claim. A best-effort log that presents itself as complete is
-    // worse than no log, because a client would rely on it.
-    // The note that explained this went with the rest of the console prose
-    // (9 Sep 2026); the cell itself still says it.
-    expect(sections).toContain("no records recorded as opened");
+    /*
+     * The honest claim. A best-effort log that presents itself as complete is
+     * worse than no log, because a client would rely on it. The note that
+     * explained it went with the rest of the console prose (9 Sep 2026); the
+     * cell itself still says it.
+     *
+     * Read across BOTH console modules rather than sections.tsx alone. The
+     * account drawer moved into account-panels.tsx on 14 Sep 2026 — it had to,
+     * because a client component cannot import a file that pulls in
+     * `server-only` — and this assertion went red on the move while the string
+     * it guards had not changed at all. A guard pinned to a filename fails
+     * whenever the code is tidied, which teaches people to delete it.
+     */
+    expect(sections + panels).toContain("no records recorded as opened");
   });
 });

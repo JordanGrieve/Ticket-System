@@ -9,6 +9,10 @@ import type { ImpersonationReadRow } from "../lib/impersonation-reads";
 import type { ChainVerification } from "../lib/hash-chain";
 import type { WorkspaceUsage } from "../app/(admin)/admin/queries";
 import type { ConsoleGates } from "../app/(admin)/admin/sections";
+import AccountsBrowser from "../app/(admin)/admin/AccountsBrowser";
+import { AccountDrawer } from "../app/(admin)/admin/account-panels";
+import type { ProviderAllowance } from "../app/(admin)/admin/queries";
+import { quotaState } from "../lib/email-quota";
 import type { AdminQuery } from "../app/(admin)/admin/ui";
 import type { AdminActionRow } from "../lib/admin-audit";
 import type { IngestionFailureRow } from "../lib/ingestion-log";
@@ -17,10 +21,8 @@ import type { TransactionalTotals, CampaignTotals } from "../app/(admin)/admin/q
 import {
   AccessSection,
   AdminsCard,
-  AccountsSection,
   BillingSection,
   DeliverabilitySection,
-  AccountDrawer,
   OverviewSection,
 } from "../app/(admin)/admin/sections";
 
@@ -99,6 +101,22 @@ const sessions = [
     adminDeleted: true,
   },
 ] satisfies ImpersonationSessionRow[];
+
+/**
+ * Our own provider allowance, set just over the warning line.
+ *
+ * Deliberately not a comfortable number. At 10 of 3,000 the meter renders its
+ * calm state and the harness proves nothing about the two that matter; 84 of
+ * 100 is past WARN_AT, so the warning styling is what gets measured and
+ * contrast-checked. A fixture that only ever shows the happy path is how an
+ * unreadable warning ships.
+ */
+const allowance = {
+  planName: "Resend Free",
+  today: quotaState(84, 100),
+  todayKnown: true,
+  month: quotaState(412, 3_000),
+} satisfies ProviderAllowance;
 
 const reads = new Map([
   [
@@ -256,11 +274,15 @@ const panes: Record<string, React.ReactElement> = {
         />
       ),
       accounts: (
-        <AccountsSection
+        <AccountsBrowser
           accounts={accounts}
-          visible={accounts}
-          query={query}
+          teamSizes={{ 3: 2 }}
+          recentAccess={{ 3: sessions }}
+          usage={Object.fromEntries(usage)}
+          reads={Object.fromEntries(reads)}
           deleteTarget={null}
+          query={query}
+          banners={null}
         />
       ),
       /*
@@ -272,11 +294,15 @@ const panes: Record<string, React.ReactElement> = {
         confirmation is the one that destroys a workspace.
       */
       "accounts-deleting": (
-        <AccountsSection
+        <AccountsBrowser
           accounts={accounts}
-          visible={accounts}
-          query={query}
+          teamSizes={{ 3: 2 }}
+          recentAccess={{ 3: sessions }}
+          usage={Object.fromEntries(usage)}
+          reads={Object.fromEntries(reads)}
           deleteTarget={accounts[0]!}
+          query={query}
+          banners={null}
         />
       ),
       drawer: (
@@ -294,6 +320,7 @@ const panes: Record<string, React.ReactElement> = {
       deliverability: (
         <DeliverabilitySection
           accounts={accounts}
+          allowance={allowance}
           rejections={
             [
               {

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Admin, ImpersonationEnd } from "@/db/schema";
 import type { ImpersonationSessionRow as ImpersonationSession } from "@/lib/impersonation";
 import type { WorkspaceSummary } from "@/lib/data";
@@ -17,36 +16,33 @@ import {
 import { describeAdminChain } from "@/lib/admin-actions-chain";
 import type { ImpersonationReadRow } from "@/lib/impersonation-reads";
 import {
-  sessionState,
   sessionStates,
   type SessionState,
-} from "@/lib/impersonation";
+} from "@/lib/impersonation-view";
 import { formatPrice } from "@/lib/pricing";
 import { entitlement, trialEndsAt } from "@/lib/trial";
 import { billingState, describePlan, planRollup } from "./billing-rollup";
-import type { CampaignTotals, TransactionalTotals, WorkspaceUsage } from "./queries";
+import type {
+  CampaignTotals,
+  ProviderAllowance,
+  TransactionalTotals,
+  WorkspaceUsage,
+} from "./queries";
+import type { QuotaState } from "@/lib/email-quota";
 import "../access-log.css";
 import "./console.css";
 import {
   addAdminAction,
-  createClientAction,
-  deleteClientAction,
   removeAdminAction,
-  resendInviteAction,
-  selectWorkspaceAction,
 } from "./actions";
 import {
   accountStatus,
-  needsAttention,
   formatDate,
   formatDateTime,
-  formatDuration,
-  hrefFor,
+  duration,
   KpiGrid,
   Pill,
   StatusPill,
-  type AdminQuery,
-  type Filter,
   type PillTone,
 } from "./ui";
 
@@ -103,188 +99,7 @@ export type ConsoleGates = {
    ACCOUNTS
    ──────────────────────────────────────────────────────────────────────── */
 
-const TABS: { key: Filter; label: string }[] = [
-  { key: "all", label: "All accounts" },
-  // Second, and named as an instruction rather than a state. This tab exists
-  // because Open Door Bakery sat under "No enquiries yet" for six weeks with a
-  // broken contact form and nothing ever asked anyone to look.
-  { key: "attention", label: "Needs a look" },
-  { key: "active", label: "Active" },
-  { key: "invited", label: "Awaiting sign-in" },
-  { key: "quiet", label: "No enquiries yet" },
-];
 
-export function AccountsSection({
-  accounts,
-  visible,
-  query,
-  deleteTarget,
-}: {
-  /** Every workspace, for the KPI row and the tab counts. */
-  accounts: WorkspaceSummary[];
-  /** The rows that survive the search box and the active tab. */
-  visible: WorkspaceSummary[];
-  query: AdminQuery;
-  deleteTarget: WorkspaceSummary | null;
-}) {
-  const countFor = (f: Filter) => {
-    if (f === "all") return accounts.length;
-    if (f === "attention") return accounts.filter((w) => needsAttention(w)).length;
-    return accounts.filter((w) => accountStatus(w) === f).length;
-  };
-
-  // One clock for the whole table. Read per row, two workspaces either side of
-  // a period boundary could be judged against different instants.
-  const now = new Date();
-
-  return (
-    <>
-      {deleteTarget && <DeletePanel target={deleteTarget} />}
-
-      <KpiGrid accounts={accounts} />
-
-      <div className="pba-tabs">
-        {TABS.map((t) => (
-          <Link
-            key={t.key}
-            href={hrefFor(query, { filter: t.key })}
-            className={`pba-tab${query.filter === t.key ? " is-active" : ""}`}
-          >
-            {t.label}
-            <span>{countFor(t.key)}</span>
-          </Link>
-        ))}
-      </div>
-
-      <div className="pba-table">
-        <div className="pba-scroll">
-          <div className="pba-grid pba-grid-accounts">
-            <div className="pba-thead">
-              <div className="pba-row pba-row-accounts pba-th">
-                <div>Company</div>
-                <div>Owner</div>
-                <div>Plan</div>
-                <div>Enquiries</div>
-                <div>Open</div>
-                <div>Created</div>
-                <div>Status</div>
-              </div>
-            </div>
-            <div className="pba-tbody">
-              {visible.length === 0 && (
-                <div className="pba-row">
-                  <div className="pba-td">
-                    {accounts.length === 0
-                      ? "No client workspaces yet — create the first one below."
-                      : "No accounts match that search or filter."}
-                  </div>
-                </div>
-              )}
-              {visible.map((w) => (
-                <Link
-                  key={w.id}
-                  href={hrefFor(query, { account: w.id })}
-                  className={`pba-rowlink${query.account === w.id ? " is-selected" : ""}`}
-                >
-                  <div className="pba-row pba-row-accounts">
-                    <div>
-                      <div className="pba-cell-main">{w.name}</div>
-                      <div className="pba-cell-sub">{w.inboundEmail}</div>
-                    </div>
-                    <div className="pba-td">{w.ownerEmail ?? "—"}</div>
-                    <div className="pba-td">{describePlan(w, now)}</div>
-                    <div className="pba-num">{w.totalCount}</div>
-                    <div className="pba-num">{w.openCount}</div>
-                    <div className="pba-td">{formatDate(w.createdAt)}</div>
-                    <div>
-                      <StatusPill status={accountStatus(w)} />
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-
-      <div className="pba-card" id="new-account">
-        <div className="pba-card-head">
-          <h2 className="pba-card-title">New account</h2>
-        </div>
-        <form action={createClientAction} className="pba-form">
-          {/*
-            aria-label, because a placeholder is not a label: it disappears the
-            moment anyone types, so the field it identified becomes an unnamed
-            box for exactly the people who most need it named. WCAG 3.3.2.
-
-            Labelled rather than given a visible <label> because this form is
-            one row of two fields and a button, and the placeholders already
-            carry the example text that makes it obvious. The name is for
-            assistive technology; the placeholder stays for everyone else.
-          */}
-          <input
-            type="text"
-            name="name"
-            required
-            aria-label="Business name"
-            placeholder="Business name — e.g. Open Door Bakery"
-            className="pba-input pba-input-grow"
-          />
-          <input
-            type="email"
-            name="email"
-            required
-            aria-label="Client login email"
-            placeholder="Client login email"
-            className="pba-input pba-input-grow"
-          />
-          <button type="submit" className="pba-btn pba-btn-primary">
-            Create workspace
-          </button>
-        </form>
-      </div>
-    </>
-  );
-}
-
-/** Type-the-name confirmation before a workspace is destroyed. */
-function DeletePanel({ target }: { target: WorkspaceSummary }) {
-  return (
-    <div className="pba-danger-panel">
-      <p className="pba-danger-title">Permanently delete {target.name}?</p>
-      <p className="pba-danger-text">
-        This erases the workspace and everything in it —{" "}
-        <b>
-          {target.totalCount} enquir{target.totalCount === 1 ? "y" : "ies"}
-        </b>
-        , all message history, and its contacts. It cannot be undone. To confirm,
-        type the workspace name exactly: <b>{target.name}</b>
-      </p>
-      <form action={deleteClientAction} className="pba-form">
-        <input type="hidden" name="workspaceId" value={target.id} />
-        {/* The most consequential field in the console, and it was named only
-            by a placeholder that vanishes as soon as you start typing the
-            workspace name into it. */}
-        <input
-          type="text"
-          name="confirmName"
-          required
-          autoComplete="off"
-          aria-label={`Type the workspace name "${target.name}" to confirm deletion`}
-          placeholder={`Type "${target.name}" to confirm`}
-          className="pba-input pba-input-grow"
-        />
-        <button type="submit" className="pba-btn pba-btn-danger">
-          Permanently delete
-        </button>
-        <Link href="/admin" className="pba-btn">
-          Cancel
-        </Link>
-      </form>
-    </div>
-  );
-}
 
 /* ────────────────────────────────────────────────────────────────────────
    OVERVIEW
@@ -477,19 +292,6 @@ function StatePill({ state, session }: { state: SessionState; session: Impersona
   return <Pill tone={STATE_TONE[state]}>{label}</Pill>;
 }
 
-/**
- * How long the operator was in there.
- *
- * Only a closed session has a real duration. For everything else this reports
- * a floor — start to last-seen — and says it is a floor, because the operator
- * could have sat on an open page for an hour after the last request we saw.
- */
-function duration(session: ImpersonationSession, state: SessionState): string {
-  if (state === "ended" && session.endedAt) {
-    return formatDuration(session.startedAt, session.endedAt);
-  }
-  return `${formatDuration(session.startedAt, session.lastSeenAt)}+`;
-}
 
 /**
  * Which tickets an operator opened during one visit.
@@ -866,6 +668,7 @@ export function DeliverabilitySection({
   drops,
   transactional,
   campaignTotals,
+  allowance,
   gates,
 }: {
   accounts: WorkspaceSummary[];
@@ -877,11 +680,15 @@ export function DeliverabilitySection({
   transactional: TransactionalTotals;
   /** Newsletter sends by recipient and campaign status. See ./queries.ts. */
   campaignTotals: CampaignTotals;
+  /** How close OUR mail provider account is to its plan. See ./queries.ts. */
+  allowance: ProviderAllowance;
   gates: ConsoleGates;
 }) {
   const byWorkspace = new Map(accounts.map((w) => [w.id, w.name]));
   return (
     <div className="pba-stack">
+      <ProviderAllowanceCard allowance={allowance} />
+
       {/*
         First, above the "nothing is measured" notice, because this IS measured
         and it is the thing that cost six weeks. Open Door Bakery's site posted
@@ -1121,206 +928,6 @@ export function DeliverabilitySection({
    DRAWER (accounts only)
    ──────────────────────────────────────────────────────────────────────── */
 
-export function AccountDrawer({
-  account,
-  teamSize,
-  query,
-  recentAccess,
-  reads,
-  usage,
-}: {
-  account: WorkspaceSummary | null;
-  /** Agents attached to this workspace — real, from listAgentEmails. */
-  teamSize: number;
-  query: AdminQuery;
-  /** This workspace's slice of the access log, newest first. */
-  recentAccess: ImpersonationSession[];
-  /** Records opened during those visits, keyed by session id. */
-  reads: Map<number, ImpersonationReadRow[]>;
-  /** This workspace's confirmed subscribers and trial-window tickets. */
-  usage: WorkspaceUsage | null;
-}) {
-  if (!account) {
-    return (
-      <aside className="pba-drawer">
-        <p className="pba-card-sub">Pick an account from the table to see its details.</p>
-      </aside>
-    );
-  }
-
-  const status = accountStatus(account);
-  const closed = account.totalCount - account.openCount;
-  const now = new Date();
-  const state = billingState(account, now);
-
-  return (
-    <aside className="pba-drawer">
-      <div className="pba-drawer-head">
-        <h2 className="pba-drawer-name">{account.name}</h2>
-        <form action={selectWorkspaceAction}>
-          <input type="hidden" name="workspaceId" value={account.id} />
-          <button type="submit" className="pba-linkbtn">
-            Open workspace →
-          </button>
-        </form>
-      </div>
-
-      <div className="pba-card">
-        <dl className="pba-dl">
-          <div>
-            <dt className="pba-dt">Inbound address</dt>
-            <dd className="pba-dd pba-mono">{account.inboundEmail}</dd>
-          </div>
-          <div>
-            <dt className="pba-dt">Sending address</dt>
-            <dd className="pba-dd pba-mono">{account.sendingEmail}</dd>
-          </div>
-          <div>
-            <dt className="pba-dt">Owner</dt>
-            <dd className="pba-dd">{account.ownerEmail ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="pba-dt">Plan</dt>
-            <dd className="pba-dd">{describePlan(account, now)}</dd>
-          </div>
-          <div>
-            <dt className="pba-dt">
-              {state === "trial" ? "Trial ends" : "Paid through"}
-            </dt>
-            <dd className="pba-dd">
-              {state === "trial" ? (
-                formatDate(trialEndsAt(account.trialStartedAt))
-              ) : account.currentPeriodEnd ? (
-                formatDate(account.currentPeriodEnd)
-              ) : (
-                // A comped account has no period and never will. Saying so
-                // beats an em-dash that reads as a failed lookup.
-                <span className="pba-withheld">no period — not charged</span>
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt className="pba-dt">Customer since</dt>
-            <dd className="pba-dd">{formatDate(account.createdAt)}</dd>
-          </div>
-          <div>
-            <dt className="pba-dt">Status</dt>
-            <dd className="pba-dd">
-              <StatusPill status={status} />
-            </dd>
-          </div>
-        </dl>
-      </div>
-
-      <div className="pba-card">
-        <div className="pba-card-head">
-          <h2 className="pba-card-title">All time</h2>
-        </div>
-        <div className="pba-tiles">
-          <div className="pba-tile">
-            <div className="pba-tile-value">{account.totalCount}</div>
-            <div className="pba-tile-label">Enquiries</div>
-          </div>
-          <div className="pba-tile">
-            <div className="pba-tile-value">{account.openCount}</div>
-            <div className="pba-tile-label">Open</div>
-          </div>
-          <div className="pba-tile">
-            <div className="pba-tile-value">{closed}</div>
-            <div className="pba-tile-label">Closed</div>
-          </div>
-          <div className="pba-tile">
-            <div className="pba-tile-value">{teamSize}</div>
-            <div className="pba-tile-label">Team members</div>
-          </div>
-          <div className="pba-tile">
-            <div className="pba-tile-value">{usage?.subscribers ?? 0}</div>
-            <div className="pba-tile-label">Subscribers</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="pba-card">
-        <div className="pba-card-head">
-          <h2 className="pba-card-title">Operator access</h2>
-        </div>
-        {recentAccess.length === 0 ? (
-          <p className="pba-log-entry">
-            No recorded visit to this workspace. Anything before access logging
-            shipped left no trace, so this is not proof that nobody ever went in.
-          </p>
-        ) : (
-          <div>
-            {recentAccess.map((s) => {
-              const state = sessionState(s);
-              const opened = reads.get(s.id)?.length ?? 0;
-              return (
-                <div key={s.id} className="pba-log-entry">
-                  <div className="pba-log-who">{s.adminEmail}</div>
-                  <div className="pba-log-when">
-                    {formatDateTime(s.startedAt)} · {duration(s, state)} ·{" "}
-                    {state === "ended"
-                      ? s.endedReason
-                        ? END_LABEL[s.endedReason]
-                        : "ended"
-                      : state === "active"
-                        ? "in progress"
-                        : "never closed"}
-                  </div>
-                  {s.reason && <div className="pba-log-when">{s.reason}</div>}
-                  <div className="pba-log-when">
-                    {opened === 0
-                      ? "no records recorded as opened"
-                      : `${opened} ${opened === 1 ? "record" : "records"} opened`}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-        <p className="pba-note">
-          <Link href={hrefFor(query, { section: "access" })}>
-            Full access log →
-          </Link>
-        </p>
-      </div>
-
-      <div className="pba-drawer-actions">
-        {/* The reason is optional — making it mandatory only teaches people to
-            type "support". It is recorded exactly as given, or as "none". */}
-        <form action={selectWorkspaceAction}>
-          <input type="hidden" name="workspaceId" value={account.id} />
-          <input
-            type="text"
-            name="reason"
-            maxLength={500}
-            autoComplete="off"
-            aria-label="Reason for entering this workspace (optional, recorded in the access log)"
-            placeholder="Why are you going in? (optional, logged)"
-            className="pba-input pba-input-grow"
-          />
-          <button type="submit" className="pba-btn pba-btn-block">
-            Impersonate
-          </button>
-        </form>
-        {account.pending && (
-          <form action={resendInviteAction}>
-            <input type="hidden" name="workspaceId" value={account.id} />
-            <button type="submit" className="pba-btn pba-btn-block">
-              Resend invite
-            </button>
-          </form>
-        )}
-        <Link
-          href={`${hrefFor(query, { account: account.id })}&delete=${account.id}`}
-          className="pba-btn pba-btn-danger pba-btn-block"
-        >
-          Delete workspace…
-        </Link>
-      </div>
-    </aside>
-  );
-}
 
 /*
  * The Postbox admins card. It lived on the Support pane, which was retired on
@@ -1378,6 +985,119 @@ export function AdminsCard({
           Add admin
         </button>
       </form>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   PROVIDER ALLOWANCE
+   ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * How close the shared mail account is to its plan.
+ *
+ * ── WHY THIS IS ON SCREEN ──
+ * Every workspace's mail — ticket acknowledgements, auto-replies, confirmations
+ * AND newsletters — leaves through one provider account on one allowance. When
+ * it runs out, what a client experiences is an acknowledgement that never
+ * arrives, with nothing anywhere saying why; PRICING.md put it as "the daily cap
+ * breaks first, and it breaks silently for the client."
+ *
+ * So the number belongs where an operator already looks, ahead of time, rather
+ * than in a log after the fact. Jordan, 14 Sep 2026: "soon we will be on the
+ * paid plan (on the mailers) so we need to know if we are approaching our
+ * limits."
+ *
+ * ── IT NEVER SHOWS A NUMBER IT DOES NOT HAVE ──
+ * `todayKnown` false means the daily counter could not be read, which is a
+ * different fact from "nothing has been sent today" and is rendered as such.
+ * A dash is honest; a zero would be a quiet lie on the one screen that exists
+ * to catch this early.
+ */
+function ProviderAllowanceCard({ allowance }: { allowance: ProviderAllowance }) {
+  return (
+    <div className="pba-card">
+      <div className="pba-card-head">
+        <h2 className="pba-card-title">Our mail allowance</h2>
+        <p className="pba-card-sub">
+          {allowance.planName} — shared by every workspace, ticket mail and
+          newsletters together.
+        </p>
+      </div>
+      <div className="pba-allowance">
+        <AllowanceMeter
+          label="Today"
+          known={allowance.todayKnown}
+          state={allowance.today}
+          note="Resets at midnight UTC."
+        />
+        <AllowanceMeter
+          label="This month"
+          known
+          state={allowance.month}
+          note="Counted per workspace, so operator invites are not included."
+        />
+      </div>
+    </div>
+  );
+}
+
+function AllowanceMeter({
+  label,
+  state,
+  known,
+  note,
+}: {
+  label: string;
+  state: QuotaState;
+  known: boolean;
+  note: string;
+}) {
+  const pct = state.cap > 0 ? Math.min(100, (state.used / state.cap) * 100) : 100;
+  const tone = !known
+    ? "unknown"
+    : state.exhausted
+      ? "bad"
+      : state.warn
+        ? "warn"
+        : "ok";
+
+  return (
+    <div className="pba-meter" data-tone={tone}>
+      <div className="pba-meter-head">
+        <span className="pba-meter-label">{label}</span>
+        <span className="pba-meter-figure">
+          {known ? (
+            <>
+              <b>{state.used.toLocaleString("en-GB")}</b> of{" "}
+              {state.cap.toLocaleString("en-GB")}
+            </>
+          ) : (
+            // Not a zero. See the card's header.
+            <b>unknown</b>
+          )}
+        </span>
+      </div>
+      <div
+        className="pba-meter-track"
+        role="img"
+        aria-label={
+          known
+            ? `${label}: ${state.used} of ${state.cap} emails used`
+            : `${label}: the counter could not be read`
+        }
+      >
+        <span className="pba-meter-fill" style={{ width: `${known ? pct : 0}%` }} />
+      </div>
+      <p className="pba-meter-note">
+        {!known
+          ? "The counter could not be read — this is not a quiet day, it is no answer."
+          : state.exhausted
+            ? "Spent. The provider is refusing sends, and a client sees an acknowledgement that never arrives."
+            : state.warn
+              ? `Close to the limit — ${state.remaining.toLocaleString("en-GB")} left. ${note}`
+              : `${state.remaining.toLocaleString("en-GB")} left. ${note}`}
+      </p>
     </div>
   );
 }

@@ -1115,3 +1115,196 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ── Tab row: filters left, search right ──────────────────────────────── */
+
+/*
+  The search moved out of the page header and in beside the filter tabs on
+  14 Sep 2026. It only ever narrowed THIS table; up in the header, next to the
+  page title, it read as a search of the whole console — and it worked by
+  reloading the page.
+
+  One row, tabs pushed left and the box pushed right by `margin-left: auto`
+  rather than `justify-content: space-between`, so the tabs stay packed
+  together when they wrap instead of spreading across the width.
+*/
+.pba-tabrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+/* The row owns the spacing now; the old bottom margin would double it. */
+.pba-tabrow .pba-tabs {
+  margin-bottom: 0;
+}
+
+.pba-tab {
+  cursor: pointer;
+}
+
+.pba-tabsearch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  min-width: 220px;
+}
+
+.pba-tabsearch svg {
+  position: absolute;
+  left: 12px;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+.pba-tabsearch input {
+  width: 100%;
+  height: 34px;
+  padding: 0 12px 0 34px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 0.78125rem;
+}
+
+.pba-tabsearch input::placeholder {
+  color: var(--muted);
+}
+
+/*
+  A row is a <button> now, not an <a>: it selects a row in a table already on
+  screen rather than going anywhere. Buttons bring their own chrome, so it is
+  taken back off — and `text-align: left` matters, because a button centres its
+  contents and every cell in the table would shift.
+*/
+.pba-rowlink {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/*
+  The table and whatever follows it were touching.
+
+  `.pba-card + .pba-card` had a top margin and `.pba-table + .pba-card` had
+  none, so the accounts table sat flush against the New account panel with two
+  1px borders meeting and no gap at all.
+*/
+.pba-table + .pba-card,
+.pba-table + .pba-table {
+  margin-top: 16px;
+}
+
+/* ── Provider allowance meters ────────────────────────────────────────── */
+
+.pba-allowance {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.pba-meter {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 16px;
+  padding: 13px 14px;
+}
+
+.pba-meter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pba-meter-label {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pba-meter-figure {
+  font-size: 0.8125rem;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.pba-meter-figure b {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.pba-meter-track {
+  height: 7px;
+  margin-top: 9px;
+  border-radius: 20px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.pba-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 20px;
+  background: var(--ok-fg);
+}
+
+/*
+  Tone is on the parent so the bar, the figure and the note move together. A
+  bar that turns amber above a note still reading "plenty left" is the kind of
+  mixed signal that gets a warning ignored.
+*/
+.pba-meter[data-tone="warn"] .pba-meter-fill {
+  background: var(--warn-fg);
+}
+
+.pba-meter[data-tone="warn"] .pba-meter-note {
+  color: var(--warn-fg);
+}
+
+.pba-meter[data-tone="bad"] .pba-meter-fill {
+  background: var(--pdf-fg);
+}
+
+.pba-meter[data-tone="bad"] .pba-meter-note {
+  color: var(--pdf-fg);
+}
+
+.pba-meter[data-tone="unknown"] .pba-meter-figure b {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.pba-meter-note {
+  margin: 8px 0 0;
+  font-size: 0.71875rem;
+  line-height: 1.55;
+  color: var(--muted-2);
+}
+
+@media (max-width: 720px) {
+  .pba-allowance {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pba-tabsearch {
+    margin-left: 0;
+    width: 100%;
+  }
+}

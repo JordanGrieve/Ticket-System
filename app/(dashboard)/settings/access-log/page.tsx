@@ -2,11 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ImpersonationEnd } from "@/db/schema";
 import type { ImpersonationSessionRow as ImpersonationSession } from "@/lib/impersonation";
-import {
-  listImpersonationSessionsForWorkspace,
-  sessionStates,
-  type SessionState,
-} from "@/lib/impersonation";
+import { listImpersonationSessionsForWorkspace } from "@/lib/impersonation";
+import { sessionStates, type SessionState } from "@/lib/impersonation-view";
 import { resolveViewer } from "@/lib/viewer";
 import {
   readsForSessions,

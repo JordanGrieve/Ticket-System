@@ -107,12 +107,22 @@ describe("newsletter AI prompt", () => {
     }
   });
 
-  it("is offered as its own mode, with the plain form and the link", () => {
-    // All three routes to a signup have to stay reachable: paste a form, hand
-    // the prompt to an assistant, or copy a link and write no code at all.
-    expect(SRC).toContain('nlMode === "form"');
+  it("is the primary mode, beside a no-code link and nothing else", () => {
+    /*
+     * Two routes, not three. "Paste a form" was removed on 14 Sep 2026 for the
+     * same reason as the contact form's JavaScript snippet: it dropped OUR
+     * markup into somebody else's page, where it landed unstyled in the middle
+     * of their design. Jordan — "the newsletter should work the same way as the
+     * contact form, just a prompt that finds their newsletter and attaches it".
+     *
+     * What remains cannot touch a client's styling: the prompt wires up the
+     * form they already have, and the link points at a page we host.
+     */
     expect(SRC).toContain('nlMode === "ai"');
     expect(SRC).toContain('nlMode === "link"');
+    expect(SRC).not.toContain('nlMode === "form"');
     expect(SRC).toContain("newsletterAiPrompt");
+    // And the pasteable form is gone rather than merely unreachable.
+    expect(SRC).not.toContain("buildNewsletterSnippet");
   });
 });

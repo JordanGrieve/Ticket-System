@@ -1,4 +1,6 @@
 import type { WorkspaceSummary } from "@/lib/data";
+import type { ImpersonationEnd, ImpersonationSession } from "@/db/schema";
+import type { SessionState } from "@/lib/impersonation-view";
 import { workspaceHealth } from "@/lib/workspace-health";
 
 /**
@@ -322,4 +324,37 @@ export function EnvelopeIcon() {
       <path d="M3.5 7.5l7.3 5.1a2 2 0 002.4 0l7.3-5.1" />
     </svg>
   );
+}
+
+/**
+ * How an impersonation session ENDED, in words.
+ *
+ * Here rather than in sections.tsx because both the access log and the account
+ * drawer render it, and those live in different modules now — one server, one
+ * reachable from the client. Two copies of this map is two chances for the
+ * access log and the drawer to describe the same row differently.
+ */
+export const END_LABEL: Record<ImpersonationEnd, string> = {
+  stopped: "Stopped",
+  signed_out: "Signed out",
+  switched: "Switched client",
+  workspace_deleted: "Workspace deleted",
+  admin_removed: "Admin access revoked",
+};
+
+/**
+ * How long a visit lasted.
+ *
+ * A trailing "+" on anything still open: the row's end is unknown, and
+ * `lastSeenAt` is the last moment we can honestly account for, not the moment
+ * they left. Same reasoning as the null `endedAt` it is derived from.
+ */
+export function duration(
+  session: Pick<ImpersonationSession, "startedAt" | "endedAt" | "lastSeenAt">,
+  state: SessionState,
+): string {
+  if (state === "ended" && session.endedAt) {
+    return formatDuration(session.startedAt, session.endedAt);
+  }
+  return `${formatDuration(session.startedAt, session.lastSeenAt)}+`;
 }

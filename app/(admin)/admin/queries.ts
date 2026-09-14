@@ -1,10 +1,21 @@
 import "server-only";
-import { count, eq, sql } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { periodKey } from "@/lib/usage";
 import {
+  PROVIDER_DAILY_CAP,
+  PROVIDER_MONTHLY_CAP,
+  PROVIDER_PLAN_NAME,
+  quotaState,
+  type QuotaState,
+} from "@/lib/email-quota";
+import { transactionalSentToday } from "@/lib/email-quota-store";
+import {
+  agents,
   campaignRecipients,
   campaigns,
   ticketMessages,
+  usageCounters,
   workspaces,
   type CampaignStatus,
   type DeliveryStatus,
@@ -183,4 +194,113 @@ export async function campaignDeliveryTotals(): Promise<CampaignTotals> {
   for (const row of campaignRows) campaignCounts[row.status] += row.n;
 
   return { recipients, campaigns: campaignCounts };
+}
+
+/**
+ * Team size for EVERY workspace, in one statement.
+ *
+ * ── WHY BULK ──
+ * The accounts table became interactive on 14 Sep 2026: selecting a client no
+ * longer navigates, so the drawer's data has to be on the page before anybody
+ * clicks. Done per-row that would be a query per workspace on every render of
+ * the console — the N+1 that only shows up once there are enough clients to
+ * matter, by which time it is the slowest page in the product.
+ *
+ * The predicate is a copy of the one in `listAgentEmails`, and has to stay one:
+ * placeholder rows are invited-but-never-signed-in, and counting them would
+ * tell an operator a client has three people when it has one. Kept honest by
+ * tests/admin-agent-count-predicate.test.ts rather than by hoping.
+ */
+export async function agentCountsByWorkspace(): Promise<Map<number, number>> {
+  const rows = await db
+    .select({
+      workspaceId: agents.workspaceId,
+      n: sql<number>`count(distinct lower(${agents.email}))::int`,
+    })
+    .from(agents)
+    .where(
+      sql`${agents.clerkUserId} NOT LIKE 'INVITE\_%' AND ${agents.clerkUserId} NOT LIKE 'SEED\_%'`,
+    )
+    .groupBy(agents.workspaceId);
+
+  return new Map(rows.map((r) => [r.workspaceId, Number(r.n)]));
+}
+
+/**
+ * How much of the shared mail allowance has gone this month.
+ *
+ * ── WHY usage_counters AND NOT rate_limits ──
+ * The daily counter (lib/email-quota-store.ts) lives in `rate_limits`, one row
+ * per UTC day, and the daily health sweep PRUNES anything over 24 hours old. So
+ * yesterday's row is already gone and a month cannot be summed from it. That is
+ * correct for what it does — enforcing today's ceiling — and useless for this.
+ *
+ * `usage_counters` is per workspace per calendar month and is written by the
+ * same send paths (`recordUsage(workspaceId, "emails_sent", n)`). Summing it
+ * across workspaces is the platform's month.
+ *
+ * ── WHAT IT UNDERCOUNTS, AND BY HOW MUCH ──
+ * Mail with no workspace behind it: operator invites sent from this console.
+ * lib/email.ts takes `workspaceId` as optional precisely so that case can be
+ * expressed, and it is the only caller that omits it. A handful a month against
+ * an allowance in the thousands — so the number is honest enough to steer by
+ * and wrong enough that it must not be the thing that decides whether a send is
+ * refused. Nothing refuses a send on it; see lib/email-quota.ts.
+ */
+export async function platformEmailsThisMonth(
+  now = new Date(),
+): Promise<number> {
+  const rows = await db
+    .select({ total: sql<number>`coalesce(sum(${usageCounters.count}), 0)::int` })
+    .from(usageCounters)
+    .where(
+      and(
+        eq(usageCounters.metric, "emails_sent"),
+        eq(usageCounters.period, periodKey(now)),
+      ),
+    );
+  return Number(rows[0]?.total ?? 0);
+}
+
+/**
+ * How close OUR mail provider account is to its plan.
+ *
+ * Not a tenant's allowance — the shared Resend account every workspace's mail
+ * leaves through. An operator needs this before a plan is exhausted rather than
+ * after, because the failure it prevents is invisible from the client side: a
+ * refused send is a console.error and an acknowledgement that never arrives.
+ *
+ * Both numbers cover ticket mail AND newsletters, because both go out through
+ * the same `/emails` API on the same allowance (lib/deliver-resend.ts).
+ *
+ * `todayKnown` is a third state and is deliberately not folded into a zero. The
+ * daily counter can be unreadable — it lives in `rate_limits` and the read can
+ * fail — and "we do not know" has to be distinguishable on screen from "a quiet
+ * morning", which is the same argument lib/email-quota-store.ts makes for
+ * throwing rather than returning 0.
+ */
+export type ProviderAllowance = {
+  planName: string;
+  today: QuotaState;
+  todayKnown: boolean;
+  month: QuotaState;
+};
+
+export async function providerAllowance(
+  now = new Date(),
+): Promise<ProviderAllowance> {
+  const [today, month] = await Promise.all([
+    transactionalSentToday(now).then(
+      (q) => ({ q, known: true }),
+      () => ({ q: quotaState(0, PROVIDER_DAILY_CAP), known: false }),
+    ),
+    platformEmailsThisMonth(now),
+  ]);
+
+  return {
+    planName: PROVIDER_PLAN_NAME,
+    today: today.q,
+    todayKnown: today.known,
+    month: quotaState(month, PROVIDER_MONTHLY_CAP),
+  };
 }
