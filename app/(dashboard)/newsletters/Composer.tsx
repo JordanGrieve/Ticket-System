@@ -824,6 +824,40 @@ export default function Composer({
    * anyone. It is called "queue" on the button because that is precisely and
    * only what it does.
    */
+  /**
+   * Re-read the server's diagnosis of this campaign.
+   *
+   * ── WHY THIS EXISTS ──
+   * `health` and `recipients` were set in exactly one place — open() — so every
+   * action taken afterwards left them describing a campaign that no longer
+   * existed. Queue three recipients and the panel went on saying "Nobody is
+   * queued to receive this yet. Queue the recipients…" directly beneath a line
+   * reading "3 recipient rows created. 3 in total, all sitting at queued".
+   * Jordan, 14 Sep 2026, after sending his first campaign: "that was a bit
+   * confusing." It was: the screen contradicted itself, and the half telling
+   * him what to do next was the half that was wrong.
+   *
+   * ONLY `health` and `recipients`. Re-opening the campaign would also replace
+   * the draft, and this runs after actions somebody takes mid-edit — it would
+   * throw away whatever they had typed since.
+   */
+  async function refreshDiagnosis(id: number) {
+    try {
+      const res = await fetch(`/api/campaigns/${id}`);
+      const payload = (await res.json()) as {
+        health?: CampaignHealth;
+        recipients?: Record<RecipientStatus, number>;
+      };
+      if (!res.ok) return;
+      setHealth(payload.health ?? null);
+      setRecipients(payload.recipients ?? null);
+    } catch {
+      // Best effort, and deliberately silent: the action it follows has
+      // already succeeded and said so. An error here would report a failure
+      // that did not happen.
+    }
+  }
+
   async function queueRecipients() {
     if (savedId === null || queue.kind === "working") return;
     setQueue({ kind: "working" });
@@ -847,7 +881,7 @@ export default function Composer({
       setQueue({ kind: "done", inserted: payload.inserted ?? 0, total });
       setDraft((d) => ({ ...d, recipientCount: total }));
       setAudienceTick((n) => n + 1);
-      await refreshList();
+      await Promise.all([refreshList(), refreshDiagnosis(savedId)]);
     } catch {
       setQueue({
         kind: "error",
@@ -898,7 +932,7 @@ export default function Composer({
       setQueue({ kind: "discarded", deleted: payload.deleted ?? 0, total });
       setDraft((d) => ({ ...d, recipientCount: total }));
       setAudienceTick((n2) => n2 + 1);
-      await refreshList();
+      await Promise.all([refreshList(), refreshDiagnosis(savedId)]);
     } catch {
       setQueue({ kind: "error", message: "Couldn’t reach the server." });
     }
@@ -978,7 +1012,7 @@ export default function Composer({
       }
       setDraft(draftFrom(payload.campaign));
       setSchedule({ kind: "armed", immediate: payload.immediate === true });
-      await refreshList();
+      await Promise.all([refreshList(), refreshDiagnosis(savedId)]);
     } catch {
       setSchedule({ kind: "error", message: "Couldn’t reach the server." });
     }
@@ -1005,7 +1039,7 @@ export default function Composer({
       }
       setDraft(draftFrom(payload.campaign));
       setSchedule({ kind: "cancelled" });
-      await refreshList();
+      await Promise.all([refreshList(), refreshDiagnosis(savedId)]);
     } catch {
       setSchedule({ kind: "error", message: "Couldn’t reach the server." });
     }
@@ -1235,6 +1269,29 @@ export default function Composer({
     route), so this is the explanation, not the guard.
   */
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  /*
+    ── WHICH CARD A READINESS STEP IS POINTING AT ──
+
+    Pressing a step scrolled to the right card and stopped there, which on a
+    long page means arriving somewhere plausible with no idea which of the
+    three things in front of you was the one being asked for. Jordan,
+    14 Sep 2026: "make it so you can click on the little tasks above the send
+    button that will take you to the right tab and hover the box until you do
+    what its asking."
+
+    The marker persists rather than flashing — it stays until the step it names
+    is satisfied, which is the "until you do what it's asking" half and the
+    reason this is not a two-second animation.
+
+    DERIVED, not cleared by an effect. `setChasing(null)` inside a useEffect
+    watching `steps` is a setState-in-effect (the lint rule is right: it is a
+    value, not a side effect). A key that no longer matches an unfinished step
+    simply stops applying, so there is nothing to clear.
+  */
+  const [chasing, setChasing] = useState<
+    "save" | "signup" | "queue" | "body" | "settings" | null
+  >(null);
+
   const steps = readinessSteps({
     saved: savedId !== null,
     dirty,
@@ -1243,12 +1300,20 @@ export default function Composer({
     placeholders: slots.length,
     postalAddress: canSendLegally,
   });
+  const chasingUnfinished =
+    chasing !== null && steps.some((s) => s.fix === chasing && !s.done)
+      ? chasing
+      : null;
   const ready = readyToSend(steps, draft.status);
   const when =
     whenMode === "later" ? describeWhen(whenDate, whenTime, new Date(), timeZone) : null;
 
   /** Where each unmet step is fixed. Focus or scroll; never a page change except Settings. */
   function goFix(fix: (typeof steps)[number]["fix"]) {
+    // Marked BEFORE the scroll, so the ring is already on the card when it
+    // arrives rather than appearing a moment later under the eye.
+    setChasing(fix);
+
     if (fix === "save") {
       save();
     } else if (fix === "signup") {
@@ -1258,6 +1323,7 @@ export default function Composer({
     } else if (fix === "queue") {
       document.getElementById("nl-recipients")?.scrollIntoView({ block: "start", behavior: "smooth" });
     } else if (fix === "body") {
+      bodyRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
       bodyRef.current?.focus();
     } else {
       window.location.assign("/settings");
@@ -1833,7 +1899,10 @@ export default function Composer({
                 ))}
               </div>
 
-              <div className="nl-field">
+              <div
+                className="nl-field"
+                data-chasing={chasingUnfinished === "body" || undefined}
+              >
                 <label className="nl-label" htmlFor="nl-body">
                   Message
                 </label>
@@ -1953,7 +2022,10 @@ export default function Composer({
             </section>
 
             {/* ── What queueing does, and does not do ────────── */}
-            <section className="nl-card">
+            <section
+              className="nl-card"
+              data-chasing={chasingUnfinished === "queue" || undefined}
+            >
               <h3 className="nl-card-title" id="nl-recipients">Recipients</h3>
 
               <div className="nl-queue-row">
@@ -2059,9 +2131,19 @@ export default function Composer({
                     : `${queue.inserted.toLocaleString()} recipient ${
                         queue.inserted === 1 ? "row" : "rows"
                       } created.`}{" "}
+                  {/*
+                    This used to end "No email has been sent, and none will be
+                    — the scheduled sweep has no live sender configured." The
+                    first half is true of queueing always; the second was
+                    hardcoded, so it asserted that nothing would ever send even
+                    on a workspace whose sender IS configured. Whether mail can
+                    actually leave is diagnosed by lib/campaign-health.ts from
+                    the real environment and shown in the panel below — one
+                    answer, computed, rather than two, one of them a guess.
+                  */}
                   {queue.total.toLocaleString()} in total, all sitting at
-                  “queued”. No email has been sent, and none will be — the
-                  scheduled sweep has no live sender configured.
+                  “queued”. Queueing sends nothing by itself — scheduling is
+                  what starts it.
                 </p>
               )}
               {queue.kind === "discarded" && (

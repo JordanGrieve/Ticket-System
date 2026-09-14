@@ -1333,3 +1333,33 @@ body:has(.pbi-banner):has(.pbt-slot) .nl-main {
 .nl-dot[data-on="true"] {
   background: var(--ok-fg);
 }
+
+/* ── The card a readiness step is pointing at ───────────────────
+   Pressing "Recipients queued →" scrolls here; this is what says "this one,
+   the thing you just asked about". It STAYS until the step is satisfied
+   rather than flashing, because the request was to hold the mark until the
+   work is done — a flash is gone before a slow scroll finishes.
+
+   Outline rather than border: a border would change the card's box and shift
+   everything below it by two pixels the moment the ring appeared. */
+.nl-card[data-chasing],
+.nl-field[data-chasing] {
+  outline: 2px solid var(--focus-ring, var(--accent));
+  outline-offset: 3px;
+  border-radius: 14px;
+}
+
+/* A quiet pulse to catch the eye on arrival, then still. Three seconds, not a
+   loop: something that never stops moving beside a Send button is a thing
+   people learn to ignore, and 2.2.2 is about exactly that. The blanket
+   reduced-motion rule at the end of globals.css turns it off. */
+@keyframes nl-chasing-in {
+  from {
+    outline-color: color-mix(in srgb, var(--focus-ring, var(--accent)) 25%, transparent);
+  }
+}
+
+.nl-card[data-chasing],
+.nl-field[data-chasing] {
+  animation: nl-chasing-in 0.9s ease-out 2;
+}
