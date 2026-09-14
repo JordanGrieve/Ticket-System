@@ -27,6 +27,7 @@ import WelcomeEmailForm from "../app/(dashboard)/settings/WelcomeEmailForm";
 import { DEFAULT_WELCOME } from "../lib/welcome-store";
 import AutoReplySettings from "../app/(dashboard)/settings/auto-reply/AutoReplySettings";
 import InstallView from "../components/InstallView";
+import InstallLoading from "../app/(dashboard)/settings/install/loading";
 import { DEFAULT_CONFIG } from "../lib/auto-reply";
 
 /**
@@ -105,6 +106,19 @@ const views: Record<string, React.ReactElement> = {
       honeypotFields={["company_website", "fax_number"]}
     />
   ),
+  /*
+    The skeleton, beside the thing it stands in for.
+
+    A loading state is the one surface nobody can look at on the live site —
+    it is gone before the eye lands on it, and a browser pane driven by tooling
+    never commits the swap at all (AGENTS.md: "a skeleton will pass every check
+    you have"). So it drifted: it drew a 760px centred column for months after
+    Install went full width, and five sections after one was deleted.
+
+    Rendering it here means the two can be opened side by side at the same
+    width, which is the only way that difference is visible.
+  */
+  "install-loading": <InstallLoading />,
 };
 
 function page(title: string, body: string) {
@@ -118,6 +132,7 @@ function page(title: string, body: string) {
 <link rel="stylesheet" href="./globals.css">
 <link rel="stylesheet" href="./mail.css">
 <link rel="stylesheet" href="./settings.css">
+<link rel="stylesheet" href="./skeleton.css">
 </head><body><div class="pb-shell pbm"><div class="pbm-page pb-scroll"><div class="stg-wrap">${body}</div></div></div>
 <script src="./audit.js"></script></body></html>`;
 }
@@ -142,7 +157,13 @@ describe("every settings view renders", () => {
   it("writes the browser harness when asked", () => {
     if (!OUT) return;
     mkdirSync(OUT, { recursive: true });
-    for (const src of ["app/globals.css", "app/mail.css", "app/settings.css"]) {
+    for (const src of [
+      "app/globals.css",
+      "app/mail.css",
+      "app/settings.css",
+      // The install skeleton is a surface here too, and .pbk-* lives in this one.
+      "app/skeleton.css",
+    ]) {
       copyFileSync(join(process.cwd(), src), join(OUT, src.split("/").pop()!));
     }
     copyFileSync(join(process.cwd(), "tests/audit-probes.js"), join(OUT, "audit.js"));
