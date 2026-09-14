@@ -554,7 +554,11 @@ twice. Then show the "check your email" wording described above.
 
 ## Responses
 
-- 202 Accepted — {"ok": true, ...}. Show the "check your email" message.
+- 202 Accepted — {"ok": true, "subscribed": ${requireConfirmation ? "false" : "true"}, ...}.
+  Success. Show the message described above. Treat ANY 2xx as success rather
+  than comparing to 202 exactly — the body's "subscribed" field is what tells
+  you whether the address is on the list now or has been sent a confirmation
+  link, and it is the only thing worth branching on.
 - 400 Bad Request — {"ok": false, "error": "..."}. Usually a malformed address.
   Show a short inline error and let them correct it.
 - 429 Too Many Requests — too many signups too quickly. Ask them to try again in

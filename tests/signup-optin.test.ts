@@ -144,3 +144,47 @@ describe("the limits that bound a public write", () => {
     expect(honeypotAt).toBeLessThan(branchAt);
   });
 });
+
+/**
+ * The endpoint has a PUBLISHED contract, on somebody else's website.
+ *
+ * The AI prompt on the Install page tells every integration what success looks
+ * like, and those integrations are deployed where we cannot see them, cannot
+ * change them, and get no report when they break. Anything the prompt has
+ * promised is therefore a compatibility surface, not an implementation detail.
+ *
+ * This nearly went wrong within the hour: single opt-in first returned 200,
+ * which is the more honest status, while every integration built from the old
+ * prompt had been told success was "202 Accepted". An assistant that wrote
+ * `res.status === 202` would have started showing a failure message to people
+ * who had just successfully subscribed — on a client's live form, silently.
+ */
+describe("integrations built against the old prompt keep working", () => {
+  it("still answers 2xx-with-202 on both paths", () => {
+    // Both success responses, found by their message constants so this cannot
+    // pass by matching a 202 somewhere unrelated in the file.
+    for (const marker of ["SUBSCRIBED_MESSAGE", "ACCEPTED_MESSAGE"]) {
+      const at = ROUTE.indexOf(`message: ${marker}`);
+      expect(at, `${marker} is not returned anywhere`).toBeGreaterThan(-1);
+      const nearby = ROUTE.slice(at, at + 300);
+      expect(
+        nearby,
+        `the ${marker} response no longer returns 202 — every integration told "202 Accepted" by the prompt breaks silently`,
+      ).toContain("status: 202");
+    }
+  });
+
+  it("says which happened in the body, where a new field breaks nobody", () => {
+    // The precise signal lives here rather than in the status code, because an
+    // old integration that does not read this field cannot be misled by it.
+    expect(ROUTE).toContain("subscribed: true");
+    expect(ROUTE).toContain("subscribed: false");
+  });
+
+  it("keeps the endpoint shape the prompt documented", () => {
+    // Same path, same key position, same CORS. A change to any of these is a
+    // change to code on other people's websites.
+    expect(ROUTE).toContain("CORS_HEADERS");
+    expect(ROUTE).toContain("readSignupSubmission(fields)");
+  });
+});

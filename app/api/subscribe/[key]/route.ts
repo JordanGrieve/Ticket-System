@@ -251,6 +251,23 @@ const SUBSCRIBED_MESSAGE = "You're subscribed — thanks for joining.";
  * happened yet; here the address is on the list. A form that said "check your
  * inbox" after single opt-in would send people looking for an email that asks
  * nothing of them.
+ *
+ * ── WHY 202 AND NOT 200 ──
+ * 200 is the honest status — the processing IS complete, which is what 202
+ * says it is not — and it was what this returned for about an hour.
+ *
+ * It is wrong anyway, because this endpoint has a published contract. The AI
+ * prompt on the Install page has told every integration, in writing, that
+ * success is "202 Accepted", and those integrations are deployed on other
+ * people's websites where we cannot see them or change them. An assistant that
+ * took that literally and wrote `if (res.status === 202)` would, the moment
+ * this changed, start showing a failure message to someone who had just been
+ * subscribed — on a client's live page, with nothing reaching us to say so.
+ *
+ * A slightly coarse status code costs a little precision in our own API. The
+ * alternative costs a stranger their signup and a client their trust in the
+ * form, silently. `subscribed` in the body carries the distinction exactly,
+ * for anything that wants to read it.
  */
 function subscribed(req: Request, workspaceName: string): Response {
   if (wantsHtml(req)) {
@@ -264,10 +281,19 @@ function subscribed(req: Request, workspaceName: string): Response {
       },
     });
   }
-  // 200, not 202: this is done, not accepted for later.
   return json(
-    { ok: true, message: SUBSCRIBED_MESSAGE, workspace: workspaceName },
-    { status: 200, headers: CORS_HEADERS },
+    {
+      ok: true,
+      /**
+       * True here, false on the double opt-in path. The precise signal, in the
+       * place where adding one breaks nobody — a field an old integration does
+       * not read cannot mislead it.
+       */
+      subscribed: true,
+      message: SUBSCRIBED_MESSAGE,
+      workspace: workspaceName,
+    },
+    { status: 202, headers: CORS_HEADERS },
   );
 }
 
@@ -289,7 +315,15 @@ function accepted(req: Request, workspaceName: string): Response {
     });
   }
   return json(
-    { ok: true, message: ACCEPTED_MESSAGE, workspace: workspaceName },
+    {
+      ok: true,
+      // False here: a confirmation has been sent and nobody is on the list yet.
+      // Both paths carry this field so reading it is never a guess about which
+      // one answered.
+      subscribed: false,
+      message: ACCEPTED_MESSAGE,
+      workspace: workspaceName,
+    },
     // 202, not 200: nothing has happened yet but a message has been sent. The
     // subscriber does not exist until the link is pressed.
     { status: 202, headers: CORS_HEADERS },
