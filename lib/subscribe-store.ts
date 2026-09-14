@@ -5,6 +5,8 @@ import { APP_URL, EMAIL_FROM_ADDRESS } from "./config";
 import { sendReplyEmail } from "./email";
 import {
   confirmUrl,
+  consentEvidence,
+  type ConsentAct,
   confirmationEmailSubject,
   confirmationEmailText,
   encodeConfirmToken,
@@ -69,7 +71,12 @@ import { generateUnsubscribeToken } from "./tokens";
  */
 export const SIGNUP_LIST_NAME = "Newsletter signups";
 const SIGNUP_LIST_DESCRIPTION =
-  "People who confirmed a double opt-in signup form. Created automatically.";
+  // Says where they came from, not how they were confirmed. The list holds
+  // both single and double opt-in signups now, and the per-row evidence is in
+  // subscribers.consent_source where it belongs — a description that named one
+  // mode would be wrong for half the list and is not the place anybody should
+  // be reading consent from anyway.
+  "People who signed up through a newsletter form. Created automatically.";
 
 /**
  * `subscribers.source` for this path. The schema's examples are of this shape
@@ -191,17 +198,26 @@ export type ConfirmOutcome = {
  * Turn a verified confirmation into a subscriber. The only write in this
  * feature.
  *
- * ── CONSENT IS RECORDED HERE, NOT AT SUBMISSION ──
- * `consent_at` is `now()` — the moment of CONFIRMATION. The submission time
- * travels in the token and is deliberately not stored: somebody typing an
- * address into a form is not evidence that the person who owns it agreed, and
- * a timestamp taken then would overstate what we can prove. `consent_method`
- * is 'signup_form', which is the closest member of the `ConsentMethod` union
- * in db/schema.ts — the union has no 'double_opt_in' member, and adding one is
- * a schema change this branch does not own. The evidence that it was DOUBLE
- * opt-in is carried in `consent_source`, which is written as the page the form
- * was on plus a marker; when the page is unknown, only the marker is written
- * and nothing is invented about where it came from.
+ * ── CONSENT IS RECORDED HERE, AND THE EVIDENCE SAYS WHICH ACT IT WAS ──
+ * `consent_at` is `now()` — the moment this call happens, which is the moment
+ * of the act being recorded, whichever act that is. `consent_method` is
+ * 'signup_form', the closest member of the `ConsentMethod` union in
+ * db/schema.ts; the union has no 'double_opt_in' member and inventing one is
+ * the exact mistake AGENTS.md records. So WHAT happened is carried in
+ * `consent_source`, written from `method`:
+ *
+ *   "double" — a link we emailed was clicked. `consentIp` is the CLICK's IP,
+ *              which describes the same act as the timestamp.
+ *   "single" — the form was submitted and the address went straight on the
+ *              list. `consentIp` is the SUBMISSION's IP, which is again the
+ *              same act, because under single opt-in the submission IS the
+ *              consent.
+ *
+ * The distinction is the whole reason `method` is a parameter rather than a
+ * constant. Writing "Double opt-in confirmed" over a single opt-in signup
+ * would put a sentence in the compliance record that is not true, in the one
+ * column whose only job is to say what we can prove — and it would be
+ * invisible until somebody was asked for that proof.
  *
  * ── ONE STATEMENT ──
  * The neon-http driver has no transactions (`drizzle-orm/neon-http` throws on
@@ -235,20 +251,26 @@ export async function confirmSubscription(input: {
   name: string | null;
   consentSource: string | null;
   /**
-   * The address the CONFIRMATION click came from, or null when the proxy did
-   * not tell us. Deliberately the click's IP and not the submission's: this
-   * statement records consent at the moment of confirmation (see above), so
-   * the IP has to describe the same act. The submitter's IP would be evidence
-   * about a different event, filed in a column that claims otherwise.
+   * The IP of the act being recorded — the confirmation click under "double",
+   * the form submission under "single". Null when the proxy did not tell us.
+   * It must describe the SAME act as the timestamp and the evidence string, or
+   * it is evidence about a different event filed in a column that claims
+   * otherwise.
    */
   consentIp: string | null;
+  /**
+   * Which act this is. See the header. Defaults to "double" so an existing
+   * caller cannot silently start writing the weaker claim.
+   */
+  method?: ConsentAct;
 }): Promise<ConfirmOutcome> {
-  // The evidence string. The marker is always true — this row can only be
-  // written by a click on an emailed link. The page URL is appended only when
-  // the browser actually told us one; nothing is guessed.
-  const consentSource = input.consentSource
-    ? `Double opt-in confirmed from ${input.consentSource}`
-    : "Double opt-in confirmed (signup page not recorded)";
+  // The evidence string. Built by consentEvidence in the pure half, where it
+  // can be tested against each act — see the note there for why the sentence
+  // is the one thing in this statement that must not be approximated.
+  const consentSource = consentEvidence(
+    input.method ?? "double",
+    input.consentSource,
+  );
 
   const res = await db.execute(sql`
     WITH blocked AS (

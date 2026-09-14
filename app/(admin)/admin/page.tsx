@@ -108,6 +108,7 @@ export default async function AdminHomePage({
     delete?: string;
     rotate?: string;
     rotated?: string;
+    optin?: string;
     key?: string;
   }>;
 }) {
@@ -410,10 +411,12 @@ function Banners({
     deleted?: string;
     removed?: string;
     rotated?: string;
+    optin?: string;
     key?: string;
   };
 }) {
-  const { error, created, emailed, deleted, removed, rotated, key } = params;
+  const { error, created, emailed, deleted, removed, rotated, key, optin } =
+    params;
   return (
     <>
       {error && <div className="pba-banner pba-banner-err">{error}</div>}
@@ -425,6 +428,21 @@ function Banners({
       {removed && (
         <div className="pba-banner pba-banner-ok">
           <b>{removed}</b> is no longer an admin.
+        </div>
+      )}
+      {optin && (
+        <div className="pba-banner pba-banner-ok">
+          {optin === "double" ? (
+            <>
+              Newsletter signups now need a confirmation link. Addresses already
+              on the list are unaffected.
+            </>
+          ) : (
+            <>
+              Newsletter signups now subscribe immediately, with the welcome
+              email going out straight away.
+            </>
+          )}
         </div>
       )}
       {/*

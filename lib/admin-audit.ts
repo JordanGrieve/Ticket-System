@@ -287,6 +287,11 @@ export function describeAdminAction(action: AdminActionKind): string {
     // being able to reach us until someone re-installs.
     case "workspace_key_rotated":
       return "Replaced ingestion key (client must re-install)";
+    // Which way it went is in the row's detail. The label names the subject,
+    // because "changed a setting" is what an audit log looks like when nobody
+    // can tell from it what was changed.
+    case "workspace_optin_changed":
+      return "Changed newsletter signup confirmation";
   }
 }
 

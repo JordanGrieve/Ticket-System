@@ -29,8 +29,15 @@ export default function SubscriptionDonePage() {
       <h1>
         <span className="s-ok">You&rsquo;re subscribed</span>
       </h1>
+      {/*
+        "Your address is confirmed" was true when a click on an emailed link
+        was the only way to reach this page. Single opt-in lands here too now,
+        where nothing was confirmed and saying so would be a small lie on the
+        one page that tells somebody what just happened to them. This sentence
+        is true either way.
+      */}
       <p>
-        That&rsquo;s it &mdash; your address is confirmed and you&rsquo;ll
+        That&rsquo;s it &mdash; you&rsquo;re on the list and you&rsquo;ll
         receive the newsletter from here on.
       </p>
       <p className="s-fine" style={{ marginBottom: 0 }}>

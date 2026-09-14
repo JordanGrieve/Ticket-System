@@ -892,6 +892,27 @@
   margin-top: 16px;
 }
 
+/* The opt-in switch: a line of state, then the button that changes it. The
+   form is a column so the two read as one control rather than as a caption
+   that happens to sit above an unrelated button. */
+.pba-optin {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.pba-optin-now {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--muted-2);
+}
+
+.pba-optin-now b {
+  color: var(--text-2);
+  font-weight: 700;
+}
+
 /* ── Forms, banners ───────────────────────────────────────────────────── */
 
 .pba-form {

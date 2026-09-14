@@ -1,0 +1,1 @@
+ALTER TABLE "workspaces" ADD COLUMN "require_signup_confirmation" boolean DEFAULT false NOT NULL;

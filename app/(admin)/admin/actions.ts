@@ -19,6 +19,7 @@ import {
   deleteWorkspace,
   getPendingAgent,
   rotateWorkspaceApiKey,
+  setSignupConfirmation,
 } from "@/lib/data";
 import { provisionWorkspace, generateApiKey, INVITE_PREFIX } from "@/lib/workspace";
 import { sendInviteEmail } from "@/lib/email";
@@ -367,6 +368,58 @@ export async function rotateKeyAction(formData: FormData): Promise<void> {
       workspace.name,
     )}&key=${encodeURIComponent(updated.apiKey)}`,
   );
+}
+
+/**
+ * Switch a client between single and double opt-in for newsletter signups.
+ *
+ * ── WHY AN OPERATOR AND NOT THE CLIENT ──
+ * Single opt-in is the default and it is what a client wants: no confirmation
+ * click, so nobody is lost between the form and their inbox. What it risks is
+ * not theirs. Campaigns for every workspace leave under one sending domain, so
+ * a list filling with typos, bots and addresses a stranger typed produces the
+ * bounces and complaints that degrade delivery for everybody else. The party
+ * that pays is the platform, so the switch belongs to the platform.
+ *
+ * No typed confirmation. Unlike the rotate and the delete this breaks nothing
+ * and is reversible in one click, in both directions — and a confirmation
+ * ritual on a harmless control is how people learn to type past the ones that
+ * matter.
+ */
+export async function setOptInAction(formData: FormData): Promise<void> {
+  const actor = await requireAdminRow();
+
+  const id = Number(formData.get("workspaceId"));
+  if (!Number.isInteger(id)) redirect("/admin?error=Invalid workspace.");
+
+  const workspace = await getWorkspaceById(id);
+  if (!workspace) redirect("/admin?error=That workspace no longer exists.");
+
+  // The checkbox's value, read as the state being MOVED TO rather than as a
+  // toggle. A form that posts "flip it" races itself: two clicks on a slow
+  // connection land as two flips and the operator gets back what they started
+  // with, having been told twice that it changed.
+  const required = String(formData.get("required") ?? "") === "1";
+
+  const updated = await setSignupConfirmation(workspace.id, required);
+  if (!updated) redirect("/admin?error=That workspace no longer exists.");
+
+  // After the write, like the rotation: what is worth recording is that the
+  // setting actually moved. Both states are named in the detail, because "off"
+  // alone reads differently depending on what somebody assumes the default is.
+  await recordAdminAction({
+    action: "workspace_optin_changed",
+    actorAdminId: actor.id,
+    actorEmail: actor.email,
+    targetId: workspace.id,
+    targetLabel: workspace.name,
+    detail: required
+      ? "signups now require a confirmation link (double opt-in)"
+      : "signups now subscribe immediately (single opt-in)",
+  });
+
+  revalidatePath("/admin");
+  redirect(`/admin?account=${workspace.id}&optin=${required ? "double" : "single"}`);
 }
 
 /** Grant super-admin to another email (a collaborator who can help clients). */

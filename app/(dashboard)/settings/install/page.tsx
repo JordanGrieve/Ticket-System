@@ -35,6 +35,7 @@ export default async function InstallPage() {
       subscribeEndpoint={subscribeEndpoint}
       hostedSignupUrl={hostedSignupUrl(appUrl, workspace.apiKey)}
       honeypotFields={HONEYPOT_FIELDS}
+      requireSignupConfirmation={workspace.requireSignupConfirmation}
     />
   );
 }

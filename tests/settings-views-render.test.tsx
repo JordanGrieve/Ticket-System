@@ -104,6 +104,7 @@ const views: Record<string, React.ReactElement> = {
       subscribeEndpoint="https://postbox.help/api/subscribe/cli_abc123def456"
       hostedSignupUrl="https://postbox.help/s/cli_abc123def456"
       honeypotFields={["company_website", "fax_number"]}
+      requireSignupConfirmation={false}
     />
   ),
   /*

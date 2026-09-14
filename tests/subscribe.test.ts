@@ -5,6 +5,7 @@ import {
   HONEYPOT_FIELDS,
   SUBSCRIBER_NAME_MAX,
   confirmUrl,
+  consentEvidence,
   consentSourceFrom,
   decodeConfirmToken,
   encodeConfirmToken,
@@ -319,6 +320,61 @@ describe("hosted URLs", () => {
     );
     expect(confirmUrl("https://postbox.help/", "tok")).toBe(
       "https://postbox.help/s/confirm?t=tok",
+    );
+  });
+});
+
+/**
+ * What the consent record claims.
+ *
+ * ── WHY THIS IS THE MOST IMPORTANT TEST IN THE FILE ──
+ * `subscribers.consent_source` is the answer a client gives when somebody asks
+ * how an address came to be on their list. It is the only thing written down.
+ * A sentence in it that overstates what happened is not a cosmetic bug — it is
+ * a false statement in a compliance record, and one that nothing else in this
+ * system can contradict, because the act it describes left no other trace.
+ *
+ * This string was built inline inside the SQL statement and said "Double
+ * opt-in confirmed" unconditionally. That was true while confirmation was the
+ * only way onto a list. Single opt-in arrived on 14 Sep 2026; had the sentence
+ * stayed where it was, every single opt-in signup would have been filed as a
+ * confirmed double opt-in, and no test in this repo could have seen it.
+ */
+describe("the consent evidence says what actually happened", () => {
+  it("claims double opt-in only for a confirmed click", () => {
+    const text = consentEvidence("double", "https://shop.example/pages/news");
+    expect(text).toContain("Double opt-in confirmed");
+    expect(text).toContain("https://shop.example/pages/news");
+  });
+
+  it("NEVER claims a confirmation for a single opt-in signup", () => {
+    const text = consentEvidence("single", "https://shop.example/pages/news");
+    expect(text.toLowerCase()).not.toContain("double opt-in");
+    expect(text.toLowerCase()).not.toContain("confirmed");
+  });
+
+  it("says a form was submitted, which is the act that happened", () => {
+    expect(consentEvidence("single", "https://a.example/x")).toBe(
+      "Single opt-in: form submitted from https://a.example/x",
+    );
+  });
+
+  it("admits when the page is unknown rather than inventing one", () => {
+    // consentSourceFrom returns null when the browser sent neither a usable
+    // referer nor an origin. Evidence has to be able to say "not recorded";
+    // a plausible-looking default here is a fabricated URL in a legal record.
+    for (const act of ["single", "double"] as const) {
+      const text = consentEvidence(act, null);
+      expect(text).toContain("signup page not recorded");
+      expect(text).not.toContain("http");
+    }
+  });
+
+  it("keeps the two acts distinguishable", () => {
+    // If both ever render the same sentence, the column stops being able to
+    // answer the question it exists for.
+    expect(consentEvidence("single", null)).not.toBe(
+      consentEvidence("double", null),
     );
   });
 });

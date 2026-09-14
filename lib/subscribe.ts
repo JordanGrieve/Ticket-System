@@ -238,6 +238,38 @@ export function consentSourceFrom(headers: {
   return null;
 }
 
+/** Which act put an address on a list. See `consentEvidence`. */
+export type ConsentAct = "single" | "double";
+
+/**
+ * The sentence written into `subscribers.consent_source`.
+ *
+ * ── WHY THIS IS A FUNCTION, AND WHY IT IS HERE ──
+ * It is the whole compliance record. If a client is ever asked to show how an
+ * address came to be on their list, this column is the answer — so the one
+ * thing it must never do is claim more than happened. It lived inside the
+ * database statement as a pair of template strings and read "Double opt-in
+ * confirmed" unconditionally, which was true while confirmation was the only
+ * path; the day single opt-in arrived, that sentence would have been written
+ * over signups nobody ever confirmed, and nothing would have failed.
+ *
+ * Out here it is pure, so the claim can be tested directly against each act
+ * rather than inferred from a SQL string nothing can execute in CI.
+ *
+ * `null` source stays null: the page a form was on is evidence, and a guess
+ * about it is worse than admitting we were not told.
+ */
+export function consentEvidence(
+  act: ConsentAct,
+  source: string | null,
+): string {
+  const claim =
+    act === "double"
+      ? "Double opt-in confirmed"
+      : "Single opt-in: form submitted";
+  return source ? `${claim} from ${source}` : `${claim} (signup page not recorded)`;
+}
+
 // ── Confirmation token ───────────────────────────────────────────
 
 /**

@@ -101,7 +101,7 @@ function makeEverythingOverflow() {
   );
 }
 
-function show() {
+function show(requireSignupConfirmation = false) {
   render(
     <InstallView
       apiKey="cli_testkey"
@@ -112,6 +112,7 @@ function show() {
       subscribeEndpoint="https://postbox.help/api/subscribe/cli_testkey"
       hostedSignupUrl="https://postbox.help/s/cli_testkey"
       honeypotFields={["website", "company"]}
+      requireSignupConfirmation={requireSignupConfirmation}
     />,
   );
 }
@@ -360,5 +361,58 @@ describe("every control on the page has its own name", () => {
     );
     expect(labels.filter((l) => /contact form/i.test(l))).toHaveLength(2);
     expect(labels.filter((l) => /newsletter|signup page/i.test(l))).toHaveLength(2);
+  });
+});
+
+describe("the prompt tells the assistant what the form may SAY", () => {
+  /*
+   * ── THE DEFECT ──
+   *
+   * Jordan subscribed on a client's live site on 14 Sep 2026 and the form
+   * said "Almost there — check your email for a link to confirm." It was
+   * doing exactly what this prompt told it to. Single opt-in landed the same
+   * day; had the prompt stayed fixed, every form wired up afterwards would
+   * have gone on sending new subscribers to look for a confirmation email
+   * that no longer exists.
+   *
+   * The wording is the one piece of visible copy the prompt is allowed to
+   * change on somebody's website, which is why it gets a test of its own: a
+   * mistake here is not on a screen we own.
+   */
+  const promptText = () => {
+    const blocks = [...document.querySelectorAll(".sti-code pre")];
+    const newsletter = blocks[1];
+    expect(newsletter, "the newsletter prompt is not on the page").toBeTruthy();
+    return newsletter!.textContent ?? "";
+  };
+
+  it("tells it to say the signup is DONE when there is no confirmation", () => {
+    show(false);
+    const text = promptText();
+    expect(text).toContain("subscribes the address immediately");
+    expect(text).toContain("You're subscribed");
+    // And explicitly forbids the old wording, because a form that already has
+    // it — from a previous integration — has to be corrected, not left.
+    expect(text).toContain("DO NOT say \"check your email to confirm\"");
+  });
+
+  it("tells it the opposite when confirmation IS required", () => {
+    show(true);
+    const text = promptText();
+    expect(text).toContain("check your email for a link to confirm");
+    expect(text).toContain("DO NOT say \"You're subscribed\"");
+  });
+
+  it("never gives both sets of instructions at once", () => {
+    // The failure that would look fine in a diff and be incoherent on the
+    // page: an assistant told to claim completion AND to deny it.
+    for (const required of [false, true]) {
+      cleanup();
+      show(required);
+      const text = promptText();
+      const claimsDone = text.includes("DO say, after a successful submit, something like \"You're subscribed");
+      const claimsPending = text.includes("Almost there — check your email");
+      expect(claimsDone && claimsPending, "the prompt says both things").toBe(false);
+    }
   });
 });

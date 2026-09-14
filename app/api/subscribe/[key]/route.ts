@@ -12,7 +12,9 @@ import {
 import {
   resolveSigningSecret,
   sendConfirmationEmail,
+  confirmSubscription,
 } from "@/lib/subscribe-store";
+import { sendWelcomeEmail } from "@/lib/welcome-store";
 
 /**
  * POST /api/subscribe/:apiKey — PUBLIC newsletter signup.
@@ -22,21 +24,34 @@ import {
  * already pasted the contact snippet can paste this one without learning
  * anything new.
  *
- * ── NOTHING IS WRITTEN HERE ──
- * This endpoint sends an email and returns. The subscriber row is created by
- * app/api/subscribe-confirm, when the link in that email is pressed. See the
- * header of lib/subscribe.ts for why the pending state lives in a signed token
- * rather than a row: an unauthenticated endpoint that writes a row per POST is
- * a free database-growth primitive for anyone who reads the client's page
- * source — and the key is *meant* to be in that page source.
+ * ── TWO PATHS, CHOSEN PER WORKSPACE ──
+ * `workspaces.require_signup_confirmation` decides, and it is false by default
+ * (see db/schema.ts for why the default is single opt-in and why the switch is
+ * a column rather than a constant).
+ *
+ * SINGLE (default): the subscriber row is written here and the welcome email
+ * goes out immediately. Costs: an unauthenticated endpoint that writes a row
+ * per POST is a database-growth primitive for anyone who reads the client's
+ * page source — and the key is *meant* to be in that page source. The two rate
+ * limits below are what bound it, and they are the reason this is affordable:
+ * 60/min per workspace and 5/min per IP.
+ *
+ * DOUBLE: nothing is written. This endpoint sends one email and returns; the
+ * row is created by app/api/subscribe-confirm when the link is pressed. See
+ * lib/subscribe.ts for why the pending state lives in a signed token rather
+ * than a row.
  *
  * ── NO ORACLE ──
- * Every accepted submission returns the same body. Not whether the address is
- * already subscribed, not whether it is suppressed, not whether the send
- * failed. Varying the response would turn a public form into a membership
- * check against any tenant's list — "is bob@rival.co on Acme's list", asked by
- * a stranger with curl. The submitter is told to check their inbox, which is
- * true in every one of those cases.
+ * Within a path, every accepted submission returns the same body. Not whether
+ * the address is already subscribed, not whether it is suppressed, not whether
+ * the send failed. Varying the response would turn a public form into a
+ * membership check against any tenant's list — "is bob@rival.co on Acme's
+ * list", asked by a stranger with curl.
+ *
+ * The two paths DO answer differently from each other, and that leaks nothing:
+ * which one a workspace is on is a property of the workspace, identical for
+ * every address submitted to it, so it cannot distinguish one address from
+ * another. It is also visible from the client's own form copy either way.
  */
 
 // ── CORS preflight ───────────────────────────────────────────────
@@ -119,11 +134,84 @@ export async function POST(
     return badRequest(req, parsed.error);
   }
 
+  // Evidence comes from the browser's own headers, never from a body field.
+  // See consentSourceFrom(): a `source` field in the POST is written by
+  // whoever wrote the page, and on this endpoint that is not necessarily the
+  // workspace owner.
+  const consentSource = consentSourceFrom({
+    origin: req.headers.get("origin"),
+    referer: req.headers.get("referer"),
+  });
+
+  /*
+    ── SINGLE OPT-IN ──
+
+    The default, per workspaces.require_signup_confirmation. The address goes
+    on the list now and the welcome email goes out immediately, carrying the
+    one-click unsubscribe every campaign carries.
+
+    That unsubscribe is the safety valve, and it is the reason this is
+    defensible on a shared sending domain: the form is public, so anybody can
+    type somebody else's address into it, and the person who receives a welcome
+    they did not ask for gets a way out that is not the spam button. The
+    complaint is what damages every other client's delivery; the unsubscribe
+    costs nothing.
+
+    Suppressions still win — the check is inside confirmSubscription's
+    statement, so an address that reported this sender for spam is not put back
+    on by a stranger filling in a form.
+  */
+  if (!workspace.requireSignupConfirmation) {
+    const outcome = await confirmSubscription({
+      workspaceId: workspace.id,
+      email: parsed.value.email,
+      name: parsed.value.name,
+      consentSource,
+      // The submission's IP, because under single opt-in the submission is the
+      // act being consented to. Same reasoning as the click's IP under double.
+      consentIp: clientIp(req),
+      method: "single",
+    });
+
+    /*
+      Awaited, not fire-and-forget: Vercel freezes the function when the
+      response returns, so a floating promise dies at an unpredictable point.
+      Same rule, and the same reasons, as the confirm route.
+
+      Gated on consentRecorded rather than subscribed, so re-submitting a form
+      with an address already on the list does not mail them a second welcome.
+    */
+    if (outcome.consentRecorded && !outcome.suppressed) {
+      const welcome = await sendWelcomeEmail({
+        workspaceId: workspace.id,
+        email: parsed.value.email,
+        name: parsed.value.name,
+      });
+      if (
+        !welcome.sent &&
+        welcome.reason !== "disabled" &&
+        welcome.reason !== "not_configured"
+      ) {
+        console.warn(
+          "[subscribe] welcome not sent for workspace=%d reason=%s",
+          workspace.id,
+          welcome.reason,
+        );
+      }
+    }
+
+    return subscribed(req, workspace.name);
+  }
+
   // Refused, not degraded. Without a signing key there is no way to mint a
   // confirmation link that cannot be forged, and both alternatives are worse
-  // than an honest failure: subscribing without confirmation manufactures
-  // consent records that are evidence of nothing, and accepting silently while
-  // never sending is a form that lies to every person who uses it.
+  // than an honest failure: subscribing without confirmation would be silently
+  // overriding the setting this workspace is on, and accepting while never
+  // sending is a form that lies to every person who uses it.
+  //
+  // Reached only on the double opt-in path now: single opt-in mints no token,
+  // so a missing secret is no longer a reason to refuse a signup it does not
+  // need.
   const secret = resolveSigningSecret();
   if (!secret) {
     console.error(
@@ -135,15 +223,6 @@ export async function POST(
       { status: 503, headers: CORS_HEADERS },
     );
   }
-
-  // Evidence comes from the browser's own headers, never from a body field.
-  // See consentSourceFrom(): a `source` field in the POST is written by
-  // whoever wrote the page, and on this endpoint that is not necessarily the
-  // workspace owner.
-  const consentSource = consentSourceFrom({
-    origin: req.headers.get("origin"),
-    referer: req.headers.get("referer"),
-  });
 
   // Best effort, and the response below does not vary on it. See "no oracle".
   await sendConfirmationEmail({
@@ -163,6 +242,34 @@ export async function POST(
 
 const ACCEPTED_MESSAGE =
   "Thanks — please check your inbox and press the confirmation link.";
+
+const SUBSCRIBED_MESSAGE = "You're subscribed — thanks for joining.";
+
+/**
+ * The single opt-in success response. Separate from `accepted` below because
+ * it is a different claim: there, a message has been sent and nothing has
+ * happened yet; here the address is on the list. A form that said "check your
+ * inbox" after single opt-in would send people looking for an email that asks
+ * nothing of them.
+ */
+function subscribed(req: Request, workspaceName: string): Response {
+  if (wantsHtml(req)) {
+    return new Response(null, {
+      status: 303,
+      headers: {
+        ...CORS_HEADERS,
+        // The page the double opt-in flow reaches after the link is clicked.
+        // The same thing is true at this point on this path.
+        Location: `${APP_URL.replace(/\/$/, "")}/s/done`,
+      },
+    });
+  }
+  // 200, not 202: this is done, not accepted for later.
+  return json(
+    { ok: true, message: SUBSCRIBED_MESSAGE, workspace: workspaceName },
+    { status: 200, headers: CORS_HEADERS },
+  );
+}
 
 /**
  * The one success response. A native form post is sent to a hosted page; a

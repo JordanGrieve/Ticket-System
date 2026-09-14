@@ -92,6 +92,7 @@ const EVERY_KIND = {
   admin_revoked: true,
   workspace_exported: true,
   workspace_key_rotated: true,
+  workspace_optin_changed: true,
 } satisfies Record<AdminActionKind, true>;
 
 const ALL = Object.keys(EVERY_KIND) as AdminActionKind[];
@@ -169,6 +170,7 @@ describe("every action kind is recorded somewhere", () => {
       "addAdminAction",
       "removeAdminAction",
       "rotateKeyAction",
+      "setOptInAction",
     ]) {
       const at = ACTIONS.indexOf(`export async function ${fn}`);
       expect(at, `${fn} not found`).toBeGreaterThan(-1);

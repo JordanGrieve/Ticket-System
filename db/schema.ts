@@ -129,6 +129,38 @@ export const workspaces = pgTable("workspaces", {
    */
   currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
 
+  /*
+   * ── HOW A NEWSLETTER SIGNUP IS CONFIRMED ──
+   *
+   * false (the default) is single opt-in: hitting Subscribe puts the address on
+   * the list there and then, and the welcome email goes out immediately with a
+   * one-click unsubscribe in it. true is double opt-in: nothing exists until
+   * the address clicks a link we email them.
+   *
+   * Jordan, 14 Sep 2026, after using a client's own form: "if I hit subscribe
+   * I should not get a confirmation email I need to click." Single opt-in is
+   * lawful here — consent is recorded with the submission's IP, timestamp and
+   * source — and it is what most ESPs default to. The confirm step also loses
+   * a fifth to two fifths of genuine signups.
+   *
+   * ── WHY IT IS A COLUMN AND NOT A CONSTANT ──
+   *
+   * Campaigns for every client leave under ONE sending domain, so a single
+   * client's list of typos, bots and addresses a stranger typed produces
+   * bounces and complaints that land on the reputation the others send
+   * through. Providers suspend on that. This column is the lever that puts one
+   * workspace back on confirmation without a deploy and without touching
+   * anybody else — which is the whole reason single opt-in is affordable as a
+   * default.
+   *
+   * Operator-set, from the console. Deliberately not a client-facing setting:
+   * the risk it manages is the platform's, not the workspace's, and the
+   * workspace is not the party that pays for getting it wrong.
+   */
+  requireSignupConfirmation: boolean("require_signup_confirmation")
+    .notNull()
+    .default(false),
+
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -1640,7 +1672,18 @@ export type AdminActionKind =
    * they do not — and the re-install afterwards is the part that actually
    * needs a person who knows it has to happen.
    */
-  | "workspace_key_rotated";
+  | "workspace_key_rotated"
+  /*
+   * An operator changed how a client's newsletter signups are confirmed —
+   * single opt-in (the default) or a confirmation link.
+   *
+   * Logged because it is a consent decision made on somebody else's behalf. If
+   * a client is ever asked to show how an address came to be on their list,
+   * the answer depends on which mode was in force when it was captured, and
+   * `subscribers.consent_source` records that per row. This is the other half:
+   * who changed the setting, and when.
+   */
+  | "workspace_optin_changed";
 
 /**
  * WHICH client records an operator actually opened, during an impersonation.

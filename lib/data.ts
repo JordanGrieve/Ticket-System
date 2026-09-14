@@ -76,6 +76,30 @@ export async function rotateWorkspaceApiKey(
   return updated ?? null;
 }
 
+/**
+ * Choose how this workspace's newsletter signups are confirmed.
+ *
+ * `true` puts them back on a confirmation link; `false` (the platform default)
+ * is single opt-in. Operator-only — see the column's note in db/schema.ts for
+ * why this is not a client-facing setting.
+ *
+ * Nothing already captured changes. Each subscriber's `consent_source` records
+ * the mode that was in force when THEY signed up, which is the only honest way
+ * to store it: a flag read at query time would retroactively restate how every
+ * existing address consented.
+ */
+export async function setSignupConfirmation(
+  workspaceId: number,
+  required: boolean,
+): Promise<Workspace | null> {
+  const [updated] = await db
+    .update(workspaces)
+    .set({ requireSignupConfirmation: required })
+    .where(eq(workspaces.id, workspaceId))
+    .returning();
+  return updated ?? null;
+}
+
 export async function getWorkspaceById(id: number): Promise<Workspace | null> {
   const rows = await db
     .select()

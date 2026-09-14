@@ -9,6 +9,7 @@ import type { WorkspaceUsage } from "./queries";
 import {
   deleteClientAction,
   rotateKeyAction,
+  setOptInAction,
   resendInviteAction,
   selectWorkspaceAction,
 } from "./actions";
@@ -333,6 +334,38 @@ export function AccountDrawer({
             </button>
           </form>
         )}
+        {/*
+          Newsletter opt-in, as a one-click switch with the CURRENT state
+          written out beside it.
+
+          A bare "Require confirmation" button would not say which way the
+          workspace is set, and a switch whose state you have to infer from its
+          label is how somebody turns confirmation off believing they turned it
+          on. So the line above states what is true now, and the button names
+          the state it moves to.
+        */}
+        <form action={setOptInAction} className="pba-optin">
+          <input type="hidden" name="workspaceId" value={account.id} />
+          <input
+            type="hidden"
+            name="required"
+            value={account.requireSignupConfirmation ? "0" : "1"}
+          />
+          <p className="pba-optin-now">
+            Newsletter signups:{" "}
+            <b>
+              {account.requireSignupConfirmation
+                ? "confirmation link required"
+                : "subscribe immediately"}
+            </b>
+          </p>
+          <button type="submit" className="pba-btn pba-btn-block">
+            {account.requireSignupConfirmation
+              ? "Switch to subscribe immediately"
+              : "Require a confirmation link"}
+          </button>
+        </form>
+
         {/* Not styled as danger. It is genuinely less severe than the delete
             below it, and a column of red buttons is a column nobody reads. The
             panel it opens does the warning. */}

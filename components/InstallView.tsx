@@ -35,6 +35,7 @@ export default function InstallView({
   subscribeEndpoint,
   hostedSignupUrl,
   honeypotFields,
+  requireSignupConfirmation,
 }: {
   apiKey: string;
   inboundEmail: string;
@@ -48,6 +49,13 @@ export default function InstallView({
   hostedSignupUrl: string;
   /** HONEYPOT_FIELDS from lib/subscribe.ts. Never hardcoded here. */
   honeypotFields: readonly string[];
+  /**
+   * Whether this workspace is on double opt-in. Decides the newsletter
+   * section's copy AND the wording rules inside the AI prompt — a form that
+   * tells people to check their email when nothing is waiting for them is the
+   * defect this prop exists to prevent.
+   */
+  requireSignupConfirmation: boolean;
 }) {
   const [mode, setMode] = useState<"a" | "ai">("ai");
   // The newsletter section has its own toggle. Separate state from the contact
@@ -150,6 +158,7 @@ integration, however well the submission works.
     honeypotFields,
     workspaceName,
     hostedSignupUrl,
+    requireSignupConfirmation,
   );
 
   return (
@@ -240,10 +249,21 @@ integration, however well the submission works.
           </div>
 
           <p className="sti-help">
-            Collect subscribers for your newsletter. Every signup is confirmed by
-            email before it is added — nobody joins the list until they click the
-            link, so the addresses you collect are real and the consent is
-            evidenced.
+            {requireSignupConfirmation ? (
+              <>
+                Collect subscribers for your newsletter. Every signup is
+                confirmed by email before it is added — nobody joins the list
+                until they click the link, so the addresses you collect are real
+                and the consent is evidenced.
+              </>
+            ) : (
+              <>
+                Collect subscribers for your newsletter. Signing up adds them
+                straight away and sends a welcome email, and every signup is
+                recorded with its time, the page it came from and the
+                submitter&rsquo;s IP address as evidence of consent.
+              </>
+            )}
           </p>
 
           {nlMode === "ai" && (
@@ -258,9 +278,8 @@ integration, however well the submission works.
                 have and connects it, keeping your design exactly as it is —
                 rather than dropping a plain grey form into the middle of your
                 page. It also tells the assistant the one thing it would
-                otherwise get wrong: not to say &ldquo;you&rsquo;re
-                subscribed&rdquo; when the confirmation email has only just been
-                sent.
+                otherwise get wrong — what your form should say after somebody
+                signs up, which depends on how your signups are set up.
               </p>
               <CodeBlock
                 code={newsletterAiPrompt}
@@ -405,12 +424,72 @@ integration, however well the submission works.
  * from HONEYPOT_FIELDS via the page, so changing the trap names in one place
  * changes them everywhere including in prompts already pasted into a chat.
  */
+/**
+ * The wording rules, which depend on what the endpoint actually does.
+ *
+ * This is the half of the prompt most likely to be got wrong by hand, and the
+ * only half where being wrong is visible to the client's own customers: it
+ * tells the assistant what the form is allowed to SAY after a submit. Under
+ * single opt-in a form that still says "check your email for a link to
+ * confirm" sends every new subscriber looking for a message that either never
+ * arrives or asks nothing of them — which is exactly what Jordan hit on a
+ * client's live site on 14 Sep 2026.
+ *
+ * Both versions are stated in full rather than one being patched into the
+ * other. They are opposite instructions — "do not claim the signup is
+ * complete" against "say plainly that it is" — and a diff between them is
+ * harder to read than either.
+ */
+function wordingRules(requireConfirmation: boolean): string {
+  if (requireConfirmation) {
+    return `## HOW THIS WORKS, AND THE WORDING RULES THAT FOLLOW FROM IT
+
+Postbox uses confirmed opt-in for this business. Submitting the form does NOT
+subscribe anybody. It sends them an email containing a confirmation link, and
+the subscription is created only when they press it. Nothing is stored until
+then.
+
+This changes what the page is allowed to say, and it is the part most likely to
+be got wrong:
+
+- DO say, after a successful submit, something like
+  "Almost there — check your email for a link to confirm."
+- DO NOT say "You're subscribed", "You're on the list", "Welcome aboard",
+  "Thanks for subscribing", or anything else that claims the signup is complete.
+  It is not complete, and telling them it is means they will not go and press
+  the link.
+- If the existing form already shows a success message of the wrong kind, change
+  the wording. This is the one piece of visible copy you SHOULD edit.
+- Near the input, it is worth saying plainly that a confirmation email is coming.
+  Adjust the existing supporting copy if it promises instant signup.`;
+  }
+
+  return `## HOW THIS WORKS, AND THE WORDING RULES THAT FOLLOW FROM IT
+
+Submitting the form subscribes the address immediately. There is no
+confirmation link to press. Postbox sends a welcome email straight away, which
+carries an unsubscribe link.
+
+This decides what the page is allowed to say:
+
+- DO say, after a successful submit, something like "You're subscribed —
+  thanks for joining" or whatever wording matches the site's voice.
+- DO NOT say "check your email to confirm", "almost there", or anything else
+  that sends them looking for a message that asks them to do something. Nothing
+  is waiting for them; the only email they get is a welcome.
+- If the existing form already shows a "check your email" message — a previous
+  integration may have — change it. This is the one piece of visible copy you
+  SHOULD edit.`;
+}
+
 function buildNewsletterAiPrompt(
   endpoint: string,
   fields: readonly string[],
   workspaceName: string,
   hostedUrl: string,
+  requireConfirmation: boolean,
 ): string {
+  const wording = wordingRules(requireConfirmation);
   const traps = fields
     .map(
       (name) =>
@@ -456,25 +535,7 @@ Do not rename them, do not remove the inline style, and do not add labels or
 placeholders to them. If the form already contains inputs named ${trapList},
 leave those alone rather than adding a second copy.
 
-## HOW THIS WORKS, AND THE WORDING RULES THAT FOLLOW FROM IT
-
-Postbox uses confirmed opt-in. Submitting the form does NOT subscribe anybody.
-It sends them an email containing a confirmation link, and the subscription is
-created only when they press it. Nothing is stored until then.
-
-This changes what the page is allowed to say, and it is the part most likely to
-be got wrong:
-
-- DO say, after a successful submit, something like
-  "Almost there — check your email for a link to confirm."
-- DO NOT say "You're subscribed", "You're on the list", "Welcome aboard",
-  "Thanks for subscribing", or anything else that claims the signup is complete.
-  It is not complete, and telling them it is means they will not go and press
-  the link.
-- If the existing form already shows a success message of the wrong kind, change
-  the wording. This is the one piece of visible copy you SHOULD edit.
-- Near the input, it is worth saying plainly that a confirmation email is coming.
-  Adjust the existing supporting copy if it promises instant signup.
+${wording}
 
 ## Two ways to connect it — pick ONE
 
@@ -514,8 +575,11 @@ code that tries to distinguish these; there is nothing to distinguish.
   to be sent from its own domain instead of the platform's. That is a separate
   job, done in Postbox, and it is not part of this task.)
 - No backend, no database, no server code, no environment variables.
-- No consent checkbox is required for this to work — the confirmation email is
-  the consent record. Leave one in place if the site already has one.
+- No consent checkbox is required for this to work. ${
+    requireConfirmation
+      ? "The confirmation email is the consent record."
+      : "Postbox records the submission itself — its time, the page it came from and the submitter's IP — as the consent record."
+  } Leave one in place if the site already has one.
 
 ## If there is no form on the site at all
 
@@ -527,10 +591,18 @@ the business can skip code entirely and link to their hosted signup page:
 
 ## When you are done
 
-Submit one real address you can read, confirm the page shows the "check your
+${
+    requireConfirmation
+      ? `Submit one real address you can read, check the page shows the "check your
 email" wording rather than a completed-signup message, and check that the
 confirmation email arrives. Do not press the link if you are only testing the
-form — pressing it creates a real subscriber.`;
+form — pressing it creates a real subscriber.`
+      : `Submit one real address you can read and check two things: the page says the
+signup is complete rather than asking them to check their email, and the
+welcome email arrives. Note that this DOES create a real subscriber — use an
+address you are happy to have on the list, or unsubscribe afterwards with the
+link in the welcome email.`
+  }`;
 }
 
 

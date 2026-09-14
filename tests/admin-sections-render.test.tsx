@@ -157,6 +157,9 @@ const workspace = (over: Partial<WorkspaceSummary> = {}): WorkspaceSummary =>
     stripeSubscriptionId: "sub_abc",
     subscriptionStatus: "active",
     currentPeriodEnd: ago(-400),
+    // Single opt-in, the platform default. The console can put a workspace
+    // back on confirmation; see the drawer.
+    requireSignupConfirmation: false,
     trialStartedAt: ago(2000),
     createdAt: ago(2000),
     openCount: 3,

@@ -24,12 +24,28 @@ const SRC = readFileSync(
   "utf8",
 );
 
-/** Just the prompt builder, so assertions cannot accidentally match elsewhere. */
+/**
+ * The prompt builder AND the wording rules it interpolates, so assertions
+ * cannot accidentally match elsewhere in the file.
+ *
+ * It read only `buildNewsletterAiPrompt` and went red the moment the wording
+ * moved into `wordingRules` beside it — correctly: the window had stopped
+ * containing the thing being asserted. Widening it is the fix, and narrowing
+ * the ASSERTIONS instead would have been the mistake, because what they are
+ * about ("never tell a visitor the wrong thing about their own signup") did
+ * not change at all.
+ */
 function promptBuilderSource(): string {
-  const start = SRC.indexOf("function buildNewsletterAiPrompt");
-  expect(start).toBeGreaterThan(-1);
-  const end = SRC.indexOf("\nfunction ", start + 1);
-  return SRC.slice(start, end === -1 ? undefined : end);
+  const parts = ["function wordingRules", "function buildNewsletterAiPrompt"].map(
+    (name) => {
+      const start = SRC.indexOf(name);
+      expect(start, `${name} not found — this check is looking at nothing`).
+        toBeGreaterThan(-1);
+      const end = SRC.indexOf("\nfunction ", start + 1);
+      return SRC.slice(start, end === -1 ? undefined : end);
+    },
+  );
+  return parts.join("\n");
 }
 
 describe("newsletter AI prompt", () => {

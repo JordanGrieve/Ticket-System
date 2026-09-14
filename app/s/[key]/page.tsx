@@ -50,10 +50,23 @@ export default async function HostedSignupPage({
   return (
     <div className="s-card">
       <h1>Subscribe to {workspace.name}</h1>
-      <p>
-        Enter your email and we&rsquo;ll send you a link to confirm. You
-        won&rsquo;t receive anything until you press it.
-      </p>
+      {/*
+        What this page promises has to match what the endpoint does. It said
+        "we'll send you a link to confirm" for every workspace, which stopped
+        being true for most of them on 14 Sep 2026 when single opt-in became
+        the default — and this is the page a client's own customers read.
+      */}
+      {workspace.requireSignupConfirmation ? (
+        <p>
+          Enter your email and we&rsquo;ll send you a link to confirm. You
+          won&rsquo;t receive anything until you press it.
+        </p>
+      ) : (
+        <p>
+          Enter your email to join the list. We&rsquo;ll send you a welcome
+          message, and every email has a one-press unsubscribe link.
+        </p>
+      )}
 
       <form method="post" action={`/api/subscribe/${encodeURIComponent(key)}`}>
         <label className="s-field">
