@@ -69,7 +69,11 @@ function makeEverythingOverflow() {
   Object.defineProperty(HTMLElement.prototype, "clientHeight", {
     configurable: true,
     get() {
-      return this.className?.includes?.("sti-code-clip") ? 420 : 0;
+      // Any value below the scrollHeight above would do — the component only
+      // compares the two. 300 because that is what the stylesheet caps a
+      // clipped block at, so a reader is not left thinking the number is
+      // arbitrary when it happens to match, or authoritative when it does not.
+      return this.className?.includes?.("sti-code-clip") ? 300 : 0;
     },
   });
   vi.stubGlobal(

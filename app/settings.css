@@ -1537,8 +1537,12 @@
 
   The AI prompt is seventy lines written for a machine to read. At full height
   it pushes the rest of the install page off the screen, so it is clipped until
-  somebody asks for it. 420px is roughly a third of a typical prompt and about
-  fifteen lines — enough to see what it is and that it is long.
+  somebody asks for it.
+
+  300px is about twelve lines once the padding is taken off — enough to see
+  what the thing is and that there is plenty more of it, and not so much that
+  the section below it is pushed off a laptop screen. It was 420px first, which
+  still read as a wall of text.
 
   The class is only applied when the content actually exceeds this, so a short
   snippet is never clipped and never grows a pointless button. See CodeBlock.
@@ -1548,7 +1552,7 @@
 }
 
 .sti-code-clip.is-clipped {
-  max-height: 420px;
+  max-height: 300px;
   overflow: hidden;
 }
 
@@ -1569,7 +1573,9 @@
   left: 1px;
   right: 1px;
   bottom: 0;
-  height: 72px;
+  /* Scaled down with the block. 72px over 300 dimmed a quarter of what is
+     left; 52px says "there is more" without greying out readable lines. */
+  height: 52px;
   pointer-events: none;
   background: linear-gradient(
     to bottom,
