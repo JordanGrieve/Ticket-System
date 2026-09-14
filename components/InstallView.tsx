@@ -50,7 +50,7 @@ export default function InstallView({
   honeypotFields: readonly string[];
 }) {
   const router = useRouter();
-  const [mode, setMode] = useState<"a" | "b" | "ai">("b");
+  const [mode, setMode] = useState<"a" | "ai">("ai");
   // The newsletter section has its own toggle. Separate state from the contact
   // form above on purpose: they are different jobs and a client who has already
   // wired up one should not have the other silently switch tab underneath them.
@@ -152,71 +152,6 @@ export default function InstallView({
   <button type="submit">Send</button>
 </form>`;
 
-  const snippetB = `<script>
-(function () {
-  // Point this at your existing contact form.
-  var form = document.querySelector("#contact-form");
-  if (!form) return;
-
-  // Where the reply to the visitor appears. Put <p data-postbox-status></p>
-  // anywhere on the page to choose the spot yourself; otherwise one is added
-  // just after the form. It carries no styling of ours — give it a rule in
-  // your own CSS, and use [data-state="error"] if you want failures in red.
-  var status = document.querySelector("[data-postbox-status]");
-  if (!status) {
-    status = document.createElement("p");
-    status.className = "postbox-status";
-    // Marked, so this block finds it again instead of adding a second one.
-    status.setAttribute("data-postbox-status", "");
-    form.insertAdjacentElement("afterend", status);
-  }
-  // A live region, so a screen reader announces the reply without moving focus.
-  status.setAttribute("role", "status");
-
-  function say(text, state) {
-    status.textContent = text;
-    status.setAttribute("data-state", state);
-  }
-
-  form.addEventListener("submit", async function (e) {
-    e.preventDefault();
-    var button = form.querySelector("[type=submit]");
-    if (button) button.disabled = true;   // no double submissions
-    say("Sending…", "sending");
-
-    // Every field the form has, under whatever it calls them. Postbox works
-    // out which is the name, the email and the message — so this works as-is
-    // on Shopify (contact[name]), WordPress (your-name), Elementor
-    // (form_fields[name]) and a form somebody wrote by hand, with nothing to
-    // edit here.
-    var payload = {};
-    new FormData(form).forEach(function (value, key) {
-      if (typeof value === "string") payload[key] = value;
-    });
-
-    try {
-      var res = await fetch("${endpoint}", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
-        form.reset();
-        say("Thanks — we have your message and will be in touch.", "ok");
-      } else if (res.status === 429) {
-        say("That is a lot of messages at once. Try again in a minute.", "error");
-      } else {
-        say("That did not send. Please try again, or email us directly.", "error");
-      }
-    } catch (err) {
-      say("That did not send — check your connection and try again.", "error");
-    } finally {
-      if (button) button.disabled = false;
-    }
-  });
-})();
-</script>`;
-
   const snippetAI = `You are helping integrate a website's contact form with Postbox, a support-ticket
 inbox used by "${workspaceName}". When a visitor submits the contact form, the
 submission must be POSTed to the Postbox API, which turns it into a support ticket.
@@ -255,24 +190,48 @@ website: keep displaying the business's own public email address (do NOT put
 the inbound address above on the site — it is a machine intake address, not a
 human mailbox).
 
+## The one rule that matters most
+DO NOT CHANGE HOW THE SITE LOOKS. Not the form's markup, not its classes, not
+its CSS, not its layout, not its copy. You are attaching behaviour to a form
+that already exists and already looks the way its owner wants. Add no stylesheet
+and no class of your own; if you must insert an element for the status message,
+give it a class the site's own CSS can target and set no colours, spacing or
+fonts on it yourself. A visibly different form after this change is a failed
+integration, however well the submission works.
+
 ## Your task
-1. Find the site's existing contact form. If there is none, create a simple one
-   with name, email and message fields that matches the site's styling.
-2. Map the form's actual input names to the API fields above (e.g. an input named
-   "full_name" maps to "name").
+1. FIND the form yourself — do not assume an id. Look at the actual page. Common
+   shapes: Shopify renders {% form 'contact' %} as <form id="contact_form">
+   (underscore) posting to /contact; WordPress Contact Form 7 renders
+   <form class="wpcf7-form">; Elementor, Squarespace and hand-built sites all
+   differ again. If a selector you pick could match nothing, the integration
+   fails silently, which is worse than failing loudly — verify it matches on the
+   real page before you rely on it.
+2. Map the form's ACTUAL input names to the API fields above. They are usually
+   not the same: Shopify posts contact[name], contact[email] and contact[body];
+   Contact Form 7 posts your-name, your-email and your-message; Elementor posts
+   form_fields[name]. Postbox understands those spellings, so you may simply
+   forward every field the form has and let it work them out — that is the most
+   robust option and needs no mapping at all.
 3. On submit: prevent the default navigation, disable the submit button while
    sending (no double submissions), POST the fields to the endpoint as JSON, then
-   show a clear inline success message (e.g. "Thanks — we got your message!")
-   without leaving the page. On failure, show a friendly error and re-enable the
-   button.
+   show a clear inline success message without leaving the page. On failure, show
+   a friendly error, re-enable the button, and DO NOT clear what the visitor
+   typed — losing a written-out enquiry because the network blinked loses the
+   customer too. On HTTP 429, tell them to try again in a minute rather than
+   immediately.
 4. Keep the site's existing markup, styling and behaviour intact everywhere else.
-5. Fallback for plain-HTML sites with no JavaScript: instead of step 3, set the
-   form's action="${endpoint}" and method="POST" — Postbox then shows a hosted
-   confirmation page to the visitor.
-6. After integrating, submit one test message ("Integration test — please ignore")
-   and confirm the request returns HTTP 201.`;
+5. If the site has no contact form at all, create one — and match the site's own
+   existing styles and class names rather than inventing a look for it.
+6. Fallback for plain-HTML sites with no JavaScript: instead of step 3, set the
+   form's action="${endpoint}" and method="POST". Postbox then shows a hosted
+   confirmation page, so the visitor does leave the site — mention that to the
+   owner rather than choosing it silently.
+7. After integrating, submit one test message ("Integration test — please ignore")
+   and confirm the request returns HTTP 201. If it returns 400, the field mapping
+   is wrong: read the error, which names the fields that arrived empty.`;
 
-  const snippet = mode === "a" ? snippetA : mode === "ai" ? snippetAI : snippetB;
+  const snippet = mode === "a" ? snippetA : snippetAI;
 
   const newsletterSnippet = buildNewsletterSnippet(
     subscribeEndpoint,
@@ -296,25 +255,44 @@ human mailbox).
           forwarded email flow straight into this inbox.
         </p>
 
-        {/* ── Connect your form ── */}
+        {/*
+          ── Connect your form ──
+
+          TWO modes, and the pasteable JavaScript one is deliberately gone.
+
+          It hardcoded `document.querySelector("#contact-form")` and opened with
+          `if (!form) return;`, so on any site whose form is called anything
+          else — which is most of them; Shopify's is `contact_form`, with an
+          underscore — it did precisely nothing. No error, no console warning,
+          no clue: the form carried on submitting to wherever it always had, and
+          the client had no way to tell a broken install from a quiet week.
+
+          No selector can be right for every site, so the answer is not a better
+          guess. It is to let something that can SEE the page do the wiring: the
+          AI prompt below says find the form you already have, map its real
+          field names, and keep its markup, classes and styling exactly as they
+          are. Jordan's call, 14 Sep 2026 — "we should never do our own
+          styling".
+
+          The no-JavaScript mode stays because the prompt assumes an assistant,
+          and a client who has never opened one still has to be able to install
+          this without hiring somebody. It touches nothing on their page at all;
+          its one cost is the confirmation page, which the label now states
+          outright instead of calling it "tidy".
+        */}
         <Section title="1 · Connect your contact form">
           <div className="sti-modes">
-            <Toggle active={mode === "b"} onClick={() => setMode("b")}>
-              JavaScript (recommended)
+            <Toggle active={mode === "ai"} onClick={() => setMode("ai")}>
+              ✨ AI prompt (recommended)
             </Toggle>
             <Toggle active={mode === "a"} onClick={() => setMode("a")}>
-              Point form at URL
-            </Toggle>
-            <Toggle active={mode === "ai"} onClick={() => setMode("ai")}>
-              ✨ AI prompt
+              No code
             </Toggle>
           </div>
           <p className="sti-help">
-            {mode === "b"
-              ? "Drop this before </body>. It intercepts your form so visitors stay on the page and see a success message — no redirect."
-              : mode === "a"
-                ? "The simplest option: set your form's action to this endpoint. On submit, the visitor sees a tidy confirmation page."
-                : "Building your site with Claude, ChatGPT, Cursor or another AI assistant? Paste this prompt — it contains your endpoint and everything the AI needs to wire up your form correctly."}
+            {mode === "ai"
+              ? "Paste this into Claude, ChatGPT, Cursor or whatever built your site. It carries your endpoint and tells the assistant to wire up the form you already have — keeping your own markup, classes and styling exactly as they are."
+              : "No JavaScript, nothing to install: point your form's action at this endpoint. Your page is untouched, but the visitor leaves it — they land on a Postbox confirmation page after pressing send."}
           </p>
           <CodeBlock code={snippet} />
         </Section>
