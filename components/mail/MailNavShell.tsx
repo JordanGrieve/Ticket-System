@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useDismiss } from "@/lib/use-dismiss";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { labelChipProps } from "./label-style";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -24,7 +26,7 @@ import type { LabelWithCountDTO, MailCountsDTO } from "./types";
  * elsewhere and cannot be asked for them.
  *
  * The drawer reuses the pb-* classes already in globals.css (pb-sidebar,
- * pb-scrim, pb-topbar, pb-drawer-close). Those solve scroll-locking behind an
+ * pb-scrim, pb-topbar). Those solve scroll-locking behind an
  * open drawer via `.pb-shell:has(.pb-scrim) .pb-scroll`, and were measured on a
  * real phone — mail.css only widens the desktop column and repaints them, it
  * does not reimplement the mechanics.
@@ -132,32 +134,52 @@ export default function MailNavShell({
   // show "-1". A count is never negative, whatever the arithmetic says.
   const starredCount = Math.max(0, counts.starred + starredDelta);
 
-  // Esc closes the drawer.
+  /*
+   * ── THE DRAWER IS A DRAWER ONLY ON A PHONE ──
+   * Above 768px this same <nav> is the always-visible column, so nothing here
+   * may hide it or trap focus there. `phone` mirrors the globals.css
+   * breakpoint. A drawer left open while the viewport grows to desktop is shut
+   * during render, so the background can never stay inert behind a column.
+   *
+   * CSS carries the closed state on its own: `visibility: hidden` on the
+   * closed drawer (delayed until the slide-out has finished) takes it out of
+   * the tab order and the accessibility tree before any of this has hydrated.
+   * `inert` below is the same guarantee from the script side.
+   */
+  const phone = useMediaQuery("(max-width: 768px)");
+  if (navOpen && !phone) setNavOpen(false);
+  const drawerOpen = navOpen && phone;
+
+  const navRef = useRef<HTMLElement>(null);
+  const burgerRef = useRef<HTMLButtonElement>(null);
+  /** Escape and the scrim hand focus back to the burger; following a link does not. */
+  const returnFocusRef = useRef(false);
+
+  function closeNav(returnFocus: boolean) {
+    returnFocusRef.current = returnFocus;
+    setNavOpen(false);
+  }
+
+  useDismiss(drawerOpen, () => closeNav(true));
+
+  // While the drawer is open everything else is inert, and focus starts
+  // inside it. On close the background comes back BEFORE focus returns to
+  // the burger, which would otherwise still be inert and refuse it.
   useEffect(() => {
-    if (!navOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setNavOpen(false);
+    if (!drawerOpen) return;
+    const nav = navRef.current;
+    const burger = burgerRef.current;
+    const restore = nav ? inertOutside(nav) : () => {};
+    if (nav) firstFocusable(nav)?.focus();
+    return () => {
+      restore();
+      if (returnFocusRef.current) burger?.focus();
+      returnFocusRef.current = false;
     };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [navOpen]);
+  }, [drawerOpen]);
 
   // Standard menu semantics: Esc and clicking anywhere else close it.
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuOpen(false);
-    };
-    const onPointer = (e: PointerEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onPointer);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointer);
-    };
-  }, [menuOpen]);
+  useDismiss(menuOpen, () => setMenuOpen(false), menuRef);
 
   const onList = pathname === "/inbox";
   const activeLabel = onList ? searchParams.get("label") : null;
@@ -311,10 +333,11 @@ export default function MailNavShell({
             look wrong next to icons that are all stroked SVG.
           */}
           <button
+            ref={burgerRef}
             className="pbm-burger"
             onClick={() => setNavOpen(true)}
             aria-label="Open navigation"
-            aria-expanded={navOpen}
+            aria-expanded={drawerOpen}
           >
             <Icon name="menu" size={18} strokeWidth={2} />
           </button>
@@ -327,8 +350,8 @@ export default function MailNavShell({
         </header>
       )}
 
-      {navOpen && (
-        <div className="pb-scrim" onClick={() => setNavOpen(false)} aria-hidden />
+      {drawerOpen && (
+        <div className="pb-scrim" onClick={() => closeNav(true)} aria-hidden />
       )}
 
       {/* The rules report on the ELEMENT, not on the onClick line, so the
@@ -337,8 +360,12 @@ export default function MailNavShell({
           directive when it is the first text in the comment. */}
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
       <nav
+        ref={navRef}
         className="pb-sidebar pbm-nav"
-        data-open={navOpen}
+        data-open={drawerOpen}
+        // Closed on a phone: out of the tab order and the accessibility tree.
+        // Never on desktop, where this is the visible column.
+        inert={phone && !drawerOpen}
         aria-label="Mail folders"
         // Tapping any link in the drawer navigates, so the drawer must close.
         //
@@ -354,7 +381,7 @@ export default function MailNavShell({
         // in any future field, and a tabIndex would put a stop on the tab
         // order in front of the links people actually want.
         onClick={(e) => {
-          if ((e.target as HTMLElement).closest("a")) setNavOpen(false);
+          if ((e.target as HTMLElement).closest("a")) closeNav(false);
         }}
       >
         {/*
@@ -635,4 +662,37 @@ export default function MailNavShell({
       )}
     </>
   );
+}
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** The first control in `root` a keyboard can reach — skipping inert groups. */
+function firstFocusable(root: HTMLElement): HTMLElement | null {
+  for (const el of root.querySelectorAll<HTMLElement>(FOCUSABLE)) {
+    if (!el.closest("[inert]")) return el;
+  }
+  return null;
+}
+
+/**
+ * Make everything on the page except `keep` (and its ancestors) inert, the
+ * way a modal does: at each level from `keep` up to <body>, every sibling.
+ * Returns the undo. Only elements this call made inert are released, so an
+ * element that was inert for its own reasons stays that way.
+ */
+function inertOutside(keep: HTMLElement): () => void {
+  const touched: Element[] = [];
+  for (let el: HTMLElement = keep; el.parentElement && el !== document.body; el = el.parentElement) {
+    for (const sib of el.parentElement.children) {
+      if (sib === el || sib.hasAttribute("inert")) continue;
+      // The scrim is the way out; it must stay clickable.
+      if (sib.classList.contains("pb-scrim")) continue;
+      sib.setAttribute("inert", "");
+      touched.push(sib);
+    }
+  }
+  return () => {
+    for (const el of touched) el.removeAttribute("inert");
+  };
 }

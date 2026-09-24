@@ -8,7 +8,7 @@
   components/mail are genuinely per-instance values (a tag's colour pair, a
   status dot).
 
-  Colours are tokens from globals.css so all six themes work. The three
+  Colours are tokens from globals.css so both themes work. The three
   literals below are the exception and are deliberate: they sit on surfaces that
   are dark in EVERY theme (the nav column, --accent-grad), where a token that
   flips with the palette would be wrong. They are declared once, here.
@@ -148,8 +148,8 @@
     The nav sets its own ink because it sets its own background.
 
     It did not, and inherited the page's --text instead — which is light in
-    the five dark themes and dark in the light one, against a --nav that is
-    near-black in all six. The light theme therefore rendered the entire
+    the dark theme and dark in the light one, against a --nav that is
+    near-black in both. The light theme therefore rendered the entire
     navigation at 1.05:1. See the --nav-fg note in globals.css.
 
     Fallback spelled out because an undefined var() invalidates the whole
@@ -551,12 +551,6 @@
   background: var(--accent-grad);
   color: var(--pbm-on-dark);
   box-shadow: 0 3px 8px var(--glow);
-}
-.pbm-chip--dead {
-  opacity: 0.45;
-  cursor: not-allowed;
-  border: 1px dashed var(--border-strong);
-  box-shadow: none;
 }
 
 .pbm-list-meta {
@@ -1015,8 +1009,8 @@
    states that mean "this did not arrive" get the colour.
 
    --pdf-fg, not a literal red: it is this codebase's danger foreground and is
-   defined in all six themes. A hardcoded #b42318 would be unreadable on the
-   dark ones, which is the whole reason the tokens exist. */
+   defined in both themes. A hardcoded #b42318 would be unreadable on the
+   dark one, which is the whole reason the tokens exist. */
 .pbm-bubble-foot[data-delivery="bounced"],
 .pbm-bubble-foot[data-delivery="failed"] {
   color: var(--pdf-fg);
@@ -1240,7 +1234,7 @@
   A label's colour is a TOKEN KEY in the database ("tag_a"), never a hex value.
   It arrives on the element as data-color and is resolved here, so the same
   label is green in one theme and amber in another without a write. This is the
-  whole reason the column stores a key: six themes, one row.
+  whole reason the column stores a key: two themes, one row.
 */
 /* Chips: the pale ground with its matching ink. */
 .pbm-label {
@@ -1560,12 +1554,6 @@
 .pbm-nav-manage:hover {
   color: var(--nav-active-fg);
 }
-.pbm-nav-note {
-  font-size: 0.71875rem;
-  line-height: 1.5;
-  color: var(--muted-2);
-  padding: 2px 14px 4px;
-}
 
 /* ── the label manager ── */
 
@@ -1678,7 +1666,7 @@
 /* ── delete confirmation, in the row ──
    Replaces window.confirm. The row it belongs to turns into the question, so
    the consequence sits on the thing it applies to. Every colour is a token:
-   --pdf-bg/--pdf-fg are the danger pair, defined in all six themes. */
+   --pdf-bg/--pdf-fg are the danger pair, defined in both themes. */
 .pbm-confirm {
   flex: 1 1 100%;
   display: flex;
@@ -1897,7 +1885,6 @@
   .pbm .pb-sidebar {
     width: min(84vw, 300px);
     flex-basis: auto;
-    /* Clear the drawer's own close button, which globals.css positions at 12px. */
     padding: 58px 16px 20px;
   }
 
@@ -1942,11 +1929,6 @@
   .pbm-topbar-sub {
     font-size: 0.6875rem;
     color: var(--nav-muted, #a9a3c4);
-  }
-  .pbm-drawer-close {
-    color: var(--text-3);
-    background: var(--surface);
-    border-color: var(--border);
   }
 
   /* One pane at a time: the list on /inbox, the thread on /tickets/[id]. */
@@ -2141,7 +2123,7 @@
     cursor: pointer;
   }
   /*
-    Literals, deliberately, and the same in all six themes: these are the two
+    Literals, deliberately, and the same in both themes: these are the two
     colours everybody already knows for "put away" and "destroy", and a theme
     that repainted Delete in its accent would be a theme in which Delete does
     not look like Delete. Both measured against white for AAA (7:1) rather
@@ -2424,7 +2406,7 @@
 
   Every colour below is a token. The <mark> element in particular MUST be
   repainted: the browser default is a fixed yellow that is unreadable on the
-  dark surfaces five of the six themes use.
+  dark surfaces of the dark theme.
 */
 
 .pbm-results {
@@ -2995,23 +2977,6 @@
 }
 
 /*
- * The "+N more" chip.
- *
- * Visually distinct from the filters beside it: it is a disclosure, not a
- * filter, and a reader who cannot tell them apart will press it expecting the
- * list to change. Outlined rather than filled, and it never takes the "on"
- * state the real chips use.
- */
-.pbm-chip--more {
-  background: transparent;
-  color: var(--muted);
-  box-shadow: 0 0 0 1px var(--border-strong);
-}
-.pbm-chip--more:hover {
-  color: var(--text);
-}
-
-/*
  * "More" in the folder list.
  *
  * A button among links, so it has to be reset to match them — and it must not
@@ -3134,8 +3099,7 @@
   background: oklch(from var(--label-hex) var(--label-bg-l) 0.07 h);
   color: oklch(from var(--label-hex) var(--label-fg-l) 0.15 h);
 }
-/* Dots and swatches carry the ink alone — no text sits on them. */
-.pbm-label-dot[data-custom],
+/* Swatches carry the ink alone — no text sits on them. */
 .pbm-label-swatch[data-custom] {
   background: oklch(from var(--label-hex) var(--label-fg-l) 0.15 h);
 }

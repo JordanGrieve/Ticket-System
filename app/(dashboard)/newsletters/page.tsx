@@ -7,7 +7,7 @@ import { DEFAULT_WELCOME, getWelcomeEmail } from "@/lib/welcome-store";
 import Composer, { type CampaignRowDTO } from "./Composer";
 import "../../newsletter.css";
 
-export const metadata = { title: "Newsletters · Postbox" };
+export const metadata = { title: "Newsletters" };
 
 /**
  * /newsletters — the campaign composer.

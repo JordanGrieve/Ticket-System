@@ -132,29 +132,3 @@ export async function purgeExpiredTrash(limit = 200): Promise<{
     workspaceIds: [...new Set(rows.map((r) => Number(r.workspace_id)))],
   };
 }
-
-/**
- * How many tickets are in a workspace's trash, and the oldest deletion.
- *
- * Used by the trash screen's header so it can say what is about to happen
- * without loading every row.
- */
-export async function trashSummary(workspaceId: number): Promise<{
-  count: number;
-  oldestDeletedAt: Date | null;
-}> {
-  const [row] = await db
-    .select({
-      count: sql<number>`count(*)::int`,
-      oldest: sql<Date | null>`min(${tickets.deletedAt})`,
-    })
-    .from(tickets)
-    .where(
-      and(eq(tickets.workspaceId, workspaceId), isNotNull(tickets.deletedAt)),
-    );
-
-  return {
-    count: row?.count ?? 0,
-    oldestDeletedAt: row?.oldest ? new Date(row.oldest) : null,
-  };
-}

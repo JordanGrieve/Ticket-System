@@ -86,10 +86,9 @@ export async function GET(
       senderConfigured: Boolean(
         (process.env.CAMPAIGN_FROM_ADDRESS ?? "").trim(),
       ),
-      // Asked of lib/deliver rather than compared to a literal here. There are
-      // two live modes now ("ses" and "resend") and a screen that knew only
-      // about one would tell a client their campaign will not send on the very
-      // provider it is about to send through.
+      // Asked of lib/deliver rather than compared to a literal here, so a
+      // provider added there cannot leave this screen telling a client their
+      // campaign will not send on the very provider it is about to send through.
       deliveryLive: isLiveDeliveryMode(deliveryModeFromEnv(process.env)),
     },
   });

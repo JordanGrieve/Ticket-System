@@ -6,7 +6,7 @@ import { describeBlock } from "@/lib/trial";
 import { stripeConfigured } from "@/lib/stripe";
 import BillingActions from "./BillingActions";
 
-export const metadata = { title: "Billing · Settings · Postbox" };
+export const metadata = { title: "Billing · Settings" };
 
 /**
  * Settings → Billing.

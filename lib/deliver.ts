@@ -3,14 +3,12 @@
  *
  * `sendCampaignBatch` in lib/campaign-send.ts takes its sender as an argument
  * and has no default. This module is where the implementations behind that
- * argument live, and as of 7900a5c it IS wired up:
- * `app/api/cron/campaigns/route.ts` calls `createCampaignDeliverer()` on every
- * scheduled sweep, and `vercel.json` schedules that route nightly. Phase two of
- * the pipeline is reachable. Do not read this file as if it were inert.
+ * argument live, and it IS wired up: lib/campaign-sweep-run.ts calls
+ * `createCampaignDeliverer()` on every sweep — the scheduled one
+ * (.github/workflows/campaign-sweep.yml) and the "Send now" pass in the
+ * schedule route. Do not read this file as if it were inert.
  *
- * What stops it mailing a real person is therefore no longer the absence of a
- * caller. It is the environment gates below and the unfinished prerequisites in
- * docs/NEWSLETTER.md §2.
+ * What stops it mailing a real person is the environment gates below.
  *
  * ── THE DEFAULT IS THE LOG DELIVERER, AND THAT IS THE POINT ──
  *
@@ -38,17 +36,6 @@
  * sits in front of both — `authorizeCronRequest` refuses every caller, Vercel
  * included, while `CRON_SECRET` is unset.
  *
- * The prerequisites that must exist before the mode is flipped are listed in
- * docs/NEWSLETTER.md §2 and §7. The durable worker is now one of them that IS
- * done — the cron route is it. The rest are not, as of 22 August 2026: no
- * cross-invocation rate limiter (lib/rate-limit.ts is still an in-memory Map,
- * correct only within one instance), no bounce/complaint webhook, no postal
- * address column on `workspaces` for the CAN-SPAM footer, and — the one with
- * legal teeth — no consent enforcement. `selectAudience` still takes exactly
- * two arguments, candidates and a suppression set; it never reads `consentAt`,
- * so the audience this deliverer would be handed today includes addresses whose
- * provenance we cannot demonstrate.
- *
  * ── CONFIG ──
  *
  * This module reads `process.env` in exactly one function (`resendConfigFromEnv`)
@@ -58,32 +45,13 @@
  */
 import "server-only";
 // The deliverer shape is OWNED by lib/campaign-send.ts — it is the consumer, so
-// it defines the interface. Imported and re-exported TYPE-ONLY, so nothing here
-// pulls in db/index.ts and its DATABASE_URL-at-import-time throw; that is what
-// lets tests/deliver*.test.ts run in CI with no database.
+// it defines the interface. Imported TYPE-ONLY, so nothing here pulls in
+// db/index.ts and its DATABASE_URL-at-import-time throw; that is what lets
+// tests/deliver*.test.ts run in CI with no database.
 import type { CampaignDeliverer } from "./campaign-send";
 import { createLogDeliverer, type DeliveryLogRecord } from "./deliver-log";
 import {
   createResendDeliverer,
-  type ResendDelivererConfig,
-} from "./deliver-resend";
-
-export type {
-  CampaignDeliverer,
-  OutboundCampaignEmail,
-} from "./campaign-send";
-
-export type { DeliveryLogRecord };
-export { createLogDeliverer } from "./deliver-log";
-export {
-  isRetryableFailure,
-  type DeliveryFailureKind,
-} from "./delivery-failure";
-export {
-  createResendDeliverer,
-  ResendDeliveryError,
-  classifyResendError,
-  idempotencyKeyFor,
   type ResendDelivererConfig,
 } from "./deliver-resend";
 
@@ -119,14 +87,6 @@ export const RESEND_DELIVERY_MODE = "resend";
   where it goes; the shape that made two modes possible is still here.
 */
 export type DeliveryMode = "log" | "resend";
-
-/**
- * The modes that transmit. Still a list rather than an equality check, so
- * adding a provider does not mean finding every `=== "resend"` in the product.
- */
-export const LIVE_DELIVERY_MODES: readonly DeliveryMode[] = [
-  RESEND_DELIVERY_MODE,
-];
 
 /** True when this mode puts messages on the wire. False for "log". */
 export function isLiveDeliveryMode(mode: DeliveryMode): boolean {
@@ -205,8 +165,7 @@ export type DelivererFactoryOptions = {
 /**
  * Build the deliverer this environment permits.
  *
- * Returns the LOG deliverer unless `CAMPAIGN_DELIVERY_MODE` is `ses` or
- * `resend`.
+ * Returns the LOG deliverer unless `CAMPAIGN_DELIVERY_MODE` is `resend`.
  *
  * When a real mode is selected but its credentials are incomplete this THROWS
  * rather than falling back to the log deliverer. Silently degrading would mean

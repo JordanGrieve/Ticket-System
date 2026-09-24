@@ -200,27 +200,3 @@ function stateOf(
   if (remaining > 0 && blockers.some((b) => b.blocking)) return "stalled";
   return "sending";
 }
-
-/**
- * One line for the campaign list, where there is no room for the full
- * explanation. Deliberately says "stuck" rather than a status word — a client
- * scanning a list needs to know something is wrong before they know what.
- */
-export function healthSummary(health: CampaignHealth): string {
-  switch (health.state) {
-    case "draft":
-      return "Draft";
-    case "waiting":
-      return "Scheduled";
-    case "sending":
-      return `Sending — ${health.remaining} to go`;
-    case "stalled":
-      return `Stuck — ${health.remaining} not sent`;
-    case "done":
-      return health.blockers.some((b) => b.code === "all_recipients_failed")
-        ? "Finished — nobody received it"
-        : "Sent";
-    case "failed":
-      return "Failed";
-  }
-}

@@ -17,7 +17,7 @@ import {
  * INSERT … ON CONFLICT DO NOTHING, so calling it twice — or after a crash, or
  * from a double-clicked button — adds only what was missing and touches
  * nothing already there. It is idempotent, which is precisely why it is safe
- * to expose while phase two is not.
+ * to expose.
  *
  * DELETE is the way back out, and it exists because POST used to be a one-way
  * door: materialising 40,000 rows against the wrong list left no affordance
@@ -26,8 +26,8 @@ import {
  * row that has already reached `sent`, `bounced` or `failed`, because those
  * are the campaign report and the evidence behind a complaint.
  *
- * Phase two (lib/campaign-send.sendCampaignBatch) has NO route and must not
- * get one until the infrastructure in docs/NEWSLETTER.md exists.
+ * Phase two (lib/campaign-send.sendCampaignBatch) runs only through
+ * lib/campaign-sweep-run.ts, never from here.
  */
 
 function idFrom(raw: string): number | null {

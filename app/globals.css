@@ -1,4 +1,154 @@
-@import "tailwindcss";
+/*
+  The reset. This is Tailwind v4's preflight, as it compiled here, kept after
+  Tailwind itself was removed: no component ever used a utility class, so the
+  reset was the only thing it contributed. It stays inside @layer base so every
+  unlayered rule below and in the other stylesheets still beats it regardless
+  of specificity — which is how it cascaded when Tailwind emitted it.
+*/
+@layer base {
+  *, ::after, ::before, ::backdrop, ::file-selector-button {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
+  }
+  html, :host {
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+    font-family: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  hr {
+    height: 0;
+    color: inherit;
+    border-top-width: 1px;
+  }
+  abbr:where([title]) {
+    -webkit-text-decoration: underline dotted;
+    text-decoration: underline dotted;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+  a {
+    color: inherit;
+    -webkit-text-decoration: inherit;
+    text-decoration: inherit;
+  }
+  b, strong {
+    font-weight: bolder;
+  }
+  code, kbd, samp, pre {
+    font-family: var(--font-mono);
+    font-size: 1em;
+  }
+  small {
+    font-size: 80%;
+  }
+  sub, sup {
+    font-size: 75%;
+    line-height: 0;
+    position: relative;
+    vertical-align: baseline;
+  }
+  sub {
+    bottom: -0.25em;
+  }
+  sup {
+    top: -0.5em;
+  }
+  table {
+    text-indent: 0;
+    border-color: inherit;
+    border-collapse: collapse;
+  }
+  :-moz-focusring {
+    outline: auto;
+  }
+  progress {
+    vertical-align: baseline;
+  }
+  summary {
+    display: list-item;
+  }
+  ol, ul, menu {
+    list-style: none;
+  }
+  img, svg, video, canvas, audio, iframe, embed, object {
+    display: block;
+    vertical-align: middle;
+  }
+  img, video {
+    max-width: 100%;
+    height: auto;
+  }
+  button, input, select, optgroup, textarea, ::file-selector-button {
+    font: inherit;
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    border-radius: 0;
+    background-color: transparent;
+    opacity: 1;
+  }
+  :where(select:is([multiple], [size])) optgroup {
+    font-weight: bolder;
+  }
+  :where(select:is([multiple], [size])) optgroup option {
+    padding-inline-start: 20px;
+  }
+  ::file-selector-button {
+    margin-inline-end: 4px;
+  }
+  ::placeholder {
+    opacity: 1;
+  }
+  @supports (not (-webkit-appearance: -apple-pay-button)) or (contain-intrinsic-size: 1px) {
+    ::placeholder {
+      color: currentcolor;
+      @supports (color: color-mix(in lab, red, red)) {
+        color: color-mix(in oklab, currentcolor 50%, transparent);
+      }
+    }
+  }
+  textarea {
+    resize: vertical;
+  }
+  ::-webkit-search-decoration {
+    -webkit-appearance: none;
+  }
+  ::-webkit-date-and-time-value {
+    min-height: 1lh;
+    text-align: inherit;
+  }
+  ::-webkit-datetime-edit {
+    display: inline-flex;
+  }
+  ::-webkit-datetime-edit-fields-wrapper {
+    padding: 0;
+  }
+  ::-webkit-datetime-edit, ::-webkit-datetime-edit-year-field, ::-webkit-datetime-edit-month-field, ::-webkit-datetime-edit-day-field, ::-webkit-datetime-edit-hour-field, ::-webkit-datetime-edit-minute-field, ::-webkit-datetime-edit-second-field, ::-webkit-datetime-edit-millisecond-field, ::-webkit-datetime-edit-meridiem-field {
+    padding-block: 0;
+  }
+  ::-webkit-calendar-picker-indicator {
+    line-height: 1;
+  }
+  :-moz-ui-invalid {
+    box-shadow: none;
+  }
+  button, input:where([type="button"], [type="reset"], [type="submit"]), ::file-selector-button {
+    appearance: button;
+  }
+  ::-webkit-inner-spin-button, ::-webkit-outer-spin-button {
+    height: auto;
+  }
+  [hidden]:where(:not([hidden="until-found"])) {
+    display: none !important;
+  }
+}
 
 /*
   Postbox — mailer product design system.
@@ -64,7 +214,7 @@
      preview text and timestamps were close to unreadable in the light
      theme. The floor is set against #f1edf9, the palest surface, so the
      commoner white ground has margin (5.25:1) rather than sitting exactly
-     on the line. Forest, slate and ocean already passed and are untouched. */
+     on the line. */
   --muted: #4d4b58;
   --muted-2: #4e4a5c;
 
@@ -100,7 +250,7 @@
    * never overridden per theme, so the card stayed violet while somebody on
    * Ocean or Forest watched every other surface change around it.
    *
-   * --accent-grad is per-theme, so one indirection fixes all five.
+   * --accent-grad is per-theme, so one indirection fixes every theme.
    */
   --pro-grad: var(--accent-grad);
   --pro-shadow: rgba(70, 40, 180, 0.28);
@@ -187,7 +337,7 @@
    * "you are here" marker simply did not mark anything.
    *
    * An indirection rather than a literal, same as --pro-grad below:
-   * --nav-active-fg is per-theme, so one line follows all six, and the dot
+   * --nav-active-fg is per-theme, so one line follows both, and the dot
    * matching the label it sits beside is what it always should have been.
    */
   --nav-active-dot: var(--nav-active-fg);
@@ -240,8 +390,7 @@
    * It used to fall back to --accent, which on 8 Sep 2026 deepened for AAA
    * text and took the ring under 3:1 on the nav (1.4.11). A ring has to
    * clear 3:1 on white, the palest wash AND the near-black nav at once, and
-   * #7c5dff does: 4.31 / 3.74 / 3.98. forest and slate get theirs below for
-   * the same reason; dark and ocean already had one.
+   * #7c5dff does: 4.31 / 3.74 / 3.98. The dark palette declares its own.
    */
   --focus-ring: #7c5dff;
 
@@ -289,9 +438,9 @@
      covers "Delivered" on white, which measured 3.38:1.
 
      Targeted at 4.6 rather than exactly 4.5: a value sitting on the line
-     drops below it the next time a chip background is nudged. The dark,
-     forest, slate and ocean palettes declare these as rgba() overlays rather
-     than hex and are checked by rendering instead. */
+     drops below it the next time a chip background is nudged. The dark
+     palette declares these as rgba() overlays rather than hex and is checked
+     by rendering instead. */
   --tag-a-fg: #195838;
   --tag-b-bg: #f1edff;
   --tag-b-fg: #4b33b3;
@@ -376,7 +525,7 @@
      chips. Least adjustment that clears 4.5. */
   --muted-2: #c5bfd9;
   --accent-text: #d6caff;
-  /* Deeper sibling of --accent, same as forest/slate/ocean do it. Dark inherits
+  /* Deeper sibling of --accent. Dark inherits
      --accent (#6d4aff) from :root because the palette is the same purple, but
      --accent-strong has to be stated or it silently leaks the light value. */
   --accent-strong: #5535dd;
@@ -510,15 +659,7 @@
   }
 }
 
-@theme inline {
-  --color-app: var(--app-bg);
-  --color-sidebar: var(--sidebar-bg);
-  --color-panel: var(--panel);
-  --color-border: var(--border);
-  --color-ink: var(--ink);
-  --color-muted: var(--muted-2);
-  --color-accent: var(--accent);
-  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+:root {
   --font-mono: var(--font-spline-mono), ui-monospace, monospace;
 }
 
@@ -542,30 +683,12 @@ body {
   ── THE TOUCH FLOOR ───────────────────────────────────────────────────────
 
   --tap-min is the smallest a control may be. It is NOT a palette token: it is
-  the same in all six themes and changes with the POINTER, which is why it
-  sits here rather than in the blocks above.
-
-  ── WHY TWO NUMBERS AND NOT ONE ──
-  24px is the WCAG 2.2 AA floor (2.5.8 Target Size (Minimum)), and eleven rules
-  in this repo were set to exactly that on 6 Sep to clear it. Clearing a floor
-  is not the same as being comfortable: Apple's HIG asks for 44pt and Material
-  for 48dp, both of which are usability guidance rather than conformance, and
-  both of which are nearly double what those rules give.
-
-  A blanket 44px would be the wrong answer here. This is a dense mail client —
-  an inbox row carries a star, a status pill and three label chips — and
-  44px-tall chips would push the message itself off the card. That is a real
-  cost paid by every user to benefit a fingertip that is not present on a
-  desktop.
-
-  So the floor follows the pointer. 24px where there is a mouse, which is
-  conformant and keeps the density the product is for; 32px under a finger,
-  which is a third larger than the criterion asks and buys back the accuracy a
-  fingertip loses. 44px stays available for anything primary that wants it.
+  the same in both themes, which is why it sits here rather than in the
+  blocks above.
 
   ── ALWAYS READ IT WITH A FALLBACK ──
   An undefined var() invalidates the whole declaration and the property falls
-  back to its inherited value — so `min-height: var(--tap-min, 24px)`, never
+  back to its inherited value — so `min-height: var(--tap-min, 44px)`, never
   a bare var(). A typo in the token name would otherwise silently remove the
   minimum rather than fail.
 */
@@ -621,7 +744,6 @@ body {
     min-height: 44px;
   }
   /* The stragglers the 44px sweep named after the list above landed. */
-  html .nl-test,
   html .nl-input,
   html .nl-secondary,
   html .sti-field button,
@@ -681,15 +803,12 @@ body {
   Bare links read --accent-text, NOT --accent-strong.
 
   --accent-strong is the deep, behind-the-front-plate accent: every theme sets
-  it darker than --accent (light #5636e0 < #6d4aff, forest #238153 < #2fa36b,
-  slate #9a6d3b < #c08a4e, ocean #2354b8 < #2e6be6). That reads on a white card
-  and disappears on a dark one — it scored 2.1:1 in ocean and 2.2:1 in dark
-  against their own surfaces. Five of the six themes are dark grounds, so a
-  "darker than accent" token is the wrong contract for body text.
+  it darker than --accent. That reads on a white card and disappears on a
+  dark one — it scored 2.2:1 in dark against its own surface — so a "darker
+  than accent" token is the wrong contract for body text.
 
   --accent-text is the token that exists for accent-as-foreground, is set in
-  every theme, and clears AA on all six surfaces (light 5.15:1, dark 7.45:1,
-  forest 9.94:1, slate 8.39:1, ocean 8.36:1). Same choice .psb-empty a and
+  every theme, and clears contrast on both surfaces. Same choice .psb-empty a and
   .psb-back already make by hand in subscribers.css.
 
   Hover shifts to an underline rather than to --accent, which is a mid-tone in
@@ -749,20 +868,6 @@ input:focus {
   background-clip: content-box;
 }
 
-@keyframes pb-fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.pb-fade-up {
-  animation: pb-fade-up 0.16s ease-out;
-}
-
 /* Keyboard users get a visible focus ring (mouse clicks stay clean).
 
    ── SELECT AND [tabindex] ARE IN THE LIST ──
@@ -797,26 +902,6 @@ summary:focus-visible,
   outline: 2px solid var(--focus-ring, var(--accent, #d6552f));
   outline-offset: 2px;
   border-radius: 6px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pb-pulse,
-  .pb-fade-up {
-    animation: none;
-  }
-}
-
-@keyframes pb-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.35;
-  }
-}
-.pb-pulse {
-  animation: pb-pulse 1.1s ease-in-out infinite;
 }
 
 /* ───────────────────────────────────────────────────────────────
@@ -863,18 +948,8 @@ summary:focus-visible,
 /* Mobile-only chrome: hidden entirely on desktop so the markup costs
    nothing there. */
 .pb-topbar,
-.pb-scrim,
-.pb-back,
-.pb-drawer-close {
+.pb-scrim {
   display: none;
-}
-
-/* Panes fill their parent; on mobile they also sit below the top bar. */
-.pb-pane {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
 }
 
 @media (max-width: 768px) {
@@ -898,17 +973,12 @@ summary:focus-visible,
      * the workspace name collided with whatever happened to be passing
      * underneath.
      *
-     * --nav is the navigation surface: opaque, and defined in all six themes.
+     * --nav is the navigation surface: opaque, and defined in both themes.
      * The bar now matches the drawer it opens instead of being a window onto
      * the content.
      */
     background: var(--nav);
     border-bottom: 1px solid var(--border);
-  }
-
-  /* Fixed top bar is out of flow, so the pane below reserves its space. */
-  .pb-pane {
-    padding-top: 56px;
   }
 
   .pb-sidebar {
@@ -920,15 +990,26 @@ summary:focus-visible,
     width: min(82vw, 300px);
     flex-basis: auto;
     transform: translateX(-100%);
-    transition: transform 0.22s ease;
+    /*
+      Closed means GONE, not just moved: a translated drawer is still in the
+      tab order and the accessibility tree, so a keyboard walked through fifty
+      links nobody could see. visibility:hidden removes it from both — and is
+      delayed on close until the slide-out has finished, so it still animates.
+      Opening flips it at once. Desktop never reaches this block, so the
+      column there is untouched.
+    */
+    visibility: hidden;
+    transition:
+      transform 0.22s ease,
+      visibility 0s linear 0.22s;
     box-shadow: 0 0 40px -8px rgba(60, 50, 35, 0.45);
   }
   .pb-sidebar[data-open="true"] {
     transform: translateX(0);
-  }
-
-  .pb-drawer-close {
-    display: inline-flex;
+    visibility: visible;
+    transition:
+      transform 0.22s ease,
+      visibility 0s;
   }
 
   /* Scroll-lock behind the open drawer.
@@ -961,7 +1042,6 @@ summary:focus-visible,
     touch-action: none;
     overscroll-behavior: contain;
   }
-  /* Clear the close button so it never sits on top of the first nav item. */
   .pb-sidebar {
     padding-top: 58px;
   }
@@ -972,76 +1052,6 @@ summary:focus-visible,
     inset: 0;
     z-index: 55;
     background: rgba(38, 34, 29, 0.42);
-  }
-
-  .pb-back {
-    display: inline-flex;
-  }
-
-  /* Breathing room shrinks on a 390px screen — 32px of side padding
-     was eating a sixth of the viewport. */
-  .pb-pad-x {
-    padding-left: 14px !important;
-    padding-right: 14px !important;
-  }
-
-  /* Filter chips wrap instead of overflowing off-screen. */
-  .pb-chips {
-    flex-wrap: wrap;
-  }
-
-  /* Search stops being a fixed 238px box next to the title. */
-  .pb-search {
-    width: 100% !important;
-  }
-  .pb-list-head {
-    flex-direction: column;
-    align-items: stretch !important;
-    gap: 12px !important;
-  }
-
-  /* Comfortable touch targets — 15px rows are a miss on a phone. */
-  .pb-row {
-    padding: 14px 13px !important;
-    gap: 11px !important;
-  }
-  /* Drop the status WORD but keep its coloured dot — the dot carries the
-     same meaning in a fraction of the width. The source pill stays: which
-     channel a ticket arrived on is the more useful of the two at a glance. */
-  .pb-row-status-label {
-    display: none;
-  }
-
-  /* The thread is the point of the screen, so the chrome around it has to
-     give way. Unchanged, the top bar + header ate 260px of an 844px phone
-     and left the conversation 277px — a third of the screen to read in. */
-  .pb-thread-head {
-    padding-top: 11px !important;
-    padding-bottom: 11px !important;
-  }
-  .pb-thread-title {
-    font-size: 1.03125rem !important;
-    margin-bottom: 5px !important;
-    /* Long subjects clamp rather than pushing the conversation off-screen. */
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  /* The address is on every message bubble already. */
-  .pb-thread-email {
-    display: none;
-  }
-  .pb-composer {
-    min-height: 62px !important;
-  }
-  /* To/Subject restate what the thread header already says, and cost ~90px
-     of a phone screen. The recipient is never ambiguous inside a thread. */
-  .pb-composer-meta {
-    display: none !important;
-  }
-  .pb-composer-wrap {
-    padding: 10px 14px 14px !important;
   }
 }
 
@@ -1070,7 +1080,6 @@ summary:focus-visible,
 .nl-item-sub,
 .home-cta-note,
 .pbf-hint,
-.pba-empty-title,
 .st-summary-row dd {
   line-height: 1.5;
 }

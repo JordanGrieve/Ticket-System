@@ -11,6 +11,8 @@ import {
   viewerAgentId,
 } from "../../queries";
 
+export const metadata = { title: "Conversation" };
+
 /**
  * The `children` slot of /tickets/[id]: the 336px list pane, nothing else.
  *

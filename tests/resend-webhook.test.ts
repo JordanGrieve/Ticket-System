@@ -73,8 +73,7 @@ describe("the Resend delivery webhook is not world-writable", () => {
 describe("the update is keyed by the provider's id", () => {
   it("always filters on provider_message_id", () => {
     // The id is globally unique and is what makes this safe without a
-    // workspace predicate: the key IS the tenancy, exactly as for
-    // noteProviderFeedback in lib/suppressions.ts. An update that lost this
+    // workspace predicate: the key IS the tenancy. An update that lost this
     // predicate would rewrite delivery status across every workspace at once.
     expect(SRC).toMatch(/eq\(ticketMessages\.providerMessageId, providerId\)/);
   });

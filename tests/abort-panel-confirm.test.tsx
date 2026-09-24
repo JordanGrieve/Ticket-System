@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
-import { AbortPanel } from "../app/(dashboard)/newsletters/Composer";
+import { AbortPanel } from "../app/(dashboard)/newsletters/AbortPanel";
 import type { RecipientStatus } from "../db/schema";
 
 /**

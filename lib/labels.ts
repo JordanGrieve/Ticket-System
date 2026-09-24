@@ -24,24 +24,11 @@ import {
  *
  * COLOUR. `color` is a design-token key, never a hex value. It is turned into
  * paint by `[data-color]` rules in app/mail.css that resolve --tag-*-bg /
- * --tag-*-fg, so a label recolours with the six themes instead of pinning
+ * --tag-*-fg, so a label recolours with the theme instead of pinning
  * itself to one palette.
  */
 
 export const LABEL_COLORS: LabelColor[] = ["tag_a", "tag_b", "tag_c"];
-
-/**
- * Names for the colour swatches in the picker.
- *
- * Deliberately not "Green" / "Violet" / "Amber": the same token is green in
- * one theme and amber in another, so a hue name would be wrong five times out
- * of six. These are positional, which is the only thing that stays true.
- */
-export const LABEL_COLOR_NAMES: Record<LabelColor, string> = {
-  tag_a: "Colour one",
-  tag_b: "Colour two",
-  tag_c: "Colour three",
-};
 
 export const LABEL_NAME_MAX = 40;
 

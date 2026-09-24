@@ -44,8 +44,8 @@ export default async function NoAccessPage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "var(--app-bg)",
-          color: "var(--ink)",
+          background: "var(--surface-2)",
+          color: "var(--text)",
           padding: 24,
         }}
       >
@@ -66,37 +66,14 @@ export default async function NoAccessPage() {
             Postbox is invite-only
           </h1>
           <p style={{ fontSize: "0.90625rem", lineHeight: 1.65, color: "var(--muted)", margin: 0 }}>
-            You&rsquo;re signed in as <b style={{ color: "var(--ink)" }}>{viewer.email}</b>,
+            You&rsquo;re signed in as <b style={{ color: "var(--text)" }}>{viewer.email}</b>,
             but there&rsquo;s no workspace linked to that email. If your business
             uses Postbox, ask your provider to invite this address — or sign in
             with the email your invitation was sent to.
           </p>
 
           <div style={{ marginTop: 26 }}>
-            <AuditedSignOutButton
-              style={{
-                height: 40,
-                padding: "0 20px",
-                borderRadius: 10,
-                /*
-                  --accent-grad, not --accent. White on the flat accent is
-                  3.20:1 in forest and 3.01:1 in slate, against the 4.5:1 that
-                  13.5px text needs; the gradient's stops are all guarded to
-                  clear AA in tests/contrast-tokens.test.ts.
-
-                  The same bug was fixed in four CSS rules on 6 Sep and a
-                  source scan was added to stop it coming back. It came back
-                  here anyway, because the scan reads stylesheets and this is
-                  an inline style in a .tsx -- so the scan now reads both.
-                */
-                background: "var(--accent-grad)",
-                color: "#fff",
-                fontSize: "0.84375rem",
-                fontWeight: 600,
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
+            <AuditedSignOutButton className="stg-button">
               Sign out
             </AuditedSignOutButton>
           </div>

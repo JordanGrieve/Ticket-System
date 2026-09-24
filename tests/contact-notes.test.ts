@@ -3,7 +3,6 @@ import {
   MAX_NOTE_LENGTH,
   checkNote,
   normaliseContactEmail,
-  describeAuthor,
 } from "../lib/contact-notes";
 
 describe("what may be saved as a note", () => {
@@ -43,15 +42,5 @@ describe("which contact a note is filed under", () => {
     for (const bad of ["", "   ", "not-an-email", "x".repeat(255) + "@a.com"]) {
       expect(normaliseContactEmail(bad)).toBeNull();
     }
-  });
-});
-
-describe("attribution", () => {
-  it("uses the stored snapshot", () => {
-    expect(describeAuthor("emma@bakery.com")).toBe("emma@bakery.com");
-  });
-
-  it("never renders an empty author as blank", () => {
-    expect(describeAuthor("   ")).toBe("Unknown");
   });
 });

@@ -17,7 +17,7 @@ import { exportsForWorkspace } from "@/lib/admin-audit";
 // disagreeing about the same visit.
 import { formatDateTime, formatDuration } from "@/app/(admin)/admin/ui";
 
-export const metadata = { title: "Access log · Settings · Postbox" };
+export const metadata = { title: "Access log · Settings" };
 
 /**
  * Settings → Access log. The client's own copy of impersonation_sessions.

@@ -8,9 +8,7 @@ import {
   DELIVERY_MODE_ENV,
 
   RESEND_DELIVERY_MODE,
-  LIVE_DELIVERY_MODES,
   type DeliveryEnv,
-  type DeliveryMode,
 } from "../lib/deliver";
 import {
   createLogDeliverer,
@@ -27,14 +25,12 @@ import type { OutboundCampaignEmail } from "../lib/campaign-send";
  *
  * These tests import lib/deliver, which type-imports lib/campaign-send and
  * therefore never reaches db/index.ts (which throws at import time with no
- * DATABASE_URL). Nothing here calls fetch, and the SES branch is only ever
- * exercised through a config that is deliberately incomplete, so no request
- * can be constructed even by accident.
+ * DATABASE_URL).
  *
  * The thing under test is the one that matters: this codebase is one function
  * argument away from emailing real people, and the ONLY thing standing in the
  * way is that `createCampaignDeliverer` returns the log deliverer unless
- * CAMPAIGN_DELIVERY_MODE is exactly "ses".
+ * CAMPAIGN_DELIVERY_MODE is exactly "resend".
  */
 
 function outbound(
@@ -137,25 +133,6 @@ describe("which modes actually transmit", () => {
   it("says log does not and the provider does", () => {
     expect(isLiveDeliveryMode("log")).toBe(false);
     expect(isLiveDeliveryMode("resend")).toBe(true);
-  });
-
-  it("lists every live mode, so a screen cannot know about only one of them", () => {
-    /*
-     * The admin console and the campaign health endpoint both read this rather
-     * than comparing to a literal. They said `=== "ses"` until 11 Sep 2026,
-     * which would have told a client their campaign could not send on the very
-     * provider it was about to send through.
-     *
-     * It is a one-element list today and stays a LIST for that reason. The
-     * loop below is what keeps the two in step: every mode the type admits is
-     * checked both ways, so a provider added without updating the list fails
-     * here rather than on somebody's screen.
-     */
-    expect([...LIVE_DELIVERY_MODES].sort()).toEqual(["resend"]);
-    const everyMode: DeliveryMode[] = ["log", "resend"];
-    for (const mode of everyMode) {
-      expect(LIVE_DELIVERY_MODES.includes(mode)).toBe(isLiveDeliveryMode(mode));
-    }
   });
 });
 

@@ -9,17 +9,15 @@
   1. NO COLOUR LITERALS. A block is --surface-3 — the token that already
      contrasts with both pane grounds (--surface in the thread, --surface-2 in
      the list and the rail) in every theme. A skeleton in hardcoded grey looks
-     broken in five of the six.
+     broken in one of them.
 
      The sweep highlight is --border-strong, NOT --surface. --surface is the
-     obvious choice and it is wrong: measured across all six palettes it gives
-     a relative-luminance gap against --surface-3 of only 2.6 (ocean, on
-     --surface-2) to 11, i.e. a shimmer nobody can see. --border-strong holds
-     28–29 in every theme on both grounds, because it is defined to sit a step
-     away from the surfaces rather than beside them. It is a step DARKER in
-     the light palette and LIGHTER in the five dark ones, which is why one
-     token covers both directions without this file having to know which theme
-     is on — and why a seventh theme will not need a line changed here.
+     obvious choice and it is wrong: its gap against --surface-3 can be small
+     enough to give a shimmer nobody can see. --border-strong is defined to sit
+     a step away from the surfaces rather than beside them. It is a step DARKER
+     in the light palette and LIGHTER in the dark one, which is why one token
+     covers both directions without this file having to know which theme is
+     on.
 
   2. GEOMETRY IS NEVER RESTATED HERE. Every skeleton box reuses the real
      component class (.pbm-card, .pbm-thread-head, .pba-row, .st-card …) and

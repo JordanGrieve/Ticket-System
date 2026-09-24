@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   checkInvite,
   checkRevoke,
-  describeInviteRisk,
   sortTeam,
   seatLimit,
   MAX_TEAM_SIZE,
@@ -142,20 +141,6 @@ describe("who may be removed", () => {
     // The server re-checks against the caller's OWN workspace team, so a
     // crafted id from another tenant lands here rather than deleting a row.
     expect(checkRevoke({ targetId: 999, selfId: 1, team: [emma, staff] }).ok).toBe(false);
-  });
-});
-
-describe("what the client is told", () => {
-  it("states the full extent of the access being granted", () => {
-    // There are no roles in this product. An invite is total access, and the
-    // confirmation has to say so rather than implying a limited one.
-    const text = describeInviteRisk("new@example.com");
-    expect(text).toContain("new@example.com");
-    expect(text).toMatch(/every message/i);
-    expect(text).toMatch(/reply as your business/i);
-    expect(text).toMatch(/change your settings/i);
-    // And that the address itself is the credential.
-    expect(text).toMatch(/anyone who can sign in with that address/i);
   });
 });
 

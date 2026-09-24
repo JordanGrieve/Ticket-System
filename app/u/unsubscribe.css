@@ -2,7 +2,7 @@
   Public unsubscribe pages.
 
   Every colour resolves through the design tokens in app/globals.css, so these
-  pages follow all six themes rather than pinning themselves to one palette —
+  pages follow both themes rather than pinning themselves to one palette —
   the same rule the rest of the product follows. The single literal below is
   the text colour ON the accent, which is white in every theme; app/admin.css
   (--on-accent) and app/mail.css (--pbm-on-dark) already carry it as a local

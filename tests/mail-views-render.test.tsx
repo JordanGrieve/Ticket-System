@@ -68,7 +68,7 @@ import type { ContactNoteDTO } from "../app/(dashboard)/queries";
  *
  *   MAIL_HARNESS_OUT=$PWD/public/_mh npx vitest run tests/mail-views-render
  *
- * Then open /_mh/inbox.html at any width, in any of the six themes, and call
+ * Then open /_mh/inbox.html at any width, in either theme (pass ?theme= by name), and call
  * __selftest(), __overflow(), __contrast(), __targets().
  *
  * ── WHAT THE FIXTURES ARE FOR ──

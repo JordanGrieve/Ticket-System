@@ -1,7 +1,7 @@
 /*
   Postbox — /settings (General, Auto-reply, Contacts, Install tabs).
 
-  Every colour is a token from globals.css. Nothing here is a literal: six
+  Every colour is a token from globals.css. Nothing here is a literal: both
   themes ride on those custom properties, and one hardcoded hex is one theme
   broken. Layout lives in classes rather than inline styles for the same reason
   the mail client moved: inline styles carry no media query and no :hover.
@@ -90,17 +90,6 @@
   color: var(--pdf-fg);
   font-size: 0.78125rem;
   font-weight: 600;
-}
-
-.st-note {
-  margin: 0;
-  padding: 12px 14px;
-  border: 1px solid var(--accent-line);
-  border-radius: 12px;
-  background: var(--accent-soft);
-  color: var(--text-3);
-  font-size: 0.78125rem;
-  line-height: 1.6;
 }
 
 /* ── layout ─────────────────────────────────────────────────── */
@@ -329,17 +318,6 @@
 
 .st-seg-btn:focus-visible {
   border-radius: 12px;
-}
-
-.st-seg-tag {
-  font-size: 0.6875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--warn-fg);
-  background: var(--warn-bg);
-  border-radius: 999px;
-  padding: 2px 7px;
 }
 
 /* ── business hours ─────────────────────────────────────────── */
@@ -645,7 +623,7 @@
    Contacts, Auto-reply and Install are one nav entry and three tabs.
    Sticky so the tabs stay reachable while a long tab (Install, Contacts)
    scrolls underneath — .pbm-page is the scroll container, not the body.
-   Colours are tokens; six themes ride on them.                          */
+   Colours are tokens; both themes ride on them.                         */
 
 .pbs-tabs {
   position: sticky;
@@ -724,7 +702,7 @@
 
 /* â”€â”€ /settings â€” General â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Appearance, Inbox and Integrations. Same rule as the rest of this
-   file: every colour is a token, because six themes ride on them. The
+   file: every colour is a token, because both themes ride on them. The
    single exception is the theme swatch gradients, which are inline in
    ThemePicker.tsx and commented there â€” a swatch has to show the theme
    it offers, not the one currently applied.                          */
@@ -1353,14 +1331,12 @@
    Same rule as the rest of this file: every colour is a token. This
    view was the last inline-styled holdout and it shipped literals —
    #fff cards, #5f594f body text, a #2b2620 code block — which is a
-   cream card on a dark ground in five of the six themes. Geometry is
+   cream card on a dark ground in the dark theme. Geometry is
    restated in install/loading.tsx (760px column, 34/32/64 padding,
    16px section radius); keep the two in step.
 
-   The code block is the one place that wants to stay dark in every
-   theme, so it borrows the navigation tokens: --nav is near-black in
-   all six palettes by design, and --nav-badge-fg is its light
-   counterpart. No literal is needed to get a terminal.            */
+   The code block reads its own per-theme --code-* tokens (see
+   globals.css). No literal is needed to get a terminal.           */
 
 .sti-wrap {
   min-width: 0;
@@ -1457,12 +1433,6 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted-2);
-}
-
-.sti-divider {
-  height: 1px;
-  margin: 20px 0;
-  background: var(--border-soft);
 }
 
 /* ── mode toggles ───────────────────────────────────────────── */
@@ -1735,10 +1705,6 @@
   margin-bottom: 8px;
 }
 
-.sti-gap {
-  height: 20px;
-}
-
 .sti-gap--lg {
   height: 24px;
 }
@@ -1828,8 +1794,8 @@
 
 /* ── Sender identity (CAN-SPAM legal name + postal address) ───────────────
    Token-only, like the rest of this file. The warning uses --warn-bg/--warn-fg
-   rather than a red literal because both halves are redefined together in all
-   six themes; a hardcoded pair is how this screen shipped cream-on-dark twice.
+   rather than a red literal because both halves are redefined together in
+   both themes; a hardcoded pair is how this screen shipped cream-on-dark twice.
 */
 .stg-identity {
   display: block;
@@ -2009,53 +1975,6 @@
   padding: 12px 14px;
 }
 
-/* The dismissible variant. Padding-right leaves room for the cross so a long
-   notice wraps before it reaches the button rather than running underneath. */
-.stg-notice--dismissible {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.stg-notice-body {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-/*
-  32px, not the 14px of the glyph inside it.
-
-  A close control drawn at icon size is the classic under-24px tap target, and
-  it is the one people reach for in a hurry. The svg stays 14px; the BUTTON is
-  32 square, which clears WCAG 2.5.8 with room and gives a thumb something to
-  aim at. Negative margins pull it back so the extra box does not push the
-  notice's own padding out.
-
-  currentColor, so it inherits the notice's ink and cannot drift out of
-  contrast with the ground the notice sets — the same reason nothing else in
-  this file hardcodes a colour.
-*/
-.stg-notice-x {
-  flex: none;
-  inline-size: 32px;
-  block-size: 32px;
-  margin: -6px -6px -6px 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 9px;
-  background: none;
-  color: currentColor;
-  cursor: pointer;
-  opacity: 0.75;
-}
-
-.stg-notice-x:hover {
-  opacity: 1;
-  background: color-mix(in oklab, currentColor 12%, transparent);
-}
-
 .stg-you {
   color: var(--muted-2);
   font-weight: 500;
@@ -2063,7 +1982,7 @@
 
 /* Owner marker. --accent-text, not --accent-strong: this sits inline in a run
    of body copy, and --accent-text is the token that carries the contrast
-   contract against the page background across all six themes. */
+   contract against the page background in both themes. */
 .stg-owner {
   color: var(--accent-text);
   font-weight: 600;
@@ -2108,8 +2027,8 @@
    the same value on every row here. Same data, laid out for one workspace.
 
    Every colour is a token, as everywhere else in this file. The state pill in
-   particular has to survive all six themes — a hardcoded amber reads as cream
-   on the dark ones. */
+   particular has to survive both themes — a hardcoded amber reads as cream
+   on the dark one. */
 
 .stg-al-tiles {
   display: grid;
@@ -2616,25 +2535,6 @@
 .stg-seg-btn:focus-visible {
   outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 2px;
-}
-
-/* One product per row on a phone, because four inputs side by side at 375px
-   is four inputs nobody can type in. */
-.stg-product {
-  display: grid;
-  gap: 8px;
-  margin: 0 0 12px;
-  padding: 12px;
-  border: 1px solid var(--border-soft);
-  border-radius: 12px;
-  background: var(--surface-3);
-}
-
-@media (min-width: 720px) {
-  .stg-product {
-    grid-template-columns: 1.4fr 0.7fr 1.2fr 1.2fr auto;
-    align-items: center;
-  }
 }
 
 /* ── The preview ────────────────────────────────────────────────

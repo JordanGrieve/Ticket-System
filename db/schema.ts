@@ -687,11 +687,11 @@ export const labels = pgTable(
      *
      * ── WHY BOTH COLUMNS ──
      * `color` stores a TOKEN KEY, and that is deliberate: the token resolves to
-     * a different hue in each of the five palettes, so one row renders legibly
+     * a tuned pair in each palette, so one row renders legibly
      * everywhere without a write. lib/labels.ts used to say a colour wheel
      * "would promise a fidelity the schema cannot keep", and against a plain
      * hex column that was true — somebody picking dark navy would produce a
-     * label nobody could read on the Ocean theme.
+     * label nobody could read on a dark theme.
      *
      * This is additive rather than a replacement. Every existing label keeps
      * its token and stays theme-adaptive; only a label somebody has explicitly
@@ -828,7 +828,7 @@ export const attachments = pgTable(
  * Named contact forms. A workspace can run several (Support, Sales, Returns…)
  * and route each to the same inbox with different framing. `key` is the public
  * identifier posted by the embed snippet, so it must be unguessable — generate
- * with generateFormKey() from lib/tokens.
+ * with newFormKey() from lib/forms.
  */
 export const forms = pgTable(
   "forms",
@@ -1423,9 +1423,6 @@ export type DomainVerificationStatus = "pending" | "verified" | "failed";
  * simpler and it is the reason a single client's bounce rate is everybody's
  * problem, which is what this table would eventually fix.
  *
- * Blocked on nothing technical — it is unbuilt because SES production access
- * is still pending and there is no point verifying a client's domain against a
- * sandboxed account.
  */
 export const sendingDomains = pgTable(
   "sending_domains",
@@ -1540,13 +1537,13 @@ export type IngestionFailureReason =
 /**
  * Bounces and complaints that could not be attributed to a workspace.
  *
- * WHY: app/api/webhooks/ses drops feedback it cannot map to a
+ * WHY: app/api/webhooks/resend drops feedback it cannot map to a
  * `campaign_recipients` row, and dropping is the CORRECT behaviour — the
  * alternative is suppressing globally, which would let one tenant's bounce
  * silence an address for every other tenant. But the drop only reached
  * `console.warn`, and nobody reads the platform logs on a normal day. So a
  * systematic attribution failure — a deploy that stops recording message ids,
- * a configuration set wired to the wrong topic — looks exactly like clean
+ * say — looks exactly like clean
  * sending. That is the sentence from the task this table exists to answer:
  * the RATE of drops has to be visible.
  *
@@ -1562,8 +1559,7 @@ export type IngestionFailureReason =
  *
  * `last_message_id` is the one unaggregated field. It is kept because "0.4% of
  * bounces are unattributable" is a number you cannot act on, whereas one real
- * SES message id can be traced through CloudWatch to the send that produced
- * it. One per row, overwritten, so it does not affect the size bound.
+ * provider message id can be traced to the send that produced it. One per row, overwritten, so it does not affect the size bound.
  */
 export const feedbackDrops = pgTable(
   "feedback_drops",
@@ -1571,9 +1567,9 @@ export const feedbackDrops = pgTable(
     id: serial("id").primaryKey(),
     /** no_message_id | unmapped_message_id */
     reason: text("reason").$type<FeedbackDropReason>().notNull(),
-    /** SES's notificationType, e.g. "Bounce" or "Complaint". */
+    /** The provider's event type, e.g. "email.bounced". */
     eventType: text("event_type").notNull(),
-    /** Newest SES message id seen for this pairing, for tracing one example. */
+    /** Newest provider message id seen for this pairing, for tracing one example. */
     lastMessageId: text("last_message_id"),
     count: integer("count").notNull().default(1),
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
@@ -1590,10 +1586,11 @@ export const feedbackDrops = pgTable(
 );
 
 /**
- * 'no_message_id' — SES sent feedback with no message id at all, so there is
- * nothing to match on. 'unmapped_message_id' — there was an id and it matched
- * no recipient row, which is legitimate for transactional ticket mail sharing
- * the configuration set, and a red flag in volume for a campaign.
+ * 'no_message_id' — the provider sent feedback with no message id at all, so
+ * there is nothing to match on. 'unmapped_message_id' — there was an id and it
+ * matched neither a campaign recipient nor a ticket message
+ * (lib/campaign-feedback.ts), which means provider ids have stopped being
+ * stored.
  */
 export type FeedbackDropReason = "no_message_id" | "unmapped_message_id";
 

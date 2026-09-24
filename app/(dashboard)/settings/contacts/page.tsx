@@ -3,13 +3,15 @@ import { resolveViewer } from "@/lib/viewer";
 import { listContactsWithCounts } from "@/lib/data";
 import { initials, relativeTime } from "@/lib/tickets";
 
+export const metadata = { title: "Contacts · Settings" };
+
 /**
  * Every person who has ever contacted this workspace — collected since v1,
  * now finally visible. CRM-lite: name, email, first seen, ticket count.
  *
  * Layout lives in the .stc-* classes in app/settings.css, not inline: this
  * page used to paint #fff cards on #efeadf borders, which is a cream card on
- * a dark ground in five of the six themes. Keeping it in the stylesheet also
+ * a dark ground in the dark theme. Keeping it in the stylesheet also
  * gives it the media queries an inline style cannot carry, and lets
  * loading.tsx borrow the same geometry instead of restating it.
  */

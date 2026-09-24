@@ -4,7 +4,7 @@ import type { TicketSource, TicketStatus } from "@/db/schema";
  * Design tokens for the mailer product.
  *
  * Everything here returns CSS custom properties rather than literal hex, so the
- * six themes in globals.css recolour badges and dots for free. Returning hex
+ * themes in globals.css recolour badges and dots for free. Returning hex
  * from this module was what previously pinned the UI to terracotta regardless
  * of theme.
  */

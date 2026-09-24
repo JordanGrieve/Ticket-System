@@ -7,7 +7,7 @@ import { useState } from "react";
  * to paste elsewhere.
  *
  * Colours are tokens. This button used to sit at `#fff` with `#5f594f` text,
- * which is a cream chip with near-invisible text in five of the six themes —
+ * which is a cream chip with near-invisible text in the dark theme —
  * and it is placed on top of the dark code block, where that failure is
  * loudest.
  */

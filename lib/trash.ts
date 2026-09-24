@@ -40,10 +40,6 @@ export function daysUntilPurge(deletedAt: Date, now: Date): number {
   return Math.ceil(ms / DAY_MS);
 }
 
-export function isPurgeDue(deletedAt: Date, now: Date): boolean {
-  return purgeDueAt(deletedAt).getTime() <= now.getTime();
-}
-
 /**
  * What the trash screen tells somebody about one ticket.
  *

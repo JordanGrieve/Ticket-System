@@ -299,32 +299,6 @@
   }
 }
 
-/* The "when" choice. One row per option so the two never run together. */
-/* Send now / schedule. The 13px radio's real target is this label, which was
-   20px tall — under 2.5.8's 24 and passing only on spacing. It is the choice
-   that decides whether a newsletter goes out this second. */
-.nl-radio {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: var(--tap-min, 24px);
-  margin: 0 0 8px;
-  font-size: 0.78125rem;
-  line-height: 1.6;
-  color: var(--muted-2);
-  cursor: pointer;
-}
-
-.nl-radio input {
-  accent-color: var(--accent);
-  cursor: inherit;
-}
-
-.nl-radio:has(input:disabled) {
-  cursor: not-allowed;
-  color: var(--muted);
-}
-
 /* ── two-up grid ────────────────────────────────────────────── */
 
 .nl-grid {
@@ -357,13 +331,6 @@
   font-size: 0.875rem;
   font-weight: 800;
   color: var(--text);
-}
-
-.nl-card-sub {
-  margin: 0;
-  font-size: 0.78125rem;
-  line-height: 1.6;
-  color: var(--muted-2);
 }
 
 /* ── fields ─────────────────────────────────────────────────── */

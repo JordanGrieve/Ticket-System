@@ -286,7 +286,7 @@ export async function messageIdExists(messageId: string): Promise<boolean> {
 
 /**
  * Backfill the real Message-ID of our most recent outbound message that
- * doesn't have one yet. SES assigns Message-IDs we never see at send time —
+ * doesn't have one yet. The provider assigns Message-IDs we never see at send time —
  * but the customer's reply carries it in In-Reply-To, so we learn it here and
  * future replies can reference a complete chain.
  */

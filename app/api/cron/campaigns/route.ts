@@ -44,8 +44,9 @@ import { authorizeCronRequest, CRON_SECRET_ENV } from "@/lib/campaign-cron";
  *
  * As of 11 Sep 2026 all three ARE open in production, on
  * `CAMPAIGN_DELIVERY_MODE=resend`. Read this route as live. What remains
- * unfinished from docs/NEWSLETTER.md §2 and §7 is the bounce/complaint webhook
- * for campaigns and per-workspace send pacing; the provider's own team-wide
+ * unfinished from docs/NEWSLETTER.md §2 and §7 is per-workspace send pacing;
+ * campaign bounces and complaints reach suppressions through the Resend
+ * webhook (lib/campaign-feedback.ts), and the provider's own team-wide
  * rate limit is respected by the Resend deliverer, which paces itself.
  */
 

@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useDismiss } from "@/lib/use-dismiss";
+import { useVisibleRefresh } from "@/lib/use-visible-refresh";
 import type { TicketDTO, MessageDTO } from "@/lib/serialize";
 import { formatDateTime } from "@/lib/serialize";
 import type { TicketStatus } from "@/db/schema";
@@ -151,40 +153,12 @@ export default function Thread({
   const endRef = useRef<HTMLDivElement>(null);
 
   // Esc / click-outside close the status menu.
-  useEffect(() => {
-    if (!statusMenuOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setStatusMenuOpen(false);
-    };
-    const onPointer = (e: PointerEvent) => {
-      if (!statusRef.current?.contains(e.target as Node)) setStatusMenuOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onPointer);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointer);
-    };
-  }, [statusMenuOpen]);
+  useDismiss(statusMenuOpen, () => setStatusMenuOpen(false), statusRef);
 
-  // Esc / click-outside close the snooze menu. Same shape as the status menu
-  // above; kept as its own effect rather than merged so closing one cannot
-  // close the other by accident.
-  useEffect(() => {
-    if (!snoozeMenuOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSnoozeMenuOpen(false);
-    };
-    const onPointer = (e: PointerEvent) => {
-      if (!snoozeRef.current?.contains(e.target as Node)) setSnoozeMenuOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onPointer);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointer);
-    };
-  }, [snoozeMenuOpen]);
+  // Esc / click-outside close the snooze menu. Kept as its own call rather
+  // than merged with the status menu so closing one cannot close the other by
+  // accident.
+  useDismiss(snoozeMenuOpen, () => setSnoozeMenuOpen(false), snoozeRef);
 
   // Mirrors the mail.css breakpoint. Only used to keep aria-expanded truthful
   // while the rail is still in its "auto" state — layout is CSS's job.
@@ -197,22 +171,10 @@ export default function Thread({
   }, []);
 
   // Below 1180px the rail is an overlay over the thread, so Esc must close it.
-  useEffect(() => {
-    if (!railOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setRail("closed");
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [railOpen]);
+  useDismiss(railOpen, () => setRail("closed"));
 
   // Customer replies should appear without a manual reload.
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (document.visibilityState === "visible") router.refresh();
-    }, 30_000);
-    return () => clearInterval(id);
-  }, [router]);
+  useVisibleRefresh(30_000);
 
   // Land on the newest message, like every other messaging client.
   useEffect(() => {

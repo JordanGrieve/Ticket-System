@@ -15,6 +15,8 @@ import {
   type TicketHit,
 } from "@/lib/search";
 
+export const metadata = { title: "Search" };
+
 /**
  * /search?q=… — results across tickets, message bodies, contacts and labels.
  *

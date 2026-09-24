@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useDismiss } from "@/lib/use-dismiss";
 import { labelChipProps } from "./label-style";
 import { useRouter } from "next/navigation";
 import type { LabelColor } from "@/db/schema";
@@ -54,21 +55,7 @@ export default function LabelPicker({
     setCurrent(labels);
   }
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    const onPointer = (e: PointerEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onPointer);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointer);
-    };
-  }, [open]);
+  useDismiss(open, () => setOpen(false), menuRef);
 
   const onIds = new Set(current.map((l) => l.id));
 

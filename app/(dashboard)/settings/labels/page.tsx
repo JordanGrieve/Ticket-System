@@ -3,7 +3,7 @@ import { resolveViewer } from "@/lib/viewer";
 import { listLabelsWithCounts } from "@/lib/labels";
 import LabelManager from "@/components/mail/LabelManager";
 
-export const metadata = { title: "Labels · Settings · Postbox" };
+export const metadata = { title: "Labels · Settings" };
 
 /**
  * Labels, as a settings screen.

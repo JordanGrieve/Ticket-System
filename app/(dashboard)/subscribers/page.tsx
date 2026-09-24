@@ -12,7 +12,7 @@ import {
 import { STATUS_LABEL } from "./labels";
 import "../../subscribers.css";
 
-export const metadata = { title: "Subscribers · Postbox" };
+export const metadata = { title: "Subscribers" };
 
 /**
  * /subscribers — who is actually on this workspace's marketing lists.
@@ -34,8 +34,8 @@ export const metadata = { title: "Subscribers · Postbox" };
  *
  * ── COLOUR ──
  * Everything renders through the .psb-* classes in app/subscribers.css. There
- * are six themes and every one of them redefines the whole token set, so a
- * literal here is a card nobody can read in five of them.
+ * are two themes and each redefines the whole token set, so a literal here is
+ * a card nobody can read in one of them.
  */
 export default async function SubscribersPage({
   searchParams,

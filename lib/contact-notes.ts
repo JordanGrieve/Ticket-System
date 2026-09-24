@@ -56,15 +56,3 @@ export function normaliseContactEmail(raw: string): string | null {
   if (!email || email.length > 254 || !email.includes("@")) return null;
   return email;
 }
-
-/**
- * How a note is attributed in the rail.
- *
- * `authorLabel` is a snapshot taken when the note was written, so it is always
- * present — including for notes written by a Postbox operator acting inside the
- * workspace, who has no agents row and would otherwise be indistinguishable
- * from a teammate who has since been removed.
- */
-export function describeAuthor(authorLabel: string): string {
-  return authorLabel.trim() || "Unknown";
-}

@@ -11,12 +11,13 @@ import { planForPriceId } from "@/lib/stripe";
  * ── THE SIGNATURE IS THE WHOLE OF THE AUTHORISATION ──
  * This endpoint is public and it upgrades accounts. Without signature
  * verification it is a free-upgrade button that anybody who can read the URL
- * may press. Same discipline as app/api/webhooks/ses: verify first, parse
+ * may press. Same discipline as app/api/webhooks/resend: verify first, parse
  * second, and never trust a field from an unverified body.
  *
  * It FAILS CLOSED. With no STRIPE_WEBHOOK_SECRET set, every request is
  * refused — an unconfigured deployment must not process billing events on
- * trust. That is the same choice the SES webhook makes about its topic ARN.
+ * trust. That is the same choice the Resend webhook makes about its signing
+ * secret.
  *
  * ── WHY THE PLAN IS DERIVED FROM THE PRICE, NOT SENT ──
  * The event says which Price was bought. planForPriceId maps that to one of

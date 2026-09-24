@@ -27,7 +27,7 @@ name: Campaign sweep
 #     that mail is missed, the sweep silently stops and stays stopped until
 #     somebody re-enables it in the Actions tab.
 #
-# So treat 288 sweeps/day as a CEILING, never a promise. Any completion
+# So treat 24 sweeps/day as a CEILING, never a promise. Any completion
 # estimate shown in the product is derived from SWEEPS_PER_DAY in
 # lib/campaign-schedule.ts and inherits the same caveat.
 #
@@ -57,8 +57,8 @@ on:
     # the compute. So the failure mode of leaving this at every five minutes
     # is the whole app going down, not a surprise invoice.
     #
-    # Put this back to '*/5 * * * *' the day production access is granted.
-    # See the caveats above: a request, not a guarantee.
+    # "Send now" does not wait for this tick: the schedule route runs one pass
+    # itself. See the caveats above: a request, not a guarantee.
     - cron: '0 * * * *'
   # So a human can force a sweep from the Actions tab without waiting for the
   # next tick — the only way to drain a campaign on demand now that there is

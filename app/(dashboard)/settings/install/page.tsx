@@ -4,19 +4,17 @@ import { resolveViewer } from "@/lib/viewer";
 import { APP_URL, EMAIL_FROM_ADDRESS } from "@/lib/config";
 import { HONEYPOT_FIELDS, hostedSignupUrl } from "@/lib/subscribe";
 
+export const metadata = { title: "Install · Settings" };
+
 export default async function InstallPage() {
   const viewer = await resolveViewer();
   if (!viewer.workspace) redirect(viewer.isAdmin ? "/admin" : "/no-access");
   const workspace = viewer.workspace;
 
-  // Prefer the request's own origin at runtime when APP_URL is left default.
   const appUrl = APP_URL;
 
-  // The newsletter URLs and the honeypot field names are resolved HERE, not in
-  // InstallView, because lib/subscribe.ts imports node:crypto and InstallView
-  // is a Client Component — importing it there would ship node:crypto to the
-  // browser. hostedSignupUrl() is the contract; the POST endpoint has no helper
-  // of its own, so it is built beside it rather than in the client.
+  // hostedSignupUrl() is the contract for the signup page; the POST endpoint
+  // has no helper of its own, so it is built here beside it.
   //
   // The key in both URLs is `workspace.apiKey` — the viewer's own workspace,
   // resolved from the session by resolveViewer(). It is a public ingestion key

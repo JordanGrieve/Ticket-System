@@ -42,9 +42,9 @@ export default function manifest(): MetadataRoute.Manifest {
     // of landscape on a tablet.
     orientation: "any",
 
-    // A SINGLE static value has to sit under six themes, three of them dark.
-    // Picking a light surface (#FFFFFF) gives the dark themes a white title
-    // bar; picking a dark surface (#241F3C) gives the light themes a dark one.
+    // A SINGLE static value has to sit under both themes, light and dark.
+    // Picking a light surface (#FFFFFF) gives the dark theme a white title
+    // bar; picking a dark surface (#241F3C) gives the light theme a dark one.
     // Either reads as broken. The brand accent is the least-wrong answer: a
     // saturated purple chrome bar reads as deliberate branding against every
     // theme rather than as a mismatched surface.

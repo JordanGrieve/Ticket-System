@@ -18,8 +18,8 @@ import type { CampaignStatus } from "../db/schema";
  * about it.
  *
  * The case it exists for is the one docs/NEWSLETTER.md warns about: Open Door
- * Bakery has ONE confirmed subscriber, and a send attempted before SES
- * production access is granted fails wholesale and spends them.
+ * Bakery has ONE confirmed subscriber, and a send that fails wholesale
+ * spends them.
  */
 
 const counts = (over: Partial<RequeueCounts> = {}): RequeueCounts => ({

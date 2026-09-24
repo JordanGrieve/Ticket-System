@@ -18,10 +18,10 @@
  * the worst case is 87.4%. The working is in PRICING.md §3.
  *
  * ── LIMITS ARE PROMISES, SO KEEP THEM MODEST ──
- * Subscriber allowances cost real money at SES rates and, more importantly,
- * real sending reputation. Postbox does not have SES production access yet
- * (case 178747420600793, still open), so nothing here should sell a volume the
- * platform cannot currently deliver. The numbers below are deliberately small.
+ * Subscriber allowances cost real money at provider rates and, more
+ * importantly, real sending reputation, so nothing here should sell a volume
+ * the platform cannot currently deliver. The numbers below are deliberately
+ * small.
  *
  * ── WE SELL SUBSCRIBERS AND WE PAY FOR EMAILS ──
  * `emailsPerMonth` exists because those are not the same thing and nothing in
@@ -146,7 +146,7 @@ export const TRIAL_LIMITS = {
    * allowance costs about six pence.
    *
    * This one protects something we cannot buy back. Every tenant sends from
-   * the same SES reputation, so a trial signed up to use Postbox as a sending
+   * the same sending reputation, so a trial signed up to use Postbox as a sending
    * platform damages the deliverability of every paying client's mail. Five
    * hundred is comfortably more than anybody evaluating the product needs and
    * comfortably less than a spam run.

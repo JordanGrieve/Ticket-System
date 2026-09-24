@@ -10,7 +10,7 @@ import {
 } from "../labels";
 import "../../../subscribers.css";
 
-export const metadata = { title: "Subscriber · Postbox" };
+export const metadata = { title: "Subscriber" };
 
 /**
  * /subscribers/[id] — the consent evidence bundle for one address.

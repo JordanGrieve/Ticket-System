@@ -1,11 +1,16 @@
-"use client";
-
-import { useEffect, useRef, useState } from "react";
 import CopyButton from "./CopyButton";
+import InstallCodeBlock from "./InstallCodeBlock";
+import InstallModes from "./InstallModes";
 import { highlight, type Language } from "../lib/highlight";
 
 /**
  * The Install tab.
+ *
+ * A SERVER component. The prompts below are long strings and lib/highlight.ts
+ * colours them; both are computed here and only their output crosses to the
+ * browser. The page's two kinds of state — which mode a section shows, and
+ * whether a code block is expanded — live in InstallModes and
+ * InstallCodeBlock, which receive finished strings and tokens as props.
  *
  * The theme picker used to live at the bottom of this file under the label
  * "Accent". It moved to Settings → General (app/(dashboard)/settings/
@@ -14,17 +19,15 @@ import { highlight, type Language } from "../lib/highlight";
  *
  * ── COLOUR ──
  * Nothing in this file paints a colour. Every rule is a .sti-* class in
- * app/settings.css reading tokens from globals.css, because six themes ride on
- * those tokens and this view used to ship literals: #fff cards on #efeadf
- * borders with #5f594f text, i.e. a cream card on a dark ground in five of the
- * six themes.
+ * app/settings.css reading tokens from globals.css, because both themes ride
+ * on those tokens and this view used to ship literals: #fff cards on #efeadf
+ * borders with #5f594f text, i.e. a cream card on a dark ground.
  *
  * ── WHY THE NEWSLETTER URLS ARE PROPS ──
  * The endpoint, the hosted link and the honeypot field names all come from
- * lib/subscribe.ts, which imports node:crypto. This is a Client Component, so
- * importing that module here would drag node:crypto into the browser bundle.
- * The page resolves them on the server and passes them down; see
- * app/(dashboard)/settings/install/page.tsx.
+ * lib/subscribe.ts. The page resolves them and passes them down (see
+ * app/(dashboard)/settings/install/page.tsx), which keeps this view renderable
+ * from a test with plain values.
  */
 export default function InstallView({
   apiKey,
@@ -57,12 +60,6 @@ export default function InstallView({
    */
   requireSignupConfirmation: boolean;
 }) {
-  const [mode, setMode] = useState<"a" | "ai">("ai");
-  // The newsletter section has its own toggle. Separate state from the contact
-  // form above on purpose: they are different jobs and a client who has already
-  // wired up one should not have the other silently switch tab underneath them.
-  const [nlMode, setNlMode] = useState<"ai" | "link">("ai");
-
   const endpoint = `${appUrl}/api/tickets/${apiKey}`;
 
   const snippetA = `<form action="${endpoint}" method="POST">
@@ -151,14 +148,34 @@ integration, however well the submission works.
    and confirm the request returns HTTP 201. If it returns 400, the field mapping
    is wrong: read the error, which names the fields that arrived empty.`;
 
-  const snippet = mode === "a" ? snippetA : snippetAI;
-
   const newsletterAiPrompt = buildNewsletterAiPrompt(
     subscribeEndpoint,
     honeypotFields,
     workspaceName,
     hostedSignupUrl,
     requireSignupConfirmation,
+  );
+
+  // Above both newsletter panels. Rendered into each, since the mode toggle
+  // sits above it and the panel below it.
+  const newsletterHelp = (
+    <p className="sti-help">
+      {requireSignupConfirmation ? (
+        <>
+          Collect subscribers for your newsletter. Every signup is
+          confirmed by email before it is added — nobody joins the list
+          until they click the link, so the addresses you collect are real
+          and the consent is evidenced.
+        </>
+      ) : (
+        <>
+          Collect subscribers for your newsletter. Signing up adds them
+          straight away and sends a welcome email, and every signup is
+          recorded with its time, the page it came from and the
+          submitter&rsquo;s IP address as evidence of consent.
+        </>
+      )}
+    </p>
   );
 
   return (
@@ -197,32 +214,47 @@ integration, however well the submission works.
           outright instead of calling it "tidy".
         */}
         <Section title="1 · Connect your contact form">
-          <div className="sti-modes">
-            <Toggle
-              active={mode === "ai"}
-              onClick={() => setMode("ai")}
-              label="AI prompt (recommended) — for your contact form"
-            >
-              ✨ AI prompt (recommended)
-            </Toggle>
-            <Toggle
-              active={mode === "a"}
-              onClick={() => setMode("a")}
-              label="No code — point your contact form at Postbox"
-            >
-              No code
-            </Toggle>
-          </div>
-          <p className="sti-help">
-            {mode === "ai"
-              ? "Paste this into Claude, ChatGPT, Cursor or whatever built your site. It carries your endpoint and tells the assistant to wire up the form you already have — keeping your own markup, classes and styling exactly as they are."
-              : "No JavaScript, nothing to install: point your form's action at this endpoint. Your page is untouched, but the visitor leaves it — they land on a Postbox confirmation page after pressing send."}
-          </p>
-          <CodeBlock
-            code={snippet}
-            name={mode === "ai" ? "the contact form prompt" : "the contact form snippet"}
-            language={mode === "ai" ? "prompt" : "html"}
-            collapsible={mode === "ai"}
+          {/* Both panels share one shape — a paragraph, then a code block —
+              so switching mode keeps the same block and only swaps its text,
+              as it did when this was one component with a ternary. */}
+          <InstallModes
+            initial="ai"
+            options={[
+              {
+                value: "ai",
+                text: "✨ AI prompt (recommended)",
+                label: "AI prompt (recommended) — for your contact form",
+              },
+              {
+                value: "a",
+                text: "No code",
+                label: "No code — point your contact form at Postbox",
+              },
+            ]}
+            panels={{
+              ai: (
+                <>
+                  <p className="sti-help">
+                    Paste this into Claude, ChatGPT, Cursor or whatever built
+                    your site. It carries your endpoint and tells the assistant
+                    to wire up the form you already have — keeping your own
+                    markup, classes and styling exactly as they are.
+                  </p>
+                  <Code code={snippetAI} name="the contact form prompt" collapsible />
+                </>
+              ),
+              a: (
+                <>
+                  <p className="sti-help">
+                    No JavaScript, nothing to install: point your form&apos;s
+                    action at this endpoint. Your page is untouched, but the
+                    visitor leaves it — they land on a Postbox confirmation page
+                    after pressing send.
+                  </p>
+                  <Code code={snippetA} name="the contact form snippet" language="html" />
+                </>
+              ),
+            }}
           />
         </Section>
 
@@ -231,80 +263,59 @@ integration, however well the submission works.
             ticket, the other asks a stranger for permission to email them
             later. They share the workspace key and nothing else. */}
         <Section title="2 · Add a newsletter signup">
-          <div className="sti-modes">
-            <Toggle
-              active={nlMode === "ai"}
-              onClick={() => setNlMode("ai")}
-              label="AI prompt (recommended) — for your newsletter signup"
-            >
-              ✨ AI prompt (recommended)
-            </Toggle>
-            <Toggle
-              active={nlMode === "link"}
-              onClick={() => setNlMode("link")}
-              label="Just a link — send people to a signup page we host"
-            >
-              Just a link
-            </Toggle>
-          </div>
-
-          <p className="sti-help">
-            {requireSignupConfirmation ? (
-              <>
-                Collect subscribers for your newsletter. Every signup is
-                confirmed by email before it is added — nobody joins the list
-                until they click the link, so the addresses you collect are real
-                and the consent is evidenced.
-              </>
-            ) : (
-              <>
-                Collect subscribers for your newsletter. Signing up adds them
-                straight away and sends a welcome email, and every signup is
-                recorded with its time, the page it came from and the
-                submitter&rsquo;s IP address as evidence of consent.
-              </>
-            )}
-          </p>
-
-          {nlMode === "ai" && (
-            <>
-              <h3 className="sti-sub-title">
-                Already have a signup box? Point your AI at it
-              </h3>
-              <p className="sti-help sti-help--tight">
-                If your site already has a &ldquo;subscribe to our newsletter&rdquo;
-                section, this is the one to use. Paste it into Claude, ChatGPT,
-                Cursor or whatever you build with. It finds the form you already
-                have and connects it, keeping your design exactly as it is —
-                rather than dropping a plain grey form into the middle of your
-                page. It also tells the assistant the one thing it would
-                otherwise get wrong — what your form should say after somebody
-                signs up, which depends on how your signups are set up.
-              </p>
-              <CodeBlock
-                code={newsletterAiPrompt}
-                name="the newsletter prompt"
-                collapsible
-              />
-            </>
-          )}
-
-          {nlMode === "link" && (
-            <>
-              <h3 className="sti-sub-title">Or just link to the hosted page</h3>
-              <p className="sti-help sti-help--tight">
-                No code at all, and nothing to change on your website. Point a
-                button, a link in your footer, a social bio or a QR code at this
-                address and we host the signup form for you.
-              </p>
-              <Field
-                value={hostedSignupUrl}
-                copyLabel="Copy link"
-                copyOf="your hosted newsletter signup page"
-                mono
-              />
-            </>
-          )}
+          <InstallModes
+            initial="ai"
+            options={[
+              {
+                value: "ai",
+                text: "✨ AI prompt (recommended)",
+                label: "AI prompt (recommended) — for your newsletter signup",
+              },
+              {
+                value: "link",
+                text: "Just a link",
+                label: "Just a link — send people to a signup page we host",
+              },
+            ]}
+            panels={{
+              ai: (
+                <>
+                  {newsletterHelp}
+                  <h3 className="sti-sub-title">
+                    Already have a signup box? Point your AI at it
+                  </h3>
+                  <p className="sti-help sti-help--tight">
+                    If your site already has a &ldquo;subscribe to our newsletter&rdquo;
+                    section, this is the one to use. Paste it into Claude, ChatGPT,
+                    Cursor or whatever you build with. It finds the form you already
+                    have and connects it, keeping your design exactly as it is —
+                    rather than dropping a plain grey form into the middle of your
+                    page. It also tells the assistant the one thing it would
+                    otherwise get wrong — what your form should say after somebody
+                    signs up, which depends on how your signups are set up.
+                  </p>
+                  <Code code={newsletterAiPrompt} name="the newsletter prompt" collapsible />
+                </>
+              ),
+              link: (
+                <>
+                  {newsletterHelp}
+                  <h3 className="sti-sub-title">Or just link to the hosted page</h3>
+                  <p className="sti-help sti-help--tight">
+                    No code at all, and nothing to change on your website. Point a
+                    button, a link in your footer, a social bio or a QR code at this
+                    address and we host the signup form for you.
+                  </p>
+                  <Field
+                    value={hostedSignupUrl}
+                    copyLabel="Copy link"
+                    copyOf="your hosted newsletter signup page"
+                    mono
+                  />
+                </>
+              ),
+            }}
+          />
         </Section>
 
         {/* ── Inbound email ── */}
@@ -626,32 +637,11 @@ function Section({
 }
 
 /**
- * A snippet, shown short until somebody asks for the rest.
- *
- * ── WHY ──
- * Both install sections lead with an AI prompt now, and a prompt is seventy
- * lines of instructions written for a machine. Rendered in full it is the whole
- * screen: the steps around it, the newsletter section below it and the key
- * rotation at the bottom all get pushed off, and a client scrolls past a wall
- * of text they were never meant to read to reach the thing they were looking
- * for. Jordan, 14 Sep 2026 — "they don't need to be the full size, just do it a
- * third of the size unless they hit show more".
- *
- * ── THE TOGGLE ONLY APPEARS WHEN IT IS EARNED ──
- * Measured, not assumed. The contact section shows a six-line form in its
- * no-code mode and a seventy-line prompt in the other, through this same
- * component; a "Show more" under six lines that are already all visible is a
- * control that lies about there being something behind it. So the height is
- * compared against the content after layout, and the button is rendered only
- * if the thing genuinely overflows.
- *
- * ── COPY TAKES THE WHOLE THING ──
- * The copy button reads `code`, not the DOM, so a collapsed block still copies
- * every line. Worth stating because the obvious implementation — read the
- * rendered text — would silently hand somebody a third of a prompt, and it
- * would look like it worked.
+ * A snippet, coloured here on the server and handed to InstallCodeBlock, which
+ * owns the Show more toggle and the Copy button. See that file for why blocks
+ * collapse and why copy reads `code` rather than the DOM.
  */
-function CodeBlock({
+function Code({
   code,
   name,
   language = "prompt",
@@ -689,112 +679,13 @@ function CodeBlock({
    */
   collapsible?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  /*
-    Starts TRUE, which is the whole trick.
-
-    The cap lives in the stylesheet, on `.is-clipped`. So a block that has not
-    been clipped yet has no cap, its scrollHeight EQUALS its clientHeight, and
-    "does this overflow?" is always no — the class can never be applied, and the
-    measurement can never see the thing it exists to measure. Starting false
-    shipped a page where every prompt stood at full height and no Show more
-    appeared at all; the suite stayed green because the test stubbed the two
-    heights to differ unconditionally, which is a state no browser produces.
-
-    Clipped first, then measured: while the class is on, scrollHeight and
-    clientHeight differ for real, so a SHORT snippet reports "fits" and this
-    flips to false. It also means the long prompt never flashes at full height
-    before collapsing.
-  */
-  const [overflows, setOverflows] = useState(true);
-  const clipRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = clipRef.current;
-    /*
-      Return without touching state. Setting `overflows` to false here would be
-      a setState inside an effect (react-hooks/set-state-in-effect, and the rule
-      is right — it is a value, not a side effect), so a stale `true` from a
-      previous render is simply never READ: `clipped` below is gated on
-      `collapsible` as well.
-    */
-    if (!collapsible || !el) return;
-    // Compared while collapsed; expanding removes the cap, so measuring then
-    // would always report "fits" and the button would vanish on first press.
-    const check = () => {
-      if (expanded) return;
-      setOverflows(el.scrollHeight > el.clientHeight + 1);
-    };
-    check();
-    // Re-measured on resize: the same prompt wraps differently at phone width,
-    // and a block that overflows on a laptop may not on a wide screen.
-    const ro = new ResizeObserver(check);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [code, expanded, collapsible]);
-
-  /* Derived, so a stale measurement from a collapsible block cannot leak into
-     one that opted out. */
-  const clipped = collapsible && overflows;
-
   return (
-    <div className="sti-code">
-      {/*
-        Both controls in one row at the top right, the opener to the LEFT of
-        Copy.
-
-        It was a text button under the block, which put it at the bottom of a
-        300px box — below the fold on a phone, and far from the only other
-        control on the panel. Jordan, 14 Sep 2026: "add a button next to copy
-        snippet on the left that says show more code."
-      */}
-      <div className="sti-code-copy">
-        {clipped && (
-          <button
-            type="button"
-            className="sti-code-more"
-            onClick={() => setExpanded((v) => !v)}
-            aria-expanded={expanded}
-            aria-label={`${expanded ? "Show less" : "Show more"} code — ${name}`}
-          >
-            {expanded ? "Show less code" : "Show more code"}
-          </button>
-        )}
-        <CopyButton
-          value={code}
-          label="Copy snippet"
-          ariaLabel={`Copy snippet — ${name}`}
-          compact
-        />
-      </div>
-      {/*
-        The clip is a wrapper, not the <pre> itself.
-
-        The <pre> scrolls horizontally, and an absolutely positioned fade inside
-        a horizontally scrolling box slides away sideways with the content. The
-        wrapper does the vertical clipping and carries the fade; the <pre> keeps
-        its own overflow-x and nothing moves.
-      */}
-      <div
-        ref={clipRef}
-        className={`sti-code-clip${!expanded && clipped ? " is-clipped" : ""}`}
-      >
-        <pre>
-          {/*
-            One span per run. The tokeniser is asserted to round-trip, so the
-            text rendered here is the text the copy button sends — a client can
-            trust that what they are looking at is what they are handing over.
-          */}
-          <code>
-            {highlight(code, language).map((token, i) => (
-              <span key={i} className={`hl-${token.kind}`}>
-                {token.text}
-              </span>
-            ))}
-          </code>
-        </pre>
-      </div>
-    </div>
+    <InstallCodeBlock
+      code={code}
+      tokens={highlight(code, language)}
+      name={name}
+      collapsible={collapsible}
+    />
   );
 }
 
@@ -834,47 +725,6 @@ function Field({
   );
 }
 
-/**
- * One mode toggle.
- *
- * ── WHY IT TAKES A LABEL ──
- *
- * This page has two sections offering the same two choices, so before 14 Sep
- * 2026 it rendered two buttons reading "✨ AI prompt (recommended)" and two
- * reading "No code". Sighted people tell them apart by the heading above each;
- * anyone listing the page's controls — a screen reader's control list, voice
- * control saying "click AI prompt" — got two identical names and no way to
- * choose.
- *
- * `label` is the accessible name and always NAMES THE SECTION. It must contain
- * the visible text word for word: WCAG 2.5.3 Label in Name, so that saying what
- * is written on the button still activates it. "AI prompt for your contact
- * form" contains "AI prompt"; "AI prompt · contact" would not.
- */
-function Toggle({
-  active,
-  onClick,
-  label,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  /** The accessible name. Must contain the visible text — see above. */
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      className="sti-mode"
-      data-on={active}
-      aria-pressed={active}
-      aria-label={label}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  );
-}
 
 function Label({ children }: { children: React.ReactNode }) {
   return <div className="sti-label">{children}</div>;

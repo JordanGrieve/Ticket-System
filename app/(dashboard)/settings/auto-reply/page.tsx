@@ -4,7 +4,7 @@ import { DEFAULT_CONFIG } from "@/lib/auto-reply";
 import { getAutoReplyConfig } from "@/lib/auto-reply-send";
 import AutoReplySettings from "./AutoReplySettings";
 
-export const metadata = { title: "Auto-reply · Settings · Postbox" };
+export const metadata = { title: "Auto-reply · Settings" };
 
 /**
  * /settings/auto-reply — auto-acknowledgement configuration.

@@ -6,8 +6,8 @@
  * The design research this was built from assumed a page that is dark all the
  * way down and prescribed literal hex values. This page is not that: app/
  * home.css guarantees only the HERO is dark, and everything below it inherits
- * whichever of the six themes the visitor has. Hardcoding the researched
- * palette would have looked right in one theme and wrong in five.
+ * whichever theme the visitor has. Hardcoding the researched palette would
+ * have looked right in one theme and wrong in the other.
  *
  * So the techniques are taken and the values are not:
  *   • depth from a gradient hairline border and an ambient accent glow, never

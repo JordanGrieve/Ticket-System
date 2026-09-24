@@ -11,7 +11,7 @@ import NewsletterBrandForm from "./NewsletterBrandForm";
 
 import { DEFAULT_WELCOME, getWelcomeEmail } from "@/lib/welcome-store";
 
-export const metadata = { title: "General · Settings · Postbox" };
+export const metadata = { title: "General · Settings" };
 
 /**
  * /settings — General, and the default settings tab.

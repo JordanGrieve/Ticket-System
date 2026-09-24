@@ -8,7 +8,7 @@ import type { FeedbackDropReason } from "@/db/schema";
  * Bounces and complaints that reached us and could not be attributed.
  *
  * ── WHY ──
- * The SES webhook drops feedback it cannot map to a `campaign_recipients` row.
+ * The Resend webhook drops feedback it cannot map to a `campaign_recipients` row.
  * That is the right call: the alternative is suppressing globally, and one
  * tenant's bounce must never silence an address for another. But the drop only
  * reached `console.warn`, and nobody reads platform logs on a normal day.
@@ -25,8 +25,8 @@ import type { FeedbackDropReason } from "@/db/schema";
  *
  * ── BEST EFFORT, ALWAYS ──
  * Every function swallows its own errors. This is called from a webhook whose
- * 200 tells Amazon the notification was handled; a logging table that turns
- * that into a 500 would make SNS retry, and repeated retries of a bounce we
+ * 200 tells the provider the event was handled; a logging table that turns
+ * that into a 500 would make it retry, and repeated retries of a bounce we
  * already processed is a worse bug than the one this diagnoses.
  */
 
@@ -42,7 +42,7 @@ import type { FeedbackDropReason } from "@/db/schema";
  */
 export async function recordFeedbackDrop(input: {
   reason: FeedbackDropReason;
-  /** SES notificationType. Free text from the provider, so it is capped. */
+  /** The provider's event type. Free text from the provider, so it is capped. */
   eventType: string;
   /** The id that could not be matched, if there was one. */
   messageId?: string | null;
@@ -125,7 +125,7 @@ export async function recentFeedbackDrops(): Promise<FeedbackDropRow[]> {
 export function describeDropReason(reason: FeedbackDropReason): string {
   switch (reason) {
     case "no_message_id":
-      return "SES sent feedback with no message id, so there was nothing to match on. Always unattributable; a rising count points at the notification configuration rather than at any workspace.";
+      return "The provider sent feedback with no message id, so there was nothing to match on. Always unattributable; a rising count points at the notification configuration rather than at any workspace.";
     case "unmapped_message_id":
       return "The message id matched no campaign recipient. Expected at a low rate — transactional ticket mail shares the configuration set and has no recipient row — but a jump means campaign sends have stopped recording their provider ids, and no bounce is suppressing anybody.";
   }

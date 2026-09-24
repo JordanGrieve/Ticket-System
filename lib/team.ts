@@ -14,9 +14,7 @@
  *
  * That is worth saying plainly, because it sets the security model. Whoever can
  * sign in with that address gets this workspace — so a typo does not fail, it
- * grants a stranger access to a client's customer mail. Hence
- * `describeInviteRisk` below, and hence the screen asks for confirmation
- * rather than inviting on one click.
+ * grants a stranger access to a client's customer mail.
  *
  * NOTE the placeholder test (isPlaceholderClerkId) deliberately stays in
  * lib/workspace.ts and is NOT re-exported here. Importing it would pull
@@ -233,20 +231,6 @@ export function checkRevoke(input: {
   return { ok: true };
 }
 
-/**
- * What the client is agreeing to when they invite somebody.
- *
- * Rendered as a confirmation, not buried in help text. The invite grants full
- * access — there are no roles in this product — and it is claimed by email, so
- * the address being right is load-bearing.
- */
-export function describeInviteRisk(email: string): string {
-  return (
-    `${email} will be able to read every message your customers send you, ` +
-    `reply as your business, and change your settings. Anyone who can sign in ` +
-    `with that address gets in, so check it carefully.`
-  );
-}
 
 /** Sorted for display: real members first, then pending, each alphabetical. */
 export function sortTeam(team: TeamMember[]): TeamMember[] {

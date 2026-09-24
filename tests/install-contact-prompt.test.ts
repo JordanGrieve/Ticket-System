@@ -178,7 +178,16 @@ describe("the install view no longer ships a pasteable script", () => {
   });
 
   it("offers exactly two contact modes", () => {
-    expect(SRC).toContain('useState<"a" | "ai">("ai")');
+    // The options handed to InstallModes for section 1, and only those.
+    const start = SRC.indexOf('<Section title="1 · Connect your contact form">');
+    expect(start, "the contact section is gone or renamed").toBeGreaterThan(-1);
+    const end = SRC.indexOf("panels={{", start);
+    expect(end).toBeGreaterThan(start);
+    const options = SRC.slice(start, end);
+    expect(options).toContain('initial="ai"');
+    expect(options.match(/value: "/g) ?? []).toHaveLength(2);
+    expect(options).toContain('value: "ai"');
+    expect(options).toContain('value: "a"');
   });
 
   it("does not describe a JavaScript paste mode any more", () => {

@@ -138,7 +138,7 @@ export const SWEEP_DEADLINE_MS = 45_000;
  *  Cost of one recipient inside sendCampaignBatch:
  *    claim UPDATE ................ 1 round trip  ~40 ms   (Neon serverless
  *    result/failure UPDATE ....... 1 round trip  ~40 ms    HTTP, lhr1, in-region)
- *    provider call ............... SES SendRawEmail p95 ~200 ms
+ *    provider call ............... Resend /emails p95 ~200 ms
  *    render ...................... negligible, in-process
  *                                              ─────────
  *                                               ~280 ms → round to 300 ms
@@ -147,8 +147,7 @@ export const SWEEP_DEADLINE_MS = 45_000;
  *  Halved for p99 latency, a slow suppression sweep, and a cold pool → 75.
  *
  * Sanity-check against the provider, not just the clock: 75 messages over 45s
- * is ~1.7/s. That is inside SES' lowest default quota (14/s) and inside
- * Resend's 10 rps — which matters because that limit is shared team-wide with
+ * is ~1.7/s. That is inside Resend's 10 rps — which matters because that limit is shared team-wide with
  * ticket replies, and a campaign that saturates it is a support-mail outage for
  * every tenant (docs/NEWSLETTER.md §1.5).
  *
@@ -157,11 +156,10 @@ export const SWEEP_DEADLINE_MS = 45_000;
  * 75 is per INVOCATION, not per minute. The 60-second budget above sizes ONE
  * run; the CADENCE is what turns it into a throughput, and the cadence no
  * longer comes from Vercel. Vercel's Hobby plan fails the deployment on a
- * sub-daily cron expression, which pinned this sweep at `0 3 * * *` — once a
- * day, i.e. 75 recipients per DAY, i.e. ~534 days for a 40,000-recipient
- * campaign. It is now driven by .github/workflows/campaign-sweep.yml on a
- * five-minute step: 288 sweeps a day → 21,600 recipients/day, and the same
- * campaign drains in about two days.
+ * sub-daily cron expression, which pinned this sweep at once a day, i.e. 75
+ * recipients per DAY, i.e. ~534 days for a 40,000-recipient campaign. It is
+ * now driven hourly by .github/workflows/campaign-sweep.yml: 24 sweeps a day
+ * → 1,800 recipients/day (see SWEEPS_PER_DAY for why hourly).
  *
  * Raising THIS constant still does not buy throughput — its ceiling is the 60s
  * function budget, not the number. On Vercel Pro, `maxDuration` can go to 300
@@ -169,7 +167,7 @@ export const SWEEP_DEADLINE_MS = 45_000;
  *
  * GitHub's schedule is best effort: ticks are delayed under runner load,
  * dropped outright with no backfill, and the workflow is auto-disabled after
- * 60 days without a commit. So 288 is a ceiling. Anything in the product that
+ * 60 days without a commit. So 24 is a ceiling. Anything in the product that
  * quotes a completion time must compute it from SWEEPS_PER_DAY in
  * lib/campaign-schedule.ts and read as a floor on elapsed time.
  */

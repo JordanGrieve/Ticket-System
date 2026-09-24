@@ -1,11 +1,11 @@
 /*
  * The setup checklist, shown in the empty thread pane.
  *
- * Theme-token only: this sits inside the mail client, which has six themes.
+ * Theme-token only: this sits inside the mail client, which has two themes.
  * The one deliberate exception is the tick mark's colour, which is white on
  * the accent fill rather than an accent token — it is ON the accent, not
  * beside it, so --accent-text (which carries the contrast contract against the
- * PAGE) would be the wrong token and would fail on the darker themes.
+ * PAGE) would be the wrong token and would fail on the dark theme.
  */
 
 .pbo-card {

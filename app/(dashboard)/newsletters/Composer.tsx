@@ -1,13 +1,8 @@
 "use client";
-import Link from "next/link";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CampaignProduct, CampaignStatus } from "@/db/schema";
-import { canRequeueFailed, describeRequeue } from "@/lib/campaign-requeue";
 import {
-  AUDIENCE_SKIP_REASONS,
   CAMPAIGN_BODY_MAX,
-  STARTER_CAMPAIGN_BODY,
   unfilledSlots,
   CAMPAIGN_NAME_MAX,
   CAMPAIGN_PREHEADER_MAX,
@@ -16,32 +11,40 @@ import {
   TEMPLATE_KEYS,
   isEditableStatus,
   renderCampaign,
-  MAX_PRODUCTS,
   safeImageUrl,
   unsubscribeUrl,
-  type AudienceSkipReason,
   type TemplateKey,
 } from "@/lib/newsletter";
-import {
-  canAbortSend,
-  canCancelSchedule,
-  canDiscardRecipients,
-  canSchedule,
-  describeAbort,
-  describeDrain,
-} from "@/lib/campaign-schedule";
 import type { CampaignHealth } from "@/lib/campaign-health";
 import type { SweepSummary } from "@/lib/campaign-cron";
 import { CAMPAIGN_TEMPLATES } from "@/lib/campaign-templates";
-import {
-  describeWhen,
-  primaryLabel,
-  readinessSteps,
-  readyToSend,
-  scheduledSummary,
-  type WhenMode,
-} from "@/lib/campaign-readiness";
+import { readinessSteps, readyToSend } from "@/lib/campaign-readiness";
 import type { RecipientStatus } from "@/db/schema";
+import { useDismiss } from "@/lib/use-dismiss";
+import ProductsHeroEditor from "@/components/newsletter/ProductsHeroEditor";
+import {
+  STATUS_LABELS,
+  blankProduct,
+  draftFrom,
+  emptyDraft,
+  type AbortState,
+  type ArmTarget,
+  type AudienceJson,
+  type AudienceState,
+  type CampaignJson,
+  type CampaignRowDTO,
+  type Draft,
+  type QueueState,
+  type RequeueState,
+  type ScheduleState,
+} from "./composer-model";
+import CampaignList, { type PendingNav } from "./CampaignList";
+import AudienceReadout from "./AudienceReadout";
+import PreviewCard from "./PreviewCard";
+import RecipientsPanel from "./RecipientsPanel";
+import SchedulePanel from "./SchedulePanel";
+
+export type { CampaignRowDTO } from "./composer-model";
 
 /**
  * The newsletter composer. One page, no wizard.
@@ -62,20 +65,16 @@ import type { RecipientStatus } from "@/db/schema";
  *
  * ── HOW A MESSAGE ON THIS SCREEN REACHES A PERSON ──
  *
- * Not from here. No request handler on this page calls `sendCampaignBatch`
- * except test-send, which mails the viewer and nobody else:
- *  - the Schedule button ARMS a campaign; it does not send it. The one caller
- *    of `sendCampaignBatch` is the scheduled sweep, which takes its deliverer
- *    as an argument with no default;
- *  - that sweep hands every message to the provider named by
- *    `CAMPAIGN_DELIVERY_MODE`, and since 11 Sep 2026 that is `resend` in
- *    production. It used to be unset everywhere, and this comment used to say
- *    so — do not read the rest of it as if nothing transmits;
- *  - the sweep runs at the cadence in SWEEP_CADENCE (hourly during
- *    development, see SWEEPS_PER_DAY)
+ *  - "Send now" arms the campaign, and the schedule route then runs ONE pass
+ *    of the shared send loop (lib/campaign-sweep-run.ts, the code the cron
+ *    calls) before returning. A later time is armed and left to the sweep;
+ *  - every message goes to the provider named by `CAMPAIGN_DELIVERY_MODE`,
+ *    which is `resend` in production;
+ *  - the sweep runs at the cadence in SWEEP_CADENCE, see SWEEPS_PER_DAY
  *    (.github/workflows/campaign-sweep.yml), best-effort: GitHub delays or
  *    drops scheduled runs under load, and disables the workflow entirely after
- *    60 days with no commits.
+ *    60 days with no commits;
+ *  - "Send me a test first" mails the viewer and nobody else.
  *
  * Two things this comment used to list as blockers are now DONE, and are kept
  * here named rather than deleted so nobody re-adds them: marketing consent IS
@@ -84,13 +83,10 @@ import type { RecipientStatus } from "@/db/schema";
  * Settings writes it, and both this screen and the schedule route refuse to arm
  * a campaign without one.
  *
- * So there are three actions, and each is named for exactly what it does.
- * "Queue recipients" writes `campaign_recipients` rows. "Remove queued
- * recipients" deletes them again — it exists because queueing used to be a
- * one-way door. "Schedule" writes a status and a timestamp, which is what
- * makes the campaign visible to that log-only sweep. There is no Send button,
- * because a button that looks like it delivers mail and does not is the single
- * most dishonest thing this screen could contain.
+ * Each action is named for exactly what it does. "Queue recipients" writes
+ * `campaign_recipients` rows. "Remove queued recipients" deletes them again —
+ * it exists because queueing used to be a one-way door. The primary button
+ * arms the campaign, and says whether that is now or at a time.
  *
  * ── NO INVENTED NUMBERS ──
  *
@@ -101,234 +97,11 @@ import type { RecipientStatus } from "@/db/schema";
  * the screen says there is no count rather than showing a plausible one.
  */
 
-// ── Props ────────────────────────────────────────────────────────
-
-export type CampaignRowDTO = {
-  id: number;
-  name: string;
-  subject: string;
-  status: CampaignStatus;
-  listId: number | null;
-  listName: string | null;
-  recipientCount: number;
-  /** ISO — formatted in the browser so it shows the viewer's timezone. */
-  updatedAtIso: string;
-  sentAtIso: string | null;
-};
-
-
-// ── Wire shapes ──────────────────────────────────────────────────
-
-/** What /api/campaigns/:id returns for `campaign` (dates arrive as strings). */
-type CampaignJson = {
-  id: number;
-  name: string;
-  subject: string;
-  preheader: string | null;
-  templateKey: string;
-  body: string;
-  listId: number | null;
-  heroImageUrl: string | null;
-  heroImageAlt: string | null;
-  products: CampaignProduct[] | null;
-  status: CampaignStatus;
-  recipientCount: number;
-  scheduledAt: string | null;
-  updatedAt: string;
-  sentAt: string | null;
-};
-
-type AudienceJson = {
-  recipientCount: number;
-  candidateCount: number;
-  skipped: Record<AudienceSkipReason, number>;
-  skippedTotal: number;
-};
-
-/*
- * ── THERE IS NO "no_list" STATE ANY MORE, AND THAT IS THE POINT ──
- *
- * There used to be, and it was load-bearing in the worst way. Lists were
- * retired — a campaign goes to everyone confirmed in the workspace, which is
- * what `workspaceAudience` selects — so every campaign created since has
- * `list_id` NULL. Four places still keyed off that column, and together they
- * made every campaign in the product unsendable: the count was never
- * requested, the panel said "Nobody has confirmed a subscription yet" to
- * workspaces with confirmed subscribers, "Queue recipients" was permanently
- * disabled, and the help text under it told the client to choose a list from
- * a picker that no longer exists.
- *
- * Removing the member from this union is what found all four — each one
- * stopped compiling. That is the reason it is a union member and not a
- * boolean: the same retirement had already left `list_id IS NOT NULL` in
- * scheduleCampaign, where nothing could catch it and nothing did until
- * somebody ran the whole journey by hand (tests/campaign-arming.test.ts).
- */
-type AudienceState =
-  | { kind: "unsaved" }
-  | { kind: "loading" }
-  | { kind: "error"; message: string }
-  | { kind: "ready"; data: AudienceJson };
-
-type QueueState =
-  | { kind: "idle" }
-  | { kind: "working" }
-  | { kind: "error"; message: string }
-  | { kind: "done"; inserted: number; total: number }
-  | { kind: "discarded"; deleted: number; total: number };
-
-/** The draft ⇄ scheduled edge, as the screen sees it. */
-type ScheduleState =
-  | { kind: "idle" }
-  | { kind: "working" }
-  | { kind: "error"; message: string }
-  | {
-      kind: "armed";
-      immediate: boolean;
-      /** The inline pass's own counts, or null when there was not one. */
-      sent: SweepSummary | null;
-    }
-  | { kind: "cancelled" };
-
-/**
- * The sending → failed edge. SEPARATE state from `schedule`, and separate on
- * purpose: sharing one state would let "Schedule cancelled. This campaign is a
- * draft again" render after an abort, which is the single most dangerous
- * sentence this screen could get wrong.
- */
-type AbortState =
-  | { kind: "idle" }
-  | { kind: "working" }
-  | { kind: "error"; message: string }
-  | { kind: "stopped"; stopped: number; alreadySent: number };
-
-
-// ── Local draft ──────────────────────────────────────────────────
-
-type Draft = {
-  /** null until the campaign has been created server-side. */
-  id: number | null;
-  name: string;
-  subject: string;
-  preheader: string;
-  templateKey: TemplateKey;
-  body: string;
-  listId: number | null;
-  /** As authored. Validated server-side; empty string means none. */
-  heroImageUrl: string;
-  heroImageAlt: string;
-  /**
-   * Products, as authored. Strings rather than CampaignProduct, because a
-   * half-typed URL is a normal state of a form and null is not a thing a text
-   * input can hold. Converted on save.
-   */
-  products: DraftProduct[];
-  status: CampaignStatus;
-  /**
-   * Server-held counts and times. Written only from a server response, never
-   * by `patch()` — they describe what the database holds, not the form.
-   */
-  recipientCount: number;
-  scheduledAtIso: string | null;
-};
-
-/**
- * One product row while it is being typed.
- *
- * The id is a client-side key and never leaves the browser. React needs a
- * stable key per row, and the array index is not one: deleting the second of
- * four rows would have React reuse the third row's DOM for the fourth, so the
- * text in a focused input would jump to the row above it.
- */
-type DraftProduct = {
-  id: number;
-  name: string;
-  imageUrl: string;
-  price: string;
-  url: string;
-};
-
-let nextProductId = 1;
-
-function blankProduct(): DraftProduct {
-  return { id: nextProductId++, name: "", imageUrl: "", price: "", url: "" };
-}
-
-function emptyDraft(): Draft {
-  return {
-    id: null,
-    name: "",
-    subject: "",
-    preheader: "",
-    templateKey: "plain",
-    heroImageUrl: "",
-    heroImageAlt: "",
-    products: [],
-    // Not "". See STARTER_CAMPAIGN_BODY — a default turns writing into
-    // editing, and it is the only place the merge tokens are demonstrated
-    // rather than merely listed.
-    body: STARTER_CAMPAIGN_BODY,
-    listId: null,
-    status: "draft",
-    recipientCount: 0,
-    scheduledAtIso: null,
-  };
-}
-
-function draftFrom(c: CampaignJson): Draft {
-  return {
-    id: c.id,
-    name: c.name,
-    subject: c.subject,
-    preheader: c.preheader ?? "",
-    templateKey: (TEMPLATE_KEYS as readonly string[]).includes(c.templateKey)
-      ? (c.templateKey as TemplateKey)
-      : "plain",
-    body: c.body,
-    listId: c.listId,
-    heroImageUrl: c.heroImageUrl ?? "",
-    heroImageAlt: c.heroImageAlt ?? "",
-    products: (c.products ?? []).map((p) => ({
-      id: nextProductId++,
-      name: p.name,
-      imageUrl: p.imageUrl ?? "",
-      price: p.price ?? "",
-      url: p.url ?? "",
-    })),
-    status: c.status,
-    recipientCount: c.recipientCount,
-    scheduledAtIso: c.scheduledAt,
-  };
-}
-
 // ── Labels ───────────────────────────────────────────────────────
 
 const TEMPLATE_LABELS: Record<TemplateKey, string> = {
   plain: "Plain — text on white, no framing",
   branded: "Branded — your workspace name above a card",
-};
-
-const STATUS_LABELS: Record<CampaignStatus, string> = {
-  draft: "Draft",
-  scheduled: "Scheduled",
-  sending: "Sending",
-  sent: "Sent",
-  failed: "Failed",
-};
-
-const SKIP_LABELS: Record<AudienceSkipReason, string> = {
-  invalid_email: "Address isn’t usable",
-  duplicate: "Same person twice",
-  // Ordered above suppression deliberately: suppression is enforced three
-  // more times in SQL after selectAudience returns, so mis-attributing it
-  // costs a number on a report. Consent has no backstop anywhere — this
-  // count is the only signal an operator ever gets that a list is not
-  // provably opted in. See hasMarketingConsent in lib/newsletter.ts.
-  no_consent: "No consent on record",
-  suppressed: "Suppressed",
-  unsubscribed: "Unsubscribed",
-  bounced: "Hard bounced",
-  complained: "Reported as spam",
 };
 
 /**
@@ -440,19 +213,10 @@ export default function Composer({
     result: { ok: true; data: AudienceJson } | { ok: false; message: string };
   } | null>(null);
   const [queue, setQueue] = useState<QueueState>({ kind: "idle" });
-  /** The unqueue button has become its own "are you sure?" — see below. */
-  const [confirmingUnqueue, setConfirmingUnqueue] = useState(false);
   /** Putting a wholly-failed campaign back in the queue. */
-  const [requeue, setRequeue] = useState<
-    { kind: "idle" } | { kind: "working" } | { kind: "error"; message: string }
-  >({ kind: "idle" });
+  const [requeue, setRequeue] = useState<RequeueState>({ kind: "idle" });
 
   const [schedule, setSchedule] = useState<ScheduleState>({ kind: "idle" });
-  /**
-   * The test send. Separate state from `schedule` because it is not part of
-   * the draft→scheduled edge at all — it writes nothing and changes no status,
-   * so it must not be able to put the schedule UI into a working state.
-   */
   /**
    * The server's diagnosis of why this campaign is or is not moving. Null for
    * an unsaved draft, which cannot be stuck yet.
@@ -470,20 +234,8 @@ export default function Composer({
     number
   > | null>(null);
   const [abort, setAbort] = useState<AbortState>({ kind: "idle" });
-  const [testSend, setTestSend] = useState<
-    | { kind: "idle" }
-    | { kind: "working" }
-    | { kind: "ok"; transmitted: boolean }
-    | { kind: "error"; message: string }
-  >({ kind: "idle" });
   /** Which template this draft was started from. Presentational only. */
   const [startedFrom, setStartedFrom] = useState("blank");
-  const [whenMode, setWhenMode] = useState<WhenMode>("now");
-  /** Local wall clock, two fields; lib/campaign-readiness turns them into an instant. */
-  const [whenDate, setWhenDate] = useState("");
-  const [whenTime, setWhenTime] = useState("");
-
-  const [view, setView] = useState<"desktop" | "mobile">("desktop");
 
   const subjectRef = useRef<HTMLInputElement>(null);
   const preheaderRef = useRef<HTMLInputElement>(null);
@@ -562,43 +314,15 @@ export default function Composer({
 
   /**
    * Nothing on this page autosaves, so switching away from unsaved edits would
-   * silently bin them. One browser confirm is ugly and is still the cheapest
-   * honest answer; a draft-recovery buffer is not Phase 1 work.
+   * silently bin them. Two callers can do that — starting a new draft, and
+   * selecting a different campaign — and neither needs an ANSWER, only a way
+   * to be RESUMED: each one records what it was about to do, returns, and the
+   * panel in the rail replays it with `force` if the person says discard.
    *
-   * ── DELIBERATE EXCEPTION TO THE NO-window.confirm RULE ──
-   * The InstallView task asks whoever moves that view off browser dialogs to
-   * decide whether this file follows, and to write down which. It does, for
-   * two of the three, and this is the one that does NOT.
-   *
-   * The reason is not that a browser dialog is nice here. It is that this is a
-   * SYNCHRONOUS gate on a NAVIGATION, called from two places — starting a new
-   * draft, and selecting a different campaign — and it has to answer before
-   * either proceeds. An inline panel cannot: it would mean deferring both
-   * callers behind a promise and restructuring the control flow of the whole
-   * component, to replace an interruption with a different interruption.
-   *
-   * "You clicked away from unsaved work" is also the one moment a modal is
-   * genuinely the right shape. The others are actions with their own button,
-   * where the consequence belongs beside the control.
-   *
-   * The honest cost: like every window.confirm it renders in the operating
-   * system's palette rather than the workspace's, and cannot be asserted on in
-   * a test. That is the trade, not a claim it is better in every way.
+   * The rest of the pattern is the one the other confirms use: alertdialog,
+   * the safe choice focused, Escape backs out, focus goes back to whatever was
+   * pressed. There are no browser-native dialogs in the client.
    */
-  /*
-    ── CONVERTED, 8 SEP 2026 — AND HOW THE "SYNCHRONOUS GATE" ARGUMENT WENT ──
-    The header above was right that a browser confirm answers before either
-    caller proceeds and an inline panel cannot. What it did not say is that
-    the callers do not need an ANSWER, only a way to be RESUMED: each one
-    records what it was about to do, returns, and the panel replays it with
-    `force` if the person says discard. Neither caller's control flow moved;
-    each grew one parameter.
-
-    The rest of the pattern is the one the other three use: alertdialog, the
-    safe choice focused, Escape backs out, focus goes back to whatever was
-    pressed. There are now no browser-native dialogs in the client.
-  */
-  type PendingNav = { kind: "new" } | { kind: "open"; id: number };
   const [pendingNav, setPendingNav] = useState<PendingNav | null>(null);
   /** Whatever was pressed to get here — the New button or a campaign row. */
   const navReturnFocus = useRef<HTMLElement | null>(null);
@@ -630,16 +354,8 @@ export default function Composer({
     else void open(next.id, true);
   }
 
-  useEffect(() => {
-    if (pendingNav === null) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") keepEditing();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-    // keepEditing is stable in what it does; the listener only needs to exist
-    // while there is a question to dismiss.
-  }, [pendingNav]);
+  // Escape backs out; the listener only exists while there is a question.
+  useDismiss(pendingNav !== null, keepEditing);
 
   /** `force` is the panel replaying a parked call after "Discard changes". */
   function startNew(force = false) {
@@ -654,19 +370,6 @@ export default function Composer({
     setSchedule({ kind: "idle" });
   }
 
-  /**
-   * Delete the open draft.
-   *
-   * Two presses, not a modal. The first turns the button into "Delete for
-   * good?" and the second does it; clicking anything else, or saving, puts it
-   * back. A confirm dialog would be the other answer, but this screen already
-   * has a discard-changes panel and a second one arguing about a different
-   * thing would be two dialogs deep on a phone.
-   *
-   * Drafts only, which is why the button is not rendered in any other state:
-   * the server refuses the rest, and offering a control that always fails is
-   * worse than not offering it.
-   */
   /**
    * Copy this campaign into a new draft and open it.
    *
@@ -710,6 +413,19 @@ export default function Composer({
     }
   }
 
+  /**
+   * Delete the open draft.
+   *
+   * Two presses, not a modal. The first turns the button into "Delete for
+   * good?" and the second does it; clicking anything else, or saving, puts it
+   * back. A confirm dialog would be the other answer, but this screen already
+   * has a discard-changes panel and a second one arguing about a different
+   * thing would be two dialogs deep on a phone.
+   *
+   * Drafts only, which is why the button is not rendered in any other state:
+   * the server refuses the rest, and offering a control that always fails is
+   * worse than not offering it.
+   */
   async function destroy() {
     if (draft.id === null || deleting) return;
     if (!confirmingDelete) {
@@ -867,14 +583,6 @@ export default function Composer({
   }
 
   /**
-   * Phase one of the send: create the recipient rows.
-   *
-   * Idempotent by construction (INSERT … ON CONFLICT DO NOTHING), suppression
-   * -filtered inside the statement that writes, and incapable of emailing
-   * anyone. It is called "queue" on the button because that is precisely and
-   * only what it does.
-   */
-  /**
    * Re-read the server's diagnosis of this campaign.
    *
    * ── WHY THIS EXISTS ──
@@ -908,6 +616,14 @@ export default function Composer({
     }
   }
 
+  /**
+   * Phase one of the send: create the recipient rows.
+   *
+   * Idempotent by construction (INSERT … ON CONFLICT DO NOTHING), suppression
+   * -filtered inside the statement that writes, and incapable of emailing
+   * anyone. It is called "queue" on the button because that is precisely and
+   * only what it does.
+   */
   async function queueRecipients() {
     if (savedId === null || queue.kind === "working") return;
     setQueue({ kind: "working" });
@@ -955,11 +671,10 @@ export default function Composer({
    * site, and it is triggered by its own button — so the question
    * can be asked in the place the answer applies to, which is the whole
    * argument. Same pattern as LabelManager's delete row and InstallView's key
-   * rotation.
+   * rotation. The question itself is RecipientsPanel's.
    */
   async function discardRecipients() {
     if (savedId === null || queue.kind === "working") return;
-    setConfirmingUnqueue(false);
 
     setQueue({ kind: "working" });
     try {
@@ -991,55 +706,20 @@ export default function Composer({
   /**
    * Arm the campaign: draft → scheduled.
    *
-   * ONE request for both modes. "As soon as the next sweep runs" simply omits
-   * `scheduledAt`, and the server resolves that to `now`; a picked time is sent
-   * as an ISO instant so the server is never guessing at a timezone. There is
-   * no second endpoint that sends immediately, and there is nothing here that
-   * reaches an email provider — see the panel this button sits in.
+   * ONE request for both modes. "Now" simply omits `scheduledAt`, and the
+   * server resolves that to `now` and runs one send pass inline; a picked time
+   * is sent as an ISO instant so the server is never guessing at a timezone.
+   * SchedulePanel resolves the picked time; an unusable one arrives here as
+   * `ok: false` and is reported like any other refusal.
    */
-  /**
-   * Send this draft to the signed-in user's own address, once.
-   *
-   * Writes nothing and transitions nothing — see the route header. The
-   * recipient is fixed server-side to the session's address; there is no
-   * parameter here to change it, and adding one would turn this into a relay.
-   */
-  async function sendTestToMyself() {
-    if (savedId === null || testSend.kind === "working") return;
-    setTestSend({ kind: "working" });
-    try {
-      const res = await fetch(`/api/campaigns/${savedId}/test-send`, {
-        method: "POST",
-      });
-      const data = (await res.json()) as {
-        error?: string;
-        transmitted?: boolean;
-      };
-      if (!res.ok) {
-        setTestSend({
-          kind: "error",
-          message: data.error ?? "That didn’t send.",
-        });
-        return;
-      }
-      setTestSend({ kind: "ok", transmitted: data.transmitted === true });
-    } catch {
-      setTestSend({ kind: "error", message: "That didn’t send." });
-    }
-  }
-
-  async function armSchedule() {
+  async function armSchedule(target: ArmTarget) {
     if (savedId === null || schedule.kind === "working") return;
 
-    let scheduledAt: string | null = null;
-    if (whenMode === "later") {
-      const w = describeWhen(whenDate, whenTime, new Date(), timeZone);
-      if (!w.ok) {
-        setSchedule({ kind: "error", message: w.text });
-        return;
-      }
-      scheduledAt = w.iso;
+    if (!target.ok) {
+      setSchedule({ kind: "error", message: target.text });
+      return;
     }
+    const scheduledAt = target.iso;
 
     setSchedule({ kind: "working" });
     try {
@@ -1101,22 +781,6 @@ export default function Composer({
   }
 
   /**
-   * STOP a send in progress: sending → failed. Not the same act as
-   * `cancelSchedule` above and not the same word.
-   *
-   * The confirmation text comes from `describeAbort` rather than being written
-   * inline here, so the exact wording a person reads before an irreversible act
-   * on a live audience is pinned by a test instead of by whoever last edited
-   * this file. It is built from the per-status breakdown the server sent, never
-   * from `recipientCount` — that is every row ever created for the campaign,
-   * and quoting it as "still queued" would understate what has already gone out
-   * by exactly the number of people who received it.
-   *
-   * When the breakdown is missing (an older response, a failed refresh) the
-   * numbers are NOT guessed. The confirm says so instead: a made-up "0 already
-   * sent" is the one error here that could not be walked back.
-   */
-  /**
    * Put every recipient back in the queue and return the campaign to draft.
    *
    * Offered ONLY when the campaign reached nobody — lib/campaign-requeue.ts
@@ -1158,6 +822,22 @@ export default function Composer({
     }
   }
 
+  /**
+   * STOP a send in progress: sending → failed. Not the same act as
+   * `cancelSchedule` above and not the same word.
+   *
+   * The confirmation text comes from `describeAbort` rather than being written
+   * inline here, so the exact wording a person reads before an irreversible act
+   * on a live audience is pinned by a test instead of by whoever last edited
+   * this file. It is built from the per-status breakdown the server sent, never
+   * from `recipientCount` — that is every row ever created for the campaign,
+   * and quoting it as "still queued" would understate what has already gone out
+   * by exactly the number of people who received it.
+   *
+   * When the breakdown is missing (an older response, a failed refresh) the
+   * numbers are NOT guessed. The confirm says so instead: a made-up "0 already
+   * sent" is the one error here that could not be walked back.
+   */
   /*
     Converted off window.confirm on 8 Sep 2026 — the last of the three. The
     question is asked by AbortPanel, in the place the answer applies to, with
@@ -1323,7 +1003,6 @@ export default function Composer({
     out inline; the server still refuses independently (409 from the schedule
     route), so this is the explanation, not the guard.
   */
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   /*
     ── WHICH CARD A READINESS STEP IS POINTING AT ──
 
@@ -1360,8 +1039,6 @@ export default function Composer({
       ? chasing
       : null;
   const ready = readyToSend(steps, draft.status);
-  const when =
-    whenMode === "later" ? describeWhen(whenDate, whenTime, new Date(), timeZone) : null;
 
   /** Where each unmet step is fixed. Focus or scroll; never a page change except Settings. */
   function goFix(fix: (typeof steps)[number]["fix"]) {
@@ -1385,26 +1062,6 @@ export default function Composer({
     }
   }
 
-  /*
-    Whether this finished campaign can go back in the queue.
-
-    Null until the recipient counts have loaded — the answer depends entirely
-    on them, and defaulting to "no" would hide the control from the person who
-    needs it for as long as the numbers take to arrive.
-  */
-  const requeueVerdict =
-    recipients === null
-      ? null
-      : canRequeueFailed(draft.status, {
-          queued: recipients.queued,
-          reached:
-            recipients.sent +
-            recipients.delivered +
-            recipients.bounced +
-            recipients.complained,
-          failed: recipients.failed,
-        });
-
   const subjectLong = draft.subject.length > SUBJECT_DISPLAY_LIMIT;
   const canSave =
     editable &&
@@ -1417,119 +1074,18 @@ export default function Composer({
   return (
     <div className="nl-wrap">
       {/* ── Campaign list ──────────────────────────────────────── */}
-      <aside className="nl-rail" aria-label="Campaigns">
-        <div className="nl-rail-head">
-          <h1 className="nl-rail-title">Newsletters</h1>
-          {/* Not `onClick={startNew}`: the event would arrive as `force`. */}
-          <button type="button" className="nl-new" onClick={() => startNew()}>
-            New
-          </button>
-        </div>
-
-        {pendingNav !== null && (
-          /* Sits under the rail head, between the two things that can raise
-             it — the New button above and the campaign rows below. */
-          <div
-            className="nl-confirm"
-            role="alertdialog"
-            aria-label="Unsaved changes"
-            aria-describedby="nl-discard-q"
-          >
-            <p className="nl-confirm-q" id="nl-discard-q">
-              You have unsaved changes to this campaign.{" "}
-              {pendingNav.kind === "new"
-                ? "Starting a new one throws them away."
-                : "Opening another one throws them away."}
-            </p>
-            <div className="nl-confirm-acts">
-              <button
-                type="button"
-                className="nl-confirm-btn"
-                autoFocus
-                onClick={keepEditing}
-              >
-                Keep editing
-              </button>
-              <button
-                type="button"
-                className="nl-confirm-btn nl-confirm-btn--danger"
-                onClick={discardAndGo}
-              >
-                Discard changes
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/*
-          The welcome newsletter, pinned above the campaigns.
-
-          It is not a campaign and cannot be one: it has no audience, no
-          schedule and no send button, because it goes to exactly one person at
-          the moment they subscribe. But this is where a client comes looking
-          for "the emails my newsletter sends", and it was in Settings — Jordan,
-          14 Sep 2026, on this page: "I don't see the newsletter on AMORIA's
-          page." A thing nobody can find is a thing nobody edits, and this one
-          sends to real customers unedited.
-
-          A link rather than a row that loads into the composer beside it: the
-          composer is built around a campaign's lifecycle, and giving it a
-          second kind of thing to hold would put scheduling and audience
-          controls one state bug away from something that has neither.
-        */}
-        <Link
-          href="/newsletters/welcome"
-          className="nl-item nl-item--welcome"
-          aria-label={`Welcome newsletter — sent automatically on signup, currently ${
-            welcomeEnabled ? "on" : "off"
-          }`}
-        >
-          <span className="nl-item-name">Welcome newsletter</span>
-          <span className="nl-item-meta">
-            <span className="nl-dot" data-on={welcomeEnabled} aria-hidden />
-            {welcomeEnabled ? "Sends on signup" : "Off"}
-          </span>
-        </Link>
-
-        {campaigns.length === 0 ? (
-          <p className="nl-rail-empty">No campaigns yet.</p>
-        ) : (
-          <ul className="nl-list">
-            {campaigns.map((c) => (
-              <li key={c.id}>
-                <button
-                  type="button"
-                  className="nl-item"
-                  data-current={c.id === draft.id}
-                  aria-current={c.id === draft.id ? "true" : undefined}
-                  onClick={() => open(c.id)}
-                  disabled={loadingId !== null}
-                >
-                  <span className="nl-item-top">
-                    <span className="nl-item-name">{c.name}</span>
-                    <span className="nl-status" data-status={c.status}>
-                      {STATUS_LABELS[c.status]}
-                    </span>
-                  </span>
-                  <span className="nl-item-sub">{c.subject}</span>
-                  {/*
-                    The queued count, or nothing. It used to lead with
-                    `c.listName ?? "No audience list"`, which since the list
-                    retirement said "No audience list" on every campaign ever
-                    — a fact about a model that no longer exists, sitting where
-                    a client looks for a fact about their campaign.
-                  */}
-                  <span className="nl-item-meta">
-                    {c.recipientCount > 0
-                      ? `${c.recipientCount} queued`
-                      : "Nothing queued yet"}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </aside>
+      <CampaignList
+        campaigns={campaigns}
+        currentId={draft.id}
+        loadingId={loadingId}
+        pendingNav={pendingNav}
+        welcomeEnabled={welcomeEnabled}
+        // Not `onNew={startNew}`: an argument would arrive as `force`.
+        onNew={() => startNew()}
+        onOpen={(id) => void open(id)}
+        onKeepEditing={keepEditing}
+        onDiscardAndGo={discardAndGo}
+      />
 
       {/* ── Composer ───────────────────────────────────────────── */}
       <div className="nl-main">
@@ -1723,217 +1279,14 @@ export default function Composer({
                 />
               </div>
 
-              {/*
-                ── THE IMAGE ──
-                A URL the client already has, from their own shop or site.
-                Postbox hosts no files, so there is nothing to upload to.
-
-                The description is not optional and the hint says why: Gmail
-                and Outlook block remote images by default for a sender
-                somebody has not corresponded with, which is most recipients
-                of a first newsletter. For them the description IS the image.
-              */}
-              <div className="nl-field">
-                <label className="nl-label" htmlFor="nl-hero-url">
-                  Image <span className="nl-optional">OPTIONAL</span>
-                </label>
-                <input
-                  id="nl-hero-url"
-                  className="nl-input"
-                  type="url"
-                  inputMode="url"
-                  placeholder="https://yourshop.com/photo.jpg"
-                  value={draft.heroImageUrl}
-                  maxLength={2000}
-                  disabled={!editable}
-                  onChange={(e) => patch({ heroImageUrl: e.target.value })}
-                />
-                {draft.heroImageUrl.trim() && !safeImageUrl(draft.heroImageUrl) && (
-                  <p className="nl-warn" role="status">
-                    That link can&rsquo;t be used. It needs to start with{" "}
-                    <b>https://</b>
-                  </p>
-                )}
-              </div>
-
-              {draft.heroImageUrl.trim() && (
-                <div className="nl-field">
-                  <label className="nl-label" htmlFor="nl-hero-alt">
-                    Describe the image
-                  </label>
-                  <input
-                    id="nl-hero-alt"
-                    className="nl-input"
-                    type="text"
-                    placeholder="A tray of sourdough, just out of the oven"
-                    value={draft.heroImageAlt}
-                    maxLength={200}
-                    disabled={!editable}
-                    onChange={(e) => patch({ heroImageAlt: e.target.value })}
-                  />
-                  <p className="nl-help">
-                    Most people have images turned off, and read this instead.
-                    Keep anything that matters — a price, a date — in the
-                    message as well as the picture.
-                  </p>
-                </div>
-              )}
-
-              {/*
-                ── PRODUCTS ──
-                A short grid under the message: a photo, a name, a price, a
-                link. The name IS the link when there is one, so a product is
-                one target rather than a name and a "Buy" beside it.
-
-                Rows are added one at a time rather than starting with three
-                blanks. Three empty rows read as three things you are expected
-                to fill in; an empty section with one button reads as optional,
-                which it is.
-              */}
-              <div className="nl-field">
-                <span className="nl-label" id="nl-products-label">
-                  Products <span className="nl-optional">OPTIONAL</span>
-                </span>
-
-                <ul className="nl-products" aria-labelledby="nl-products-label">
-                  {draft.products.map((p, i) => (
-                    <li className="nl-product" key={p.id}>
-                      <div className="nl-product-head">
-                        <span className="nl-product-n">{i + 1}</span>
-                        <button
-                          type="button"
-                          className="nl-product-x"
-                          disabled={!editable}
-                          onClick={() =>
-                            patch({
-                              products: draft.products.filter((q) => q.id !== p.id),
-                            })
-                          }
-                        >
-                          Remove<span className="stg-sr-only"> product {i + 1}</span>
-                        </button>
-                      </div>
-
-                      <label className="nl-sublabel" htmlFor={`nl-p-name-${p.id}`}>
-                        Name
-                      </label>
-                      <input
-                        id={`nl-p-name-${p.id}`}
-                        className="nl-input"
-                        type="text"
-                        placeholder="Sourdough loaf"
-                        value={p.name}
-                        maxLength={120}
-                        disabled={!editable}
-                        onChange={(e) =>
-                          patch({
-                            products: draft.products.map((q) =>
-                              q.id === p.id ? { ...q, name: e.target.value } : q,
-                            ),
-                          })
-                        }
-                      />
-
-                      <label className="nl-sublabel" htmlFor={`nl-p-price-${p.id}`}>
-                        Price
-                      </label>
-                      {/*
-                        Free text, not a number input. "from £2" and "2 for £5"
-                        are prices a bakery actually charges, and a number field
-                        would make them untypable.
-                      */}
-                      <input
-                        id={`nl-p-price-${p.id}`}
-                        className="nl-input"
-                        type="text"
-                        placeholder="£3.50"
-                        value={p.price}
-                        maxLength={40}
-                        disabled={!editable}
-                        onChange={(e) =>
-                          patch({
-                            products: draft.products.map((q) =>
-                              q.id === p.id ? { ...q, price: e.target.value } : q,
-                            ),
-                          })
-                        }
-                      />
-
-                      <label className="nl-sublabel" htmlFor={`nl-p-img-${p.id}`}>
-                        Photo link
-                      </label>
-                      <input
-                        id={`nl-p-img-${p.id}`}
-                        className="nl-input"
-                        type="url"
-                        inputMode="url"
-                        placeholder="https://yourshop.com/loaf.jpg"
-                        value={p.imageUrl}
-                        maxLength={2000}
-                        disabled={!editable}
-                        onChange={(e) =>
-                          patch({
-                            products: draft.products.map((q) =>
-                              q.id === p.id ? { ...q, imageUrl: e.target.value } : q,
-                            ),
-                          })
-                        }
-                      />
-                      {p.imageUrl.trim() && !safeImageUrl(p.imageUrl) && (
-                        <p className="nl-warn" role="status">
-                          That photo link can&rsquo;t be used. It needs to start
-                          with <b>https://</b>
-                        </p>
-                      )}
-
-                      <label className="nl-sublabel" htmlFor={`nl-p-url-${p.id}`}>
-                        Buy link
-                      </label>
-                      <input
-                        id={`nl-p-url-${p.id}`}
-                        className="nl-input"
-                        type="url"
-                        inputMode="url"
-                        placeholder="https://yourshop.com/loaf"
-                        value={p.url}
-                        maxLength={2000}
-                        disabled={!editable}
-                        onChange={(e) =>
-                          patch({
-                            products: draft.products.map((q) =>
-                              q.id === p.id ? { ...q, url: e.target.value } : q,
-                            ),
-                          })
-                        }
-                      />
-                      {p.url.trim() && !safeImageUrl(p.url) && (
-                        <p className="nl-warn" role="status">
-                          That link can&rsquo;t be used. It needs to start with{" "}
-                          <b>https://</b>
-                        </p>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-
-                {draft.products.length < MAX_PRODUCTS ? (
-                  <button
-                    type="button"
-                    className="stg-button"
-                    disabled={!editable}
-                    onClick={() =>
-                      patch({ products: [...draft.products, blankProduct()] })
-                    }
-                  >
-                    Add a product
-                  </button>
-                ) : (
-                  <p className="nl-help" role="status">
-                    That&rsquo;s {MAX_PRODUCTS}, the most one newsletter can
-                    carry.
-                  </p>
-                )}
-              </div>
+              <ProductsHeroEditor
+                heroImageUrl={draft.heroImageUrl}
+                heroImageAlt={draft.heroImageAlt}
+                products={draft.products}
+                disabled={!editable}
+                onChange={patch}
+                newProduct={blankProduct}
+              />
 
               <div className="nl-field">
                 <label className="nl-label" htmlFor="nl-template">
@@ -2013,10 +1366,7 @@ export default function Composer({
               {/*
                 No list picker. A campaign goes to everyone in the workspace
                 who has confirmed and not unsubscribed — Jordan's call,
-                11 Sep 2026: one thank-you on signup, and then everyone. The
-                picker it replaces was worse than redundant: nothing has ever
-                written a row to `list_subscribers`, so every list was empty
-                and every campaign it gated was unsendable.
+                11 Sep 2026: one thank-you on signup, and then everyone.
               */}
               <AudienceReadout state={audience} />
             </section>
@@ -2024,859 +1374,47 @@ export default function Composer({
 
           {/* ── Right: preview + the honest bit ──────────────── */}
           <div className="nl-col">
-            <section className="nl-card nl-card--preview">
-              <div className="nl-preview-head">
-                <div>
-                  <h3 className="nl-card-title">Preview</h3>
-                </div>
-                <div className="nl-seg" role="group" aria-label="Preview width">
-                  <button
-                    type="button"
-                    className="nl-seg-btn"
-                    data-on={view === "desktop"}
-                    aria-pressed={view === "desktop"}
-                    onClick={() => setView("desktop")}
-                  >
-                    Desktop
-                  </button>
-                  <button
-                    type="button"
-                    className="nl-seg-btn"
-                    data-on={view === "mobile"}
-                    aria-pressed={view === "mobile"}
-                    onClick={() => setView("mobile")}
-                  >
-                    Mobile
-                  </button>
-                </div>
-              </div>
-
-              <div className="nl-envelope">
-                <p className="nl-env-row">
-                  <span className="nl-env-key">Subject</span>
-                  <span className="nl-env-val">
-                    {rendered.subject || (
-                      <em className="nl-env-empty">No subject yet</em>
-                    )}
-                  </span>
-                </p>
-                <p className="nl-env-row">
-                  <span className="nl-env-key">Preview line</span>
-                  <span className="nl-env-val">
-                    {draft.preheader.trim() ? (
-                      draft.preheader
-                    ) : (
-                      <em className="nl-env-empty">
-                        None — the inbox will scrape your opening words
-                      </em>
-                    )}
-                  </span>
-                </p>
-              </div>
-
-              {/*
-                THE ONE PLACE ON THIS PAGE WITH COLOURS THAT ARE NOT TOKENS.
-                The document inside carries the renderer's own inline styles
-                because mail clients strip stylesheets — those bytes are the
-                product, and theming them would make the preview a lie. They are
-                confined to this sandboxed iframe: `sandbox=""` with no
-                allow-list means no scripts, no navigation, no form submission,
-                and no access to this origin. The frame's own chrome (the border
-                and the paper it sits on) is tokenised in newsletter.css.
-              */}
-              <div className="nl-frame" data-view={view}>
-                <iframe
-                  className="nl-iframe"
-                  title="Newsletter preview"
-                  sandbox=""
-                  srcDoc={rendered.html}
-                />
-              </div>
-
-              <details className="nl-details">
-                <summary className="nl-summary">
-                  Plain-text part (what text-only clients get)
-                </summary>
-                <pre className="nl-pre">{rendered.text}</pre>
-              </details>
-            </section>
+            <PreviewCard rendered={rendered} preheader={draft.preheader} />
 
             {/* ── What queueing does, and does not do ────────── */}
-            <section
-              className="nl-card"
-              data-chasing={chasingUnfinished === "queue" || undefined}
-            >
-              <h3 className="nl-card-title" id="nl-recipients">Recipients</h3>
-
-              <div className="nl-queue-row">
-                <button
-                  type="button"
-                  className="nl-queue"
-                  onClick={queueRecipients}
-                  disabled={
-                    savedId === null ||
-                    draft.status !== "draft" ||
-                    dirty ||
-                    queue.kind === "working"
-                  }
-                >
-                  {queue.kind === "working" ? "Working…" : "Queue recipients"}
-                </button>
-
-                {/*
-                  The other half of the one-way door. Rendered whenever the
-                  campaign holds rows, not tucked behind a menu: the whole
-                  point is that somebody who has just queued the wrong list can
-                  see the way back without going looking for it.
-                */}
-                {confirmingUnqueue ? (
-                  /* The control becomes the question. The count is the whole
-                     point of asking — "remove 47 rows" is a different decision
-                     from "remove 4000". */
-                  <div
-                    className="nl-confirm"
-                    role="alertdialog"
-                    aria-label="Remove queued recipients"
-                    aria-describedby="nl-unqueue-q"
-                  >
-                    <p className="nl-confirm-q" id="nl-unqueue-q">
-                      {draft.recipientCount > 0
-                        ? `Remove ${draft.recipientCount.toLocaleString()} queued recipient ${
-                            draft.recipientCount === 1 ? "row" : "rows"
-                          }?`
-                        : "Remove this campaign's queued recipients?"}{" "}
-                      The rows are deleted; you can queue the list again
-                      afterwards.
-                    </p>
-                    <div className="nl-confirm-acts">
-                      {/* Cancel first and focused: the button that was under
-                          the pointer has just unmounted, so focus has to land
-                          somewhere and the safe choice changes nothing. */}
-                      <button
-                        type="button"
-                        className="nl-confirm-btn"
-                        autoFocus
-                        onClick={() => setConfirmingUnqueue(false)}
-                      >
-                        Keep them
-                      </button>
-                      <button
-                        type="button"
-                        className="nl-confirm-btn nl-confirm-btn--danger"
-                        onClick={discardRecipients}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="nl-unqueue"
-                    onClick={() => setConfirmingUnqueue(true)}
-                    disabled={
-                      savedId === null ||
-                      !canDiscardRecipients(draft.status) ||
-                      draft.recipientCount === 0 ||
-                      queue.kind === "working"
-                    }
-                  >
-                    Remove queued recipients
-                  </button>
-                )}
-              </div>
-
-              {savedId === null && (
-                <p className="nl-help">Create the draft first.</p>
-              )}
-              {savedId !== null && dirty && (
-                <p className="nl-help">Save your changes first.</p>
-              )}
-              {savedId !== null && draft.status === "scheduled" && (
-                <p className="nl-help">
-                  This campaign is scheduled. Cancel the schedule below to
-                  change its recipients.
-                </p>
-              )}
-
-              {queue.kind === "error" && (
-                <p className="nl-error" role="alert">
-                  {queue.message}
-                </p>
-              )}
-              {queue.kind === "done" && (
-                <p className="nl-note" role="status">
-                  {queue.inserted === 0
-                    ? "Nothing new to queue — every eligible recipient already had a row."
-                    : `${queue.inserted.toLocaleString()} recipient ${
-                        queue.inserted === 1 ? "row" : "rows"
-                      } created.`}{" "}
-                  {/*
-                    This used to end "No email has been sent, and none will be
-                    — the scheduled sweep has no live sender configured." The
-                    first half is true of queueing always; the second was
-                    hardcoded, so it asserted that nothing would ever send even
-                    on a workspace whose sender IS configured. Whether mail can
-                    actually leave is diagnosed by lib/campaign-health.ts from
-                    the real environment and shown in the panel below — one
-                    answer, computed, rather than two, one of them a guess.
-                  */}
-                  {queue.total.toLocaleString()} in total, all sitting at
-                  “queued”. Queueing sends nothing by itself — scheduling is
-                  what starts it.
-                </p>
-              )}
-              {queue.kind === "discarded" && (
-                <p className="nl-note" role="status">
-                  {queue.deleted === 0
-                    ? "Nothing to remove — this campaign had no queued rows."
-                    : `${queue.deleted.toLocaleString()} queued ${
-                        queue.deleted === 1 ? "row" : "rows"
-                      } deleted.`}{" "}
-                  {queue.total.toLocaleString()} recipient{" "}
-                  {queue.total === 1 ? "row" : "rows"} left on this campaign.
-                </p>
-              )}
-            </section>
+            <RecipientsPanel
+              savedId={savedId}
+              status={draft.status}
+              dirty={dirty}
+              recipientCount={draft.recipientCount}
+              queue={queue}
+              chasing={chasingUnfinished === "queue"}
+              onQueue={queueRecipients}
+              onDiscard={discardRecipients}
+            />
 
             {/* ── The draft ⇄ scheduled edge ─────────────────── */}
-            <section className="nl-card">
-              <h3 className="nl-card-title">Schedule this campaign</h3>
-
-              {draft.recipientCount > 0 && (
-                <p className="nl-note">
-                  {describeDrain(draft.recipientCount, recipientsPerSweep)}
-                </p>
-              )}
-
-              {/*
-                Why this campaign is not moving. Rendered only when there is
-                something to say — a healthy campaign gets no panel, because a
-                reassurance box on every screen is noise that trains people to
-                skip the one that matters.
-
-                Hoisted OUT of the arming form below, where it used to live.
-                "stalled" is by definition a `sending` campaign, and `sending`
-                is the branch that now offers Stop — so leaving the diagnosis
-                inside the branch that renders the arming form would mean the
-                explanation vanished from precisely the screen a person reaches
-                when they are deciding whether to stop.
-              */}
-              {health && health.blockers.length > 0 && (
-                <div
-                  className={health.state === "stalled" ? "nl-warn" : "nl-note"}
-                  role="status"
-                >
-                  <b>
-                    {health.state === "stalled"
-                      ? `This campaign is stuck — ${health.remaining} ${
-                          health.remaining === 1 ? "person has" : "people have"
-                        } not been sent to.`
-                      : "Before this can send:"}
-                  </b>
-                  <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
-                    {health.blockers.map((b) => (
-                      <li key={b.code} style={{ marginBottom: 4 }}>
-                        {b.message}
-                        {b.operatorOnly && (
-                          <>
-                            {" "}
-                            <em>We&rsquo;ve been told about this one.</em>
-                          </>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/*
-                ── THREE BRANCHES, NOT TWO ──
-
-                `sending` is checked FIRST. It used to fall through to the
-                arming form, which rendered a "When" fieldset and a Schedule
-                button that were disabled and pointless — the screen's answer to
-                a wedged campaign was a greyed-out control for a transition that
-                had already happened. The only action that applies to a campaign
-                mid-send is stopping it, so that is the only action it shows.
-              */}
-              {canAbortSend(draft.status) ? (
-                <AbortPanel
-                  state={abort}
-                  recipients={recipients}
-                  stalled={health?.state === "stalled"}
-                  onAbort={abortSend}
-                />
-              ) : requeueVerdict?.ok ? (
-                /*
-                  A finished campaign that reached NOBODY. Until this existed
-                  the only exit was building the whole thing again, and with a
-                  one-person list the person was spent — docs/NEWSLETTER.md
-                  warned about exactly that.
-
-                  Offered only in the all-failed case. The partly-delivered one
-                  is not a confirmation away, it is absent, because a retry
-                  there could put a second copy in a real inbox.
-                */
-                <>
-                  <p className="nl-note nl-note--warn" role="status">
-                    This campaign finished and <b>nobody received it</b>. Every
-                    attempt failed, so nothing was delivered and nobody was
-                    emailed twice.
-                  </p>
-                  <div className="nl-queue-row">
-                    <button
-                      type="button"
-                      className="nl-secondary"
-                      onClick={requeueFailed}
-                      disabled={requeue.kind === "working"}
-                    >
-                      {requeue.kind === "working"
-                        ? "Putting them back…"
-                        : "Put the recipients back and edit"}
-                    </button>
-                    <span className="nl-help">
-                      {describeRequeue(requeueVerdict)} Fix whatever stopped it
-                      first — a failure this complete is usually one cause, not
-                      many.
-                    </span>
-                  </div>
-                  {requeue.kind === "error" && (
-                    <p className="nl-error" role="alert">
-                      {requeue.message}
-                    </p>
-                  )}
-                </>
-              ) : draft.status === "scheduled" ? (
-                /*
-                  Armed. One status row — when, and for how many — with the
-                  way back beside it. The paragraphs about sweeps and log
-                  lines that used to sit here explained the machinery; the
-                  row states the fact.
-                */
-                <div className="nl-status-row" role="status">
-                  <span className="nl-status-dot" aria-hidden />
-                  <span className="nl-status-text">
-                    {scheduledSummary(draft.scheduledAtIso, draft.recipientCount, timeZone)}
-                  </span>
-                  <button
-                    type="button"
-                    className="nl-linkbtn"
-                    onClick={cancelSchedule}
-                    disabled={!canCancelSchedule(draft.status) || schedule.kind === "working"}
-                  >
-                    {schedule.kind === "working" ? "Cancelling…" : "Cancel"}
-                  </button>
-                </div>
-              ) : (
-                <>
-                  {/*
-                    ── THE CHECKLIST ──
-                    Every condition the primary button waits on, as a list
-                    with ticks, each unmet one a link to where it is fixed.
-                    lib/campaign-readiness.ts decides the ticks; this draws
-                    them. Before this there were five disabled buttons and
-                    one grey line naming the first unmet step.
-                  */}
-                  <ol className="nl-ready" aria-label="Before this can send">
-                    {steps.map((s) => (
-                      <li key={s.key} className="nl-ready-item" data-done={s.done || undefined}>
-                        <span className="nl-ready-tick" aria-hidden>
-                          {s.done ? "✓" : ""}
-                        </span>
-                        {s.done ? (
-                          <span className="nl-ready-label">{s.label}</span>
-                        ) : (
-                          <button
-                            type="button"
-                            className="nl-ready-fix"
-                            onClick={() => goFix(s.fix)}
-                          >
-                            <span className="nl-ready-label">{s.label}</span>
-                            <span className="nl-ready-go" aria-hidden>
-                              →
-                            </span>
-                          </button>
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-
-                  <fieldset className="nl-field">
-                    <legend className="nl-label">Send</legend>
-                    <div className="nl-seg" role="group" aria-label="When to send">
-                      <button
-                        type="button"
-                        className="nl-seg-btn"
-                        data-on={whenMode === "now"}
-                        aria-pressed={whenMode === "now"}
-                        onClick={() => {
-                          setWhenMode("now");
-                          setSchedule({ kind: "idle" });
-                        }}
-                      >
-                        Now
-                      </button>
-                      <button
-                        type="button"
-                        className="nl-seg-btn"
-                        data-on={whenMode === "later"}
-                        aria-pressed={whenMode === "later"}
-                        onClick={() => {
-                          setWhenMode("later");
-                          setSchedule({ kind: "idle" });
-                        }}
-                      >
-                        Later
-                      </button>
-                    </div>
-                    {whenMode === "later" && (
-                      <>
-                        <div className="nl-when-grid">
-                          <label className="nl-field nl-field--tight">
-                            <span className="nl-label">Date</span>
-                            <input
-                              className="nl-input"
-                              type="date"
-                              value={whenDate}
-                              min={todayLocal()}
-                              onChange={(e) => {
-                                setWhenDate(e.target.value);
-                                setSchedule({ kind: "idle" });
-                              }}
-                            />
-                          </label>
-                          <label className="nl-field nl-field--tight">
-                            <span className="nl-label">Time</span>
-                            <input
-                              className="nl-input"
-                              type="time"
-                              value={whenTime}
-                              onChange={(e) => {
-                                setWhenTime(e.target.value);
-                                setSchedule({ kind: "idle" });
-                              }}
-                            />
-                          </label>
-                        </div>
-                        <p className="nl-when-readout" data-ok={when?.ok || undefined}>
-                          {when?.text}
-                        </p>
-                      </>
-                    )}
-                  </fieldset>
-
-                  <div className="nl-send-row">
-                    <button
-                      type="button"
-                      className="nl-queue nl-send"
-                      onClick={armSchedule}
-                      disabled={
-                        !ready ||
-                        (whenMode === "later" && !(when && when.ok)) ||
-                        schedule.kind === "working"
-                      }
-                    >
-                      {schedule.kind === "working"
-                        ? "Scheduling…"
-                        : primaryLabel(whenMode, when)}
-                    </button>
-                    {/*
-                      The test send, beside the primary rather than above it:
-                      it is the thing to press first, and it is the only
-                      action here that produces a real message without
-                      committing anything. It needs a saved draft and the
-                      postal address, not the whole list.
-                    */}
-                    {/*
-                      A secondary BUTTON, not a link-button.
-
-                      It sat beside "Save" as underlined text, which reads as a
-                      footnote rather than the other half of a pair of choices —
-                      and this is the action that shows a client what their
-                      subscribers will actually receive, so it is the one thing
-                      on the screen most worth pressing before the real send.
-                      .stg-button--secondary is new (app/globals.css); the style
-                      guide had described it for days without anyone writing it.
-                    */}
-                    <button
-                      type="button"
-                      className="stg-button stg-button--secondary"
-                      onClick={sendTestToMyself}
-                      disabled={
-                        savedId === null ||
-                        dirty ||
-                        !canSendLegally ||
-                        testSend.kind === "working"
-                      }
-                    >
-                      {testSend.kind === "working" ? "Sending…" : "Send me a test first"}
-                    </button>
-                  </div>
-
-                  {testSend.kind === "ok" && (
-                    <p className="nl-note" role="status">
-                      {testSend.transmitted ? (
-                        <>
-                          Sent to <b>{viewerEmail}</b>. Check the footer carries
-                          your postal address and that the unsubscribe link is
-                          there — the link in a test belongs to nobody, so
-                          pressing it does nothing.
-                        </>
-                      ) : (
-                        <>
-                          <b>Nothing was transmitted.</b> Delivery is still in
-                          log-only mode, so this was written to the server log
-                          instead of sent. Set{" "}
-                          <code>CAMPAIGN_DELIVERY_MODE=resend</code> to send for
-                          real.
-                        </>
-                      )}
-                    </p>
-                  )}
-                  {testSend.kind === "error" && (
-                    <p className="nl-error" role="status">
-                      {testSend.message}
-                    </p>
-                  )}
-                  {savedId !== null && !canSchedule(draft.status) && (
-                    <p className="nl-help">
-                      This campaign is{" "}
-                      {STATUS_LABELS[draft.status].toLowerCase()} and can’t be
-                      scheduled again.
-                    </p>
-                  )}
-                </>
-              )}
-
-              {schedule.kind === "error" && (
-                <p className="nl-error" role="alert">
-                  {schedule.message}
-                </p>
-              )}
-              {schedule.kind === "cancelled" && (
-                <p className="nl-note" role="status">
-                  Schedule cancelled. This campaign is a draft again and its
-                  queued recipients are untouched.
-                </p>
-              )}
-              {/*
-                What "Send now" actually did, from the server's own count.
-
-                Reported rather than assumed: the request sends one pass and
-                the sweep drains the rest, so the honest answer after pressing
-                the button is a number, not "sent". Saying "sent" over a list
-                that has three hundred left would be the screen lying about the
-                one thing somebody is watching it for.
-              */}
-              {schedule.kind === "armed" && schedule.sent && (
-                <p className="nl-note" role="status">
-                  {schedule.sent.delivered > 0
-                    ? `${schedule.sent.delivered.toLocaleString()} sent just now.`
-                    : "Nothing went out in that first pass."}{" "}
-                  {schedule.sent.failed > 0 &&
-                    `${schedule.sent.failed.toLocaleString()} failed. `}
-                  {schedule.sent.more
-                    ? "The rest follow on the next sweep, about once an hour."
-                    : schedule.sent.completed > 0
-                      ? "That was everybody — this campaign is done."
-                      : ""}
-                </p>
-              )}
-            </section>
+            <SchedulePanel
+              savedId={savedId}
+              status={draft.status}
+              dirty={dirty}
+              recipientCount={draft.recipientCount}
+              scheduledAtIso={draft.scheduledAtIso}
+              recipientsPerSweep={recipientsPerSweep}
+              health={health}
+              recipients={recipients}
+              abort={abort}
+              onAbort={abortSend}
+              requeue={requeue}
+              onRequeue={requeueFailed}
+              schedule={schedule}
+              onScheduleReset={() => setSchedule({ kind: "idle" })}
+              onArm={armSchedule}
+              onCancelSchedule={cancelSchedule}
+              steps={steps}
+              ready={ready}
+              onFix={goFix}
+              canSendLegally={canSendLegally}
+              viewerEmail={viewerEmail}
+            />
           </div>
         </div>
       </div>
     </div>
   );
-}
-
-// ── Stopping a send in progress ──────────────────────────────────
-
-/**
- * The only control a `sending` campaign gets.
- *
- * ── IT IS NOT STYLED AS "CANCEL SCHEDULE" ──
- *
- * Different verb, different className, and the numbers are on screen BEFORE the
- * confirm rather than only inside it. Cancelling a schedule costs nothing and
- * can be redone in a second; this ends a campaign part way through a real
- * audience and cannot be redone at all. A person who has cancelled a schedule
- * twice this week should not be able to press this on the same reflex.
- *
- * The counts are shown even when nothing is wrong, because "this is fine, it is
- * just working through the queue" and "this will never move again" are the two
- * things a person is choosing between, and only one of them is worth stopping.
- */
-export function AbortPanel({
-  state,
-  recipients,
-  stalled,
-  onAbort,
-}: {
-  state: AbortState;
-  recipients: Record<RecipientStatus, number> | null;
-  stalled: boolean;
-  /** Called once the person has confirmed. The panel asks; the caller acts. */
-  onAbort: () => void;
-}) {
-  const alreadySent =
-    recipients === null
-      ? null
-      : recipients.sent +
-        recipients.delivered +
-        recipients.bounced +
-        recipients.complained;
-
-  /*
-    ── THE QUESTION, IN THE PANEL ──
-    This was a window.confirm until 8 Sep 2026. It qualified for the in-page
-    pattern on every count — one call site, its own button, asynchronous —
-    and it is the most consequential
-    question in the product: it can strand part of a live audience. The
-    numbers a person is deciding on belong beside the button they are about to
-    press, not in the operating system's grey box.
-
-    The text is still describeAbort's, so the number of people already mailed
-    and still queued is the same wording the tests pin, split into paragraphs
-    rather than joined with newlines a <p> would collapse. When the counts
-    could not be read the question says so, because "we do not know how many"
-    is a fact the person needs before pressing Stop.
-  */
-  const [confirming, setConfirming] = useState(false);
-  const stopBtnRef = useRef<HTMLButtonElement>(null);
-  const returnFocus = useRef(false);
-
-  useEffect(() => {
-    if (!confirming) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      returnFocus.current = true;
-      setConfirming(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [confirming]);
-
-  useEffect(() => {
-    if (confirming || !returnFocus.current) return;
-    returnFocus.current = false;
-    stopBtnRef.current?.focus();
-  }, [confirming]);
-
-  const question = (
-    recipients !== null && alreadySent !== null
-      ? describeAbort({ queued: recipients.queued, alreadySent })
-      : "Stop this campaign for good?\n\nWe couldn’t read how many people have already been sent this, so this may stop a campaign that is part way through a live audience. Anyone already mailed cannot be un-mailed.\n\nThis cannot be undone. The campaign is marked Failed and can’t be edited, re-scheduled or sent again."
-  ).split("\n\n");
-
-  return (
-    <>
-      <p className="nl-note nl-note--warn" role="status">
-        This campaign is <b>sending</b>. It can’t be edited, re-scheduled, or
-        have its recipients changed — those rows are already being worked
-        through.{" "}
-        {stalled
-          ? "It is also not moving, and it will keep re-entering the sweep every few minutes until something changes."
-          : "The sweep is working through it a batch at a time."}
-      </p>
-
-      {recipients !== null && alreadySent !== null && (
-        <ul className="nl-facts">
-          <li className="nl-fact nl-fact--no">
-            <b>
-              {alreadySent.toLocaleString()}{" "}
-              {alreadySent === 1 ? "person has" : "people have"} already been
-              sent this.
-            </b>{" "}
-            Those messages were handed over before you got here and cannot be
-            recalled. Stopping does not touch them, and they stay on the report
-            as mailed.
-          </li>
-          <li className="nl-fact nl-fact--yes">
-            <b>
-              {recipients.queued.toLocaleString()}{" "}
-              {recipients.queued === 1 ? "person is" : "people are"} still
-              queued.
-            </b>{" "}
-            Stopping is the only thing that reaches them — they would never be
-            sent this campaign.
-          </li>
-        </ul>
-      )}
-
-      {confirming && (
-        <div
-          className="nl-confirm"
-          role="alertdialog"
-          aria-label="Stop this campaign"
-          aria-describedby="nl-abort-q"
-        >
-          <div id="nl-abort-q">
-            {question.map((para, i) => (
-              <p className="nl-confirm-q" key={i}>
-                {i === 0 ? <b>{para}</b> : para}
-              </p>
-            ))}
-          </div>
-          <div className="nl-confirm-acts">
-            {/* Cancel first and focused, for the reason the unqueue confirm
-                gives — and it matters more here, because the other button
-                cannot be undone. */}
-            <button
-              type="button"
-              className="nl-confirm-btn"
-              autoFocus
-              disabled={state.kind === "working"}
-              onClick={() => {
-                returnFocus.current = true;
-                setConfirming(false);
-              }}
-            >
-              Keep sending
-            </button>
-            <button
-              type="button"
-              className="nl-confirm-btn nl-confirm-btn--danger"
-              disabled={state.kind === "working"}
-              onClick={() => {
-                returnFocus.current = true;
-                setConfirming(false);
-                onAbort();
-              }}
-            >
-              Stop it for good
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="nl-queue-row">
-        <button
-          ref={stopBtnRef}
-          type="button"
-          className="nl-danger"
-          onClick={() => setConfirming(true)}
-          disabled={state.kind === "working" || confirming}
-          aria-expanded={confirming}
-        >
-          {state.kind === "working" ? "Stopping…" : "Stop this campaign"}
-        </button>
-        <span className="nl-help">
-          Ends the campaign for good and marks it <b>Failed</b>.{" "}
-          {alreadySent === 0 ? (
-            /*
-              Stopping BEFORE anybody was reached is recoverable, and saying
-              otherwise would frighten somebody out of the safe choice. The
-              requeue panel appears afterwards precisely because nothing was
-              delivered — see lib/campaign-requeue.ts.
-            */
-            <>
-              Nobody has been reached yet, so afterwards you can put the
-              recipients back and return this to draft.
-            </>
-          ) : (
-            <>
-              There is no way to finish the send afterwards, and the people
-              already mailed cannot be un-mailed.
-            </>
-          )}
-        </span>
-      </div>
-
-      {state.kind === "error" && (
-        <p className="nl-error" role="alert">
-          {state.message}
-        </p>
-      )}
-
-      {state.kind === "stopped" && (
-        <p className="nl-note nl-note--warn" role="status">
-          <b>Stopped.</b>{" "}
-          {state.stopped === 0
-            ? "Nobody was still queued, so nobody was cut off."
-            : `${state.stopped.toLocaleString()} queued ${
-                state.stopped === 1 ? "recipient" : "recipients"
-              } will never be sent this campaign.`}{" "}
-          {state.alreadySent === 0
-            ? "Nobody had been sent it."
-            : `${state.alreadySent.toLocaleString()} ${
-                state.alreadySent === 1 ? "person" : "people"
-              } had already been sent it, and that cannot be undone.`}{" "}
-          The campaign is marked Failed and the sweep will not pick it up again.
-        </p>
-      )}
-    </>
-  );
-}
-
-// ── Audience readout ─────────────────────────────────────────────
-
-/**
- * The recipient count, or an honest reason there isn't one.
- *
- * Never renders a number it did not receive from the server. "Unknown" is a
- * legitimate state here and is shown as such: an audience figure that is a
- * guess is the one number on this screen that could cause real-world harm.
- */
-function AudienceReadout({
-  state,
-}: {
-  state: AudienceState;
-}) {
-  if (state.kind === "unsaved") {
-    return <p className="nl-help">Save the draft to count its audience.</p>;
-  }
-
-  if (state.kind === "loading") {
-    return (
-      <p className="nl-help" role="status">
-        Counting…
-      </p>
-    );
-  }
-
-  if (state.kind === "error") {
-    return (
-      <p className="nl-error" role="alert">
-        {state.message}
-      </p>
-    );
-  }
-
-  const { data } = state;
-  const skips = AUDIENCE_SKIP_REASONS.filter((r) => data.skipped[r] > 0);
-
-  return (
-    <div className="nl-count">
-      <p className="nl-count-num">
-        <b>{data.recipientCount.toLocaleString()}</b>{" "}
-        {data.recipientCount === 1 ? "person" : "people"} would be mailed
-      </p>
-      <p className="nl-help">
-        From {data.candidateCount.toLocaleString()} on the list, after removing
-        suppressions, duplicates and anyone unsubscribed.
-      </p>
-
-      {skips.length > 0 && (
-        <ul className="nl-skips">
-          {skips.map((r) => (
-            <li key={r} className="nl-skip">
-              <span className="nl-skip-n">
-                {data.skipped[r].toLocaleString()}
-              </span>
-              <span className="nl-skip-l">{SKIP_LABELS[r]}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-/** Today as a `date` input value, in local time, for the field's `min`. */
-function todayLocal(): string {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }

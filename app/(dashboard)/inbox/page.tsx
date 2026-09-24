@@ -16,6 +16,8 @@ import {
 import { archiveTicketAction } from "../tickets/[id]/snooze-actions";
 import { trashTicketAction } from "../tickets/[id]/trash-actions";
 
+export const metadata = { title: "Inbox" };
+
 /**
  * Desktop shows the list beside a "pick a thread" placeholder; the phone shows
  * only the list (the placeholder is hidden by mail.css). The thread route

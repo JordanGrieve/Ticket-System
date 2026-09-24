@@ -58,7 +58,3 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
     ].join("\n"),
   },
 ];
-
-export function templateByKey(key: string): CampaignTemplate | null {
-  return CAMPAIGN_TEMPLATES.find((t) => t.key === key) ?? null;
-}

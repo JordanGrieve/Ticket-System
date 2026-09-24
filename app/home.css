@@ -4,10 +4,9 @@
  * Loaded only by app/page.tsx, so none of this reaches the app bundle.
  *
  * ── WHY A DARK HERO IS SAFE HERE ──
- * Six themes exist and a marketing page must work in all of them. The hero
- * band paints itself with --nav / --nav-deep, which globals.css guarantees to
- * be a near-black indigo in every light theme and stays dark in the dark ones
- * — it is what the app sidebar is painted with. Because that background is a
+ * A marketing page must work in both themes. The hero band paints itself
+ * with --brand-panel / --brand-panel-deep, which globals.css fixes to a
+ * near-black indigo in both. Because that background is a
  * known dark surface, this file may set light foreground colours against it
  * without consulting the theme, which is the one place in the product where
  * that is true. Everything BELOW the hero uses ordinary surface/ink tokens and
@@ -104,8 +103,8 @@
   filter: brightness(1.06);
 }
 
-/* Ghost button sitting ON the dark hero. Its background is --nav-deep, so
-   light-on-dark is correct in every theme. */
+/* Ghost button sitting ON the dark hero. Its background is --brand-panel,
+   so light-on-dark is correct in every theme. */
 .home-btn--ghost {
   background: rgba(255, 255, 255, 0.07);
   border-color: rgba(255, 255, 255, 0.22);
@@ -298,18 +297,6 @@
   padding: 26px 24px;
 }
 
-.home-card-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 13px;
-  background: var(--accent-soft);
-  color: var(--accent-text);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
-}
-
 .home-card-title {
   font-size: 1.03125rem;
   font-weight: 700;
@@ -457,11 +444,11 @@
 /* ── the product shot in the hero ────────────────────────────── */
 
 /*
- * Sits inside the hero band, so it is on the guaranteed-dark --nav ground
- * rather than on the visitor's theme surface. That matters: the shot's own
- * frame is drawn from theme tokens, and putting it here means the dark app
- * imagery lands on a dark ground in all six themes rather than a light card
- * floating on a dark band in some of them.
+ * Sits inside the hero band, so it is on the guaranteed-dark --brand-panel
+ * ground rather than on the visitor's theme surface. That matters: the shot's
+ * own frame is drawn from theme tokens, and putting it here means the dark app
+ * imagery lands on a dark ground in both themes rather than a light card
+ * floating on a dark band in one of them.
  */
 .home-shot {
   width: 100%;

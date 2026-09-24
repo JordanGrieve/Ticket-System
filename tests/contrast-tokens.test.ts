@@ -239,9 +239,9 @@ describe("muted text clears AA in every theme", () => {
     ["--accent-text", "--accent-soft"],
     ["--ok-fg", "--surface"],
     /*
-     * The warning and danger pairs, added 30 Aug after the UI harness
-     * (scripts/ui-harness.mjs) rendered the rotate-key confirmation in all six
-     * themes and found the light one failing at 2.68:1 and 2.52:1 — roughly
+     * The warning and danger pairs, added 30 Aug after a UI harness
+     * (since deleted) rendered the rotate-key confirmation in all six
+     * themes of the time and found the light one failing at 2.68:1 and 2.52:1 — roughly
      * half of AA, on every warning and every destructive confirmation in the
      * product. Five palettes passed, which is exactly why nobody noticed.
      */
@@ -486,10 +486,11 @@ describe("muted text clears AA in every theme", () => {
   }
 
   /*
-    ── THE NAVIGATION IS DARK IN ALL SIX THEMES, SO ITS INK MUST BE TOO ──
+    ── THE NAVIGATION PAINTS ITS OWN GROUND, SO IT SETS ITS OWN INK ──
 
-    .pb-sidebar and the mobile top bar are painted with --nav, which is
-    near-black indigo in every palette including the light one. They set no
+    .pb-sidebar and the mobile top bar are painted with --nav, which until
+    11 Sep 2026 was near-black indigo in every palette including the light
+    one. They set no
     colour of their own, so they inherited the PAGE ink — --text and --muted-2,
     which do follow the theme.
 

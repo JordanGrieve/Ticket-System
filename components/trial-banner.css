@@ -29,7 +29,7 @@
  * control. That rule lives with the pill, using `:has()`, so this file does
  * not have to know the pill exists.
  *
- * Three tones, all from theme tokens so they work across the six themes:
+ * Three tones, all from theme tokens so they work in both themes:
  *   info  — quiet, dismissible, a week or less to go
  *   warn  — accent, three days or less
  *   block — semantic warn colours, something has actually stopped

@@ -66,8 +66,8 @@ export async function recordUsage(
  * ── THIS ONE THROWS ──
  * Unlike `recordUsage`, and deliberately. Its caller is deciding whether a
  * send is allowed, and a read that failed open would let an unreadable
- * database mean "unlimited" — which is the failure mode that empties an SES
- * account. The send path catches it and refuses the batch, leaving every row
+ * database mean "unlimited" — which is the failure mode that empties a
+ * provider account. The send path catches it and refuses the batch, leaving every row
  * queued and retryable, which costs nothing.
  */
 export async function usedThisMonth(

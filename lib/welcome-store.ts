@@ -31,11 +31,10 @@ import {
  * half.
  *
  * ── WHY IT GOES OUT THROUGH THE TRANSACTIONAL SENDER ──
- * Campaigns go through SES, which is still sandboxed and inert. This goes
- * through the same Resend path as the confirmation email that immediately
- * precedes it, which means it actually reaches people today — and a welcome
- * that arrives a fortnight after the confirmation it thanks you for is worse
- * than none.
+ * Campaigns go out in batches on the sweep. This goes through the
+ * transactional Resend path, so it arrives straight away — and a
+ * welcome that arrives long after the signup it thanks you for is worse than
+ * none.
  *
  * It is one message, to one person, caused by that person clicking a link
  * seconds earlier. That is transactional-shaped delivery even though the

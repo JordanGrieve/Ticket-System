@@ -34,10 +34,6 @@ import {
  * product. So "just try a send" costs the only real subscriber this product
  * has, permanently, and the UI reports it as success.
  *
- * It is also the honest way to satisfy the SES production-access precondition
- * "have you tested" — docs/SES-PRODUCTION-ACCESS.md §1 asks for exactly this
- * and, before this route, satisfying it as written meant burning that row.
- *
  * ── IT TOUCHES NO CAMPAIGN STATE ──
  * No campaign_recipients row, no status transition, no unsubscribe token that
  * belongs to anybody. It reads the campaign and sends one message. Running it
@@ -48,8 +44,7 @@ import {
  * The recipient is the authenticated viewer's own address, taken from the
  * session. It is NOT read from the request body, and there is no parameter to
  * override it. That is deliberate: a "send a test to this address" endpoint
- * behind a login is a spam relay with an audit trail, and in the SES sandbox
- * it would also fail for every address except a verified one. Restricting it
+ * behind a login is a spam relay with an audit trail. Restricting it
  * to the caller removes the abuse case rather than policing it.
  */
 
@@ -94,7 +89,7 @@ export async function POST(
   // Per-viewer, not per-IP. The address is fixed to the caller, so this is not
   // holding back abuse — it is stopping a stuck button from sending forty
   // copies of the same draft to somebody's own inbox, and from spending the
-  // account's daily SES quota (200/day in the sandbox) on tests.
+  // shared daily Resend allowance on tests.
   const limit = await rateLimitDurable(`test-send:${userId}`, { max: 6, windowMs: 600_000 });
   if (!limit.ok) {
     return json(

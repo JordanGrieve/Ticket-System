@@ -28,16 +28,6 @@ const WEEKDAY_INDEX: Record<string, number> = {
   Sat: 6,
 };
 
-export const DAY_LABELS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-] as const;
-
 export const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
 /** Sensible default for a new workspace: weekdays, 09:00–17:00. */

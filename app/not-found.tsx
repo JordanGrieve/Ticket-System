@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PostboxLockup, LITERAL_COLORS } from "@/components/Logo";
+import ErrorShell, { ERROR_BUTTON } from "@/components/ErrorShell";
 
 /**
  * Branded 404 — replaces Next.js's default unstyled page.
@@ -23,54 +23,13 @@ import { PostboxLockup, LITERAL_COLORS } from "@/components/Logo";
  */
 export default function NotFoundPage() {
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#1e1a33",
-        color: "#f3f0ff",
-        padding: 24,
-      }}
+    <ErrorShell
+      title="This page doesn’t exist"
+      body="The link may be out of date, or the page may have been moved."
     >
-      <div style={{ textAlign: "center", maxWidth: 400 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-            marginBottom: 24,
-          }}
-        >
-          <PostboxLockup colors={LITERAL_COLORS} />
-        </div>
-        <h1 style={{ fontSize: "1.3125rem", fontWeight: 700, marginBottom: 8 }}>
-          This page doesn&rsquo;t exist
-        </h1>
-        <p style={{ fontSize: "0.90625rem", lineHeight: 1.65, color: "#bdb7d4", margin: "0 0 22px" }}>
-          The link may be out of date, or the page may have been moved.
-        </p>
-        <Link
-          href="/"
-          style={{
-            height: 40,
-            padding: "0 20px",
-            borderRadius: 10,
-            /* The AAA accent (7.11:1 under white), stated as a literal because
-               this page renders with no stylesheet tokens to lean on. */
-            background: "#583cce",
-            color: "#fff",
-            fontSize: "0.84375rem",
-            fontWeight: 600,
-            display: "inline-flex",
-            alignItems: "center",
-          }}
-        >
-          Go to the homepage
-        </Link>
-      </div>
-    </div>
+      <Link href="/" style={ERROR_BUTTON}>
+        Go to the homepage
+      </Link>
+    </ErrorShell>
   );
 }

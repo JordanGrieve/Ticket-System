@@ -14,7 +14,7 @@ import { PLANS, TRIAL_LIMITS } from "../lib/pricing";
  *
  * These decide whether a paying customer may send, so every one of them is
  * worth running. The one that matters most is `budgetFor`: it is what stands
- * between a plan limit and an SES bill.
+ * between a plan limit and a provider bill.
  */
 
 describe("the period key", () => {

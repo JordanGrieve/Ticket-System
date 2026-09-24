@@ -1,14 +1,13 @@
 /**
- * Resend delivery for CAMPAIGNS — the second real provider.
+ * Resend delivery for CAMPAIGNS — the only real provider.
  *
- * ── WHY A SECOND ONE ──
+ * ── WHY RESEND ──
  *
  * SES was chosen for bulk (docs/NEWSLETTER.md §1.2, §1.4) because of per-tenant
- * reputation isolation. That argument is still correct and is still the reason
- * lib/deliver-ses.ts exists. What overtook it is that the AWS account never got
- * out of the sandbox: case 178747420600793 was submitted on 23 Aug 2026 and
- * DENIED on 26 Aug, so SES can mail verified addresses only. A campaign path
- * that cannot reach a stranger is not a campaign path.
+ * reputation isolation. The AWS account never got out of the sandbox: case
+ * 178747420600793 was submitted on 23 Aug 2026 and DENIED on 26 Aug, and SES
+ * was removed on 14 Sep 2026 (see lib/deliver.ts). A campaign path that cannot
+ * reach a stranger is not a campaign path.
  *
  * Resend is already the transactional provider (lib/email.ts), the domain is
  * already ours to verify, and the account is live. So campaigns leave through
@@ -46,7 +45,7 @@
  *
  * ── CONFIG ──
  *
- * Everything arrives as an argument, like lib/deliver-ses.ts. This module reads
+ * Everything arrives as an argument. This module reads
  * no environment variable; lib/deliver.ts is the one place `process.env` is
  * consulted.
  */

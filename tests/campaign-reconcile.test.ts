@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import {
-  isUnconfirmed,
   groupUnconfirmed,
   describeUnconfirmed,
   UNCONFIRMED_AFTER_MINUTES,
@@ -30,19 +29,6 @@ const row = (over: Partial<UnconfirmedRow> = {}): UnconfirmedRow => ({
 });
 
 describe("what counts as unconfirmed", () => {
-  it("ignores a row claimed moments ago", () => {
-    // A live batch is probably about to write the id. Annotating it would put
-    // a frightening error on a perfectly good send.
-    expect(isUnconfirmed({ sentAt: new Date(NOW.getTime() - MIN) }, NOW)).toBe(
-      false,
-    );
-  });
-
-  it("catches one older than the threshold", () => {
-    const old = new Date(NOW.getTime() - (UNCONFIRMED_AFTER_MINUTES + 1) * MIN);
-    expect(isUnconfirmed({ sentAt: old }, NOW)).toBe(true);
-  });
-
   it("uses a threshold far longer than any provider call", () => {
     // A send plus the follow-up write is seconds. The gap exists so that
     // "still in flight" and "never finished" are never confused.

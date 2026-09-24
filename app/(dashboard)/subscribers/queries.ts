@@ -13,8 +13,7 @@ import {
 
 /**
  * Reads behind /subscribers. Kept beside the route rather than in lib/data.ts
- * for the same reason app/(dashboard)/newsletters/queries.ts is: lib/data.ts is
- * the support-desk's data module (tickets, messages, contacts) and knows
+ * because lib/data.ts is the support-desk's data module (tickets, messages, contacts) and knows
  * nothing about the mailer tables. Nothing outside this route needs these.
  *
  * ── TENANCY ──

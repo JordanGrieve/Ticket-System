@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { CampaignProduct } from "@/db/schema";
-import { MAX_PRODUCTS, TEMPLATE_KEYS, type TemplateKey } from "@/lib/newsletter";
+import { TEMPLATE_KEYS, type TemplateKey } from "@/lib/newsletter";
+import ProductsHeroEditor, {
+  blankDraftProduct,
+  draftProductFrom,
+  type DraftProduct,
+  type HeroAndProducts,
+} from "@/components/newsletter/ProductsHeroEditor";
 import WelcomePreview from "./WelcomePreview";
 
 /**
@@ -75,7 +81,28 @@ export default function WelcomeEmailForm({
   // null in the input would render the word "null" in the box.
   const [heroUrl, setHeroUrl] = useState(initial.heroImageUrl ?? "");
   const [heroAlt, setHeroAlt] = useState(initial.heroImageAlt ?? "");
-  const [products, setProducts] = useState<CampaignProduct[]>(initial.products);
+  // Row ids are minted here, not from a module counter: the initial rows are
+  // server-rendered, and their ids are in the DOM (label `for`), so they must
+  // come out the same on the server and in the browser. 1..n does.
+  const [products, setProducts] = useState<DraftProduct[]>(() =>
+    initial.products.map((p, i) => draftProductFrom(p, i + 1)),
+  );
+  const nextProductId = useRef(initial.products.length + 1);
+  /**
+   * Back to the saved shape, id dropped. Exactly what this form used to hold
+   * and send — an empty field is null, nothing is trimmed, a nameless row is
+   * left for parseProducts to skip — so the save payload is unchanged.
+   */
+  const productList = useMemo<CampaignProduct[]>(
+    () =>
+      products.map((p) => ({
+        name: p.name,
+        price: p.price || null,
+        imageUrl: p.imageUrl || null,
+        url: p.url || null,
+      })),
+    [products],
+  );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +113,13 @@ export default function WelcomeEmailForm({
   function touch() {
     setSaved(false);
     setError(null);
+  }
+
+  function patchMedia(next: Partial<HeroAndProducts>) {
+    if (next.heroImageUrl !== undefined) setHeroUrl(next.heroImageUrl);
+    if (next.heroImageAlt !== undefined) setHeroAlt(next.heroImageAlt);
+    if (next.products !== undefined) setProducts(next.products);
+    touch();
   }
 
   async function save(next?: { enabled: boolean }) {
@@ -106,7 +140,7 @@ export default function WelcomeEmailForm({
           // Sent whole rather than as a diff. parseProducts validates the list
           // as a list — the count cap among other things — so half of one is
           // not a thing the server can check.
-          products,
+          products: productList,
         }),
       });
       const payload = (await res.json()) as { error?: string };
@@ -241,157 +275,16 @@ export default function WelcomeEmailForm({
         </span>
       </fieldset>
 
-      <label className="stg-field">
-        <span className="stg-field-label">Image (optional)</span>
-        <input
-          className="stg-input"
-          type="url"
-          inputMode="url"
-          placeholder="https://yourshop.com/photo.jpg"
-          value={heroUrl}
-          disabled={saving}
-          onChange={(e) => {
-            setHeroUrl(e.target.value);
-            touch();
-          }}
-        />
-        <span className="stg-field-hint">
-          A photo above the message — hosted on your own site or shop. It has to
-          start with https://
-        </span>
-      </label>
-
-      {heroUrl.trim() !== "" && (
-        <label className="stg-field">
-          <span className="stg-field-label">Describe the image</span>
-          <input
-            className="stg-input"
-            type="text"
-            maxLength={200}
-            value={heroAlt}
-            disabled={saving}
-            onChange={(e) => {
-              setHeroAlt(e.target.value);
-              touch();
-            }}
-          />
-          {/* Not an accessibility nicety here — a plain necessity. Gmail and
-              Outlook block remote images from an unfamiliar sender, and a
-              welcome email is the most unfamiliar a sender ever is, so for
-              most recipients this text IS the image. */}
-          <span className="stg-field-hint">
-            Most people will see these words instead of the picture: mail apps
-            hide images from senders they don&rsquo;t know yet.
-          </span>
-        </label>
-      )}
-
-      <fieldset className="stg-fieldset">
-        <legend className="stg-field-label">Products (optional)</legend>
-        {products.length === 0 && (
-          <p className="stg-field-hint">
-            Nothing yet. Add a few pieces to show them what you sell.
-          </p>
-        )}
-        {products.map((product, i) => (
-          <div className="stg-product" key={i}>
-            <input
-              className="stg-input"
-              type="text"
-              placeholder="Name"
-              aria-label={`Product ${i + 1} name`}
-              value={product.name}
-              disabled={saving}
-              onChange={(e) => {
-                setProducts(
-                  products.map((p, n) =>
-                    n === i ? { ...p, name: e.target.value } : p,
-                  ),
-                );
-                touch();
-              }}
-            />
-            <input
-              className="stg-input"
-              type="text"
-              placeholder="Price"
-              aria-label={`Product ${i + 1} price`}
-              value={product.price ?? ""}
-              disabled={saving}
-              onChange={(e) => {
-                setProducts(
-                  products.map((p, n) =>
-                    n === i ? { ...p, price: e.target.value || null } : p,
-                  ),
-                );
-                touch();
-              }}
-            />
-            <input
-              className="stg-input"
-              type="url"
-              placeholder="Image link (https://)"
-              aria-label={`Product ${i + 1} image link`}
-              value={product.imageUrl ?? ""}
-              disabled={saving}
-              onChange={(e) => {
-                setProducts(
-                  products.map((p, n) =>
-                    n === i ? { ...p, imageUrl: e.target.value || null } : p,
-                  ),
-                );
-                touch();
-              }}
-            />
-            <input
-              className="stg-input"
-              type="url"
-              placeholder="Buy link (https://)"
-              aria-label={`Product ${i + 1} buy link`}
-              value={product.url ?? ""}
-              disabled={saving}
-              onChange={(e) => {
-                setProducts(
-                  products.map((p, n) =>
-                    n === i ? { ...p, url: e.target.value || null } : p,
-                  ),
-                );
-                touch();
-              }}
-            />
-            <button
-              type="button"
-              className="stg-link-btn"
-              disabled={saving}
-              // Named with the product, because "Remove" four times over is
-              // four identical controls to anyone listing them.
-              aria-label={`Remove ${product.name || `product ${i + 1}`}`}
-              onClick={() => {
-                setProducts(products.filter((_, n) => n !== i));
-                touch();
-              }}
-            >
-              Remove
-            </button>
-          </div>
-        ))}
-        {products.length < MAX_PRODUCTS && (
-          <button
-            type="button"
-            className="stg-button stg-button--secondary"
-            disabled={saving}
-            onClick={() => {
-              setProducts([
-                ...products,
-                { name: "", price: null, imageUrl: null, url: null },
-              ]);
-              touch();
-            }}
-          >
-            Add a product
-          </button>
-        )}
-      </fieldset>
+      {/* The composer's editor, so the two cannot drift: visible labels on
+          every input, and rows keyed by id rather than position. */}
+      <ProductsHeroEditor
+        heroImageUrl={heroUrl}
+        heroImageAlt={heroAlt}
+        products={products}
+        disabled={saving}
+        onChange={patchMedia}
+        newProduct={() => blankDraftProduct(nextProductId.current++)}
+      />
 
       <WelcomePreview
         subject={subject}
@@ -399,7 +292,7 @@ export default function WelcomeEmailForm({
         templateKey={templateKey}
         heroImageUrl={heroUrl}
         heroImageAlt={heroAlt}
-        products={products}
+        products={productList}
         workspaceName={workspaceName}
         legalName={legalName}
         postalAddress={postalAddress}

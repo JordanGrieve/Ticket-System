@@ -88,6 +88,15 @@ function parseSection(raw: string | undefined): Section {
   return SECTIONS.includes(raw as Section) ? (raw as Section) : "accounts";
 }
 
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ section?: string }>;
+}) {
+  const { section } = await searchParams;
+  return { title: `${PANE[parseSection(section)].title} · Admin` };
+}
+
 function parseFilter(raw: string | undefined): Filter {
   return FILTERS.includes(raw as Filter) ? (raw as Filter) : "all";
 }
@@ -241,12 +250,8 @@ export default async function AdminHomePage({
     /*
       The feedback channel. It read `SES_SNS_TOPIC_ARN` first until 14 Sep 2026,
       when SES was removed; with Resend the gate is the webhook secret the
-      transactional path already verifies.
-
-      Worth reading honestly: this says a channel is CONFIGURED, not that
-      campaign bounces reach suppressions. They do not yet — the only consumer
-      of feedback drops went with the SES webhook, and Resend's delivery events
-      are not wired to campaign recipients. See tests/feedback-drops.test.ts.
+      transactional path already verifies. The Resend webhook routes campaign
+      bounces and complaints to suppressions (lib/campaign-feedback.ts).
     */
     campaignFeedback: Boolean(
       process.env.RESEND_DELIVERY_WEBHOOK_SIGNING_SECRET ??

@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   diagnoseCampaign,
-  healthSummary,
   type CampaignHealthInput,
 } from "../lib/campaign-health";
 import type { CampaignStatus, RecipientStatus } from "../db/schema";
@@ -157,7 +156,6 @@ describe("blockers", () => {
     // Not blocking — there is nothing left to block. It is a warning about
     // what already happened.
     expect(b?.blocking).toBe(false);
-    expect(healthSummary(h)).toBe("Finished — nobody received it");
   });
 
   it("does not flag a partial failure as total", () => {
@@ -165,27 +163,10 @@ describe("blockers", () => {
       input({ status: "sent", recipients: { ...NOBODY, sent: 9, failed: 1 } }),
     );
     expect(h.blockers.some((b) => b.code === "all_recipients_failed")).toBe(false);
-    expect(healthSummary(h)).toBe("Sent");
   });
 
   it("is silent when everything is configured", () => {
     expect(diagnoseCampaign(input()).blockers).toEqual([]);
-  });
-});
-
-describe("healthSummary", () => {
-  it("says stuck before it says why", () => {
-    // A client scanning a list needs to know something is wrong before they
-    // need to know what.
-    const h = diagnoseCampaign(input({ postalAddress: null }));
-    expect(healthSummary(h)).toBe("Stuck — 10 not sent");
-  });
-
-  it("counts down while sending", () => {
-    const h = diagnoseCampaign(
-      input({ recipients: { ...NOBODY, queued: 3, sent: 7 } }),
-    );
-    expect(healthSummary(h)).toBe("Sending — 3 to go");
   });
 });
 

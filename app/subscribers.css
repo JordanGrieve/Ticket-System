@@ -7,12 +7,12 @@
   Same three rules as settings.css and skeleton.css next door:
 
   1. NO COLOUR LITERALS, ANYWHERE. Every colour in this file is a token from
-     globals.css, which defines a full set per theme — there are six. A
+     globals.css, which defines a full set per theme — there are two. A
      hardcoded #fff card or an #efeadf border is a cream box on a dark ground
-     in five of them, which has shipped twice in this repo already. The status
+     in the dark one, which has shipped twice in this repo already. The status
      and consent chips are the tempting place to break the rule; they use the
      --tag-*, --ok-*, --warn-* and --pdf-* pairs instead, each of which is
-     redefined in all six palettes with its foreground and background moved
+     redefined in both palettes with its foreground and background moved
      together.
 
   2. GEOMETRY IS DECLARED ONCE. The list rows, the head and the filter pills
@@ -220,7 +220,7 @@ a.psb-row:hover {
 
 /* ── status + consent chips ──────────────────────────────────────
    One chip recipe, four colour pairs chosen by data-status. Each pair is
-   defined in all six themes, and both halves move together, so the chip
+   defined in both themes, and both halves move together, so the chip
    can never end up dark-on-dark.                                      */
 
 .psb-chip {

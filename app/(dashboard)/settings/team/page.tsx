@@ -7,7 +7,7 @@ import { initials } from "@/lib/tickets";
 import { inviteTeammateAction, revokeTeammateAction } from "./actions";
 import { listTeam } from "./queries";
 
-export const metadata = { title: "Team · Settings · Postbox" };
+export const metadata = { title: "Team · Settings" };
 
 /**
  * Who else can get into this workspace.

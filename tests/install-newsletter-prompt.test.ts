@@ -134,9 +134,17 @@ describe("newsletter AI prompt", () => {
      * What remains cannot touch a client's styling: the prompt wires up the
      * form they already have, and the link points at a page we host.
      */
-    expect(SRC).toContain('nlMode === "ai"');
-    expect(SRC).toContain('nlMode === "link"');
-    expect(SRC).not.toContain('nlMode === "form"');
+    // The options handed to InstallModes for section 2, and only those.
+    const start = SRC.indexOf('<Section title="2 · Add a newsletter signup">');
+    expect(start, "the newsletter section is gone or renamed").toBeGreaterThan(-1);
+    const end = SRC.indexOf("panels={{", start);
+    expect(end).toBeGreaterThan(start);
+    const options = SRC.slice(start, end);
+    expect(options).toContain('initial="ai"');
+    expect(options.match(/value: "/g) ?? []).toHaveLength(2);
+    expect(options).toContain('value: "ai"');
+    expect(options).toContain('value: "link"');
+    expect(options).not.toContain('value: "form"');
     expect(SRC).toContain("newsletterAiPrompt");
     // And the pasteable form is gone rather than merely unreachable.
     expect(SRC).not.toContain("buildNewsletterSnippet");

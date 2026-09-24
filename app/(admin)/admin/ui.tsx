@@ -210,38 +210,6 @@ export function KpiGrid({ accounts }: { accounts: WorkspaceSummary[] }) {
   );
 }
 
-/**
- * The honest empty state. Used wherever the design asked for something the
- * product has no data source for. It names the missing feature rather than
- * showing a plausible-looking zero, because a zero reads as a measurement.
- */
-export function NotBuilt({
-  title,
-  text,
-  missing,
-  small,
-}: {
-  title: string;
-  text: string;
-  missing?: string[];
-  small?: boolean;
-}) {
-  return (
-    <div className={small ? "pba-empty pba-empty-sm" : "pba-empty"}>
-      <span className="pba-empty-tag">Not built yet</span>
-      <p className="pba-empty-title">{title}</p>
-      <p className="pba-empty-text">{text}</p>
-      {missing && missing.length > 0 && (
-        <ul className="pba-empty-list">
-          {missing.map((m) => (
-            <li key={m}>{m}</li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 /** Deterministic date formatting — same string on the server and in any locale. */
 export function formatDate(value: Date | string): string {
   const d = value instanceof Date ? value : new Date(value);
@@ -285,25 +253,6 @@ export function formatDuration(
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   return rest ? `${hours} h ${rest} min` : `${hours} h`;
-}
-
-export function SearchIcon() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      aria-hidden
-      focusable="false"
-    >
-      <circle cx="11" cy="11" r="7" />
-      <path d="M20 20l-3.6-3.6" />
-    </svg>
-  );
 }
 
 /** Envelope for the sidebar brand tile — white on the accent gradient. */

@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  CAMPAIGN_TEMPLATES,
-  templateByKey,
-} from "../lib/campaign-templates";
+import { CAMPAIGN_TEMPLATES } from "../lib/campaign-templates";
 import { unfilledSlots } from "../lib/newsletter";
 
 /**
@@ -65,10 +62,5 @@ describe("the campaign templates", () => {
         expect(allowed.has(m[1]!), `${t.key}: {${m[1]}}`).toBe(true);
       }
     }
-  });
-
-  it("looks a template up by key, and refuses an unknown one", () => {
-    expect(templateByKey("next_drop")?.name).toBe("Next drop");
-    expect(templateByKey("nonsense")).toBeNull();
   });
 });

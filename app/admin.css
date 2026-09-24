@@ -625,10 +625,6 @@
   grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1.1fr;
 }
 
-.pba-row-invoices {
-  grid-template-columns: 2fr 1fr 1fr 1fr 1.1fr;
-}
-
 .pba-row-domains {
   grid-template-columns: 1.6fr 1.4fr 1.6fr;
 }
@@ -719,69 +715,6 @@
 .pba-pill-muted {
   background: var(--surface-3);
   color: var(--muted-2);
-}
-
-/* ── Empty / not-built states ─────────────────────────────────────────── */
-
-.pba-empty {
-  border: 1px dashed var(--border-strong);
-  border-radius: 22px;
-  background: var(--surface-3);
-  padding: 30px 26px;
-  text-align: center;
-}
-
-.pba-empty-sm {
-  padding: 20px 16px;
-  border-radius: 18px;
-}
-
-.pba-empty-tag {
-  display: inline-flex;
-  align-items: center;
-  height: 22px;
-  padding: 0 10px;
-  border-radius: 20px;
-  background: var(--warn-bg);
-  color: var(--warn-fg);
-  font-size: 0.6875rem;
-  font-weight: 800;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-.pba-empty-title {
-  font-size: 0.9375rem;
-  font-weight: 800;
-  margin: 12px 0 0;
-}
-
-.pba-empty-text {
-  font-size: 0.8125rem;
-  line-height: 1.65;
-  color: var(--muted-2);
-  margin: 7px auto 0;
-  max-width: 52ch;
-}
-
-.pba-empty-list {
-  margin: 12px auto 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  justify-content: center;
-}
-
-.pba-empty-list li {
-  font-size: 0.71875rem;
-  font-weight: 700;
-  color: var(--muted);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 4px 10px;
 }
 
 /* ── Lists ────────────────────────────────────────────────────────────── */

@@ -23,11 +23,6 @@ export function generateUnsubscribeToken(): string {
   return randomHex(16);
 }
 
-/** Public contact-form key, e.g. "frm_1a2b…" (32 hex chars). */
-export function generateFormKey(): string {
-  return `frm_${randomHex(16)}`;
-}
-
 /**
  * Per-ticket reply-address secret (32 hex chars).
  *

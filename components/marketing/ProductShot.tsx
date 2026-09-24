@@ -8,10 +8,10 @@ import "./product-shot.css";
  * things ruled a raster image out. Three are constraints; the fourth is the
  * one that would have bitten us later.
  *
- *  1. SIX THEMES. Only the hero band is guaranteed dark — app/home.css says
+ *  1. THEMES. Only the hero band is guaranteed dark — app/home.css says
  *     so, and everything below it inherits the visitor's theme. A screenshot
- *     is one fixed palette, so a dark amber capture sitting in a section that
- *     renders on a light surface looks wrong in five themes out of six. DOM
+ *     is one fixed palette, so a dark capture sitting in a section that
+ *     renders on a light surface looks wrong in the light theme. DOM
  *     reads the same tokens as everything around it and cannot disagree.
  *
  *  2. RESOLUTION. The capture tooling available here is capped at 1x, and a
@@ -20,9 +20,7 @@ import "./product-shot.css";
  *     owner's browsing happens.
  *
  *  3. CUSTOMER DATA. A screenshot of a real inbox publishes whatever is in it.
- *     db/demo-data.ts exists to move dev addresses onto reserved domains for
- *     exactly this reason; DOM sidesteps the question entirely, because the
- *     names below are written here in the open where anybody can see they are
+ *     DOM sidesteps the question entirely, because the names below are written here in the open where anybody can see they are
  *     invented.
  *
  *  4. IT GOES STALE SILENTLY. A screenshot keeps showing the product as it was

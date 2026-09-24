@@ -190,6 +190,7 @@ function page(title: string, body: string) {
 <link rel="stylesheet" href="./globals.css">
 <link rel="stylesheet" href="./mail.css">
 <link rel="stylesheet" href="./settings.css">
+<link rel="stylesheet" href="./newsletter.css">
 <link rel="stylesheet" href="./skeleton.css">
 </head><body><div class="pb-shell pbm"><div class="pbm-page pb-scroll"><div class="stg-wrap">${body}</div></div></div>
 <script src="./audit.js"></script></body></html>`;
@@ -219,6 +220,8 @@ describe("every settings view renders", () => {
       "app/globals.css",
       "app/mail.css",
       "app/settings.css",
+      // The welcome form's product editor is shared with the composer.
+      "app/newsletter.css",
       // The install skeleton is a surface here too, and .pbk-* lives in this one.
       "app/skeleton.css",
     ]) {

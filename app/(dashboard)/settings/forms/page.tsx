@@ -11,7 +11,7 @@ import {
 } from "./actions";
 import "./forms.css";
 
-export const metadata = { title: "Forms · Settings · Postbox" };
+export const metadata = { title: "Forms · Settings" };
 
 /**
  * Named contact forms.

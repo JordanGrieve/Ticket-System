@@ -9,7 +9,7 @@ import {
 import WelcomeEmailForm from "../../settings/WelcomeEmailForm";
 import "../../../settings.css";
 
-export const metadata = { title: "Welcome newsletter · Postbox" };
+export const metadata = { title: "Welcome newsletter" };
 
 /**
  * /newsletters/welcome — the one newsletter that sends itself.
@@ -29,7 +29,7 @@ export const metadata = { title: "Welcome newsletter · Postbox" };
  * itself. That component is a campaign's whole lifecycle: drafts, an audience,
  * a schedule, a send, an abort, a sweep count. A welcome has none of those. It
  * goes to one person at the moment they subscribe. Threading a second kind of
- * thing through 2,600 lines of that would put scheduling controls one state
+ * thing through all of that would put scheduling controls one state
  * bug away from something with nothing to schedule.
  *
  * The form is a client island; every value it needs to run the real renderer

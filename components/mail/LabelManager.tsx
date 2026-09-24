@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useDismiss } from "@/lib/use-dismiss";
 import { labelChipProps } from "./label-style";
 import { useRouter } from "next/navigation";
 import type { LabelColor } from "@/db/schema";
@@ -31,7 +32,7 @@ import { STARTER_LABELS } from "@/lib/starter-labels";
  * mail.css.
  *
  * Deletion confirms IN the modal, on the row being deleted. It used to call
- * `window.confirm`: unstyleable, unthemeable across the six themes, impossible
+ * `window.confirm`: unstyleable, unthemeable across the themes, impossible
  * to assert on in a test, and — being modal to the whole browser — it stole
  * focus out of a dialog that is itself modal. Turning the row into its own
  * question also puts the consequence beside the thing it applies to, which a
@@ -94,23 +95,18 @@ export default function LabelManager({
     firstFieldRef.current?.focus();
   }, []);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      // Esc backs out of the delete question first, and only closes the whole
-      // modal once no question is outstanding. Otherwise the key that means
-      // "cancel this" would also discard the editing you came here to do —
-      // which is precisely the trap window.confirm avoided by hijacking the
-      // entire browser, and a worse cure than the disease.
-      if (confirmingId !== null) setConfirmingId(null);
-      // Inline has nothing to close, and Escape on a Settings page must not
-      // swallow the key — a browser's own Escape behaviour (stopping a load,
-      // leaving a native picker) belongs to the page it is on.
-      else if (!inline) onClose?.();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose, confirmingId, inline]);
+  // Inline has nothing to close, so Escape is only listened for there while a
+  // delete question is outstanding — on a Settings page the key otherwise
+  // belongs to the page (stopping a load, leaving a native picker).
+  useDismiss(confirmingId !== null || !inline, () => {
+    // Esc backs out of the delete question first, and only closes the whole
+    // modal once no question is outstanding. Otherwise the key that means
+    // "cancel this" would also discard the editing you came here to do —
+    // which is precisely the trap window.confirm avoided by hijacking the
+    // entire browser, and a worse cure than the disease.
+    if (confirmingId !== null) setConfirmingId(null);
+    else if (!inline) onClose?.();
+  });
 
   async function create() {
     const name = newName.trim();

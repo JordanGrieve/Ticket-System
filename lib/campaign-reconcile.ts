@@ -14,7 +14,7 @@
  * provider LOSES one email instead of mailing everybody twice.
  *
  * The residue is rows sitting at `sent` with provider_message_id NULL. Both
- * deliverers always return an id — SES returns the real one, and the log-only
+ * deliverers always return an id — Resend returns the real one, and the log-only
  * deliverer returns a `not-sent-` prefixed synthetic id precisely so it does
  * not pollute this signal — so a NULL means the outcome was genuinely never
  * recorded.
@@ -78,11 +78,6 @@ export type UnconfirmedGroup = {
   /** The oldest claim in the group — how long this has been true. */
   oldestSentAt: Date;
 };
-
-/** Rows older than the threshold. `now` is passed in so this stays pure. */
-export function isUnconfirmed(row: { sentAt: Date }, now: Date): boolean {
-  return now.getTime() - row.sentAt.getTime() >= UNCONFIRMED_AFTER_MINUTES * 60_000;
-}
 
 /**
  * Group by campaign, because that is the unit somebody acts on.

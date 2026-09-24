@@ -181,8 +181,6 @@ describe("the pages a stranger can reach render, and can be measured", () => {
     // Canaries: a page that lost its hero would still be long enough.
     expect(html).toContain("Postbox");
     expect(html.length).toBeGreaterThan(4000);
-    // #newsletters is load-bearing for the open SES production-access case;
-    // app/page.tsx says so in terms. Worth failing a test over.
     expect(html).toContain('id="newsletters"');
   });
 

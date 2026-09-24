@@ -2,7 +2,7 @@
  * Line icons from the mailer design.
  *
  * Stroke colour is `currentColor` so the icon inherits from whatever token the
- * surrounding class sets — hardcoding a colour here would break five of the six
+ * surrounding class sets — hardcoding a colour here would break one of the two
  * themes. Every icon is decorative: the accessible name lives on the button or
  * link that wraps it, so they are all aria-hidden.
  */

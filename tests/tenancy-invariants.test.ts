@@ -555,17 +555,6 @@ const EXEMPT: Exemption[] = [
       "sends it. Every guard is then re-derived from that workspace at send " +
       "time, which is what stops a held reply becoming a mail loop.",
   },
-  {
-    file: "lib/suppressions.ts",
-    match: /UPDATE campaign_recipients\s+SET error =/,
-    why:
-      "noteProviderFeedback: keyed by provider_message_id, the opaque id SES " +
-      "issued for one send, arriving only from the signature-verified SES " +
-      "webhook. The key IS the tenancy and there is no caller-supplied " +
-      "workspace to filter by. Contrast applyProviderFeedback beside it, " +
-      "which writes suppressions and subscribers and therefore derives the " +
-      "workspace from the campaign inside the same statement.",
-  },
 ];
 
 /** app/(dashboard)/queries.ts gets a rule rather than a list. See below. */
@@ -893,15 +882,15 @@ describe("campaign_recipients writes join up to campaigns in the same statement"
 /**
  * lib/suppressions.ts and lib/subscribe-store.ts are the two places where a
  * workspace is DERIVED rather than passed in â€” from a campaign row reached by
- * an unsubscribe token or an SES message id. That derivation has to happen in
+ * an unsubscribe token. That derivation has to happen in
  * the same statement as the writes that use it, or the workspace the token
  * belongs to and the workspace being written to can drift apart.
  */
 describe("derived-workspace statements derive and use it in one statement", () => {
-  it("token and message-id lookups derive workspace_id from campaigns", () => {
+  it("token lookups derive workspace_id from campaigns", () => {
     const src = read("lib/suppressions.ts");
     const derived = rawSqlStatements(src).filter((s) => /WITH target AS/.test(s));
-    expect(derived.length).toBe(2); // unsubscribe-by-token, provider feedback
+    expect(derived.length).toBe(1); // unsubscribe-by-token
     for (const stmt of derived) {
       // campaign_recipients has no workspace_id: the JOIN is where tenancy
       // comes from, and it must sit in the same CTE chain that writes.
@@ -915,18 +904,6 @@ describe("derived-workspace statements derive and use it in one statement", () =
         expect(stmt).toMatch(/s\.workspace_id = t\.workspace_id/);
       }
     }
-  });
-
-  it("the subscribers/suppressions sync scopes BOTH sides", () => {
-    const src = read("lib/suppressions.ts");
-    const stmt = rawSqlStatements(src).find((s) =>
-      /UPDATE subscribers s[\s\S]*?FROM suppressions sup/.test(s),
-    );
-    expect(stmt).toBeTruthy();
-    // Joining on email alone would let one tenant's block mute another
-    // tenant's subscriber who happens to share the address.
-    expect(stmt!).toMatch(/s\.workspace_id = \$\{workspaceId\}/);
-    expect(stmt!).toMatch(/sup\.workspace_id = \$\{workspaceId\}/);
   });
 
   it("double opt-in confirms inside one workspace only", () => {
@@ -1206,8 +1183,7 @@ const BUILDER_EXEMPT: Exemption[] = [
       "Keyed by provider_message_id — the opaque id Resend issued for one " +
       "send, unique platform-wide, arriving only from a signature-verified " +
       "webhook. The key IS the tenancy and there is no caller-supplied " +
-      "workspace to filter by. Identical reasoning to noteProviderFeedback in " +
-      "lib/suppressions.ts, exempted above for the SES side of the same idea.",
+      "workspace to filter by.",
   },
 ];
 

@@ -3,7 +3,7 @@
 
   Same rules as app/u/unsubscribe.css, and for the same reasons: every colour
   resolves through the design tokens in app/globals.css so these pages follow
-  all six themes instead of pinning themselves to one palette. The single
+  both themes instead of pinning themselves to one palette. The single
   literal is the text colour ON the accent, which is white in every theme.
 
   Strangers land here with no session and therefore no workspace theme, so in
@@ -115,16 +115,6 @@
   width: 1px;
   height: 1px;
   overflow: hidden;
-}
-
-.s-error {
-  background: var(--danger-bg, transparent);
-  border: 1px solid var(--danger-fg, var(--border));
-  border-radius: 10px;
-  color: var(--danger-fg, var(--ink));
-  font-size: 0.875rem;
-  margin: 0 0 16px;
-  padding: 11px 13px;
 }
 
 .s-button {

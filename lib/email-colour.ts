@@ -9,7 +9,7 @@
  *
  * A label chip lives in the app, where CSS can be trusted. It stores a hex,
  * keeps only its HUE, and lets `oklch(from var(--label-hex) …)` take lightness
- * from whichever of the six themes is active — so the contrast is decided at
+ * from whichever theme is active — so the contrast is decided at
  * paint time, by the theme, and the stored colour never has to be safe on its
  * own.
  *

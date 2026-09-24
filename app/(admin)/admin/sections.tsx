@@ -79,7 +79,7 @@ export type ConsoleGates = {
   transactionalFeedback: boolean;
   /** CAMPAIGN_DELIVERY_MODE names a real provider. False means nothing transmits. */
   campaignDeliveryLive: boolean;
-  /** A campaign feedback channel is configured — SES' SNS topic, or Resend's webhook secret. */
+  /** A campaign feedback channel is configured — Resend's webhook secret. */
   campaignFeedback: boolean;
   /**
    * POSTBOX_CONTACT_KEY is set, so /contact can actually receive an enquiry.
@@ -731,7 +731,7 @@ export function DeliverabilitySection({
 
       {/*
         Second, and for the same reason as the card above it: this is a real
-        measurement of a real silence. The SES webhook drops feedback it cannot
+        measurement of a real silence. The Resend webhook drops feedback it cannot
         attribute — correctly, because suppressing globally would let one
         tenant's bounce silence an address for every other tenant — and until
         this card existed the drop went only to console.warn.
@@ -876,8 +876,8 @@ export function DeliverabilitySection({
         )}
         {!gates.campaignFeedback && (
           <p className="pba-note">
-            The SES feedback endpoint has no topic configured, so bounces and
-            complaints cannot be accepted. Those two tiles can only read zero.
+            The Resend webhook has no signing secret configured, so bounces
+            and complaints cannot be accepted. Those two tiles can only read zero.
           </p>
         )}
       </div>

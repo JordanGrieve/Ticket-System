@@ -175,7 +175,7 @@ describe("access log — every colour is a token", () => {
     // Guard the guard: a bound that captured nothing would pass every
     // assertion below without reading a single declaration.
     expect(block).toContain(".stg-al-");
-    // Six themes ride on the custom properties; one hex is one broken theme.
+    // Both themes ride on the custom properties; one hex is one broken theme.
     expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(block).not.toMatch(/\b(rgb|rgba|hsl|hsla)\(/);
   });

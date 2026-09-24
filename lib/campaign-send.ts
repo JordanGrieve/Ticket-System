@@ -56,38 +56,33 @@ import {
  * there is NO default, so the only way to mail anybody is for a caller to hand
  * it a live sender.
  *
- * That caller now exists: app/api/cron/campaigns/route.ts, driven by Vercel
- * Cron. It is not a loosening of the rule — it is the "durable, resumable
- * worker" docs/NEWSLETTER.md §2 names as prerequisite 1, and it is the only
- * importer. What it hands in comes from `createCampaignDeliverer()` in
- * lib/deliver.ts, which returns a LOG-ONLY deliverer unless
- * `CAMPAIGN_DELIVERY_MODE=ses`, a variable set in no environment. So the wiring
- * is complete and the send is still inert, which is the state the remaining
- * items in §2 — cross-invocation rate limiting, the bounce/complaint webhook,
- * and a verified marketing domain — require.
+ * That caller is lib/campaign-sweep-run.ts, the one bounded send loop — the
+ * "durable, resumable worker" docs/NEWSLETTER.md §2 names as prerequisite 1.
+ * Two routes run it: the scheduled sweep (app/api/cron/campaigns/route.ts,
+ * driven by .github/workflows/campaign-sweep.yml), and the schedule route,
+ * which makes one short pass over the campaign just armed so "Send now" does
+ * not wait for the next tick. What it hands in comes from
+ * `createCampaignDeliverer()` in lib/deliver.ts, which returns a log-only
+ * deliverer unless `CAMPAIGN_DELIVERY_MODE=resend`.
  *
  * §7's consent enforcement is now CLOSED in `selectAudience`: a candidate with
  * no `consent_at` is skipped as `no_consent` and never becomes a recipient row.
  * `workspaceAudience` selects the column for that purpose. The other half of
- * §7 — a UI that CAPTURES consent — is the double opt-in signup, which does
- * stamp `consent_at` at confirmation, so a subscriber who came through the
- * form is mailable and an imported one without provenance is not.
+ * §7 — a UI that CAPTURES consent — is the signup form, which stamps
+ * `consent_at`, so a subscriber who came through the form is mailable and an
+ * imported one without provenance is not.
  *
- * Do not add a second caller. In particular, no Server Action and no page may
- * import this: sending is a scheduled activity with a bounded batch, and a
- * request handler that calls it ties tens of thousands of provider calls to one
- * HTTP request that will time out halfway through.
+ * Do not add another caller outside lib/campaign-sweep-run.ts. In particular,
+ * no Server Action and no page may import this: sending is a bounded batch,
+ * and a request handler that calls it unbounded ties tens of thousands of
+ * provider calls to one HTTP request that will time out halfway through.
  *
  * ── SCHEDULING IS NOT SENDING ──
  *
  * `scheduleCampaign` / `cancelCampaignSchedule` / `discardQueuedRecipients`
  * below DO have routes, under app/api/campaigns/[id]/. They write a status
  * column and a timestamp and delete queued rows; none of them touches a
- * provider, and none of them is a way to call `sendCampaignBatch` from a
- * request handler. What arming a campaign does is make it visible to the
- * scheduled sweep — which then hands each message to the LOG-ONLY deliverer,
- * because `CAMPAIGN_DELIVERY_MODE` is set in no environment. The rule above is
- * unchanged: the sweep is still the only caller.
+ * provider. What arming a campaign does is make it visible to the send loop.
  *
  * ── TENANCY ──
  *
@@ -884,8 +879,7 @@ export type MaterialiseResult = {
  * unique index is doing the work; this function has no opinion about whether
  * it has run before.
  *
- * It is safe to call on its own precisely because it sends nothing. Phase two
- * (sendCampaignBatch) is the part that has no home yet.
+ * It is safe to call on its own precisely because it sends nothing.
  *
  * Refused once the campaign has left draft/scheduled: re-materialising a
  * campaign that is mid-send would add recipients the client never reviewed to
@@ -1080,18 +1074,11 @@ async function retireSuppressedQueuedRows(
 /**
  * PHASE TWO: claim a batch of queued recipients and hand each to `deliver`.
  *
- * ⚠️ ONE CALLER ONLY: app/api/cron/campaigns/route.ts. Do not export it from a
- * Server Action or a page. Everything below assumes the caller is a scheduled
- * worker that is happy to be re-invoked — `limit` is expected to be small
- * enough that the whole loop fits inside one function invocation, because
- * there is no resumption point in the middle of it.
- *
- * Still missing, and still required before `CAMPAIGN_DELIVERY_MODE=ses` may be
- * set (docs/NEWSLETTER.md §2): a per-workspace rate limiter that survives
- * across invocations, the bounce/complaint webhook, a verified marketing
- * sending domain, and a populated `workspaces.postal_address` — CAN-SPAM
- * requires a physical address in every message and the column is nullable, so
- * the footer cannot yet emit one. Consent enforcement is done (selectAudience).
+ * ⚠️ ONE CALLER ONLY: lib/campaign-sweep-run.ts. Do not call it from a Server
+ * Action or a page. Everything below assumes the caller is a worker that is
+ * happy to be re-invoked — `limit` is expected to be small enough that the
+ * whole loop fits inside one function invocation, because there is no
+ * resumption point in the middle of it.
  *
  * ── The claim protocol ──
  *
@@ -1180,8 +1167,8 @@ export async function sendCampaignBatch(input: {
 
     The read FAILS CLOSED. usedThisMonth throws rather than returning zero on
     a database error, because a read that failed open would make an unreadable
-    counter mean "unlimited" — which is the failure that empties an SES
-    account. Refusing the batch costs nothing: every row is still queued.
+    counter mean "unlimited" — which is the failure that empties a
+    provider account. Refusing the batch costs nothing: every row is still queued.
   */
   let budget = input.limit;
   try {

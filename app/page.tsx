@@ -28,11 +28,6 @@ import "./home.css";
  * businesses". There is one pilot client. A marketing page for a product whose
  * pitch is trustworthy email cannot itself be the least trustworthy page we
  * ship.
- *
- * ── #newsletters IS LOAD-BEARING ──
- * It was added so an AWS reviewer assessing the SES production-access request
- * could see the newsletter half of the product described. That case is still
- * open. Do not remove or weaken that section.
  */
 export default async function LandingPage() {
   const { userId } = await auth();
@@ -288,11 +283,6 @@ export default async function LandingPage() {
           <ThemeRow />
         </section>
 
-        {/*
-          Kept from the previous page, restyled only. See the note at the top:
-          the SES production-access case is still open and a reviewer may read
-          this section to judge how subscribers are collected.
-        */}
         <section className="home-section home-wrap" id="newsletters">
           <p className="home-kicker">Newsletters</p>
           <h2 className="home-h2">Newsletters, sent properly</h2>
@@ -365,9 +355,7 @@ export default async function LandingPage() {
  * These four stay prose on purpose. They are claims about PROCESS -- what is
  * recorded, what is refused, what happens to a bounce -- and there is no
  * screen that shows a consent record being kept. Drawing one would be
- * inventing an interface to illustrate a policy. See the note at the top of
- * this file: an AWS reviewer may read this section while the SES case is
- * open, and it is load-bearing exactly as written.
+ * inventing an interface to illustrate a policy.
  */
 const NEWSLETTER_POINTS = [
   {

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useDismiss } from "@/lib/use-dismiss";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { Icon } from "./icons";
 import SheetGrip from "./SheetGrip";
 import {
@@ -197,16 +199,8 @@ export default function ContactRail({
     not binding Escape in its inline mode. The query mirrors the mail.css
     breakpoint, as Thread's own `wide` check does.
   */
-  useEffect(() => {
-    if (state !== "open") return;
-    const overlay = window.matchMedia("(max-width: 1180px)");
-    if (!overlay.matches) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [state, onClose]);
+  const overlay = useMediaQuery("(max-width: 1180px)");
+  useDismiss(state === "open" && overlay, onClose);
 
   const firstSeen = formatFirstSeen(contact.firstSeenIso);
   // Derived on render, not stored: it is a judgement about the address as it

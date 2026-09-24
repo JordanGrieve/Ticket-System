@@ -291,12 +291,11 @@ export function parseScheduleTime(
  * only once-per-day cron expressions — a sub-daily schedule fails the
  * deployment — which pinned this constant at 1 and made a 40,000-recipient
  * campaign a ~534-DAY proposition. `.github/workflows/campaign-sweep.yml` now
- * drives it on a five-minute cron step, and `crons` is gone from vercel.json
- * so nothing schedules it twice.
+ * drives it hourly, and `crons` is gone from vercel.json so nothing schedules
+ * it twice.
  *
- * 24 × 60 ÷ 5 = 288. `RECIPIENTS_PER_SWEEP` in lib/campaign-cron.ts is 75 per
- * INVOCATION, so the ceiling is 288 × 75 = 21,600 recipients a day and the
- * same 40,000-recipient campaign drains in about two days.
+ * `RECIPIENTS_PER_SWEEP` in lib/campaign-cron.ts is 75 per INVOCATION, so the
+ * ceiling is 24 × 75 = 1,800 recipients a day.
  *
  * Why a ceiling: GitHub Actions scheduled workflows are best effort. Ticks are
  * delayed when the runner pool is busy, are dropped outright under sustained
@@ -311,12 +310,12 @@ export function parseScheduleTime(
  * schedule does not have.
  *
  * 24, not 288, since 23 August 2026: the sweep was slowed from every five
- * minutes to hourly to stay inside the Neon Free compute allowance while SES
- * production access is denied and nothing can send anyway. This is a REAL
- * twelvefold reduction in throughput, not a bookkeeping change — a campaign
- * the composer used to quote in hours now honestly takes days. Both numbers
- * move back together when access is granted; the test below is what stops
- * them drifting apart.
+ * minutes to hourly to stay inside the Neon Free compute allowance — each
+ * tick wakes the compute, and Neon Free suspends it on overage. This is a REAL
+ * twelvefold reduction in throughput, not a bookkeeping change. "Send now"
+ * does not wait for a tick (the schedule route runs one pass itself). If the
+ * cadence changes, this constant and the workflow move together; the test
+ * below is what stops them drifting apart.
  */
 export const SWEEPS_PER_DAY = 24;
 

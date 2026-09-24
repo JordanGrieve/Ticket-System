@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { labelChipProps } from "./label-style";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useVisibleRefresh } from "@/lib/use-visible-refresh";
 import { SOURCE_META } from "@/lib/theme";
 import { Icon, SearchIcon } from "./icons";
 import StarButton from "./StarButton";
@@ -92,7 +92,6 @@ export default function MessageList({
 }) {
   const [refine, setRefine] = useState<Refine>("all");
   const [search, setSearch] = useState("");
-  const router = useRouter();
 
   /*
    * All three chips, for everybody.
@@ -114,14 +113,7 @@ export default function MessageList({
   // Keep the list live: new tickets used to appear only on manual reload.
   // Skipped while a thread is open — Thread runs its own 30s refresh for the
   // whole route, and two timers on one page is just double the server work.
-  const live = selectedId === undefined;
-  useEffect(() => {
-    if (!live) return;
-    const id = setInterval(() => {
-      if (document.visibilityState === "visible") router.refresh();
-    }, 45_000);
-    return () => clearInterval(id);
-  }, [router, live]);
+  useVisibleRefresh(45_000, selectedId === undefined);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
