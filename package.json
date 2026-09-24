@@ -21,15 +21,15 @@
     "db:rekey-chains": "tsx db/rekey-chains.ts"
   },
   "dependencies": {
-    "@clerk/nextjs": "^7.9.5",
+    "@clerk/nextjs": "^7.9.6",
     "@neondatabase/serverless": "^1.1.0",
     "@sentry/nextjs": "^10.75.3",
     "drizzle-orm": "^0.45.3",
     "next": "16.3.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "resend": "^6.28.1",
-    "stripe": "~22.5.0"
+    "resend": "^6.29.0",
+    "stripe": "^22.5.0"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.3",
@@ -44,6 +44,6 @@
     "postcss": "^8.5.28",
     "tsx": "^4.23.15",
     "typescript": "^5",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.10"
   }
 }
