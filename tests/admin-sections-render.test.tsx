@@ -6,7 +6,6 @@ import type { Admin } from "../db/schema";
 import type { ImpersonationSessionRow } from "../lib/impersonation";
 import type { WorkspaceSummary } from "../lib/data";
 import type { ImpersonationReadRow } from "../lib/impersonation-reads";
-import type { ChainVerification } from "../lib/hash-chain";
 import type { WorkspaceUsage } from "../app/(admin)/admin/queries";
 import type { ConsoleGates } from "../app/(admin)/admin/sections";
 import AccountsBrowser from "../app/(admin)/admin/AccountsBrowser";
@@ -14,12 +13,10 @@ import { AccountDrawer } from "../app/(admin)/admin/account-panels";
 import type { ProviderAllowance } from "../app/(admin)/admin/queries";
 import { quotaState } from "../lib/email-quota";
 import type { AdminQuery } from "../app/(admin)/admin/ui";
-import type { AdminActionRow } from "../lib/admin-audit";
 import type { IngestionFailureRow } from "../lib/ingestion-log";
 import type { FeedbackDropRow } from "../lib/feedback-log";
 import type { TransactionalTotals, CampaignTotals } from "../app/(admin)/admin/queries";
 import {
-  AccessSection,
   AdminsCard,
   BillingSection,
   DeliverabilitySection,
@@ -128,16 +125,6 @@ const reads = new Map([
   ],
 ]) satisfies Map<number, ImpersonationReadRow[]>;
 
-const chain = {
-  ok: true,
-  keyed: true,
-  total: 2,
-  legacyUnverified: 0,
-  verified: 2,
-  firstBreak: null,
-  note: null,
-} satisfies ChainVerification;
-
 const workspace = (over: Partial<WorkspaceSummary> = {}): WorkspaceSummary =>
   ({
     id: 3,
@@ -228,7 +215,7 @@ function page(title: string, body: string) {
 <link rel="stylesheet" href="./globals.css">
 <link rel="stylesheet" href="./admin.css">
 <link rel="stylesheet" href="./console.css">
-<link rel="stylesheet" href="./access-log.css">
+
 </head><body><div class="pba-root" data-theme="dark">${body}</div>
 <script src="./audit.js"></script></body></html>`;
 }
@@ -267,15 +254,6 @@ function shell(pane: string) {
 
 const panes: Record<string, React.ReactElement> = {
   admins: <AdminsCard admins={admins} viewerEmail="jordangrieve.dev@gmail.com" />,
-      access: (
-        <AccessSection
-          sessions={sessions}
-          actions={[] satisfies AdminActionRow[]}
-          chain={chain}
-          actionChain={chain}
-          reads={reads}
-        />
-      ),
       accounts: (
         <AccountsBrowser
           accounts={accounts}
@@ -412,7 +390,7 @@ describe("every admin pane renders", () => {
       "app/globals.css",
       "app/admin.css",
       "app/(admin)/admin/console.css",
-      "app/(admin)/access-log.css",
+
     ]) {
       copyFileSync(join(process.cwd(), src), join(OUT, src.split("/").pop()!));
     }

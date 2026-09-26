@@ -15,7 +15,6 @@ import { workspaceHealth } from "@/lib/workspace-health";
 export const SECTIONS = [
   "accounts",
   "overview",
-  "access",
   "billing",
   "deliverability",
 ] as const;

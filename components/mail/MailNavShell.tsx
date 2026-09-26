@@ -580,14 +580,20 @@ export default function MailNavShell({
             <Icon name="people" size={18} />
             <span className="pbm-folder-label">Subscribers</span>
           </Link>
-          <Link
-            href="/settings"
-            className="pbm-folder"
-            data-active={pathname.startsWith("/settings")}
-          >
-            <Icon name="settings" size={18} />
-            <span className="pbm-folder-label">Settings</span>
-          </Link>
+          {/*
+            No Settings row here.
+
+            It was the third link under Subscribers, and the account button at
+            the foot of this column already opens a menu whose first item is
+            Settings — the same destination, eight rows apart, in a column
+            whose whole design problem is length. Jordan, 26 Sep 2026: "since
+            we have settings when you click admin below it, remove the link to
+            settings".
+
+            The account menu is the right home for it: Settings is about the
+            workspace and who you are in it, which is what that button is
+            already about. This list is folders and the things a folder is for.
+          */}
         </div>
 
         <div className="pbm-nav-spacer" />

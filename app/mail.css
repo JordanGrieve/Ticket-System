@@ -529,7 +529,16 @@
   /* The chip row scrolls rather than wrapping: in a 336px pane, wrapping
      pushed the first mail card below the fold. */
   scrollbar-width: none;
-  padding-bottom: 2px;
+  /*
+    ── WHY 10px AND NOT 2 ──
+    `overflow-x: auto` does not clip only sideways. A `visible` cross axis
+    computes to `auto` beside it, so this box clips VERTICALLY too, and at 2px
+    it was cutting the bottom off the selected chip — its `box-shadow:
+    0 3px 8px` reaches 11px below the chip — and off any focus ring, which sits
+    at outline-offset 2px. Jordan, 26 Sep 2026: "some of these buttons look cut
+    off." They were: the chips are the right size, the box around them was not.
+  */
+  padding-bottom: 10px;
 }
 .pbm-chips::-webkit-scrollbar {
   display: none;
@@ -846,9 +855,23 @@
   display: none;
 }
 
+/*
+  The subject block, ruled off from the conversation below it.
+
+  It had no bottom edge, so the chips row ran straight into the first message
+  with nothing between them and the header read as part of the thread rather
+  than as the thing describing it. Jordan, 26 Sep 2026: ".pbm-thread-subject
+  needs border bottom."
+
+  The bottom padding goes from 6px to 14px with it. A rule 6px under a row of
+  chips whose interactive ones carry 44px hit areas — 6px of invisible target
+  above and below a 32px chip (see .pbm-subject-chips) — would have the line
+  drawn straight through the bottom of those targets.
+*/
 .pbm-thread-subject {
   flex: none;
-  padding: 18px 20px 6px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
 }
 .pbm-subject {
   font-size: 1.25rem;
@@ -2245,6 +2268,12 @@
     background: var(--surface);
     border-radius: 0 0 26px 26px;
     box-shadow: 0 10px 26px var(--shadow-2);
+    /*
+      No rule on a phone. Here the block is a rounded card lifted off the page
+      by a shadow, and a straight line across its base would cut the corners
+      off the curve it already ends with. The shadow is the separation.
+    */
+    border-bottom: none;
   }
   .pbm-subject {
     font-size: 1.0625rem;

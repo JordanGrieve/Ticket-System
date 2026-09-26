@@ -1,18 +1,13 @@
 import Link from "next/link";
 import { recentIngestionFailures } from "@/lib/ingestion-log";
 import { recentFeedbackDrops } from "@/lib/feedback-log";
-import { recentAdminActions, verifyAdminActionLog } from "@/lib/admin-audit";
-import { verifyImpersonationLog } from "@/lib/impersonation";
 // Not Clerk's <SignOutButton>: it runs only in the browser, so an operator
 // signing out from here left their impersonation row open forever.
 import AuditedSignOutButton from "@/components/AuditedSignOutButton";
 import { resolveViewer } from "@/lib/viewer";
 import { listAdmins } from "@/lib/admin";
 import { listWorkspaceSummaries } from "@/lib/data";
-import {
-  listImpersonationSessions,
-  recentAccessByWorkspace,
-} from "@/lib/impersonation";
+import { recentAccessByWorkspace } from "@/lib/impersonation";
 import { readsForSessions } from "@/lib/impersonation-reads";
 import { POSTBOX_CONTACT_KEY } from "@/lib/config";
 import { stripeConfigured, stripePriceId } from "@/lib/stripe";
@@ -28,7 +23,6 @@ import {
 import type { ConsoleGates } from "./sections";
 import AccountsBrowser from "./AccountsBrowser";
 import {
-  AccessSection,
   AdminsCard,
   BillingSection,
   DeliverabilitySection,
@@ -72,9 +66,6 @@ const PANE: Record<Section, { title: string }> = {
   },
   overview: {
     title: "Overview",
-  },
-  access: {
-    title: "Access log",
   },
   billing: {
     title: "Billing",
@@ -175,22 +166,20 @@ export default async function AdminHomePage({
       ? Object.fromEntries(await agentCountsByWorkspace())
       : {};
 
-  // The access log: the whole thing for its own pane, and the selected
-  // account's slice for the drawer. Both are only fetched where they're shown.
-  const sessions = section === "access" ? await listImpersonationSessions() : [];
-  // Same section, so the same condition. Two tables, one question.
-  const adminActionRows = section === "access" ? await recentAdminActions() : [];
   /*
-    The whole point of the hash chain. It is written on every impersonation and
-    until now NOTHING ever checked it — a tamper-evident log nobody verifies is
-    not tamper-evident, it is two extra columns. Same shape of gap as
-    suppressAddress having no callers and /search having no way in.
+    The Access log pane was removed on 26 Sep 2026 (Jordan: "remove the Access
+    log page and everything linked to it"), and with it the four reads that
+    only it used — listImpersonationSessions, recentAdminActions and the two
+    chain verifications.
+
+    The RECORDING is untouched and must stay: selectWorkspaceAction writes an
+    impersonation row before it sets any cookie and refuses entry if that write
+    fails, and every operator action still writes to admin_actions. What is
+    gone is the screen that read them back.
   */
   // Our own provider allowance, only where it is shown.
   const allowance =
     section === "deliverability" ? await providerAllowance() : null;
-  const chain = section === "access" ? await verifyImpersonationLog() : null;
-  const actionChain = section === "access" ? await verifyAdminActionLog() : null;
   const recentAccessByAccount =
     section === "accounts"
       ? Object.fromEntries(await recentAccessByWorkspace(5))
@@ -200,16 +189,13 @@ export default async function AdminHomePage({
   /*
     Which client records were opened during each of those visits.
 
-    One query covering BOTH lists, because the two are never non-empty at the
-    same time — the access pane fills `sessions` and the accounts drawer fills
-    `recentAccess` — so the concatenation is only ever as long as whichever
-    one is being shown. See lib/impersonation-reads.ts for why an absent
-    session means "none recorded" rather than "none happened".
+    One list now rather than two: this concatenated the access pane's sessions
+    with the accounts drawer's, on the grounds that the two are never non-empty
+    at the same time. The access pane is gone, so only the drawer's remain. See
+    lib/impersonation-reads.ts for why an absent session means "none recorded"
+    rather than "none happened".
   */
-  const reads = await readsForSessions([
-    ...sessions.map((s) => s.id),
-    ...recentAccess.map((s) => s.id),
-  ]);
+  const reads = await readsForSessions(recentAccess.map((s) => s.id));
 
   // Two grouped counts, fetched only for the pane that shows them. Unlike the
   // reads above these are aggregates over the two biggest tables in the
@@ -286,7 +272,6 @@ export default async function AdminHomePage({
               label="Accounts"
               count={accounts.length}
             />
-            <NavRow query={query} to="access" label="Access log" />
             <NavRow query={query} to="billing" label="Billing" />
             <NavRow query={query} to="deliverability" label="Deliverability" />
           </div>
@@ -351,15 +336,6 @@ export default async function AdminHomePage({
                   <OverviewSection accounts={accounts} gates={gates} />
                   <AdminsCard admins={admins} viewerEmail={viewer.email} />
                 </>
-              )}
-              {section === "access" && (
-                <AccessSection
-                  sessions={sessions}
-                  actions={adminActionRows}
-                  chain={chain}
-                  actionChain={actionChain}
-                  reads={reads}
-                />
               )}
               {section === "billing" && (
                 <BillingSection

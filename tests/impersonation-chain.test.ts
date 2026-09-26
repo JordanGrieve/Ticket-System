@@ -427,47 +427,25 @@ describe("the writer and the schema hold up their end", () => {
   });
 });
 
-/**
- * The chain is actually CHECKED by something.
+/*
+ * ── NOTHING VERIFIES THE CHAIN ANY MORE, AND THAT IS A KNOWN GAP ──
  *
- * ── WHY THIS TEST IS NOT PARANOIA ──
- * The chain shipped complete and correct, with 27 tests, and
- * `verifyImpersonationLog()` had zero callers outside this file. Every
- * impersonation wrote a hash and nothing ever walked it. A tamper-evident log
- * that nobody verifies is not tamper-evident — it is two extra columns and a
- * claim.
+ * There were three tests here asserting that the admin console called
+ * `verifyImpersonationLog()`, rendered the answer, and showed it whether it
+ * passed or failed. They existed because the chain had once shipped complete
+ * and correct with 27 tests and ZERO callers: every impersonation wrote a hash
+ * and nothing ever walked it. A tamper-evident log nobody verifies is not
+ * tamper-evident — it is two extra columns and a claim.
  *
- * That is a shape this codebase keeps producing: suppressAddress() with no
- * callers, /search built with nothing linking to it, the delivery webhook
- * before anything read its result. Each was found by a person noticing, which
- * is the part that does not scale.
+ * The Access log pane was removed on 26 Sep 2026 (Jordan: "remove the Access
+ * log page and everything linked to it"), and it was the only caller. So the
+ * condition those tests guarded against is now true again, deliberately, and
+ * they were deleted rather than left red.
+ *
+ * Everything ABOVE this point still holds and still matters: the rows are
+ * still written, still sealed, and `verifyImpersonationLog` still works and is
+ * still correct. What is missing is anything that runs it. If the chain is to
+ * mean something again, the cheapest home is the daily health-check workflow —
+ * it already runs, and a broken chain is exactly the sort of thing worth one
+ * alert a day rather than a screen nobody opens.
  */
-describe("something actually verifies the chain", () => {
-  const CONSOLE_PAGE = readFileSync(
-    join(process.cwd(), "app/(admin)/admin/page.tsx"),
-    "utf8",
-  );
-  const CONSOLE_SECTIONS = readFileSync(
-    join(process.cwd(), "app/(admin)/admin/sections.tsx"),
-    "utf8",
-  );
-
-  it("the admin console calls the verifier", () => {
-    expect(CONSOLE_PAGE).toContain("verifyImpersonationLog(");
-  });
-
-  it("and renders the result rather than discarding it", () => {
-    // Calling it and throwing the answer away would satisfy the test above.
-    expect(CONSOLE_SECTIONS).toContain("describeChainVerification(");
-  });
-
-  it("shows the outcome whether it passes or fails", () => {
-    /*
-     * A verification that only appears when something is wrong cannot be told
-     * apart from one that never ran. Both branches have to be reachable, so
-     * the render is asserted to depend on `ok` rather than to be conditional
-     * on failure alone.
-     */
-    expect(CONSOLE_SECTIONS).toMatch(/chain\.ok\s*\?/);
-  });
-});

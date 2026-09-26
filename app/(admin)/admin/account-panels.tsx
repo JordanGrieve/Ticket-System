@@ -301,11 +301,6 @@ export function AccountDrawer({
             })}
           </div>
         )}
-        <p className="pba-note">
-          <Link href={hrefFor(query, { section: "access" })}>
-            Full access log →
-          </Link>
-        </p>
       </div>
 
       <div className="pba-drawer-actions">

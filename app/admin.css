@@ -510,8 +510,28 @@
   padding: 18px;
 }
 
-.pba-card + .pba-card {
-  margin-top: 16px;
+/*
+  ── SPACING BELONGS TO THE CARD, NOT TO THE PAIR ──
+
+  This was `.pba-card + .pba-card { margin-top: 16px }`, and the adjacent
+  sibling selector has now failed three times, each in the same shape: a card
+  next to something that is not a card gets no gap at all.
+
+    1. The accounts table met the New account panel with two 1px borders
+       touching — patched further down with `.pba-table + .pba-card`.
+    2. The "Nobody can contact Postbox" alarm sits above the KPI grid, which
+       is not a card, so it had nothing beneath it.
+    3. The Postbox admins card is LAST on the pane, and a pair selector can
+       never give the last element anything — it ran into the bottom of the
+       page.
+
+  Jordan, 26 Sep 2026, on 2 and 3: "make it the same margin-bottom as the other
+  ones so 20px". A margin the card owns applies in all four positions —
+  first, middle, last, and beside a stranger — so there is no fourth variant
+  of this bug to find.
+*/
+.pba-card {
+  margin-bottom: 20px;
 }
 
 /* A card reporting something BROKEN, not something merely worth knowing.
@@ -1153,13 +1173,13 @@
 /*
   The table and whatever follows it were touching.
 
-  `.pba-card + .pba-card` had a top margin and `.pba-table + .pba-card` had
-  none, so the accounts table sat flush against the New account panel with two
-  1px borders meeting and no gap at all.
+  This was `.pba-table + .pba-card, .pba-table + .pba-table { margin-top }`,
+  the second patch in the adjacent-sibling series described above the `.pba-card`
+  rule. Same remedy: the table carries its own space, so it keeps it wherever it
+  is and whatever follows it — including nothing.
 */
-.pba-table + .pba-card,
-.pba-table + .pba-table {
-  margin-top: 16px;
+.pba-table {
+  margin-bottom: 20px;
 }
 
 /* ── Provider allowance meters ────────────────────────────────────────── */
@@ -1261,4 +1281,37 @@
     margin-left: 0;
     width: 100%;
   }
+}
+
+/* ── The drawer's operator-access list ──────────────────────────
+   Moved here from app/(admin)/access-log.css when the Access log PANE was
+   removed on 26 Sep 2026. That file styled the pane's six-column table and
+   this compact list together; the table is gone and the list is not — the
+   account drawer still shows who from Postbox entered this workspace, which
+   is the part a client's own /settings/access-log mirrors.
+
+   Deleting the stylesheet without moving these four rules would have left the
+   drawer's card unstyled, which nothing in the suite renders closely enough
+   to have caught. */
+
+.pba-root .pba-log-entry {
+  padding: 10px 0;
+  font-size: 0.78125rem;
+  color: var(--text-2);
+}
+
+.pba-root .pba-log-entry + .pba-log-entry {
+  border-top: 1px solid var(--border-soft);
+}
+
+.pba-root .pba-log-who {
+  font-weight: 700;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.pba-root .pba-log-when {
+  margin-top: 2px;
+  color: var(--muted-2);
+  font-size: 0.71875rem;
 }

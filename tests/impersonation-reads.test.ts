@@ -114,12 +114,26 @@ describe("impersonation reads — ids, not content", () => {
   });
 
   it("the console renders numbers, not message text", () => {
-    const start = sections.indexOf("function ReadList");
-    expect(start, "ReadList not found — has the column been renamed?")
-      .toBeGreaterThan(-1);
-    const body = sections.slice(start, sections.indexOf("export function AccessSection"));
-    expect(body).toContain("r.ticketId");
-    expect(body).not.toMatch(/subject|customerName|customerEmail/);
+    /*
+     * This read `ReadList`, the per-ticket list on the Access log pane. That
+     * pane was removed on 26 Sep 2026 and the drawer's card is the only place
+     * reads are shown now — it reports a COUNT, which is even less than the
+     * ids the list showed.
+     *
+     * The property is unchanged and still worth pinning: what an operator
+     * opened is recorded and displayed as a number, never as a subject line or
+     * a customer's address. Those belong to the client, and copying them into
+     * our audit trail to make a nicer screen is the thing this guards against.
+     *
+     * Scoped to the operator-access card rather than the whole file, because
+     * the drawer around it legitimately renders a workspace's own owner email.
+     */
+    const start = panels.indexOf("Operator access");
+    expect(start, "the drawer no longer shows operator access at all").
+      toBeGreaterThan(-1);
+    const card = panels.slice(start, panels.indexOf("pba-drawer-actions", start));
+    expect(card).toMatch(/records?/);
+    expect(card).not.toMatch(/subject|customerName|customerEmail/);
   });
 
   it("the console says an empty cell means unrecorded, not unread", () => {
