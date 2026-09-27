@@ -2,7 +2,11 @@
 
 import { useMemo, useRef, useState } from "react";
 import type { CampaignProduct } from "@/db/schema";
-import { TEMPLATE_KEYS, type TemplateKey } from "@/lib/newsletter";
+import {
+  TEMPLATE_KEYS,
+  TEMPLATE_LABELS,
+  type TemplateKey,
+} from "@/lib/newsletter";
 import ProductsHeroEditor, {
   blankDraftProduct,
   draftProductFrom,
@@ -266,12 +270,16 @@ export default function WelcomeEmailForm({
                 touch();
               }}
             >
-              {key === "branded" ? "Branded" : "Plain"}
+              {TEMPLATE_LABELS[key].name}
             </button>
           ))}
         </div>
+        {/* The selected layout's own description, rather than a sentence here
+            listing them: this row gained a third button the day the editorial
+            layout landed, and a hardcoded "Branded … Plain …" would have gone
+            on describing two of them. */}
         <span className="stg-field-hint">
-          Branded uses your colour and sign-off. Plain is text on white.
+          {TEMPLATE_LABELS[templateKey].description}
         </span>
       </fieldset>
 

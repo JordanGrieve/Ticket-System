@@ -9,6 +9,8 @@ import {
   CAMPAIGN_SUBJECT_MAX,
   NEWSLETTER_MERGE_TOKENS,
   TEMPLATE_KEYS,
+  TEMPLATE_LABELS,
+  PALETTES,
   isEditableStatus,
   renderCampaign,
   safeImageUrl,
@@ -99,10 +101,14 @@ export type { CampaignRowDTO } from "./composer-model";
 
 // ── Labels ───────────────────────────────────────────────────────
 
-const TEMPLATE_LABELS: Record<TemplateKey, string> = {
-  plain: "Plain — text on white, no framing",
-  branded: "Branded — your workspace name above a card",
-};
+/*
+  The layout names live in lib/newsletter.ts beside the layouts themselves, so
+  this screen and the welcome form cannot disagree about what "Editorial"
+  means — and so a fourth layout has one place to be named rather than two to
+  be forgotten in.
+*/
+const templateOption = (key: TemplateKey) =>
+  `${TEMPLATE_LABELS[key].name} — ${TEMPLATE_LABELS[key].description}`;
 
 /**
  * The preview recipient.
@@ -1205,7 +1211,15 @@ export default function Composer({
                         setStartedFrom(t.key);
                         // Subject only when the template has one: "From
                         // scratch" must not wipe a subject already typed.
-                        patch(t.subject ? { subject: t.subject, body: t.body } : { body: t.body });
+                        // Layout only when the template names one, for the
+                        // same reason — a preset whose whole point is a look
+                        // (Launch) says so; the copy-only ones leave whatever
+                        // layout is selected alone.
+                        patch({
+                          body: t.body,
+                          ...(t.subject ? { subject: t.subject } : {}),
+                          ...(t.templateKey ? { templateKey: t.templateKey } : {}),
+                        });
                       }}
                     >
                       {t.name}
@@ -1303,7 +1317,7 @@ export default function Composer({
                 >
                   {TEMPLATE_KEYS.map((key) => (
                     <option key={key} value={key}>
-                      {TEMPLATE_LABELS[key]}
+                      {templateOption(key)}
                     </option>
                   ))}
                 </select>
@@ -1355,6 +1369,16 @@ export default function Composer({
                 <p className="nl-help">
                   {draft.body.length.toLocaleString()} of{" "}
                   {CAMPAIGN_BODY_MAX.toLocaleString()} characters.
+                  {/*
+                    The one thing about a layout that changes what the words
+                    MEAN rather than how they look, so it is said here beside
+                    the words rather than only in the layout's description.
+                    Keyed off the palette, not off the string "editorial": the
+                    next layout that does this gets the sentence for free.
+                  */}
+                  {PALETTES[draft.templateKey].headlineFirstBlock
+                    ? " The first paragraph is set as the headline, in capitals with a rule under it — the preview shows it."
+                    : ""}
                 </p>
               </div>
             </section>

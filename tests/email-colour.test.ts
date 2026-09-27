@@ -8,6 +8,7 @@ import {
   darkenToContrast,
   MIN_CONTRAST,
 } from "../lib/email-colour";
+import { PALETTES, emailAccent } from "../lib/newsletter";
 
 /**
  * The brand accent, made readable.
@@ -184,10 +185,20 @@ describe("the fixed colours in the email clear AA on the grounds they sit on", (
   const literals = [...new Set([...source.matchAll(/color:(#[0-9a-f]{6})/g)].map((m) => m[1]!))];
 
   it("found the literals at all", () => {
-    // The canary: a regex that matched nothing would make the loop below pass
-    // by iterating over an empty list. This repo has been bitten by exactly
-    // that — a mangled regex inside a check that reported green.
-    expect(literals.length).toBeGreaterThanOrEqual(3);
+    /*
+      The canary: a regex that matched nothing would make the loop below pass
+      by iterating over an empty list. This repo has been bitten by exactly
+      that — a mangled regex inside a check that reported green.
+
+      It very nearly happened again on 27 Sep 2026, and the canary is the
+      reason it did not. The editorial layout moved almost every one of these
+      literals into an EmailPalette, because ink that is correct on white is
+      invisible on black — and this scan, which had measured them all, went
+      from twelve matches to one without a word. The remaining literals are
+      still measured below; the palettes are measured in the block after it,
+      against their own grounds rather than against white.
+    */
+    expect(literals.length).toBeGreaterThanOrEqual(1);
   });
 
   for (const literal of literals) {
@@ -201,6 +212,88 @@ describe("the fixed colours in the email clear AA on the grounds they sit on", (
           `${literal} measures ${ratio.toFixed(2)}:1 on ${ground} — the email's body text is 12-14px, so AA needs ${MIN_CONTRAST}`,
         ).toBeGreaterThanOrEqual(MIN_CONTRAST);
       }
+    });
+  }
+});
+
+/**
+ * Every palette's ink, against the ground that palette paints it on.
+ *
+ * This is the block the literal scan above became when the editorial layout
+ * landed. The pairing is the point: #3c372f body text is 9.6:1 on white and
+ * 1.2:1 on the editorial black, so a colour is not readable or unreadable on
+ * its own — only on something.
+ *
+ * The bars differ, and the difference is a decision rather than an oversight:
+ *
+ *  - Light is held to AA (4.5). Its muted grey is 5.10:1 on the card and
+ *    4.81:1 on the page, tuned in place on 11 Sep 2026 from a #a49a89 that
+ *    measured 2.78:1. Raising the bar here would mean re-tuning a palette
+ *    that is in front of real recipients, which is a change to make
+ *    deliberately and not as a side effect of adding a layout.
+ *  - Editorial is held to 7:1, because it was written from scratch on
+ *    27 Sep 2026 and there is no reason for a new palette to be worse. The
+ *    email it was modelled on rendered its launch time at roughly 2.5:1 on
+ *    black, which is what this number is here to prevent.
+ */
+describe("every palette's ink clears its bar on its own ground", () => {
+  const BARS: Record<keyof typeof PALETTES, number> = {
+    plain: MIN_CONTRAST,
+    branded: MIN_CONTRAST,
+    editorial: 7,
+  };
+
+  it("there are palettes to measure", () => {
+    // Same canary as above, for the same reason.
+    expect(Object.keys(PALETTES).length).toBeGreaterThanOrEqual(2);
+  });
+
+  for (const [key, palette] of Object.entries(PALETTES)) {
+    const bar = BARS[key as keyof typeof PALETTES];
+
+    /*
+      Which ink sits on which ground. Named rather than crossed, because a
+      cross product would invent pairings the renderer never emits — the
+      price never appears on the canvas in the branded layout, for instance,
+      and failing on a pairing that cannot happen teaches people to widen the
+      exemptions until the test says nothing.
+    */
+    const pairings: [string, string, string][] = [
+      ["body copy", palette.ink, palette.surface],
+      ["headlines and product names", palette.inkStrong, palette.surface],
+      ["the unsubscribe and postal lines", palette.inkMuted, palette.surface],
+      ["a product name on its card", palette.inkStrong, palette.productBg],
+      ["a price on its card", palette.priceInk, palette.productBg],
+    ];
+
+    for (const [what, fg, bg] of pairings) {
+      it(`${key}: ${what}`, () => {
+        const ink = parseHex(fg);
+        const ground = parseHex(bg);
+        expect(ink, `${key}: ${fg} does not parse`).not.toBeNull();
+        expect(ground, `${key}: ${bg} does not parse`).not.toBeNull();
+        const ratio = contrastRatio(ink!, ground!);
+        expect(
+          ratio,
+          `${key}: ${what} is ${fg} on ${bg}, which measures ${ratio.toFixed(2)}:1`,
+        ).toBeGreaterThanOrEqual(bar);
+      });
+    }
+
+    it(`${key}: the default accent survives being resolved against it`, () => {
+      // emailAccent is what every link and product name goes through. On a
+      // dark canvas it must LIGHTEN — the one behaviour that would fail
+      // silently, as black-on-black.
+      const resolved = parseHex(
+        emailAccent(null, palette.accentOn, palette.accentMin),
+      )!;
+      const ground = parseHex(palette.accentOn)!;
+      expect(contrastRatio(resolved, ground)).toBeGreaterThanOrEqual(
+        palette.accentMin,
+      );
+      // And the palette's own bar is the one the rest of its ink is held to,
+      // so a layout cannot quietly exempt its links from it.
+      expect(palette.accentMin).toBeGreaterThanOrEqual(bar === 7 ? 7 : MIN_CONTRAST);
     });
   }
 });

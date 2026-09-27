@@ -5,7 +5,12 @@ import type {
 } from "@/db/schema";
 
 export type { CampaignProduct };
-import { darkenToContrast, parseHex, toHex } from "./email-colour";
+import {
+  MIN_CONTRAST,
+  darkenToContrast,
+  parseHex,
+  toHex,
+} from "./email-colour";
 
 /**
  * Newsletter engine — the PURE half.
@@ -53,12 +58,41 @@ export const CAMPAIGN_BODY_MAX = 50_000;
  * HTML: a stored blob freezes a campaign against every future fix to the
  * layout, and makes "why does this render wrong in Outlook" unanswerable.
  */
-export const TEMPLATE_KEYS = ["plain", "branded"] as const;
+export const TEMPLATE_KEYS = ["plain", "branded", "editorial"] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
 export function isTemplateKey(value: unknown): value is TemplateKey {
   return (TEMPLATE_KEYS as readonly string[]).includes(value as string);
 }
+
+/**
+ * What each layout is called on a screen, in one place.
+ *
+ * Both screens that offer the choice had their own copy of this. The
+ * composer's was a Record, so it would not compile without the new key; the
+ * welcome form's was `key === "branded" ? "Branded" : "Plain"`, which would
+ * have labelled a third layout "Plain" and told nobody. A ternary is a
+ * two-value assumption wearing a conditional, and this is the second time in
+ * this repo one has outlived the set it was written for.
+ */
+export const TEMPLATE_LABELS: Record<
+  TemplateKey,
+  { name: string; description: string }
+> = {
+  plain: {
+    name: "Plain",
+    description: "Text on white, no framing.",
+  },
+  branded: {
+    name: "Branded",
+    description: "Your workspace name and colour above a white card.",
+  },
+  editorial: {
+    name: "Editorial",
+    description:
+      "Dark and centred, photography first — the opening line becomes the headline.",
+  },
+};
 
 // ── Merge tokens ─────────────────────────────────────────────────
 
@@ -644,6 +678,132 @@ export function listUnsubscribeHeaders(input: {
 
 // ── Rendering ────────────────────────────────────────────────────
 
+/**
+ * The inks and grounds one layout paints with.
+ *
+ * ── WHY THIS EXISTS AS A TYPE ──
+ * Every colour in this renderer used to be a literal in the string that used
+ * it, which was fine while both shells were light: `#3c372f` body text was
+ * correct on white and correct on the cream card. The editorial layout is
+ * black, and on black every one of those literals is invisible — so the first
+ * dark template would have shipped as a beautiful photograph above text
+ * nobody can read, in a medium where a fix cannot be applied after the fact.
+ *
+ * So the ink travels with the ground. Adding a layout means adding a palette,
+ * tests/campaign-palettes.test.ts measures each one's ink against its own
+ * canvas at the AAA bar, and a missing entry does not compile.
+ *
+ * `accentOn` is the ground the client's brand colour is resolved against —
+ * darkenToContrast handles both directions, so a pale brand yellow is
+ * darkened on white and lightened on black rather than turning to tar.
+ */
+export type EmailPalette = {
+  /** The page behind everything. */
+  canvas: string;
+  /** Where the body text actually sits — the card, or the canvas itself. */
+  surface: string;
+  /** Body copy. */
+  ink: string;
+  /** Headlines, product names, the workspace name. */
+  inkStrong: string;
+  /** The small print — unsubscribe prompt and postal block — which still has
+   *  to be readable. */
+  inkMuted: string;
+  /** A product's price. Its own entry because it is a FACT, not small print:
+   *  a shade stronger than inkMuted in both palettes. */
+  priceInk: string;
+  /** Hairlines: card borders, the editorial rule. */
+  rule: string;
+  /** The ground a product card is drawn on. */
+  productBg: string;
+  /** The ground the accent must be legible against. */
+  accentOn: string;
+  /**
+   * How legible. The light layouts ask for AA, which is what every campaign
+   * already in front of a recipient was tuned to. Editorial asks for 7:1,
+   * because the rest of its ink does — measured in the browser on 27 Sep 2026,
+   * where a default accent resolved to exactly 4.80:1 was the one thing on an
+   * otherwise 9:1-and-up page that looked dim.
+   */
+  accentMin: number;
+  /** Centred like a poster, or ranged left like a letter. */
+  centred: boolean;
+  /** Whether the body's opening block is set as a headline with a rule under
+   *  it. Separate from `centred` on purpose: a layout can be centred without
+   *  reinterpreting the author's first paragraph, and that reinterpretation is
+   *  the part that needs saying out loud on the screen. */
+  headlineFirstBlock: boolean;
+};
+
+/**
+ * The light palette, byte for byte what this renderer emitted before palettes
+ * existed. Shared by plain and branded: they differ in their shell, not their
+ * ink, and the footer grey was measured against BOTH grounds when it was
+ * chosen (see unsubscribeFooterHtml).
+ */
+const LIGHT_PALETTE: EmailPalette = {
+  canvas: "#ffffff",
+  surface: "#ffffff",
+  ink: "#3c372f",
+  inkStrong: "#26221d",
+  inkMuted: "#746d61",
+  priceInk: "#57503f",
+  rule: "#e7e1d6",
+  productBg: "#ffffff",
+  accentOn: "#ffffff",
+  accentMin: MIN_CONTRAST,
+  centred: false,
+  headlineFirstBlock: false,
+};
+
+/**
+ * Editorial: near-black, with ink chosen for the ground rather than borrowed
+ * from the light one.
+ *
+ * #0b0b0b rather than #000000. Several clients — Outlook.com above all —
+ * invert or "helpfully" adjust pure black in their own dark mode; a value a
+ * shade off is left alone, and no reader can tell the difference.
+ *
+ * The greys are NOT the ones the email this was modelled on used. That one
+ * painted its headline and its launch details in a mid-grey that measures
+ * around 2.5:1 on black — the launch time was very nearly invisible, which is
+ * the one fact the message existed to deliver. These are 7:1 or better.
+ */
+const EDITORIAL_PALETTE: EmailPalette = {
+  canvas: "#0b0b0b",
+  surface: "#0b0b0b",
+  ink: "#e8e8e8",
+  inkStrong: "#ffffff",
+  inkMuted: "#b4b4b4",
+  priceInk: "#d2d2d2",
+  rule: "#3d3d3d",
+  productBg: "#151515",
+  /*
+    The PRODUCT CARD, not the canvas — the lighter of the two grounds the
+    accent is painted on, and therefore the harder one. A linked product name
+    sits on #151515; resolving against #0b0b0b gave a colour that measured
+    7.01:1 on the canvas and 6.51:1 where it actually appeared. Measured in a
+    browser on 27 Sep 2026; the difference is invisible to the eye and exactly
+    the kind of thing a token sheet gets wrong.
+  */
+  accentOn: "#151515",
+  accentMin: 7,
+  centred: true,
+  headlineFirstBlock: true,
+};
+
+export const PALETTES: Record<TemplateKey, EmailPalette> = {
+  plain: LIGHT_PALETTE,
+  branded: LIGHT_PALETTE,
+  editorial: EDITORIAL_PALETTE,
+};
+
+export function paletteFor(templateKey: string): EmailPalette {
+  // Not isTemplateKey + index: an unknown key in an old row must render as
+  // something legible rather than as undefined.ink.
+  return isTemplateKey(templateKey) ? PALETTES[templateKey] : LIGHT_PALETTE;
+}
+
 export function escapeHtml(s: string): string {
   return s.replace(
     /[&<>"']/g,
@@ -743,10 +903,11 @@ export const SIGN_OFF_MAX = 120;
 export function emailAccent(
   accentHex: string | null,
   backgroundHex: string,
+  minimum = MIN_CONTRAST,
 ): string {
   const picked = parseHex(accentHex) ?? parseHex(DEFAULT_EMAIL_ACCENT)!;
   const ground = parseHex(backgroundHex) ?? parseHex("#ffffff")!;
-  return toHex(darkenToContrast(picked, ground));
+  return toHex(darkenToContrast(picked, ground, minimum));
 }
 
 /**
@@ -847,13 +1008,21 @@ function signOffText(brand: Brand): string {
 ${line}` : "";
 }
 
-function signOffHtml(brand: Brand): string {
+function signOffHtml(brand: Brand, palette: EmailPalette): string {
   const line = (brand.signOff ?? "").trim();
   if (!line) return "";
   // Escaped like everything else: this is client-authored text reaching a
   // stranger's mail client.
   const safe = escapeHtml(line).replace(/\n/g, "<br />");
-  return `<p style="margin:22px 0 0;font:400 14.5px/1.65 Arial,sans-serif;color:#3c372f;">${safe}</p>`;
+  return `<p style="margin:22px 0 0;font:400 14.5px/1.65 Arial,sans-serif;color:${palette.ink};${align(palette)}">${safe}</p>`;
+}
+
+/** `text-align:center;` where the layout is centred, nothing where it is not.
+ *  Nothing, rather than `left`: left is the default, and an extra declaration
+ *  in every paragraph would change the bytes of the two light layouts for no
+ *  reason. */
+function align(palette: EmailPalette): string {
+  return palette.centred ? "text-align:center;" : "";
 }
 
 function unsubscribeFooterText(url: string, sender: SenderIdentity): string {
@@ -866,6 +1035,7 @@ function unsubscribeFooterHtml(
   url: string,
   sender: SenderIdentity,
   accent: string,
+  palette: EmailPalette,
 ): string {
   const safe = escapeHtml(url);
   const identity = escapeHtml(senderBlockText(sender)).replace(/\n/g, "<br />");
@@ -884,8 +1054,8 @@ function unsubscribeFooterHtml(
     It is muted ON PURPOSE and stays muted: this is the small print, and the
     point is that small print still has to be readable.
   */
-  return `<p style="margin:28px 0 0;font:400 12px/1.6 Arial,sans-serif;color:#746d61;">Don&rsquo;t want these emails? <a href="${safe}" style="color:${accent};text-decoration:underline;">Unsubscribe</a>.</p>
-<p style="margin:10px 0 0;font:400 12px/1.6 Arial,sans-serif;color:#746d61;">${identity}</p>`;
+  return `<p style="margin:28px 0 0;font:400 12px/1.6 Arial,sans-serif;color:${palette.inkMuted};${align(palette)}">Don&rsquo;t want these emails? <a href="${safe}" style="color:${accent};text-decoration:underline;">Unsubscribe</a>.</p>
+<p style="margin:10px 0 0;font:400 12px/1.6 Arial,sans-serif;color:${palette.inkMuted};${align(palette)}">${identity}</p>`;
 }
 
 /**
@@ -943,18 +1113,58 @@ function senderBlockText(sender: SenderIdentity): string {
  * AFTER escaping, so the href can only ever contain characters that survived
  * the escape.
  */
-function textToHtmlParagraphs(text: string, accent: string): string {
-  return text
-    .split(/\n{2,}/)
-    .map((block) => {
-      const escaped = escapeHtml(block).replace(/\n/g, "<br />");
-      const linked = escaped.replace(
-        /(https?:\/\/[^\s<]+)/g,
-        (url) => `<a href="${url}" style="color:${accent};">${url}</a>`,
-      );
-      return `<p style="margin:0 0 16px;font:400 14.5px/1.65 Arial,sans-serif;color:#3c372f;">${linked}</p>`;
-    })
-    .join("\n");
+function textToHtmlParagraphs(
+  text: string,
+  accent: string,
+  palette: EmailPalette,
+): string {
+  const blocks = text.split(/\n{2,}/);
+  const paragraphs = blocks.map((block) => {
+    const escaped = escapeHtml(block).replace(/\n/g, "<br />");
+    const linked = escaped.replace(
+      /(https?:\/\/[^\s<]+)/g,
+      (url) => `<a href="${url}" style="color:${accent};">${url}</a>`,
+    );
+    return `<p style="margin:0 0 16px;font:400 14.5px/1.65 Arial,sans-serif;color:${palette.ink};${align(palette)}">${linked}</p>`;
+  });
+
+  if (!palette.headlineFirstBlock || blocks.length === 0) {
+    return paragraphs.join("\n");
+  }
+
+  /*
+    ── THE OPENING LINE IS THE HEADLINE ──
+    In the editorial layout only, and it is the one convention in this file
+    that a reader of the body text alone would not predict. Three things make
+    it discoverable rather than surprising: the layout's own description says
+    so, the composer repeats it under the body box while that layout is
+    selected, and the live preview beside the box shows it happening as you
+    type. It costs no schema — the alternative was a `headline` column, and a
+    nullable column that only one of three layouts reads is a field every
+    write path has to remember for the benefit of a third of the product.
+
+    text-transform is not relied on: Outlook's Word renderer ignores it, so a
+    client who wants capitals types capitals. What it always gets is the size,
+    the letter-spacing and the rule under it.
+  */
+  const first = blocks[0];
+  const headline = `<p style="margin:0 0 14px;font:400 17px/1.45 Arial,sans-serif;letter-spacing:2px;text-transform:uppercase;color:${palette.inkStrong};text-align:center;">${escapeHtml(
+    first!,
+  ).replace(/\n/g, "<br />")}</p>
+${hairline(palette)}`;
+  return [headline, ...paragraphs.slice(1)].join("\n");
+}
+
+/**
+ * The rule under the headline.
+ *
+ * A table cell with a background, not a border-top and not an <hr>: borders
+ * on empty elements collapse in Outlook and an <hr> is styled differently by
+ * every client. The same trick the branded masthead uses, at 1px and 200px
+ * wide rather than full bleed.
+ */
+function hairline(palette: EmailPalette): string {
+  return `<table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin:0 auto 22px;"><tr><td width="200" height="1" style="width:200px;height:1px;line-height:1px;font-size:0;background:${palette.rule};">&nbsp;</td></tr></table>`;
 }
 
 // ── Images ───────────────────────────────────────────────────────
@@ -1016,10 +1226,19 @@ export function safeImageUrl(raw: string | null | undefined): string | null {
  * No link around it by default. A picture that navigates somewhere the reader
  * did not ask to go is a dark pattern, and the body can carry a link.
  */
-function heroImageHtml(hero: HeroImage | null): string {
+function heroImageHtml(hero: HeroImage | null, palette: EmailPalette): string {
   if (!hero) return "";
   const url = escapeHtml(hero.url);
   const alt = escapeHtml(hero.alt);
+  /*
+    Editorial runs the photograph to the edges of the message and squares its
+    corners — that IS the layout, and a rounded 496px picture floating on
+    black is the thing it exists not to be. 600 matches the shell's width, and
+    the `width` attribute agrees with it for Outlook, as above.
+  */
+  if (palette.centred) {
+    return `<img src="${url}" alt="${alt}" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;margin:0 0 26px;" />\n`;
+  }
   return `<img src="${url}" alt="${alt}" width="496" style="display:block;width:100%;max-width:496px;height:auto;border:0;border-radius:12px;margin:0 0 20px;" />\n`;
 }
 
@@ -1171,7 +1390,11 @@ function productsText(products: CampaignProduct[]): string {
  * An odd count leaves the last cell empty rather than stretching the survivor
  * across the row: a lone product at double width reads as a mistake.
  */
-function productsHtml(products: CampaignProduct[], accent: string): string {
+function productsHtml(
+  products: CampaignProduct[],
+  accent: string,
+  palette: EmailPalette,
+): string {
   if (products.length === 0) return "";
 
   /*
@@ -1207,7 +1430,7 @@ function productsHtml(products: CampaignProduct[], accent: string): string {
       same two lines high, so the names in a pair sit on the same line as each
       other and the prices under them do too.
     */
-    const price = `<div style="font:400 13px/1.4 Arial,sans-serif;color:#57503f;margin:2px 0 0;">${
+    const price = `<div style="font:400 13px/1.4 Arial,sans-serif;color:${palette.priceInk};margin:2px 0 0;">${
       p.price ? escapeHtml(p.price) : "&nbsp;"
     }</div>`;
     /*
@@ -1222,7 +1445,7 @@ function productsHtml(products: CampaignProduct[], accent: string): string {
     */
     const nameInk = p.url
       ? `color:${accent};text-decoration:underline;`
-      : "color:#26221d;";
+      : `color:${palette.inkStrong};`;
     const name = `<div style="font:700 14px/1.4 Arial,sans-serif;${nameInk}">${escapeHtml(p.name)}</div>`;
     /*
       ── WHY BOTTOM, NOT TOP ──
@@ -1253,8 +1476,7 @@ function productsHtml(products: CampaignProduct[], accent: string): string {
       Outlook ignores border-radius and draws square corners. That is the only
       difference there, and a square card is a card.
     */
-    const boxStyle =
-      "display:block;padding:10px;border:1px solid #e7e1d6;border-radius:12px;background:#ffffff;";
+    const boxStyle = `display:block;padding:10px;border:1px solid ${palette.rule};border-radius:12px;background:${palette.productBg};`;
     const box = p.url
       ? `<a href="${escapeHtml(p.url)}" style="${boxStyle}text-decoration:none;">${img}${name}${price}</a>`
       : `<div style="${boxStyle}">${img}${name}${price}</div>`;
@@ -1339,29 +1561,64 @@ export function renderCampaign(input: {
     signOffText(input.brand) +
     unsubscribeFooterText(input.unsubscribeUrl, sender);
 
+  const palette = paletteFor(input.campaign.templateKey);
+
   /*
-    Resolved against white, because white is what the accent is READ on in
-    both shells: the plain one has no card, and the branded one puts its body
-    on a white card inside the #faf8f4 page. The masthead rule is the single
-    element sitting on the darker ground, and it is a block rather than text —
-    a colour cleared for 4.5:1 on white still measures above 4.3:1 there.
+    Resolved against the ground the accent is READ on, which is the palette's
+    job to know. For the two light layouts that is white — the plain one has
+    no card, and the branded one puts its body on a white card inside the
+    #faf8f4 page; the masthead rule is the single element on the darker ground
+    and it is a block rather than text, so a colour cleared for 4.5:1 on white
+    still measures above 4.3:1 there. For editorial it is the black canvas,
+    and darkenToContrast lightens rather than darkens — which is the whole
+    reason that function handles both directions.
   */
-  const accent = emailAccent(input.brand.accentHex, "#ffffff");
-  const branded = input.campaign.templateKey === "branded";
+  const accent = emailAccent(
+    input.brand.accentHex,
+    palette.accentOn,
+    palette.accentMin,
+  );
 
   const hiddenPreheader = preheader
     ? `<div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(preheader)}</div>\n`
     : "";
-  const inner =
-    heroImageHtml(input.hero ?? null) +
-    textToHtmlParagraphs(bodyText, accent) +
-    productsHtml(input.products ?? [], accent) +
-    signOffHtml(input.brand) +
-    unsubscribeFooterHtml(input.unsubscribeUrl, sender, accent);
+  /*
+    The hero is passed to the shell SEPARATELY from the rest, rather than
+    concatenated in front of it.
 
-  const html = branded
-    ? brandedShell(hiddenPreheader, inner, input.workspaceName, accent)
-    : plainShell(hiddenPreheader, inner);
+    Only editorial needs that: its photograph runs to the edges of the message
+    while its text keeps a 30px gutter, which is two table rows, and a single
+    `inner` string cannot be split in two once it is built. The light shells
+    put the two back together in the order they were always in, so their bytes
+    are unchanged — which tests/newsletter-render.test.ts checks by asserting
+    the strings it always asserted.
+  */
+  const heroHtml = heroImageHtml(input.hero ?? null, palette);
+  const inner =
+    textToHtmlParagraphs(bodyText, accent, palette) +
+    productsHtml(input.products ?? [], accent, palette) +
+    signOffHtml(input.brand, palette) +
+    unsubscribeFooterHtml(input.unsubscribeUrl, sender, accent, palette);
+
+  /*
+    A record rather than a chain of ternaries. The chain is how the editorial
+    layout would have silently rendered as `plain` — every unknown key falls
+    through to the same else — and a record typed by TemplateKey does not
+    compile until the new key has a shell of its own.
+  */
+  const shells: Record<
+    TemplateKey,
+    (preheaderHtml: string, hero: string, body: string) => string
+  > = {
+    plain: (p, hero, b) => plainShell(p, hero + b),
+    branded: (p, hero, b) =>
+      brandedShell(p, hero + b, input.workspaceName, accent),
+    editorial: (p, hero, b) => editorialShell(p, hero, b, palette),
+  };
+  const shell = isTemplateKey(input.campaign.templateKey)
+    ? shells[input.campaign.templateKey]
+    : shells.plain;
+  const html = shell(hiddenPreheader, heroHtml, inner);
 
   return { subject, text, html };
 }
@@ -1439,6 +1696,58 @@ ${EMAIL_HEAD}
                of readers who have them blocked. -->
           <tr><td style="padding:0 8px 18px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td height="3" style="height:3px;line-height:3px;font-size:0;background:${accent};border-radius:2px;">&nbsp;</td></tr></table></td></tr>
           <tr><td style="background:#ffffff;border:1px solid #e7e1d7;border-radius:16px;padding:32px;">
+${inner}
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+}
+
+/**
+ * Editorial: the dark, centred, photography-first layout.
+ *
+ * ── WHERE IT CAME FROM ──
+ * Jordan sent a fashion brand's launch email on 27 Sep 2026 — full-bleed
+ * photograph on black, a letter-spaced headline with a rule under it, the
+ * launch date stacked in the middle, two looks side by side — and said "this
+ * would be a preset we would use". This is that shape, as a layout; the copy
+ * that goes with it is the "Launch" entry in lib/campaign-templates.ts.
+ *
+ * ── WHAT IS DELIBERATELY NOT COPIED ──
+ *  - The mid-grey ink. See EDITORIAL_PALETTE: the original's launch time was
+ *    around 2.5:1 on black, and the launch time is the message.
+ *  - A social icon row. Those are per-workspace URLs nothing stores yet, and
+ *    a row of hardcoded icons pointing nowhere is worse than no row.
+ *  - "Manage preferences". There is no preference centre; a link to one that
+ *    does not exist is the thing RFC 8058 compliance is meant to prevent.
+ *
+ * ── SHELL NOTES ──
+ * 600px, not 560: the hero runs edge to edge here and 600 is the widest a
+ * message can be before Outlook's Word renderer starts clipping. The body
+ * padding is on an inner cell so the picture can escape it. `color-scheme`
+ * stays `light` in EMAIL_HEAD for every layout — telling a client this is a
+ * dark message invites it to re-darken what is already dark.
+ */
+function editorialShell(
+  preheader: string,
+  hero: string,
+  inner: string,
+  palette: EmailPalette,
+): string {
+  // Its own row, with no padding, so the photograph meets the edges of the
+  // message. Nothing is emitted at all when there is no hero — an empty row
+  // draws a stripe of canvas in Outlook, which reads as a gap somebody left.
+  const heroRow = hero ? `          <tr><td>\n${hero}          </td></tr>\n` : "";
+  return `<!doctype html>
+<html>
+${EMAIL_HEAD}
+  <body style="margin:0;padding:0;background:${palette.canvas};">
+    ${preheader}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${palette.canvas};">
+      <tr><td align="center" style="padding:0 0 36px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:${palette.surface};">
+${heroRow}          <tr><td style="padding:34px 30px 0;">
 ${inner}
           </td></tr>
         </table>
