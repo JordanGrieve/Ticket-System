@@ -1110,12 +1110,37 @@
   Doing this in CSS rather than JS is what keeps the server render correct and
   avoids a post-hydration jump. "closed" always wins.
 */
+/*
+  The open/close animation, added 27 Sep 2026 ("i want there to be an animation
+  when it closes and opens").
+
+  `display: none` is what hides it, and display cannot be transitioned — which
+  is why there was no animation to tune, only a swap. `transition-behavior:
+  allow-discrete` plus `@starting-style` is the fix: display flips at the far
+  end of the transition on the way out, and at the near end on the way in, so
+  the opacity and transform either side of it are what you actually see.
+
+  Here, on a wide screen, the rail is an IN-FLOW COLUMN and the thread beside
+  it reflows the instant the column goes. Sliding it would slide it over a gap
+  that has already closed, so this end is a fade. The overlay and the phone
+  sheet slide — see the two media blocks below.
+*/
 .pbm-rail[data-rail="closed"],
 .pbm-rail-scrim[data-rail="closed"] {
   display: none;
+  opacity: 0;
+}
+@starting-style {
+  .pbm-rail[data-rail="open"],
+  .pbm-rail-scrim[data-rail="open"] {
+    opacity: 0;
+  }
 }
 .pbm-rail-scrim {
   display: none;
+  transition:
+    opacity 220ms ease,
+    display 220ms allow-discrete;
 }
 .pbm-rail {
   width: 290px;
@@ -1128,6 +1153,10 @@
   display: flex;
   flex-direction: column;
   gap: 13px;
+  transition:
+    opacity 220ms ease,
+    transform 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    display 220ms allow-discrete;
 }
 .pbm-rail-grip {
   display: none;
@@ -1163,6 +1192,12 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: background 160ms ease;
+}
+/* --border-strong rather than --border-soft: soft is within a percent of
+   --surface-3 in both palettes, so the hover would not be visible in either. */
+.pbm-rail-close:hover {
+  background: var(--border-strong);
 }
 .pbm-rail-card {
   flex: none;
@@ -1877,6 +1912,21 @@
   .pbm-rail-scrim[data-rail="auto"] {
     display: none;
   }
+  /*
+    An overlay is not in flow, so nothing reflows behind it and it can slide in
+    from the edge it belongs to. Both hidden states carry the transform, not
+    just "closed": the rail opens from "auto" the first time, and a panel that
+    only animates on its second appearance is worse than one that never does.
+  */
+  .pbm-rail[data-rail="closed"],
+  .pbm-rail[data-rail="auto"] {
+    transform: translateX(100%);
+  }
+  @starting-style {
+    .pbm-rail[data-rail="open"] {
+      transform: translateX(100%);
+    }
+  }
 }
 
 @media (max-width: 1024px) {
@@ -2352,6 +2402,19 @@
        touch handlers). The browser must not rubber-band or pull-to-refresh
        the page underneath for the same gesture. */
     overscroll-behavior-y: contain;
+  }
+  /* A sheet comes up from the bottom edge, not in from the right — the ≤1180px
+     block's translateX is wrong the moment the panel is a sheet. Same two
+     hidden states, same reason. It is also the ease the finger gets back when
+     a drag is released short of the close threshold, which until now snapped. */
+  .pbm-rail[data-rail="closed"],
+  .pbm-rail[data-rail="auto"] {
+    transform: translateY(100%);
+  }
+  @starting-style {
+    .pbm-rail[data-rail="open"] {
+      transform: translateY(100%);
+    }
   }
   /*
     The grab handle. It is now a real one — see components/mail/SheetGrip.tsx.

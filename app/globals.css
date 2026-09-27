@@ -1164,6 +1164,59 @@ summary:focus-visible,
   opacity: 0.5;
 }
 
+/*
+  ── THE COPY BUTTON ──
+
+  components/CopyButton.tsx. Every value on the Install page a client has to
+  paste somewhere else carries one.
+
+  It was a style object until 27 Sep 2026, which is why it was the only control
+  on that page with no hover state — a style attribute cannot express :hover,
+  so there was no value anyone could have changed to add one. Jordan, pointing
+  at the two "Copy address" buttons: "should have a hover state".
+
+  The hover is .sti-code-more's, deliberately: that button sits shoulder to
+  shoulder with this one above the code block, and two neighbours that light up
+  differently read as two different kinds of thing.
+
+  Heights stay 34/30 as they were. `html .sti-field button` above clamps both
+  to 44px for 2.5.5; this is the drawing, that is the target.
+*/
+.pb-copy {
+  height: 34px;
+  padding: 0 14px;
+  flex: 0 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-2);
+  font-size: 0.78125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.pb-copy--compact {
+  height: 30px;
+  padding: 0 11px;
+}
+
+.pb-copy:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+/* The confirmation outranks the pointer: a button that repaints to its hover
+   colours the moment it says "Copied" has taken the answer away again. */
+.pb-copy[data-copied],
+.pb-copy[data-copied]:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+
 .stg-sr-only {
   position: absolute;
   width: 1px;

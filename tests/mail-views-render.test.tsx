@@ -360,6 +360,28 @@ function page(title: string, body: string) {
 <link rel="stylesheet" href="./globals.css">
 <link rel="stylesheet" href="./mail.css">
 <link rel="stylesheet" href="./onboarding.css">
+<style>
+  /*
+    ── THE RAIL OPENS WITH @starting-style, AND THIS DOCUMENT NEVER RENDERS ──
+
+    app/mail.css animates the contact rail in and out with transition-behavior:
+    allow-discrete plus @starting-style (27 Sep 2026). A transition only
+    advances while the document is being rendered, and a browser pane driven by
+    tooling is ALWAYS hidden — so a fixture that loads with the rail already
+    open sticks on its STARTING style: opacity 0, translated off. Every probe
+    over the rail would then be measuring a panel nobody can see, and report it
+    clean.
+
+    The product does not have this problem: a real tab renders, and a
+    backgrounded one paints the moment it is looked at. Motion is not what this
+    harness measures, so the harness opts out of it. After the links, so it
+    wins on order at equal specificity.
+  */
+  .pbm-rail,
+  .pbm-rail-scrim {
+    transition: none;
+  }
+</style>
 </head><body><div class="pb-shell pbm"><div class="pbm-page">${body}</div></div>
 <script src="./audit.js"></script></body></html>`;
 }

@@ -461,9 +461,27 @@ a.psb-row:hover {
   overflow-wrap: anywhere;
 }
 
-/* IP addresses and form URLs are evidence, quoted verbatim. */
+/*
+  IP addresses and form URLs are evidence, quoted verbatim.
+
+  NOT --font-mono (Spline Sans Mono) since 27 Sep 2026 — Jordan: "i dont like
+  this font". The platform's own monospace instead, which is the face a reader
+  already recognises as "this is a literal value" on their machine: SF Mono on
+  a Mac, Consolas on Windows, whatever ui-monospace resolves to elsewhere.
+
+  Scoped to this class on purpose. --font-mono is still the install page's code
+  blocks, the console's ids and .sti-field-value--mono, and those are a
+  different judgement from this one.
+*/
 .psb-mono {
-  font-family: var(--font-mono);
+  font-family:
+    ui-monospace,
+    "SF Mono",
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    "Liberation Mono",
+    monospace;
   font-size: 0.78125rem;
 }
 

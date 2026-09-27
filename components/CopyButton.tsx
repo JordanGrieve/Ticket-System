@@ -10,6 +10,11 @@ import { useState } from "react";
  * which is a cream chip with near-invisible text in the dark theme —
  * and it is placed on top of the dark code block, where that failure is
  * loudest.
+ *
+ * The drawing lives in `.pb-copy` (app/globals.css), not in a style object.
+ * It was inline until 27 Sep 2026, which is exactly why the two "Copy address"
+ * buttons had no hover state: a style attribute cannot express `:hover`, so
+ * the missing state was not an oversight anyone could fix by changing a value.
  */
 export default function CopyButton({
   value,
@@ -54,19 +59,8 @@ export default function CopyButton({
     <button
       onClick={copy}
       aria-label={ariaLabel}
-      style={{
-        height: compact ? 30 : 34,
-        padding: compact ? "0 11px" : "0 14px",
-        background: copied ? "var(--accent-soft)" : "var(--surface)",
-        border: `1px solid ${copied ? "var(--accent-line)" : "var(--border)"}`,
-        borderRadius: 8,
-        fontSize: "0.78125rem",
-        fontWeight: 600,
-        color: copied ? "var(--accent-text)" : "var(--text-2)",
-        cursor: "pointer",
-        whiteSpace: "nowrap",
-        flex: "0 0 auto",
-      }}
+      className={`pb-copy${compact ? " pb-copy--compact" : ""}`}
+      data-copied={copied || undefined}
     >
       {copied ? "Copied ✓" : label}
     </button>
