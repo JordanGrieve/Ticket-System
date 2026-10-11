@@ -9,6 +9,27 @@ choices with a paragraph of reasoning behind them.
 
 Read §3 first if you only read one part. It answers the question you asked.
 
+> **Status, 11 October 2026.** A point-in-time review; the line numbers below
+> are from `e74d9cd` and have moved. Where each finding stands now:
+>
+> - **Phase 1 (limits): done** on 11 Sep (`bd9334d`). Prices signed off,
+>   `emailsPerMonth` on every plan, `usage_counters`, the batch budgeted
+>   before claiming, the allowance read failing closed, tickets metered and
+>   never blocked, and a 500-email trial ceiling.
+> - **Phase 2: moot.** Amazon SES was removed on 14 Sep; campaigns send
+>   through Resend. M1 is covered by the Resend deliverer's own pacing and
+>   429 handling; M3 (SES unsubscribe assertion) no longer applies; M4 is
+>   fixed; M7's function was replaced by `lib/campaign-feedback.ts`, where the
+>   workspace comes from the matched campaign.
+> - **S3: half done.** The reply-token compare is constant-time as of 11 Oct.
+>   The shared-secret compare is still a plain equality and the query-string
+>   form is still accepted, pending confirmation that Resend's webhook uses
+>   the header.
+> - **Still open:** S1, S2, S4, S5, M2, M5, M6, L1, L2, L4, L7, and Phase 4
+>   (no test runs SQL). L3's exit columns are still outside the chain. L5, L6
+>   and L8 were not re-checked.
+> - The test count is 1,697 across 116 files now, still all mocked.
+
 ---
 
 ## 1. What I ran
