@@ -9,6 +9,17 @@ Conversions use **$1 = £0.79**. That rate is an assumption and nothing else in
 this document checks it; if it has moved materially, the dollar figures are the
 ones to trust.
 
+> **Status, 11 October 2026.** The £12 / £29 / £59 tiers were signed off on
+> 11 September and `lib/pricing.ts` no longer calls them a proposal. The
+> recommendations in §5 and §6 were built the same day: the trial is 30 days
+> with a 500-email ceiling, and `emailsPerMonth` (3,000 / 15,000 / 80,000) is
+> enforced at send time. Two things changed underneath the cost model since:
+> Amazon SES was removed on 14 September, so campaign email is billed on the
+> Resend allowance rather than at $0.10 per thousand (the "move transactional
+> to SES" saving in §4 is off the table), and the hero image and products in
+> §7 exist, from URLs on the client's own site rather than uploads. The Neon
+> CU-hours question in §4 is still open and is in `HUMAN_ACTIONS.md`.
+
 ---
 
 ## 1. The short answer

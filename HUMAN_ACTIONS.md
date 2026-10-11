@@ -1,221 +1,117 @@
 # Human actions — Postbox
 
-**Date:** 3 August 2026, revised 22 August 2026 · Things only Jordan can do.
-Claude handles everything code-side. Ordered by leverage within each group.
-Tick as you go.
+**Date:** 11 October 2026 (replaces the 3 August / 22 August / 30 August
+versions). Things only Jordan can do; everything code-side is handled.
+Ordered by leverage within each group. Tick as you go, and when something is
+done, say so here, because nothing in the repo can tell.
 
-## 1 · Do now (quick, high leverage)
+Items about Amazon SES are gone: SES was removed from the product on
+14 September 2026 after AWS denied production access. There is nothing to set
+up, confirm or reply to on the AWS side any more.
 
-- [ ] **Turn on 2FA for your Google account** — this is the free substitute for
-  Clerk MFA, and it closes most of the gap. You sign into Postbox **only** via
-  Google OAuth, so Google's second factor gates the sign-in before Clerk is ever
-  reached. Clerk's own MFA is a paid add-on (deferred — see §2), but this isn't.
-  **How:** myaccount.google.com → Security → 2-Step Verification. **2 min.**
-- [ ] **Enable 2FA on your Clerk *dashboard* account** — different account, and
-  free: it administers the whole Clerk instance, so it's the bigger blast radius
-  of the two. dashboard.clerk.com → avatar → Account → Security → two-step
-  verification. **2 min.**
-- [x] ~~**Sentry error monitoring**~~ — **done and verified in production
-  3 Aug.** Browser errors confirmed (real event, `environment=production`).
-  Server-side confirmed after `226f90c` (server/edge now fall back to
-  `NEXT_PUBLIC_SENTRY_DSN`, so one variable is enough — the missing `SENTRY_DSN`
-  was why the server stayed dark). `SENTRY_AUTH_TOKEN` is set, so stack traces
-  upload source maps. Nothing further needed from you.
-  - Only remaining Sentry nicety: tick **Preview** on the Sentry env vars when
-    you set up staging, or preview deploys will report nothing.
-- [ ] **Sentry: `SENTRY_AUTH_TOKEN` (optional, for readable stack traces)** —
-  sentry.io → Settings → Developer Settings → **Auth Tokens** → Create New
-  Token (scopes `project:releases`, `org:read`) → Vercel env, **Sensitive ON**,
-  Production + Preview. Without it errors still arrive; the frames just show
-  minified names. **5 min.** (Asana: Error monitoring)
-- [x] ~~**Eyeball the freshly deployed pages**~~ — done 3 Aug: Jordan confirmed
-  `/terms`, `/privacy`, `/inbox` and `/contacts` all look right; landing page,
-  `/terms` and `/privacy` also verified live over HTTP.
-- [x] ~~**Confirm CI's first run went green**~~ — done: both CI runs on the
-  2 Aug pushes passed (39s each). Nothing for you here.
-- [x] ~~**Fix the DMARC report address**~~ — done 3 Aug: `rua` now points at
-  jordangrieve.dev@gmail.com, verified live via Google's resolver. Note: Gmail
-  is an external destination, so strict reporters may skip you; if coverage
-  matters later, move `rua` to a free DMARC digest service.
-- [ ] **Decide on the Sentry plan** — you're on a 14-day trial of a paid tier.
-  The **free** Developer plan (5k errors/month) is plenty for a one-client
-  pilot; you can let the trial lapse rather than upgrading. Nothing in the code
-  depends on the paid features.
-- [x] ~~**Delete the orphan Clerk user**~~ — done 3 Aug by Jordan.
-- [ ] **Rotate the three exposed secrets** — Clerk `sk_live`, Neon DB password,
-  Resend API key all passed through AI chat transcripts during setup. **How:**
-  regenerate each in its dashboard (Clerk → API keys; Neon → Roles → reset
-  password; Resend → API keys), then update the value in BOTH Vercel env vars
-  (then Redeploy) and `.env.local` (edit the file directly — including the
-  `CLERK_SECRET_KEY_PROD` line). Do at a calm moment; brief blips possible.
-  **15 min.** (Asana: 🚧 Rotate secrets)
-- [ ] **Give Postbox its own workspace, so people can contact you** — added
-  30 August 2026. Until now there was no way for anyone to reach Postbox at
-  all: the pricing page's only call to action said "Get in touch" and linked to
-  `/sign-in`, i.e. it sent a prospect with no account to a Google sign-in wall.
-  `/contact` now exists and posts to the ordinary public ingestion endpoint —
-  the same one every client's website uses — but it needs a workspace to post
-  into. **How:** (1) in the admin console, create a client called *Postbox*
-  with your own email as the owner; (2) open it and copy its API key from
-  Settings → Install; (3) set it as a **Vercel** environment variable
-  `POSTBOX_CONTACT_KEY` (Production), then redeploy. Until it is set, `/contact`
-  says it is not connected rather than silently dropping messages — deliberately,
-  because a form that quietly discards a message is worse than no form. **5 min.**
+## 1 · Do now
 
-  *This is also what makes "Priority support from us" on the Business plan
-  something the product can deliver. It is currently sold with no channel
-  behind it — see PIVOT 26.*
+- [ ] **Rotate the three exposed secrets** — Clerk `sk_live`, the Neon
+  database password and the Resend API key all passed through AI chat
+  transcripts during setup in August. Open since 3 August and the oldest
+  unresolved security item. **How:** regenerate each in its dashboard (Clerk →
+  API keys; Neon → Roles → reset password; Resend → API keys), then update the
+  value in Vercel (then Redeploy) and in `.env.local`. **15 min.**
+- [ ] **Turn on 2FA for your Google account** — you sign into Postbox only
+  through Google OAuth, so Google's second factor gates the sign-in before
+  Clerk is reached. myaccount.google.com → Security → 2-Step Verification.
+  **2 min.**
+- [ ] **Turn on 2FA for the Clerk dashboard account** — a different account
+  and the bigger blast radius: it administers the whole instance.
+  dashboard.clerk.com → avatar → Account → Security. **2 min.**
+- [ ] **Repoint the Resend inbound webhook to the header, then say so** — the
+  inbound route accepts `INBOUND_WEBHOOK_SECRET` either as an
+  `x-webhook-secret` header or as `?secret=` in the URL. The URL form ends up
+  in access and proxy logs. If the webhook in Resend → Webhooks has no
+  `secret=` in its URL and `RESEND_WEBHOOK_SIGNING_SECRET` is set in Vercel,
+  tell me and the query-string path comes out of the code. **5 min to check.**
+- [ ] **Upgrade Vercel to Pro (~$20/mo)** — Hobby's terms prohibit commercial
+  use, and Postbox has real business clients and a pricing page. This has
+  nothing to do with cron any more (scheduling runs on GitHub Actions); it is
+  a licensing matter. Vercel → Settings → Billing → Pro.
+- [ ] **Resend paid tier before the first active client** — the free plan is
+  3,000 emails a month capped at **100 a day**, and every tenant's
+  acknowledgements, replies, welcome emails and campaigns leave through the
+  one account. The daily health check warns at 80% and errors at the cap, but
+  nothing can unblock it except the plan. Watch resend.com/metrics.
 
-## 1b · Newsletter pipeline — added 22 August 2026
+## 2 · Do soon
 
-Commit `7900a5c` shipped a worker, a scheduled sweep and an SES integration. The
-switches below are yours; the code side is mine. **Do not set
-`CAMPAIGN_DELIVERY_MODE` yet** — see the last item.
+- [ ] **Set up staging** — ten minutes of dashboard clicks, documented in
+  `DEPLOYMENT.md`: a Neon branch, a Preview-scoped `DATABASE_URL`, dev-instance
+  Clerk keys for previews. Until then every push to `main` deploys straight to
+  the live clients.
+- [ ] **Read your Neon CU-hours for last month** — the one number
+  `PRICING.md` could not compute. Three scheduled jobs wake the compute on a
+  fixed cadence (auto-reply sweep every 15 minutes, campaign sweep hourly,
+  health check daily). If usage is near the 100-hour free allowance, the
+  sweep cadence is the cheapest saving available. Neon → Billing.
+- [ ] **Decide on backups** — Neon Free has limited point-in-time recovery.
+  Options: Neon paid; a nightly `pg_dump` from GitHub Actions to private
+  storage (needs a bucket and keys from you, in secrets, not chat); accept
+  the risk. Recommendation: the dump.
+- [ ] **Have the Terms and Privacy pages reviewed by a human** — honest and
+  tailored, written by an AI. The privacy page lists Neon, Clerk, Resend,
+  Vercel, Cloudflare, Sentry and Stripe as sub-processors and describes
+  operator access and the access log; check it still matches what you run.
+- [ ] **Write the acceptable-use warranty** — the clause where each client
+  warrants that their subscriber list was consented. Under PECR, Postbox is
+  liable as the party that transmits or instigates a marketing email; the
+  consent evidence the product captures is the technical half and this is
+  the contractual half.
+- [ ] **Decide the Sentry plan** — the free Developer tier (5,000 errors a
+  month) is enough. Let the trial lapse rather than upgrading; nothing in the
+  code depends on paid features.
+- [ ] **Check the `.help` renewal** — year one was £1.99; renewal is roughly
+  £20–30. Confirm auto-renew and a valid card at the registrar. Everything
+  dies with the domain.
 
-- [ ] **Set `CRON_SECRET` in TWO places, or the sweep does nothing** — the
-  sweep is now driven by GitHub Actions, not Vercel Cron
-  (`.github/workflows/campaign-sweep.yml`). It runs **hourly** during
-  development, not every five minutes — deliberately, to keep the Neon compute
-  allowance down while nothing can send; the workflow's own comment explains
-  it, and `SWEEP_CADENCE` in `lib/campaign-schedule.ts` derives the English
-  from the schedule so the two cannot drift. Generate one value —
-  `openssl rand -hex 32` — and set it as:
-  1. a **Vercel** environment variable `CRON_SECRET` (Production), then
-     redeploy; env edits do nothing until the next deploy;
-  2. a **GitHub Actions repository secret** `CRON_SECRET` (repo Settings →
-     Secrets and variables → Actions → Secrets).
+## 3 · Verify, because the repo cannot
 
-  The route refuses **every** caller while it is unset, returning 503 by design:
-  an unauthenticated version of that URL is a public "send everyone's marketing
-  email now" button. Unlike the old Vercel cron, a rejected tick is now a **red
-  run in the Actions tab** rather than a silent line in a log nobody reads.
-  **3 min.**
-- [ ] **Set the `APP_URL` repository variable** — same page as the secret, but
-  the **Variables** tab (it is not secret): the deployed origin the workflow
-  curls, e.g. `https://postbox.help`. The workflow fails with an explicit error
-  if it is missing. **1 min.**
-- [ ] **Know that the schedule can stop on its own** — GitHub disables
-  scheduled workflows after **60 days with no commits to the repository**, and
-  drops or delays individual runs under load. If campaigns stop draining, check
-  the Actions tab before suspecting the code. **Awareness only.**
-- [ ] **Confirm the SES sending identity actually exists** — I was told
-  `news.postbox.help` is verified in `eu-west-1`, and `.env.example` agrees on
-  the region, but I have no AWS credentials here and could not check. Run
-  `aws sesv2 get-email-identity --email-identity news.postbox.help --region eu-west-1`,
-  or look in the SES console. Also worth confirming: whether the account is
-  still in the SES **sandbox**, which caps you to verified recipients and 200
-  messages/day and is easy to forget about until the first real send.
-- [ ] **Look at the new Schedule control before it ships** — until 22 Aug
-  nothing in the product could move a campaign out of `draft`, which meant the
-  whole send pipeline was unreachable. A `POST|DELETE /api/campaigns/[id]/schedule`
-  route and a Schedule button in the composer closed that during the same
-  session this file was revised; the work is in the working tree, not yet on
-  `main`. It writes a status and a timestamp and sends nothing — delivery is
-  still log-only — but it is the first control in the product whose name implies
-  mail, so it is worth your eyes on the wording and on what happens after you
-  press it.
-- [ ] **Do NOT flip `CAMPAIGN_DELIVERY_MODE=ses` yet** — this is the one switch
-  in the codebase that cannot be undone, because its failure mode is mail that
-  has already left.
+These may already be done. Each is a Vercel or dashboard setting the code
+reads but cannot report on.
 
-  **The three reasons this item used to give are now all FIXED** (22 Aug), and
-  are listed here so nobody re-adds them as blockers: consent IS enforced
-  (`selectAudience` reads `consentAt` and buckets `no_consent`); the CAN-SPAM
-  postal address IS in the schema, captured in Settings → Sender identity, and
-  the send is refused without it; the bounce/complaint webhook IS built
-  (`app/api/webhooks/ses/route.ts`, signature-verified and topic-pinned).
+- [ ] `CRON_SECRET` set in Vercel **and** as a GitHub Actions repository
+  secret, with `APP_URL` as a repository variable. Marked done on 23 August.
+  A 503 in a sweep run means it is unset on Vercel; a 401 means the two copies
+  differ.
+- [ ] `CAMPAIGN_DELIVERY_MODE=resend` and `CAMPAIGN_FROM_ADDRESS` set in
+  Vercel. The 14 September campaign proves they were then.
+- [ ] `POSTBOX_CONTACT_KEY` set, so `/contact` posts into Postbox's own
+  workspace. Until it is, the page says it is not connected rather than
+  dropping messages.
+- [ ] `SUBSCRIBE_TOKEN_SECRET` set as its own value rather than falling back
+  to the inbound secret.
+- [ ] `IMPERSONATION_CHAIN_SECRET` and `ADMIN_ACTION_CHAIN_SECRET` chosen once
+  and stored somewhere the holder of `DATABASE_URL` is not. They cannot be
+  rotated later.
+- [ ] `RESEND_DELIVERY_WEBHOOK_SIGNING_SECRET` set for the second Resend
+  endpoint (`/api/webhooks/resend`), which is what writes "Delivered" under a
+  reply and suppresses an address on a campaign bounce.
 
-  **What actually blocks it now**, in order:
-  1. SES is still in the **sandbox** (`ProductionAccessEnabled: false`,
-     eu-west-1). Only verified addresses can receive anything at all.
-  2. `CRON_SECRET`, `CAMPAIGN_FROM_ADDRESS` and AWS credentials are unset in
-     Vercel, so the sweep 503s and the deliverer would throw.
-  3. `SES_SNS_TOPIC_ARN` is unset, so the bounce webhook 503s — the code exists
-     but nothing reaches it. The AWS side (topic, policy, event destination) IS
-     created; only the env var is missing.
+## 4 · Decisions
 
-  ⚠️ **The specific way this goes wrong.** Open Door Bakery has exactly ONE
-  confirmed subscriber. Flipping the mode while still sandboxed returns
-  `MessageRejected`, writes that recipient row `failed`, and `settleCampaign`
-  counts failed rows as drained and marks the campaign `sent`. There is no
-  re-queue path anywhere in the product, so the only real subscriber this
-  product has is spent — and the UI reports it as success.
+- [ ] **Product name** — "Postbox" is an existing email client. No issue at
+  this scale; decide before spending on marketing or SEO.
+- [ ] **Per-tenant sending domains, or one shared marketing address** — today
+  every client's campaign leaves from one verified address with their name in
+  front of it. Per-tenant domains isolate reputation and solve PECR's sender
+  identification, and get harder to retrofit every week.
+- [ ] **Ask the pilot clients for structured feedback** — what is confusing,
+  what is missing, would they pay. Only you can have that conversation.
 
-  Use **"Send a test to myself"** in the composer instead. It goes only to your
-  own address, writes nothing, and transitions nothing.
+## 5 · Done, kept for the record
 
-## 2 · Do soon (nothing stuck yet, but needed)
-
-- [ ] **Clerk MFA — deferred on cost (revisit when clients grow)** — TOTP is off
-  at the instance level and turning it on needs Clerk's paid Enhanced
-  Authentication add-on. Deliberately parked 3 Aug; Google-account 2FA (§1) is
-  the free stand-in and covers the sign-in path, since Google OAuth is the only
-  way in. Revisit when you take paying clients or add non-Google logins — at
-  that point client accounts, not just yours, will want a second factor.
-  (Asana: 🚧 Enable 2FA)
-- [x] ~~**Privacy policy: add Sentry as a sub-processor**~~ — **done.** `/privacy`
-  lists Sentry alongside Neon, Clerk, Resend, Vercel and Cloudflare, and carries
-  a dedicated "Error monitoring" section stating what Sentry can receive (stack
-  traces, failing URLs, coarse IP-derived location) and what is switched off
-  (request bodies, headers, user identity, local variables, Session Replay).
-  Nothing outstanding.
-- [ ] **Privacy policy: AWS SES added as a sub-processor 22 Aug — read it** —
-  I have added it, because SES is now the configured marketing-email provider
-  and leaving it off the list while the integration exists would be the wrong
-  way round. The wording says SES receives recipient addresses and full message
-  content for marketing sends, processes in AWS Europe (Ireland), and does not
-  carry ticket replies. **Two things need your eye:** confirm that matches what
-  you actually set up, and note that adding a sub-processor is normally
-  something you notify clients about rather than change silently.
-- [ ] **Set up staging** — 10 minutes of dashboard clicks, documented
-  click-by-click in `DEPLOYMENT.md`: Neon branch DB + Vercel Preview-scoped
-  `DATABASE_URL` + dev-instance Clerk keys for previews. After this, risky
-  changes stop deploying straight to your live client.
-- [ ] **Upgrade Vercel to Pro (~$20/mo)** — the Hobby plan's terms prohibit
-  commercial use, and Postbox now has a real business client on it. Also lifts
-  build/function limits. **How:** Vercel → Settings → Billing → Pro.
-  *~~Third reason as of 22 Aug: Hobby caps cron at once a day, which is why
-  the campaign sweep runs nightly.~~ **NO LONGER TRUE, corrected 30 Aug.**
-  Scheduling moved off Vercel Cron to GitHub Actions, which has no such cap —
-  `.github/workflows/campaign-sweep.yml` runs hourly and
-  `auto-reply-sweep.yml` every fifteen minutes. Vercel's cron limit is
-  therefore not a reason to upgrade and the throughput ceiling it described
-  does not exist. The two reasons above — the Hobby plan's terms prohibiting
-  commercial use, and build/function limits — still stand on their own.*
-- [ ] **Check provider limits & domain renewal** — (a) Resend free tier is
-  100 emails/day / 3k/month — fine for the pilot, will need the $20/mo tier as
-  clients grow (watch usage at resend.com/metrics); (b) postbox.help was $1.99
-  for year one — `.help` renews at ~$20–30, check auto-renew + card at your
-  registrar so the domain never lapses (everything dies with it).
-- [ ] **Have the Terms/Privacy drafts reviewed** — they're honest and tailored,
-  but written by an AI, not a lawyer. Before serious scale, get a professional
-  (or at least a careful human) read. (Asana: legal task comment)
-- [ ] **Ask your pilot client for structured feedback** — 3 questions: what's
-  confusing, what's missing, would they pay? Only you can have that
-  conversation; it steers the whole roadmap.
-
-## 3 · Decisions needed (options + recommendation)
-
-- [ ] **Pricing/monetization** — Options: (a) keep pilot free, decide after 2–3
-  clients; (b) flat per-workspace fee now (£10–20/mo, Stripe); (c) usage-based.
-  **Recommendation: (a)** — you need usage data and testimonials more than
-  £15/mo right now. When decided, Stripe integration becomes a normal code task.
-- [ ] **Backups** — Neon free tier has limited point-in-time recovery. Options:
-  (a) Neon paid plan (real PITR, ~$19/mo); (b) nightly `pg_dump` via GitHub
-  Actions to private storage (needs a storage target + credentials from you);
-  (c) accept the risk during pilot. **Recommendation: (b)** — cheap and
-  sufficient; give me an R2/S3 bucket + keys (in Vercel/GitHub secrets, not
-  chat) and I'll build it.
-- [ ] **Mobile layout direction** — the responsive redesign needs your eyes on a
-  live browser at phone widths (drawer sidebar vs top bar). **Recommendation:**
-  a 30-minute session together where I change, you look.
-- [ ] **Product name check** — "Postbox" is an existing email client
-  (postbox-inc). Zero issue at pilot scale; decide whether to rebrand BEFORE
-  spending on marketing/SEO. **Recommendation:** park until after the pilot,
-  then decide once.
-
-## 4 · Waiting on others
-
-- [ ] **Pilot client's real-world usage** — tickets flowing, replies threading in
-  their customers' varied mail clients. Nothing to do but watch and gently
-  chase the feedback conversation above. (Asana: 🔄 Pilot period)
+- Sentry error monitoring, browser and server, verified in production (3 Aug).
+- DMARC report address fixed (3 Aug). Orphan Clerk user deleted (3 Aug).
+- Privacy policy lists Sentry and (later) Stripe as sub-processors.
+- `CRON_SECRET` and `APP_URL` set (23 Aug).
+- Prices signed off at £12 / £29 / £59 (11 Sep).
+- Amazon SES removed, campaigns sending through Resend (14 Sep).
+- Contact page and the Postbox workspace it posts into (30 Aug; key status
+  unverified, see §3).

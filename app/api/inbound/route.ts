@@ -1,5 +1,6 @@
 import { json } from "@/lib/http";
 import { verifySvixSignature } from "@/lib/svix";
+import { tokensEqual } from "@/lib/tokens";
 import {
   getWorkspaceByInboundEmail,
   getWorkspaceById,
@@ -133,7 +134,7 @@ export async function POST(req: Request) {
     const ref = parseTicketRefFromAddress(addr);
     if (ref != null) {
       const ticket = await lookupTicketAnyWorkspace(ref.id);
-      if (ticket && ticket.replyToken && ref.token === ticket.replyToken) {
+      if (ticket && ticket.replyToken && ref.token && tokensEqual(ref.token, ticket.replyToken)) {
         // The customer's reply tells us the real Message-ID SES assigned to
         // OUR last reply (their In-Reply-To). Learn it so future replies can
         // reference the full chain.

@@ -1,5 +1,17 @@
 # Newsletter builder — decision document
 
+> **Status, 11 October 2026: historical.** This is the August decision record
+> and is kept for the reasoning. The facts below have been overtaken and the
+> inline corrections dated 22 and 30 August are themselves stale. What is true
+> now, in brief: the postal address and consent enforcement are built; the
+> bounce and complaint webhook is built, on Resend; Amazon SES was removed on
+> 14 September and campaigns send through Resend; lists are no longer on the
+> send path (campaigns go to every confirmed subscriber); a hero image and a
+> products grid exist, from URLs rather than uploads; a welcome email exists;
+> single opt-in is the default; and "Send now" sends inside the request. The
+> 4-step wizard and the block editor were never built, which is what this
+> document recommended. `docs/NEWSLETTER.md` is the current description.
+
 Date: 2026-08-17. Author: research synthesis across five parallel investigations.
 Scope: the **builder** (how a user composes a newsletter) plus project planning and cost.
 Out of scope, owned elsewhere: the send pipeline and the bulk-email provider choice

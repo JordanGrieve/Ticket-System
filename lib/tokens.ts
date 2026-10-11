@@ -12,6 +12,8 @@
  * NOTE: generateApiKey() still lives in lib/workspace.ts, next to the
  * provisioning that mints it. It is the same construction; it belongs here.
  */
+import { timingSafeEqual } from "node:crypto";
+
 function randomHex(bytes: number): string {
   const arr = new Uint8Array(bytes);
   crypto.getRandomValues(arr);
@@ -42,4 +44,24 @@ export function generateUnsubscribeToken(): string {
  */
 export function generateReplyToken(): string {
   return randomHex(16);
+}
+
+/**
+ * Constant-time equality for a token a caller presents against the stored one.
+ *
+ * Every other secret the product verifies (Svix signature, unsubscribe and
+ * welcome HMACs, the audit hash chain) goes through timingSafeEqual; the reply
+ * token was the one plain `===`. A short-circuiting compare leaks how many
+ * leading bytes matched, and the inbound webhook is public with unlimited
+ * attempts. Not practically exploitable over email, but inconsistency is how
+ * the next copy of the pattern ends up on something that is.
+ *
+ * Length is checked first because timingSafeEqual THROWS on a mismatch. A
+ * length difference is not a secret here: the width is fixed per generation
+ * and visible in every reply address.
+ */
+export function tokensEqual(presented: string, expected: string): boolean {
+  const a = Buffer.from(presented, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  return a.length === b.length && timingSafeEqual(a, b);
 }

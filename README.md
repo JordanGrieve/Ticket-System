@@ -1,155 +1,133 @@
-# Postbox — multi-tenant support ticket system
+# Postbox — a support inbox and newsletter for small businesses
 
-A standalone SaaS product that turns any business's **contact form** and **inbound
-email** into a clean, threaded support inbox. Sign-up is **invite-only**: an
-operator creates a client's workspace from `/admin`, the client receives a
-branded invite email and signs up with that address, pastes a snippet onto their
-existing site (or hands their AI assistant the ready-made integration prompt),
-and from then on submissions flow into their ticket dashboard. Replies send as
-real email from `"Business Name" <replies@<our domain>>` — never from the
-client's own (unverifiable) domain — and customer replies thread back in.
+A standalone multi-tenant SaaS product. A business connects its website
+contact form and its support email, and everything becomes a threaded ticket
+inbox it replies from. Replies go out as real email from
+`"Business Name" <replies@postbox.help>` and the customer's reply threads back
+into the same ticket. The same workspace carries the business's newsletter: a
+signup form for its site, a welcome email in its own branding, a composer with
+an image and products, and a send pipeline with unsubscribe and suppression.
 
-This app is completely separate from any client site — its own repo, its own
-database, its own domain (live: `postbox.help`). See `PROJECT_STATUS.md` for
-current state and `DEPLOYMENT.md` for the pipeline.
+Live at `postbox.help`. Its own repo, database and domain, completely separate
+from any client site. See `PROJECT_STATUS.md` for where things stand,
+`DEPLOYMENT.md` for the pipeline, `STYLE-GUIDE.md` before touching a screen,
+and `AGENTS.md` for the engineering rules this codebase learned the hard way.
 
 ## Stack
 
-- **Next.js** (App Router, Next 16) + TypeScript
-- **Neon** (Postgres) via **Drizzle ORM**
-- **Clerk** — one workspace login per client
-- **Resend** — sends replies and parses inbound email
-- Deployed on **Vercel**
+- **Next.js 16** (App Router, Turbopack) + React 19 + TypeScript
+- **Neon** Postgres via **Drizzle ORM**
+- **Clerk** for sign-in (production instance, Google OAuth)
+- **Resend** for every email: ticket replies, notifications, auto-replies,
+  welcome emails, campaigns, and inbound parsing
+- **Stripe** for billing, **Sentry** for errors
+- **Vercel** (London) for hosting, **GitHub Actions** for CI and every
+  scheduled job
 
 ## How it works
 
 ```
-Client website ──▶ POST /api/tickets/:apiKey ──▶ ┐
-Forwarded email ─▶ POST /api/inbound ───────────▶ ├─▶  tickets + ticket_messages
-                                                  ┘         │
-                        Dashboard (Clerk-authed) ◀──────────┘
-                        reply ─▶ Resend ─▶ customer ─▶ (Reply-To: ticket+TKT-<id>@…)
-                                                        └─▶ POST /api/inbound (threads back)
+Client website form ──▶ POST /api/tickets/:key ─────▶ ┐
+Forwarded email ──────▶ POST /api/inbound (Resend) ──▶ ├─▶ tickets + ticket_messages
+                                                       ┘          │
+                         Dashboard (Clerk-authed) ◀───────────────┘
+                         reply ─▶ Resend ─▶ customer ─▶ Reply-To: ticket+TKT-<id>-<secret>@postbox.help
+                                                         └─▶ POST /api/inbound threads it back
+
+Signup form ──▶ POST /api/subscribe/:key ──▶ subscribers ──▶ welcome email
+Composer ─────▶ campaign_recipients ──▶ hourly sweep / Send now ──▶ Resend ──▶ bounces suppress
 ```
 
-Three ways tickets are created, all landing in the same inbox:
+**Tickets** arrive three ways and land in one inbox: a contact-form POST with
+a workspace or form key (CORS-enabled; fields are read by meaning so Shopify,
+WordPress and Elementor names all work), an email forwarded to the workspace's
+inbound address, and the same email flow with an order number in it, which
+makes a higher-priority `order` ticket. Replies to a ticket carry a per-ticket
+secret in the Reply-To address, so a sequential id alone cannot be used to
+mail into another tenant's thread. Enquiries outside the workspace's business
+hours get a held auto-reply once it opens.
 
-1. **Contact form** — `POST /api/tickets/:apiKey` (CORS-enabled, called from the
-   client's own domain). Creates a `contact_form` ticket + first inbound message.
-2. **Direct email** — the client forwards mail to their workspace inbound address;
-   Resend posts it to `POST /api/inbound`, which opens an `email` ticket.
-3. **Order email** — same inbound flow, but the subject/body is scanned for an
-   order id (`ORD-\d+` or `#\d{3,}`). A match makes it a higher-priority `order`
-   ticket with the id stored.
-
-Replies to existing tickets use a per-ticket `Reply-To` of
-`ticket+TKT-<id>-<secret>@<root domain>` (the root domain, because Resend
-requires the inbound MX at the apex; the per-ticket secret stops anyone from
-mailing into other tenants' tickets by guessing sequential ids). When a
-customer replies, the id + token are validated and the message threads back
-into the same ticket.
+**Newsletters** are single opt-in by default (an operator can put a workspace
+back on double opt-in), with consent evidence recorded on every row. Campaigns
+go to every confirmed subscriber in the workspace. Sending claims one
+recipient row at a time before calling the provider, so a crash loses at most
+one email and never sends one twice.
 
 ## Multi-tenancy
 
-- Every ticket, message, and contact carries a `workspace_id`.
-- Every dashboard query is scoped to the authenticated user's workspace — data
-  is never returned across workspaces (see `lib/data.ts`).
-- The public ingestion endpoint identifies the workspace purely by API key and
-  validates it exists before creating anything.
-- The public endpoint is **rate-limited per workspace** so one client can't
-  affect others (`lib/rate-limit.ts`).
+- Every ticket, message, contact, subscriber and campaign carries a
+  `workspace_id`, and every statement that touches them carries the predicate
+  *inside* the statement. `tests/tenancy-invariants.test.ts` reads every raw
+  SQL statement in the repo and fails if one does not.
+- Public endpoints identify the workspace by key only. The dashboard takes
+  the workspace from the Clerk session, never from the request.
+- Public write paths are rate-limited per key in Postgres, so the limits hold
+  across serverless instances.
+- Operators act inside a client workspace only with an open, hash-chained
+  audit session; the client sees the visits in Settings → Access log.
 
 ## Project layout
 
 ```
 app/
-  (dashboard)/            Clerk-authed dashboard (route group)
-    page.tsx              Ticket list (inbox)
-    tickets/[id]/         Single ticket thread
-    install/              Install + settings (snippet, inbound address)
-  api/
-    tickets/[id]/         POST = public ingestion (apiKey) · GET = authed ticket
-    tickets/[id]/reply/   POST authed — send reply via Resend
-    tickets/[id]/status/  PATCH authed — open/in_progress/closed
-    tickets/route.ts      GET authed — list
-    inbound/              POST — Resend inbound webhook (new tickets + threading)
-    workspace/            PATCH authed — update reply-from address / accent
-  sign-in, sign-up        Clerk pages
-db/                       Drizzle schema, migrations, seed
-lib/                      Domain helpers, data access, theme, rate limiting
-components/               Sidebar, Inbox, TicketThread, InstallView, CopyButton
+  page.tsx, pricing/, contact/, (legal)/     Public marketing and legal pages
+  (dashboard)/
+    inbox/                                   The inbox, folders, labels, search
+    tickets/[id]/                            A thread, with the contact rail
+    newsletters/, newsletters/welcome/       The composer and the welcome email
+    subscribers/                             The subscriber list
+    settings/                                General, install, forms, labels, team,
+                                             auto-reply, billing, contacts, access log
+  (admin)/admin/                             The operator console
+  s/, u/                                     Subscribe and unsubscribe pages a client's customer sees
+  api/                                       Route handlers: tickets, inbound, campaigns,
+                                             subscribe, billing, webhooks, cron, workspace
+components/                                  mail/, newsletter/, marketing/, skeletons/
+lib/                                         Domain logic; pure halves beside their IO halves
+db/                                          Drizzle schema, migrations, guard, seed scripts
+tests/                                       Vitest; render harnesses for every signed-in screen
+proxy.ts                                     Clerk route gating; the public-route list lives here
 ```
 
 ## Local setup
 
-1. **Install**
-
-   ```bash
-   npm install
-   ```
-
-2. **Configure env** — copy `.env.example` to `.env.local` and fill in your
-   Neon, Clerk and Resend keys.
-
-   ```bash
-   cp .env.example .env.local
-   ```
-
-3. **Create the schema** (against your Neon database)
-
-   ```bash
-   npm run db:push      # or: npm run db:migrate to apply generated SQL
-   ```
-
-4. **Seed the demo workspace** — "Riverside H&C" with sample tickets. The first
-   account to sign in *claims* this workspace, so you have data to develop
-   against.
-
-   ```bash
-   npm run db:seed
-   ```
-
-5. **Run**
-
-   ```bash
-   npm run dev
-   ```
+1. `npm install` (npm 10, Node 22).
+2. Copy `.env.example` to `.env.local` and fill in Neon, Clerk and Resend.
+   Read the comments; most variables explain what happens when they are unset.
+3. **Make a development database.** `db/guard.ts` refuses to connect from a
+   laptop unless `DATABASE_ENV=development` declares one. `docs/DEV-DATABASE.md`
+   is the two-minute setup with a schema-only Neon branch.
+4. `npm run db:migrate` then `npm run db:seed-dev` for believable fake data.
+5. `npm run dev`.
 
 ## Scripts
 
-| Script              | What it does                              |
-| ------------------- | ----------------------------------------- |
-| `npm run dev`       | Start the dev server                      |
-| `npm run build`     | Production build                          |
-| `npm run db:generate` | Generate SQL migrations from the schema |
-| `npm run db:migrate`  | Apply migrations                        |
-| `npm run db:push`     | Push the schema directly (dev)          |
-| `npm run db:seed`     | Seed the demo workspace                 |
-| `npm run db:studio`   | Open Drizzle Studio                     |
+| Script | What it does |
+| --- | --- |
+| `npm run dev` / `build` / `start` | Next.js |
+| `npm run typecheck` | `next typegen` then `tsc --noEmit`. Run it after your last edit, not before |
+| `npm run lint` | ESLint with the keyboard half of jsx-a11y turned on |
+| `npm test` / `test:watch` | Vitest |
+| `npm run db:generate` / `db:migrate` / `db:push` / `db:studio` | drizzle-kit. `db:push` is the sharp one |
+| `npm run db:seed-dev` | Fake data for the dev branch |
+| `npm run db:seed` / `db:seed-client` / `db:bootstrap` | Demo workspace, a client workspace, first admin |
+| `npm run db:rekey-chains` | Re-key the audit hash chains (see `lib/rekey-chain.ts` before running) |
 
-## Deploying to Vercel
+## Deploying
 
-1. Import the repo into Vercel.
-2. Add all env vars from `.env.example` (use the production Neon/Clerk/Resend
-   values). Set `NEXT_PUBLIC_APP_URL` to your real domain and
-   `INBOUND_EMAIL_DOMAIN` to your inbound domain.
-3. In **Resend**, verify your sending domain, configure an **inbound** route to
-   `POST https://<your-domain>/api/inbound`, and set `INBOUND_WEBHOOK_SECRET`.
-4. In **Clerk**, add your domain to the allowed origins.
+`DEPLOYMENT.md`. In short: push to `main`, CI runs typecheck, lint, tests and
+a build, Vercel deploys with migrations in the build command. Resend needs a
+verified sending domain, the inbound MX on the root domain, and two webhook
+endpoints (inbound mail, and delivery events). Clerk needs the production
+domain. Scheduled sweeps run from GitHub Actions and need `CRON_SECRET` in two
+places.
 
-## The install snippet
+## Installing on a client's site
 
-Logged-in owners get two integration modes on the **Install** page:
-
-- **Mode A** — point an existing form's `action` at
-  `https://support.yourapp.com/api/tickets/<apiKey>`. On submit the visitor sees
-  a tidy confirmation page.
-- **Mode B** — a small JS snippet (with the real API key baked in) that
-  intercepts the form's submit and POSTs via `fetch`, so the visitor stays on the
-  page and sees a success message.
-
-Both are generated dynamically with the workspace's real API key.
-
----
-
-Built with the design in [`fake-ticket`](https://github.com/JordanGrieve/fake-ticket).
+Settings → Install gives a client two ways to connect a contact form and one
+to add a newsletter signup. The recommended way is a prompt to hand to
+whatever AI assistant built their site: it can see the page, so it finds the
+real form and keeps the markup and styling as they are. The no-code way points
+an existing form's `action` at the endpoint, at the cost of the visitor
+landing on a Postbox confirmation page. Each named form has its own key, so
+one scraped page does not take down every form the business has.
