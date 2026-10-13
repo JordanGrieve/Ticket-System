@@ -24,12 +24,12 @@ up, confirm or reply to on the AWS side any more.
 - [ ] **Turn on 2FA for the Clerk dashboard account** — a different account
   and the bigger blast radius: it administers the whole instance.
   dashboard.clerk.com → avatar → Account → Security. **2 min.**
-- [ ] **Repoint the Resend inbound webhook to the header, then say so** — the
-  inbound route accepts `INBOUND_WEBHOOK_SECRET` either as an
-  `x-webhook-secret` header or as `?secret=` in the URL. The URL form ends up
-  in access and proxy logs. If the webhook in Resend → Webhooks has no
-  `secret=` in its URL and `RESEND_WEBHOOK_SIGNING_SECRET` is set in Vercel,
-  tell me and the query-string path comes out of the code. **5 min to check.**
+- [ ] **Tidy the Resend inbound webhook URL** — the `?secret=` query form was
+  removed from the code on 13 Oct 2026; deliveries are authorised by their
+  Svix signature (`RESEND_WEBHOOK_SIGNING_SECRET` is set in Vercel). If the
+  endpoint URL in Resend → Webhooks still ends in `?secret=...`, edit it off
+  so the old value stops being written to logs. Harmless either way.
+  **2 min.**
 - [ ] **Upgrade Vercel to Pro (~$20/mo)** — Hobby's terms prohibit commercial
   use, and Postbox has real business clients and a pricing page. This has
   nothing to do with cron any more (scheduling runs on GitHub Actions); it is

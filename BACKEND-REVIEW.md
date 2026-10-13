@@ -21,10 +21,9 @@ Read §3 first if you only read one part. It answers the question you asked.
 >   429 handling; M3 (SES unsubscribe assertion) no longer applies; M4 is
 >   fixed; M7's function was replaced by `lib/campaign-feedback.ts`, where the
 >   workspace comes from the matched campaign.
-> - **S3: half done.** The reply-token compare is constant-time as of 11 Oct.
->   The shared-secret compare is still a plain equality and the query-string
->   form is still accepted, pending confirmation that Resend's webhook uses
->   the header.
+> - **S3: done.** The reply-token compare went constant-time on 11 Oct; the
+>   query-string secret was removed and the header compare made constant-time
+>   on 13 Oct.
 > - **Still open:** S1, S2, S4, S5, M2, M5, M6, L1, L2, L4, L7, and Phase 4
 >   (no test runs SQL). L3's exit columns are still outside the chain. L5, L6
 >   and L8 were not re-checked.
