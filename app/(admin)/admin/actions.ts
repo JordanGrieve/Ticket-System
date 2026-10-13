@@ -21,19 +21,10 @@ import {
   rotateWorkspaceApiKey,
   setSignupConfirmation,
 } from "@/lib/data";
-import { provisionWorkspace, generateApiKey, INVITE_PREFIX } from "@/lib/workspace";
+import { provisionWorkspace, generateApiKey, ownerClerkId } from "@/lib/workspace";
 import { sendInviteEmail } from "@/lib/email";
 import { APP_URL, EMAIL_FROM_ADDRESS } from "@/lib/config";
 import { isValidEmail } from "@/lib/http";
-
-function inviteToken(): string {
-  const arr = new Uint8Array(8);
-  crypto.getRandomValues(arr);
-  return (
-    INVITE_PREFIX +
-    Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("")
-  );
-}
 
 /**
  * Server Actions run as untrusted POST endpoints, so every one re-checks the
@@ -130,13 +121,14 @@ export async function createClientAction(formData: FormData): Promise<void> {
   if (!name) redirect("/admin?error=Client name is required.");
   if (!isValidEmail(email)) redirect("/admin?error=A valid client email is required.");
 
-  // An admin can't also be a client, and one email = one workspace.
-  if (await findAdminByEmail(email)) {
-    redirect("/admin?error=That email belongs to a Postbox admin.");
-  }
+  // One email = one workspace. An admin's email is allowed — an operator can
+  // run their own business on the product — and gets their real Clerk id on
+  // the row when they have one, so the console never shows their own
+  // workspace as awaiting a sign-in that already happened. See ownerClerkId.
   if (await getAgentByEmail(email)) {
     redirect("/admin?error=That email is already linked to a workspace.");
   }
+  const ownerAdmin = await findAdminByEmail(email);
 
   /*
     Logged BEFORE the mutation and fail-closed — see lib/admin-audit.ts. For a
@@ -153,7 +145,18 @@ export async function createClientAction(formData: FormData): Promise<void> {
     detail: `owner ${email}`,
   });
 
-  await provisionWorkspace({ name, ownerEmail: email, clerkUserId: inviteToken() });
+  await provisionWorkspace({
+    name,
+    ownerEmail: email,
+    clerkUserId: ownerClerkId(ownerAdmin),
+  });
+
+  // An operator who owns the workspace is already in the console; an
+  // invitation to sign up would tell them to do something they have done.
+  if (ownerAdmin) {
+    revalidatePath("/admin");
+    redirect(`/admin?created=${encodeURIComponent(name)}&self=1`);
+  }
 
   // Best-effort invite email — the workspace exists either way, and the
   // banner tells the admin whether the client was emailed.

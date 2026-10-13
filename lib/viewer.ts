@@ -14,7 +14,7 @@ import {
   touchImpersonation,
 } from "./impersonation";
 import { getAgentWithWorkspaceByClerkId, getWorkspaceById } from "./data";
-import { resolveWorkspace } from "./workspace";
+import { claimInviteForEmail, resolveWorkspace } from "./workspace";
 
 /**
  * The signed-in viewer. Three states:
@@ -173,7 +173,15 @@ async function _resolveViewer(): Promise<Viewer> {
 
   const admin = email ? await findAdminByEmail(email) : null;
   if (admin) {
-    if (!admin.clerkUserId) await linkAdminClerkId(admin.id, userId);
+    if (!admin.clerkUserId) {
+      await linkAdminClerkId(admin.id, userId);
+      // An admin can own a workspace (lib/workspace.ts, ownerClerkId). One
+      // created before this admin ever signed in carries an INVITE_
+      // placeholder, and nothing else would claim it: admins never reach
+      // resolveWorkspace, so without this the console would show their own
+      // workspace as "Awaiting sign-in" for good.
+      await claimInviteForEmail(email, userId);
+    }
     return {
       isAdmin: true,
       email,

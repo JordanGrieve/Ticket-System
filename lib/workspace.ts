@@ -55,6 +55,67 @@ export function generateApiKey(): string {
   return `cli_${randomHex(16)}`;
 }
 
+/** A fresh INVITE_ placeholder for an agent row nobody has signed in to yet. */
+export function inviteToken(): string {
+  return `${INVITE_PREFIX}${randomHex(8)}`;
+}
+
+/**
+ * The Clerk id to write on a workspace's first agent row when an operator
+ * creates it from /admin.
+ *
+ * Until 13 Oct 2026 an admin's email was refused outright ("That email
+ * belongs to a Postbox admin"), on the theory that an admin cannot also be a
+ * client. Jordan runs his own businesses on the product, so that theory was
+ * wrong: an operator can own a workspace. What stays true is that they are
+ * never ROUTED as a client — resolveViewer recognises an admin first, by
+ * Clerk id, and they reach their own workspace the way they reach any other,
+ * by acting within it from the console with an audit row. The agent row is
+ * membership (notifications go to it, the owner's name is on it), not a
+ * sign-in path.
+ *
+ * So: an admin who has already signed in gets their real Clerk id on the row
+ * straight away, which is why the console will not show their own workspace
+ * as "Awaiting sign-in" forever. An admin who has never signed in gets an
+ * INVITE_ placeholder like any client, and resolveViewer claims it for them
+ * on their first sign-in (claimInviteForEmail), where a client's invite is
+ * claimed by resolveWorkspace. Anybody else: an invite.
+ */
+export function ownerClerkId(
+  admin: { clerkUserId: string | null } | null,
+): string {
+  return admin?.clerkUserId ?? inviteToken();
+}
+
+/**
+ * Claims a placeholder agent (admin invite or demo seed) prepared for this
+ * email, writing the real Clerk id on it. Returns the claimed row, or null
+ * when nothing was waiting. Email must match: a stranger can never claim
+ * someone else's invite or the demo data.
+ */
+export async function claimInviteForEmail(
+  email: string,
+  clerkUserId: string,
+): Promise<Agent | null> {
+  const invited = await db
+    .select()
+    .from(agents)
+    .where(
+      sql`lower(${agents.email}) = ${email} AND (${or(
+        like(agents.clerkUserId, "SEED_%"),
+        like(agents.clerkUserId, `${INVITE_PREFIX}%`),
+      )})`,
+    )
+    .limit(1);
+  if (invited.length === 0) return null;
+  const [claimed] = await db
+    .update(agents)
+    .set({ clerkUserId, email })
+    .where(eq(agents.id, invited[0].id))
+    .returning();
+  return claimed;
+}
+
 export type ResolvedWorkspace = { workspace: Workspace; agent: Agent };
 
 /**
@@ -155,23 +216,8 @@ async function _resolveWorkspace(): Promise<ResolvedWorkspace | null> {
     .toLowerCase();
 
   // 2. Claim a pending invite (or demo seed) that was prepared for this email.
-  const invited = await db
-    .select()
-    .from(agents)
-    .where(
-      sql`lower(${agents.email}) = ${email} AND (${or(
-        like(agents.clerkUserId, "SEED_%"),
-        like(agents.clerkUserId, `${INVITE_PREFIX}%`),
-      )})`,
-    )
-    .limit(1);
-
-  if (invited.length > 0) {
-    const [claimed] = await db
-      .update(agents)
-      .set({ clerkUserId: userId, email })
-      .where(eq(agents.id, invited[0].id))
-      .returning();
+  const claimed = await claimInviteForEmail(email, userId);
+  if (claimed) {
     const [workspace] = await db
       .select()
       .from(workspaces)
