@@ -103,6 +103,7 @@ export default async function AdminHomePage({
     error?: string;
     created?: string;
     emailed?: string;
+    self?: string;
     deleted?: string;
     removed?: string;
     delete?: string;
@@ -395,6 +396,7 @@ function Banners({
     error?: string;
     created?: string;
     emailed?: string;
+    self?: string;
     deleted?: string;
     removed?: string;
     rotated?: string;
@@ -402,7 +404,7 @@ function Banners({
     key?: string;
   };
 }) {
-  const { error, created, emailed, deleted, removed, rotated, key, optin } =
+  const { error, created, emailed, self, deleted, removed, rotated, key, optin } =
     params;
   return (
     <>
@@ -448,7 +450,12 @@ function Banners({
       )}
       {created && (
         <div className="pba-banner pba-banner-ok">
-          {emailed === "1" ? (
+          {self === "1" ? (
+            <>
+              <b>{created}</b> is ready and it&rsquo;s yours. Open it from the
+              accounts list to work in it; no invitation was sent.
+            </>
+          ) : emailed === "1" ? (
             <>
               <b>{created}</b> is ready — we&rsquo;ve emailed the client an
               invitation to sign up.
