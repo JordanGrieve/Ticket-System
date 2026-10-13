@@ -38,8 +38,13 @@ export async function POST(req: Request) {
   // Authenticate the caller. Two accepted proofs, in preference order:
   //  1. Resend's Svix signature (RESEND_WEBHOOK_SIGNING_SECRET) — cryptographic,
   //     immune to URL copy/paste accidents. Needs the RAW request body.
-  //  2. Shared secret via ?secret= / x-webhook-secret (INBOUND_WEBHOOK_SECRET)
+  //  2. Shared secret in an x-webhook-secret HEADER (INBOUND_WEBHOOK_SECRET)
   //     — kept for manual testing. Placeholder value disables checks (dev).
+  //     The ?secret= query form was retired on 13 Oct 2026: a query string
+  //     lands in access logs, proxy logs and Referer headers, which is the
+  //     one place a credential that can post mail into any workspace must
+  //     not be. Production has had the signature configured since July, so
+  //     every Resend delivery is authorised by (1) whatever its URL says.
   const raw = await req.text();
 
   const signingSecret = process.env.RESEND_WEBHOOK_SIGNING_SECRET;
@@ -60,14 +65,12 @@ export async function POST(req: Request) {
     return json({ error: "Inbound not configured." }, { status: 503 });
   }
 
-  const url = new URL(req.url);
-  // The query-string form is accepted for the existing Resend route, which was
-  // configured with it. It is the weaker channel — query strings land in access
-  // logs, proxy logs and Referer headers — so prefer the header and retire this
-  // once the provider webhook has been repointed.
-  const provided =
-    req.headers.get("x-webhook-secret") ?? url.searchParams.get("secret");
-  const sharedOk = sharedEnabled && provided === sharedSecret;
+  // Constant-time, like every other secret the product verifies; a short-
+  // circuiting compare leaks how many leading bytes matched, and this
+  // endpoint is public with unlimited attempts.
+  const provided = req.headers.get("x-webhook-secret");
+  const sharedOk =
+    sharedEnabled && provided !== null && tokensEqual(provided, sharedSecret);
   const svixOk =
     !!signingSecret && verifySvixSignature(raw, req.headers, signingSecret);
   if (!sharedOk && !svixOk) {

@@ -101,7 +101,7 @@ without casts. See `AGENTS.md` for the rules each of these produced.
 
 ## Known gaps
 
-Ordered by how much they matter. The first four are from `BACKEND-REVIEW.md`
+Ordered by how much they matter. The first three are from `BACKEND-REVIEW.md`
 and are still open.
 
 1. **Email verification is never checked when an address claims an invite or
@@ -109,31 +109,25 @@ and are still open.
    alone. Half an hour to fix.
 2. **`/api/inbound` has no rate limit.** Every other public write path has two
    durable buckets.
-3. **The inbound webhook still accepts its shared secret from the query
-   string**, where it lands in access logs. The signature path is preferred
-   and the code says to retire the query form once Resend's webhook is
-   repointed to the header. Whether it has been could not be checked from the
-   repo. The reply-token compare was made constant-time on 11 October; the
-   shared-secret compare is still a plain equality.
-4. **Test sends bypass the plan entitlement.** They count against the daily
+3. **Test sends bypass the plan entitlement.** They count against the daily
    quota but an expired trial can still send one message per call.
-5. **Stripe webhook has no event dedupe and ignores invoice events.**
+4. **Stripe webhook has no event dedupe and ignores invoice events.**
    Out-of-order delivery can write stale plan data over newer state.
-6. **Consent is enforced in application code only**, at materialisation.
+5. **Consent is enforced in application code only**, at materialisation.
    Suppression has three SQL backstops; consent has none.
-7. **Nothing detects a dead sweep.** GitHub disables scheduled workflows after
+6. **Nothing detects a dead sweep.** GitHub disables scheduled workflows after
    60 days without a commit; health can say "not configured" but not "no tick
    for three days".
-8. **Auto-reply delays of 5 minutes and 1 hour are in the type and nothing
+7. **Auto-reply delays of 5 minutes and 1 hour are in the type and nothing
    schedules them.** Hidden in the UI; `SUPPORTED_DELAYS` is still immediate
    only.
-9. **Invites have no token and no expiry.** No Clerk webhook, so a deleted
+8. **Invites have no token and no expiry.** No Clerk webhook, so a deleted
    Clerk user leaves a live agent row.
-10. **No integration tests run SQL.** Every query is mocked. The next serious
+9. **No integration tests run SQL.** Every query is mocked. The next serious
     bug will be in a query and nothing would catch it.
-11. **No staging.** Pushes to `main` deploy straight to production with live
+10. **No staging.** Pushes to `main` deploy straight to production with live
     clients aboard. `DEPLOYMENT.md` has the ten-minute setup.
-12. **Backups** are Neon's built-ins only.
+11. **Backups** are Neon's built-ins only.
 
 ## Things only Jordan can do
 
